@@ -1,0 +1,118 @@
+{
+  "file_path": "gsm_12_supply_chain.sas",
+  "tier": "medium",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 1,
+      "line_end": 14,
+      "test_coverage_type": "structural_only",
+      "description": "Program header comments, LIBNAME definitions for raw, staging, and target supply chain schemas, OPTIONS statement"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "DATA_STEP",
+      "line_start": 16,
+      "line_end": 38,
+      "test_coverage_type": "full",
+      "description": "DATA step computing delivery metrics from purchase orders: lead time in days, delivery variance vs promised date, on-time delivery flag, and quality acceptance flag"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "PROC_SQL",
+      "line_start": 40,
+      "line_end": 59,
+      "test_coverage_type": "full",
+      "description": "PROC SQL aggregating supplier performance scorecard: average lead time, on-time delivery rate, quality rate, and total spend by supplier with minimum order threshold"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 61,
+      "line_end": 66,
+      "test_coverage_type": "full",
+      "description": "PROC SORT ordering inventory transactions by product_id and transaction_date for downstream backorder tracking"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "DATA_STEP",
+      "line_start": 68,
+      "line_end": 89,
+      "test_coverage_type": "full",
+      "description": "DATA step with RETAIN tracking cumulative backorder levels per product: accumulates demand, reduces on receipt, and flags CRITICAL/WARNING/OK alert levels against reorder points"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 91,
+      "line_end": 101,
+      "test_coverage_type": "full",
+      "description": "PROC MEANS computing demand variability statistics (mean and standard deviation of daily quantity) by product for safety stock calculation"
+    },
+    {
+      "block_id": 7,
+      "partition_type": "DATA_STEP",
+      "line_start": 103,
+      "line_end": 140,
+      "test_coverage_type": "full",
+      "description": "DATA step computing safety stock using service level z-score formula, reorder points, and ABC classification using arrays for revenue-based thresholds with review cycle assignment"
+    },
+    {
+      "block_id": 8,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 142,
+      "line_end": 149,
+      "test_coverage_type": "full",
+      "description": "PROC SORT filtering and ordering product classification for A-class items with high safety stock for exception reporting"
+    },
+    {
+      "block_id": 9,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 151,
+      "line_end": 161,
+      "test_coverage_type": "full",
+      "description": "TITLE statement and PROC PRINT generating formatted exception report for high safety stock A-class items with descriptive labels"
+    }
+  ],
+  "total_blocks": 9,
+  "data_lineage": [
+    {
+      "source_datasets": ["raw.purchase_orders"],
+      "target_datasets": ["staging.delivery_metrics"],
+      "block_id": 2
+    },
+    {
+      "source_datasets": ["staging.delivery_metrics", "raw.suppliers"],
+      "target_datasets": ["staging.supplier_scorecard"],
+      "block_id": 3
+    },
+    {
+      "source_datasets": ["raw.inventory_transactions"],
+      "target_datasets": ["work.inv_sorted"],
+      "block_id": 4
+    },
+    {
+      "source_datasets": ["work.inv_sorted"],
+      "target_datasets": ["staging.backorder_tracking"],
+      "block_id": 5
+    },
+    {
+      "source_datasets": ["raw.daily_demand"],
+      "target_datasets": ["staging.demand_stats"],
+      "block_id": 6
+    },
+    {
+      "source_datasets": ["staging.demand_stats"],
+      "target_datasets": ["tgt.product_classification"],
+      "block_id": 7
+    },
+    {
+      "source_datasets": ["tgt.product_classification"],
+      "target_datasets": ["work.exceptions"],
+      "block_id": 8
+    }
+  ],
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}
