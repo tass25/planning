@@ -1,0 +1,24 @@
+{
+  "file_path": "gs_17_proc_sgplot.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 2,
+      "line_end": 7,
+      "test_coverage_type": "full",
+      "description": "PROC SGPLOT line chart of monthly revenue by region"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 9,
+      "line_end": 14,
+      "test_coverage_type": "full",
+      "description": "PROC SGPANEL bar chart of satisfaction by department"
+    }
+  ],
+  "total_blocks": 2,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

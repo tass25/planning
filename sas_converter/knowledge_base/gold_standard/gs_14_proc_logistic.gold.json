@@ -1,0 +1,24 @@
+{
+  "file_path": "gs_14_proc_logistic.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "DATA_STEP",
+      "line_start": 2,
+      "line_end": 7,
+      "test_coverage_type": "full",
+      "description": "DATA step preparing model data with log transform and flags"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 9,
+      "line_end": 16,
+      "test_coverage_type": "full",
+      "description": "PROC LOGISTIC stepwise binary classification model"
+    }
+  ],
+  "total_blocks": 2,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

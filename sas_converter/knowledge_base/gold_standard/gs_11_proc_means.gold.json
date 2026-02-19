@@ -1,0 +1,32 @@
+{
+  "file_path": "gs_11_proc_means.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 2,
+      "line_end": 2,
+      "test_coverage_type": "structural_only",
+      "description": "TITLE statement"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 4,
+      "line_end": 10,
+      "test_coverage_type": "full",
+      "description": "PROC MEANS computing descriptive stats by department"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 12,
+      "line_end": 12,
+      "test_coverage_type": "structural_only",
+      "description": "TITLE reset statement"
+    }
+  ],
+  "total_blocks": 3,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}
