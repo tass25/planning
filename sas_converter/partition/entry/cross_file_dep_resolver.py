@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from uuid import UUID
 
 from ..base_agent import BaseAgent
 from ..models.file_metadata import FileMetadata

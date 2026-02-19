@@ -1,5 +1,7 @@
 """Enums used across the partition pipeline."""
 
+from __future__ import annotations
+
 from enum import Enum
 
 
