@@ -1,0 +1,206 @@
+{
+  "file_path": "gsh_05_fraud_detection.sas",
+  "tier": "hard",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 1,
+      "line_end": 60,
+      "test_coverage_type": "structural_only",
+      "description": "Program header comment block with program name, author (Financial Crime Prevention Unit), version 2.3, compliance references (PCI-DSS 3.2.1, BSA/AML, Reg E), and change log (v1.0–v2.3); SECTION 1 environment setup with OPTIONS (mprint, symbolgen, mlogic, msglevel=i); LIBNAME definitions for txn (read-only transactions), cust (read-only customer data), mdl (model artifacts), and alert (output); global macro variables for run_id via %SYSFUNC(today/time), process_date, score_version, fraud_rc return code, and alert queue counters (block_count, review_count, pass_count, total_alerts)"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "INCLUDE_REFERENCE",
+      "line_start": 62,
+      "line_end": 63,
+      "test_coverage_type": "structural_only",
+      "description": "%INCLUDE for fraud_utils.sas shared fraud detection utility macro library"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 65,
+      "line_end": 240,
+      "test_coverage_type": "full",
+      "description": "%MACRO feature_engineering(input_ds=, output_ds=, history_ds=): builds velocity and amount features for fraud detection; PROC SORT on input and history datasets then DATA step combining via SET with IN= flags; RETAIN for 16 accumulators across 4 time windows (txn_count_1h/6h/24h/72h, amt_sum_1h/6h/24h/72h, amt_max_1h/6h/24h/72h, unique_merchants_24h, distinct_countries_24h, last_txn_datetime, last_txn_amount, acct_running_total, acct_running_count); LAG for inter-transaction gap (lag_datetime, lag_amount, lag_merchant); first.account_id reset of all accumulators; INTCK('hour') for hours_since_last; %DO i=1 %TO 4 loop over window macro variables (1, 6, 24, 72) to increment windowed counts, sums, and maxima; derived ratio features (avg_txn_amount, amount_deviation, velocity_ratio_1_24, same_merchant_repeat, round_amount_flag, off_hours_flag via WEEKDAY/HOUR); MERGE with cust.customer_profiles for customer_segment, account_age_days, avg_monthly_spend, credit_score, country_code, risk_rating; tenure_risk derivation (0-3 scale) and spend_anomaly computation"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 242,
+      "line_end": 390,
+      "test_coverage_type": "full",
+      "description": "%MACRO rule_engine(input_ds=, output_ds=): applies 12 configurable fraud detection rules via DATA step with ARRAY rule_hit{12}; Rule 1: high-value >$5000 (+150); Rule 2: rapid velocity >5 txns/1h (+200); Rule 3: amount deviation >5x (+180); Rule 4: off-hours high-value (+120); Rule 5: new account large txn (+160); Rule 6: same-merchant repeat (+140); Rule 7: cross-border high amount (+170); Rule 8: round-amount structuring (+130); Rule 9: 24h cumulative >$10,000 BSA/AML (+250); Rule 10: spend anomaly >10x (+190); Rule 11: 72h velocity >20 txns (+110); Rule 12: high-risk customer elevated activity (+220); rule_score capped at 1000; PROC SQL NOPRINT with SELECT INTO: for 12 rule hit counts and total_rule_hits macro variables; %PUT summary log for all 12 rules"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 392,
+      "line_end": 470,
+      "test_coverage_type": "full",
+      "description": "%MACRO score_model(input_ds=, output_ds=, coeff_ds=): loads logistic regression coefficients from reference table via DATA _null_ with CALL SYMPUT; computes log_odds linear predictor from 10 feature coefficients (intercept, txn_count_1h, txn_count_24h, amt_sum_24h scaled by 1000, amount_deviation, velocity_ratio, off_hours, tenure_risk, spend_anomaly capped at 20, round_amount, same_merchant); converts to fraud_probability via logistic function 1/(1+exp(-log_odds)); normalizes to model_score 0-1000; blends 60% model + 40% rule score; minimum floor of 100 if any rule hit, floor of 500 if 3+ rules; score_confidence band classification (VERY_HIGH/HIGH/MEDIUM/LOW); scoring metadata with version and timestamp"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 472,
+      "line_end": 572,
+      "test_coverage_type": "full",
+      "description": "%MACRO alert_generation(input_ds=, block_ds=, review_ds=, pass_ds=, alert_ds=, block_threshold=750, review_threshold=400): DATA step routing transactions to three output datasets via IF/THEN/ELSE on blended_score; BLOCK queue (score>=750) with CRITICAL priority, FRAUD_TIER1 queue, 1-hour SLA; REVIEW queue (score>=400) with HIGH/MEDIUM priority, FRAUD_TIER2 queue, 4-hour SLA; PASS queue (score<400) with LOW priority; consolidated alert log merging BLOCK and REVIEW with alert_id via CATX, alert_run_id, and alert_datetime; three DATA _null_ steps with CALL SYMPUT capturing block_count, review_count, pass_count from NOBS; %LET total_alerts = %EVAL sum; %PUT summary log"
+    },
+    {
+      "block_id": 7,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 574,
+      "line_end": 587,
+      "test_coverage_type": "full",
+      "description": "SECTION 6 main program execution start: %PUT pipeline start notes with run_id and process_date; %feature_engineering invocation with input_ds=txn.transactions, output_ds=work.txn_featured, history_ds=txn.transaction_history"
+    },
+    {
+      "block_id": 8,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 589,
+      "line_end": 594,
+      "test_coverage_type": "full",
+      "description": "%IF &syserr > 0 error check after feature engineering: sets fraud_rc=1, %PUT ERROR message, %GOTO fraud_exit to abort pipeline"
+    },
+    {
+      "block_id": 9,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 596,
+      "line_end": 600,
+      "test_coverage_type": "full",
+      "description": "%rule_engine invocation with input_ds=work.txn_featured, output_ds=work.txn_ruled"
+    },
+    {
+      "block_id": 10,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 602,
+      "line_end": 607,
+      "test_coverage_type": "full",
+      "description": "%IF &syserr > 0 error check after rule engine: sets fraud_rc=2, %PUT ERROR message, %GOTO fraud_exit"
+    },
+    {
+      "block_id": 11,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 609,
+      "line_end": 614,
+      "test_coverage_type": "full",
+      "description": "%score_model invocation with input_ds=work.txn_ruled, output_ds=work.txn_scored, coeff_ds=mdl.model_coefficients"
+    },
+    {
+      "block_id": 12,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 616,
+      "line_end": 621,
+      "test_coverage_type": "full",
+      "description": "%IF &syserr > 0 error check after model scoring: sets fraud_rc=3, %PUT ERROR message, %GOTO fraud_exit"
+    },
+    {
+      "block_id": 13,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 623,
+      "line_end": 632,
+      "test_coverage_type": "full",
+      "description": "%alert_generation invocation with input_ds=work.txn_scored, block_ds=alert.blocked_transactions, review_ds=alert.review_queue, pass_ds=work.passed_transactions, alert_ds=alert.fraud_alerts, block_threshold=750, review_threshold=400"
+    },
+    {
+      "block_id": 14,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 634,
+      "line_end": 639,
+      "test_coverage_type": "full",
+      "description": "%IF &syserr > 0 error check after alert generation: sets fraud_rc=4, %PUT ERROR message, %GOTO fraud_exit"
+    },
+    {
+      "block_id": 15,
+      "partition_type": "PROC_SQL",
+      "line_start": 641,
+      "line_end": 679,
+      "test_coverage_type": "full",
+      "description": "SECTION 7 daily fraud metrics dashboard: PROC SQL creating alert.daily_fraud_metrics from work.txn_scored; aggregates by txn_date with COUNT(*) total_transactions, CASE WHEN sums for blocked_count, review_count, passed_count, rule_hit_count; AVG/MAX blended_score; SUM transaction_amount with DOLLAR format; blocked_amount; calculated block_rate and rule_hit_rate percentages; GROUP BY txn_date ORDER BY txn_date"
+    },
+    {
+      "block_id": 16,
+      "partition_type": "PROC_SQL",
+      "line_start": 681,
+      "line_end": 743,
+      "test_coverage_type": "full",
+      "description": "PROC SQL creating work.rule_effectiveness via 12-way UNION ALL: for each rule (Rule_01 through Rule_12), selects rule_name, SUM(rule_hit_N) as hits, and SUM(rule_hit_N * (alert_action='BLOCK')) as true_blocks from work.txn_scored; evaluates per-rule detection effectiveness"
+    },
+    {
+      "block_id": 17,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 745,
+      "line_end": 752,
+      "test_coverage_type": "full",
+      "description": "PROC MEANS on work.txn_scored with statistics N MEAN STD MIN P25 MEDIAN P75 P90 P95 P99 MAX for blended_score, model_score, rule_score, transaction_amount, fraud_probability; TITLE 'Fraud Detection - Score Distribution Summary' with TITLE reset"
+    },
+    {
+      "block_id": 18,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 754,
+      "line_end": 802,
+      "test_coverage_type": "full",
+      "description": "SECTION 8 error handling and completion: %fraud_exit label; %IF &fraud_rc NE 0 error branch with %PUT ERROR messages (return code, run ID), DATA step creating alert.pipeline_errors with run_id, error_step, error_code, error_message, error_datetime; %ELSE success branch with %PUT NOTE completion messages (run ID, process date, queue counts), DATA _null_ writing completion_flag.txt with RUN_ID, STATUS=SUCCESS, PROCESS_DATE, queue counts, and COMPLETION_TIME"
+    },
+    {
+      "block_id": 19,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 804,
+      "line_end": 813,
+      "test_coverage_type": "structural_only",
+      "description": "SECTION 9 cleanup: PROC DATASETS deleting intermediate work datasets (_txn_sorted, _hist_sorted, _txn_combined, txn_featured, txn_ruled, txn_scored, passed_transactions, rule_effectiveness)"
+    },
+    {
+      "block_id": 20,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 815,
+      "line_end": 819,
+      "test_coverage_type": "structural_only",
+      "description": "Reset OPTIONS to nomprint/nomlogic/nosymbolgen and final %PUT completion messages with pipeline end note and timestamp via %SYSFUNC(datetime(), datetime20.)"
+    }
+  ],
+  "total_blocks": 20,
+  "data_lineage": [
+    {
+      "source_datasets": ["txn.transactions", "txn.transaction_history", "cust.customer_profiles"],
+      "target_datasets": ["work.txn_featured"],
+      "block_id": 3
+    },
+    {
+      "source_datasets": ["work.txn_featured"],
+      "target_datasets": ["work.txn_ruled"],
+      "block_id": 4
+    },
+    {
+      "source_datasets": ["work.txn_ruled", "mdl.model_coefficients"],
+      "target_datasets": ["work.txn_scored"],
+      "block_id": 5
+    },
+    {
+      "source_datasets": ["work.txn_scored"],
+      "target_datasets": ["alert.blocked_transactions", "alert.review_queue", "work.passed_transactions", "alert.fraud_alerts"],
+      "block_id": 6
+    },
+    {
+      "source_datasets": ["work.txn_scored"],
+      "target_datasets": ["alert.daily_fraud_metrics"],
+      "block_id": 15
+    },
+    {
+      "source_datasets": ["work.txn_scored"],
+      "target_datasets": ["work.rule_effectiveness"],
+      "block_id": 16
+    },
+    {
+      "source_datasets": [],
+      "target_datasets": ["alert.pipeline_errors"],
+      "block_id": 18
+    }
+  ],
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

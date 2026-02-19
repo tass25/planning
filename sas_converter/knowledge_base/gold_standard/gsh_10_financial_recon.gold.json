@@ -1,0 +1,376 @@
+{
+  "file_path": "gsh_10_financial_recon.sas",
+  "tier": "hard",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 1,
+      "line_end": 64,
+      "test_coverage_type": "structural_only",
+      "description": "Program header (financial reconciliation engine v2.1, Financial Controls Team — Corporate Reconciliation Division, change log v1.0-v2.1 by D. Martinez/L. Thompson/P. Williams), Section 1 header; OPTIONS for macro debugging (mprint mlogic symbolgen nocenter ls=200 ps=65 validvarname=v7 nofmterr msglevel=i); LIBNAME for gl (general ledger, readonly), sub (subledger, readonly), bank (bank statements, readonly), recon (reconciliation output); %LET for recon_period=2026-01, recon_year=2026, recon_month=01, prior_period=2025-12, period_end_dt via %SYSFUNC(MDY), prior_end_dt, period_start_dt, preparer=D. Martinez, reviewer=P. Williams, recon_type=FULL, run_timestamp via %SYSFUNC(DATETIME), run_date; tolerance thresholds (match_tolerance=0.01, material_threshold=5000, ic_tolerance=1.00, fx_tolerance=0.05, aging_buckets=30 60 90 120, base_currency=USD); control flags (recon_rc=0, total_exceptions=0, gl_extracted=0, sub_extracted=0, bank_matched=0, ic_reconciled=0)"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 70,
+      "line_end": 85,
+      "test_coverage_type": "full",
+      "description": "%MACRO extract_gl(period=, account_range=) opening: documentation header for GL balance extraction with currency conversion and consolidated vs entity-level output; %LOCAL period_start period_end acct_lo acct_hi n_accounts; %LET period_start via %SYSFUNC(INPUTN), period_end via %SYSFUNC(INTNX month end), acct_lo/acct_hi via %SCAN; %PUT banner with period and account range"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "PROC_SQL",
+      "line_start": 87,
+      "line_end": 110,
+      "test_coverage_type": "full",
+      "description": "PROC SQL NOPRINT inside extract_gl: CREATE TABLE work.gl_raw from gl.journal_entries g WHERE posting_date BETWEEN period_start AND period_end AND account_id BETWEEN acct_lo AND acct_hi AND status='POSTED'; SELECT account_id, account_name, account_type, cost_center, entity_code, currency_code, SUM(debit_amount) as total_debits, SUM(credit_amount) as total_credits, SUM(debit)-SUM(credit) as net_balance GROUP BY all dimension columns; SELECT COUNT(*) INTO :n_accounts TRIMMED; %PUT extracted count"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "DATA_STEP",
+      "line_start": 112,
+      "line_end": 145,
+      "test_coverage_type": "full",
+      "description": "DATA work.gl_balances inside extract_gl: SET work.gl_raw; hash object fx loaded from gl.exchange_rates with DEFINEKEY(currency_code, rate_date) DEFINEDATA(exchange_rate); rate_date=period_end; IF currency_code=base_currency THEN exchange_rate=1.0 ELSE fx.find() with WARNING for missing rates; computed total_debits_base, total_credits_base, net_balance_base via multiplication by exchange_rate; FORMAT comma20.2; DROP rc rate_date"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 147,
+      "line_end": 177,
+      "test_coverage_type": "full",
+      "description": "%IF &recon_type=FULL inside extract_gl: PROC SQL NOPRINT CREATE TABLE work.gl_consolidated with SUM(net_balance_base) as consolidated_balance GROUP BY account_id, account_name, account_type for cross-entity consolidation; %ELSE: PROC SQL NOPRINT CREATE TABLE work.gl_consolidated keeping entity_code granularity with net_balance_base as consolidated_balance; %LET gl_extracted=1; %PUT extraction complete; %MEND extract_gl"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 179,
+      "line_end": 191,
+      "test_coverage_type": "full",
+      "description": "%MACRO extract_subledger(module=, period=) opening: documentation header for subledger data extraction by module (AR, AP, FA) with normalization to standard reconciliation format; %LOCAL n_records period_dt; %LET period_dt via %SYSFUNC(INPUTN); %PUT banner with module and period"
+    },
+    {
+      "block_id": 7,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 193,
+      "line_end": 238,
+      "test_coverage_type": "full",
+      "description": "%IF &module=AR inside extract_subledger: PROC SQL NOPRINT CREATE TABLE work.sub_ar from sub.ar_invoices a; SELECT customer_id, invoice_id, invoice_date, due_date, invoice_amount, paid_amount, open_balance (invoice-paid), currency_code, entity_code; CASE aging_bucket classification (CURRENT, 1-30 DAYS, 31-60 DAYS, 61-90 DAYS, 90+ DAYS) via INTCK('day', due_date, period_end_dt); days_past_due; WHERE open_balance > match_tolerance AND period; ORDER BY customer_id, invoice_date; SELECT COUNT(*) INTO :n_records; DATA work.sub_ar_norm normalization (module='AR', sub_account=customer_id, sub_balance=open_balance); %PUT AR count; %END"
+    },
+    {
+      "block_id": 8,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 240,
+      "line_end": 281,
+      "test_coverage_type": "full",
+      "description": "%ELSE %IF &module=AP inside extract_subledger: PROC SQL NOPRINT CREATE TABLE work.sub_ap from sub.ap_invoices v; SELECT vendor_id, vendor_name, invoice_id, invoice_date, due_date, invoice_amount, payment_amount, open_balance, currency_code, entity_code, po_number; CASE payment_status (OVERDUE if due_date < period_end, DUE_SOON if within 15 days, FUTURE); WHERE open_balance > match_tolerance AND period; ORDER BY vendor_id, due_date; SELECT COUNT(*) INTO :n_records; DATA work.sub_ap_norm normalization (module='AP', sub_account=vendor_id, sub_balance=-1*open_balance for credit); %PUT AP count; %END"
+    },
+    {
+      "block_id": 9,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 283,
+      "line_end": 332,
+      "test_coverage_type": "full",
+      "description": "%ELSE %IF &module=FA inside extract_subledger: DATA work.sub_fa SET sub.fixed_assets WHERE status='ACTIVE' AND acquisition_date <= period_end_dt; useful_life_months, months_in_service via INTCK; IF depreciation_method='SL' straight-line monthly_depr=(cost-salvage)/useful_life_months, accum_depreciation=MIN(monthly*months, cost-salvage); ELSE IF 'DB' declining balance depr_rate=2/useful_life_years, accum_depreciation via power formula; net_book_value=cost-accum_depreciation; DATA work.sub_fa_norm normalization (module='FA', sub_account=asset_id, sub_balance=net_book_value); PROC SQL NOPRINT SELECT COUNT(*) INTO :n_records; %PUT FA count; %END; %LET sub_extracted=1; %MEND extract_subledger"
+    },
+    {
+      "block_id": 10,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 334,
+      "line_end": 347,
+      "test_coverage_type": "full",
+      "description": "%MACRO bank_reconciliation(account_id=) opening: documentation header for GL-to-bank statement matching using hash objects for high-performance transaction matching by amount+date+reference; %LOCAL n_gl_txn n_bank_txn n_matched n_unmatched_gl n_unmatched_bank; %PUT banner with account_id, recon_period, match_tolerance"
+    },
+    {
+      "block_id": 11,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 349,
+      "line_end": 363,
+      "test_coverage_type": "full",
+      "description": "Two PROC SORTs inside bank_reconciliation: first PROC SORT data=gl.cash_transactions WHERE bank_account=account_id AND posting_date BETWEEN period_start_dt AND period_end_dt OUT=work.gl_cash_sorted BY transaction_date amount reference_id; second PROC SORT data=bank.statements WHERE account_id AND statement_date BETWEEN period_start_dt AND period_end_dt OUT=work.bank_stmt_sorted BY transaction_date amount reference_id"
+    },
+    {
+      "block_id": 12,
+      "partition_type": "DATA_STEP",
+      "line_start": 365,
+      "line_end": 458,
+      "test_coverage_type": "full",
+      "description": "DATA step with triple output inside bank_reconciliation: work.bank_matched (KEEP= match_id gl_txn_id bank_txn_id match_amount match_date match_type), work.bank_exceptions_gl (KEEP= gl_txn_id transaction_date amount reference_id exception_reason), work.bank_exceptions_bank (KEEP= bank_txn_id transaction_date amount reference_id exception_reason); hash h_bank from work.bank_stmt_sorted with MULTIDATA='yes' DEFINEKEY(reference_id) DEFINEDATA(bank_txn_id, transaction_date, amount, reference_id, description); hash h_used for tracking consumed bank items; RETAIN matched_total=0 unmatched_gl_total=0 match_seq=0 n_matched_r=0 n_unmatched_r=0; SET work.gl_cash_sorted END=last_gl; h_bank.find(key: gl_ref) for exact reference match; IF rc=0 AND abs(gl_amount-amount)<=match_tolerance: check h_used, if unused then match_seq+1, match_id via CATS/PUT, output bank_matched, h_used.add; if already used output exception; IF amount diff exceeds tolerance output exception; IF no bank ref found output exception; IF last_gl CALL SYMPUTX for n_matched, n_unmatched_gl"
+    },
+    {
+      "block_id": 13,
+      "partition_type": "DATA_STEP",
+      "line_start": 460,
+      "line_end": 477,
+      "test_coverage_type": "full",
+      "description": "DATA work.bank_exceptions_bank_temp inside bank_reconciliation: SET work.bank_stmt_sorted; hash h_used loaded from work.bank_matched with DEFINEKEY(bank_txn_id); h_used.find() to check if bank item was matched; IF rc NE 0 then exception_reason='Bank item not matched to GL' and OUTPUT; identifies unmatched bank statement items"
+    },
+    {
+      "block_id": 14,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 479,
+      "line_end": 482,
+      "test_coverage_type": "full",
+      "description": "PROC APPEND inside bank_reconciliation: BASE=work.bank_exceptions_bank DATA=work.bank_exceptions_bank_temp FORCE; consolidates bank-side exceptions across multiple account runs"
+    },
+    {
+      "block_id": 15,
+      "partition_type": "PROC_SQL",
+      "line_start": 484,
+      "line_end": 496,
+      "test_coverage_type": "full",
+      "description": "PROC SQL NOPRINT inside bank_reconciliation: SELECT COUNT(*) INTO :n_unmatched_bank TRIMMED from work.bank_exceptions_bank_temp; %LET total_exceptions=%EVAL accumulating n_unmatched_gl + n_unmatched_bank; %LET bank_matched=1; %PUT summary with matched, unmatched GL, unmatched bank counts; %MEND bank_reconciliation"
+    },
+    {
+      "block_id": 16,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 498,
+      "line_end": 520,
+      "test_coverage_type": "full",
+      "description": "%MACRO intercompany_recon(entity_pairs=) opening: documentation header for IC balance elimination with pipe-delimited entity pairs and %DO loop iteration; %LOCAL n_pairs i entity_from entity_to pair_str ic_exception_count; %LET n_pairs=%SYSFUNC(COUNTW) with pipe delimiter; %PUT banner with n_pairs and ic_tolerance; DATA work.ic_all_exceptions initialization with LENGTH entity_from $10 entity_to $10 account_id $15 balance_from/balance_to/net_difference 8 exception_flag $1 netting_status $20; STOP to create empty shell dataset"
+    },
+    {
+      "block_id": 17,
+      "partition_type": "LOOP_BLOCK",
+      "line_start": 522,
+      "line_end": 573,
+      "test_coverage_type": "full",
+      "description": "%DO i=1 %TO &n_pairs loop inside intercompany_recon: %LET pair_str=%SCAN(entity_pairs, i, |), entity_from=%SCAN(pair_str, 1, :), entity_to=%SCAN(pair_str, 2, :); %PUT processing pair; PROC SQL NOPRINT CREATE TABLE work._ic_pair_&i with COALESCE(a.account_id, b.account_id), entity_from, entity_to, balance_from, balance_to, net_difference=balance_from+balance_to, CASE exception_flag='Y' when ABS(net_difference)>ic_tolerance from work.gl_balances (WHERE entity_code=entity_from AND account_type='IC') FULL JOIN work.gl_balances (WHERE entity_code=entity_to AND account_type='IC') ON account_id; DATA work._ic_net_&i netting: IF ABS(net_difference)<=ic_tolerance THEN ELIMINATED, ELSE IF <=material_threshold THEN MINOR_DIFF, ELSE MATERIAL_DIFF; PROC APPEND BASE=work.ic_all_exceptions DATA=work._ic_net_&i WHERE exception_flag='Y'; %END"
+    },
+    {
+      "block_id": 18,
+      "partition_type": "PROC_SQL",
+      "line_start": 575,
+      "line_end": 584,
+      "test_coverage_type": "full",
+      "description": "Post-loop closing inside intercompany_recon: %LET ic_reconciled=1; PROC SQL NOPRINT SELECT COUNT(*) INTO :ic_exception_count TRIMMED from work.ic_all_exceptions; %LET total_exceptions=%EVAL accumulating ic_exception_count; %PUT IC reconciliation complete with exception count; %MEND intercompany_recon"
+    },
+    {
+      "block_id": 19,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 586,
+      "line_end": 598,
+      "test_coverage_type": "full",
+      "description": "%MACRO generate_recon_report opening: documentation header for audit-ready reconciliation report using all work datasets from prior macro steps; outputs recon.recon_detail and ODS PDF; %LOCAL total_gl_balance total_sub_balance recon_diff n_material_items report_status; %PUT banner with recon_period and preparer"
+    },
+    {
+      "block_id": 20,
+      "partition_type": "PROC_SQL",
+      "line_start": 600,
+      "line_end": 637,
+      "test_coverage_type": "full",
+      "description": "PROC SQL NOPRINT inside generate_recon_report: CREATE TABLE work.recon_summary via 6 UNION ALL queries; GL_TOTAL from work.gl_consolidated SUM(consolidated_balance); SUB_AR from work.sub_ar_norm SUM(sub_balance); SUB_AP from work.sub_ap_norm SUM(sub_balance); SUB_FA from work.sub_fa_norm SUM(sub_balance); BANK_MATCHED from work.bank_matched SUM(match_amount); IC_EXCEPTIONS from work.ic_all_exceptions SUM(net_difference); each with COUNT(*) as item_count"
+    },
+    {
+      "block_id": 21,
+      "partition_type": "DATA_STEP",
+      "line_start": 639,
+      "line_end": 662,
+      "test_coverage_type": "full",
+      "description": "DATA recon.recon_detail inside generate_recon_report: SET work.recon_summary; LENGTH materiality_flag $10 assessment_note $100; IF ABS(balance)>material_threshold THEN materiality_flag='MATERIAL', assessment_note via CATX with PUT(balance/threshold); ELSE materiality_flag='IMMATERIAL', assessment_note='Within acceptable threshold'; metadata stamps recon_period, preparer, reviewer, assessed_date=DATETIME() FORMAT datetime20."
+    },
+    {
+      "block_id": 22,
+      "partition_type": "PROC_SQL",
+      "line_start": 664,
+      "line_end": 669,
+      "test_coverage_type": "full",
+      "description": "PROC SQL NOPRINT inside generate_recon_report: SELECT COUNT(*) INTO :n_material_items TRIMMED from recon.recon_detail WHERE materiality_flag='MATERIAL'; counts items requiring manual review"
+    },
+    {
+      "block_id": 23,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 671,
+      "line_end": 674,
+      "test_coverage_type": "full",
+      "description": "%IF &n_material_items>0 inside generate_recon_report: %LET report_status=REQUIRES_REVIEW; %ELSE %LET report_status=CLEAN; determines overall reconciliation report status"
+    },
+    {
+      "block_id": 24,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 676,
+      "line_end": 723,
+      "test_coverage_type": "full",
+      "description": "ODS PDF output inside generate_recon_report: ODS PDF FILE= with style=journal; TITLE1/TITLE2 with period, preparer, report_status; FOOTNOTE1 with run_date, match_tolerance, material_threshold; PROC REPORT data=recon.recon_detail NOWD with STYLE(header)=[backgroundcolor=lightblue font_weight=bold]; COLUMNS recon_category item_count balance materiality_flag assessment_note; DEFINE recon_category/GROUP, item_count/SUM format=comma12., balance/SUM format=comma20.2, materiality_flag/DISPLAY, assessment_note/DISPLAY; COMPUTE balance: IF ABS(balance.sum)>material_threshold CALL DEFINE style=[foreground=red font_weight=bold]; ENDCOMP; COMPUTE AFTER: LINE for report_status, total_exceptions, n_material_items; ENDCOMP; RBREAK AFTER/SUMMARIZE style=[font_weight=bold backgroundcolor=lightyellow]; TITLE/FOOTNOTE clear; ODS PDF CLOSE; %PUT status and material items; %MEND generate_recon_report"
+    },
+    {
+      "block_id": 25,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 725,
+      "line_end": 733,
+      "test_coverage_type": "structural_only",
+      "description": "Section 3 header comment (Main Program Execution) and %PUT execution banner with FINANCIAL RECONCILIATION ENGINE v2.1 title, recon_period, recon_type, preparer, run_date"
+    },
+    {
+      "block_id": 26,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 735,
+      "line_end": 737,
+      "test_coverage_type": "full",
+      "description": "Step 1 comment and two %extract_gl invocations: %extract_gl(period=&recon_period, account_range=1000-9999) for current period and %extract_gl(period=&prior_period, account_range=1000-9999) for prior period GL balance extraction"
+    },
+    {
+      "block_id": 27,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 739,
+      "line_end": 742,
+      "test_coverage_type": "full",
+      "description": "Step 2 comment and three %extract_subledger invocations: %extract_subledger(module=AR, period=&recon_period), %extract_subledger(module=AP, period=&recon_period), %extract_subledger(module=FA, period=&recon_period) for accounts receivable, accounts payable, and fixed asset extraction"
+    },
+    {
+      "block_id": 28,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 744,
+      "line_end": 747,
+      "test_coverage_type": "full",
+      "description": "Step 3 comment and three %bank_reconciliation invocations: %bank_reconciliation(account_id=ACCT-001), %bank_reconciliation(account_id=ACCT-002), %bank_reconciliation(account_id=ACCT-003) for three operating bank accounts"
+    },
+    {
+      "block_id": 29,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 749,
+      "line_end": 750,
+      "test_coverage_type": "full",
+      "description": "Step 4 comment and %intercompany_recon(entity_pairs=US01:UK01|US01:DE01|UK01:FR01|DE01:FR01) invocation for 4 intercompany entity pair reconciliations"
+    },
+    {
+      "block_id": 30,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 752,
+      "line_end": 753,
+      "test_coverage_type": "full",
+      "description": "Step 5 comment and %generate_recon_report invocation to produce the final audit-ready ODS PDF reconciliation report with materiality assessment"
+    },
+    {
+      "block_id": 31,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 755,
+      "line_end": 767,
+      "test_coverage_type": "full",
+      "description": "Step 6: TITLE1/TITLE2 with reconciling items summary and period/date; PROC PRINT data=recon.recon_detail NOOBS LABEL; VAR recon_category item_count balance materiality_flag; LABEL for Reconciliation Area, Number of Items, Net Balance, Materiality Status; SUM balance; TITLE clear"
+    },
+    {
+      "block_id": 32,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 769,
+      "line_end": 779,
+      "test_coverage_type": "full",
+      "description": "Step 7: Two PROC PRINTs for bank reconciliation exception detail; TITLE1 Bank Reconciliation Exceptions — GL Side; PROC PRINT data=work.bank_exceptions_gl NOOBS VAR gl_txn_id transaction_date amount reference_id exception_reason; TITLE1 Bank Reconciliation Exceptions — Bank Side; PROC PRINT data=work.bank_exceptions_bank NOOBS VAR bank_txn_id transaction_date amount reference_id exception_reason; TITLE clear"
+    },
+    {
+      "block_id": 33,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 781,
+      "line_end": 789,
+      "test_coverage_type": "full",
+      "description": "Step 8: TITLE1 Intercompany Reconciliation Exceptions; PROC PRINT data=work.ic_all_exceptions NOOBS; VAR entity_from entity_to account_id balance_from balance_to net_difference netting_status; WHERE exception_flag='Y'; SUM net_difference; TITLE clear"
+    },
+    {
+      "block_id": 34,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 791,
+      "line_end": 796,
+      "test_coverage_type": "structural_only",
+      "description": "Cleanup: PROC DATASETS lib=work NOLIST NOWARN; DELETE gl_raw gl_cash_sorted bank_stmt_sorted bank_exceptions_bank_temp _ic_pair_: _ic_net_: temporary work datasets; QUIT"
+    },
+    {
+      "block_id": 35,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 798,
+      "line_end": 806,
+      "test_coverage_type": "structural_only",
+      "description": "OPTIONS NOMPRINT NOMLOGIC NOSYMBOLGEN reset to defaults; final %PUT completion banner with RECONCILIATION COMPLETE, recon_period, total_exceptions, recon_rc"
+    }
+  ],
+  "total_blocks": 35,
+  "data_lineage": [
+    {
+      "source_datasets": ["gl.journal_entries"],
+      "target_datasets": ["work.gl_raw"],
+      "block_id": 3
+    },
+    {
+      "source_datasets": ["work.gl_raw", "gl.exchange_rates"],
+      "target_datasets": ["work.gl_balances"],
+      "block_id": 4
+    },
+    {
+      "source_datasets": ["work.gl_balances"],
+      "target_datasets": ["work.gl_consolidated"],
+      "block_id": 5
+    },
+    {
+      "source_datasets": ["sub.ar_invoices"],
+      "target_datasets": ["work.sub_ar", "work.sub_ar_norm"],
+      "block_id": 7
+    },
+    {
+      "source_datasets": ["sub.ap_invoices"],
+      "target_datasets": ["work.sub_ap", "work.sub_ap_norm"],
+      "block_id": 8
+    },
+    {
+      "source_datasets": ["sub.fixed_assets"],
+      "target_datasets": ["work.sub_fa", "work.sub_fa_norm"],
+      "block_id": 9
+    },
+    {
+      "source_datasets": ["gl.cash_transactions", "bank.statements"],
+      "target_datasets": ["work.gl_cash_sorted", "work.bank_stmt_sorted"],
+      "block_id": 11
+    },
+    {
+      "source_datasets": ["work.gl_cash_sorted", "work.bank_stmt_sorted"],
+      "target_datasets": ["work.bank_matched", "work.bank_exceptions_gl"],
+      "block_id": 12
+    },
+    {
+      "source_datasets": ["work.bank_stmt_sorted", "work.bank_matched"],
+      "target_datasets": ["work.bank_exceptions_bank_temp"],
+      "block_id": 13
+    },
+    {
+      "source_datasets": ["work.bank_exceptions_bank_temp"],
+      "target_datasets": ["work.bank_exceptions_bank"],
+      "block_id": 14
+    },
+    {
+      "source_datasets": ["work.gl_balances"],
+      "target_datasets": ["work._ic_pair_*", "work._ic_net_*", "work.ic_all_exceptions"],
+      "block_id": 17
+    },
+    {
+      "source_datasets": ["work.gl_consolidated", "work.sub_ar_norm", "work.sub_ap_norm", "work.sub_fa_norm", "work.bank_matched", "work.ic_all_exceptions"],
+      "target_datasets": ["work.recon_summary"],
+      "block_id": 20
+    },
+    {
+      "source_datasets": ["work.recon_summary"],
+      "target_datasets": ["recon.recon_detail"],
+      "block_id": 21
+    },
+    {
+      "source_datasets": ["recon.recon_detail"],
+      "target_datasets": [],
+      "block_id": 24
+    },
+    {
+      "source_datasets": ["recon.recon_detail"],
+      "target_datasets": [],
+      "block_id": 31
+    },
+    {
+      "source_datasets": ["work.bank_exceptions_gl", "work.bank_exceptions_bank"],
+      "target_datasets": [],
+      "block_id": 32
+    },
+    {
+      "source_datasets": ["work.ic_all_exceptions"],
+      "target_datasets": [],
+      "block_id": 33
+    }
+  ],
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

@@ -1,0 +1,317 @@
+{
+  "file_path": "gsh_07_migration_suite.sas",
+  "tier": "hard",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 1,
+      "line_end": 57,
+      "test_coverage_type": "structural_only",
+      "description": "Program header with change history (migration Phase 3), OPTIONS for macro debugging, LIBNAME for legacy (readonly source system), target (new platform), reconcil (validation results), and work; global migration parameters (%LET for batch_id, run_date, run_timestamp, tolerance, tol_type PCT/ABS, migration_rc, total_checks, passed_checks, failed_checks, n_tables=8, n_crit_tables=4, n_fin_tables=3, n_fk_pairs=5) and indexed table list macro variables (table1-table8: customers, accounts, transactions, products, orders, order_lines, suppliers, employees)"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "INCLUDE_REFERENCE",
+      "line_start": 59,
+      "line_end": 60,
+      "test_coverage_type": "structural_only",
+      "description": "%INCLUDE for migration_utilities.sas shared migration utility macro library"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 66,
+      "line_end": 125,
+      "test_coverage_type": "full",
+      "description": "%MACRO count_reconcile(table=, lib_src=, lib_tgt=): compares row counts between legacy source and migration target; two PROC SQL NOPRINT blocks capturing source and target counts into macro variables via INTO :src_count/:tgt_count; DATA step computing difference, percentage difference, and pass/fail status with CALL SYMPUTX updating global passed_checks/failed_checks counters; outputs to reconcil.count_result_&table; increments total_checks via %EVAL"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 127,
+      "line_end": 149,
+      "test_coverage_type": "full",
+      "description": "%MACRO column_compare opening: documentation header, declaration with 4 parameters (table, key_cols, compare_cols, lib_src), %LOCAL variables, COUNTW for column/key counts, %DO loop dynamically building join condition string from key_cols using %SCAN"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "PROC_SQL",
+      "line_start": 151,
+      "line_end": 174,
+      "test_coverage_type": "full",
+      "description": "PROC SQL inside column_compare: FULL OUTER JOIN of source and target tables on dynamic join condition; COALESCE for key_value, CASE expression classifying rows as MISSING_IN_SOURCE/MISSING_IN_TARGET/MATCHED; %DO loop generating paired src_/tgt_ columns for each compare column; creates work._compare_&table"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "DATA_STEP",
+      "line_start": 176,
+      "line_end": 224,
+      "test_coverage_type": "full",
+      "description": "DATA step inside column_compare creating reconcil.col_compare_&table: ARRAY _src/*/ src_: and ARRAY _tgt/*/ tgt_: for paired column comparison; DO loop over DIM(_src) with NE check and VNAME for column identification; CATX for mismatch_detail with source/target values; handles MISSING_IN_SOURCE, MISSING_IN_TARGET, and matched-row column differences; outputs _ALL_ pass record when no mismatches found"
+    },
+    {
+      "block_id": 7,
+      "partition_type": "PROC_SQL",
+      "line_start": 226,
+      "line_end": 232,
+      "test_coverage_type": "full",
+      "description": "PROC SQL NOPRINT inside column_compare: counts mismatches from reconcil.col_compare_&table excluding _ALL_ pass records; captures count into &n_mismatches macro variable"
+    },
+    {
+      "block_id": 8,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 234,
+      "line_end": 245,
+      "test_coverage_type": "full",
+      "description": "%IF/%ELSE inside column_compare: increments total_checks via %EVAL; if n_mismatches > 0 emits WARNING and increments failed_checks, else emits NOTE and increments passed_checks; %MEND column_compare"
+    },
+    {
+      "block_id": 9,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 247,
+      "line_end": 267,
+      "test_coverage_type": "full",
+      "description": "%MACRO sum_reconcile opening: documentation header, declaration with 4 parameters (table, key_cols, amount_cols, tolerance with default &tolerance), %LOCAL variables, COUNTW for amount/key column counts, %DO loop building dynamic join condition from key_cols"
+    },
+    {
+      "block_id": 10,
+      "partition_type": "PROC_SQL",
+      "line_start": 269,
+      "line_end": 288,
+      "test_coverage_type": "full",
+      "description": "PROC SQL inside sum_reconcile: aggregates amounts by key columns from legacy source using %DO loops for dynamic SELECT (SUM with comma20.2 format) and GROUP BY column generation; creates work._sum_src_&table"
+    },
+    {
+      "block_id": 11,
+      "partition_type": "PROC_SQL",
+      "line_start": 290,
+      "line_end": 309,
+      "test_coverage_type": "full",
+      "description": "PROC SQL inside sum_reconcile: aggregates amounts by key columns from migration target using %DO loops for dynamic SELECT and GROUP BY; creates work._sum_tgt_&table"
+    },
+    {
+      "block_id": 12,
+      "partition_type": "DATA_STEP",
+      "line_start": 311,
+      "line_end": 379,
+      "test_coverage_type": "full",
+      "description": "DATA step inside sum_reconcile: MERGE of work._sum_src_&table and work._sum_tgt_&table with %DO loop RENAME (original to src_/tgt_ prefixed columns), dynamic BY statement; computes diff_&acol for each amount column via COALESCE; %IF &tol_type=PCT for percentage tolerance (pct_diff calculation, threshold comparison against &tolerance*100) %ELSE absolute tolerance (direct abs(diff) threshold); sets status to FAIL with breach_detail on tolerance breach, defaults to PASS; creates reconcil.sum_result_&table"
+    },
+    {
+      "block_id": 13,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 381,
+      "line_end": 399,
+      "test_coverage_type": "full",
+      "description": "Inside sum_reconcile: PROC SQL NOPRINT counting tolerance breaches (status=FAIL) into &n_breaches; increments total_checks; %IF n_breaches > 0 emits WARNING and increments failed_checks, %ELSE emits NOTE confirming amounts within tolerance; %MEND sum_reconcile"
+    },
+    {
+      "block_id": 14,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 401,
+      "line_end": 459,
+      "test_coverage_type": "full",
+      "description": "%MACRO referential_integrity(parent_table=, child_table=, fk_col=): PROC SQL creating reconcil.orphans_&child_table._&fk_col via LEFT JOIN of child to parent on FK column with WHERE p.&fk_col IS NULL and c.&fk_col IS NOT NULL; captures orphan count into &n_orphans; DATA step creating reconcil.fk_result_&child_table._&fk_col with parent/child/FK metadata, orphan_count, CALL SYMPUTX updating passed/failed counters; increments total_checks; %IF conditional for pass/fail messaging; %MEND"
+    },
+    {
+      "block_id": 15,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 461,
+      "line_end": 470,
+      "test_coverage_type": "structural_only",
+      "description": "%MACRO generate_reconciliation_report opening: documentation header describing compilation of all reconciliation results into unified dashboard with PDF output; declaration, %LOCAL i, %PUT banner"
+    },
+    {
+      "block_id": 16,
+      "partition_type": "DATA_STEP",
+      "line_start": 472,
+      "line_end": 479,
+      "test_coverage_type": "full",
+      "description": "DATA step inside generate_reconciliation_report: merges all count reconciliation results using %DO loop over &n_tables generating SET list of reconcil.count_result_&&table&i datasets; creates reconcil.all_count_results"
+    },
+    {
+      "block_id": 17,
+      "partition_type": "DATA_STEP",
+      "line_start": 481,
+      "line_end": 492,
+      "test_coverage_type": "full",
+      "description": "DATA step inside generate_reconciliation_report: merges all FK validation results from 5 named datasets (reconcil.fk_result_orders_customer_id, order_lines_order_id, order_lines_product_id, transactions_account_id, employees_dept_id) with consistent LENGTH statement; creates reconcil.all_fk_results"
+    },
+    {
+      "block_id": 18,
+      "partition_type": "PROC_SQL",
+      "line_start": 494,
+      "line_end": 515,
+      "test_coverage_type": "full",
+      "description": "PROC SQL inside generate_reconciliation_report: creates reconcil.migration_dashboard with batch_id, run_date, total/passed/failed counts from macro variables; CASE expression computing pass_rate percentage; nested CASE classifying migration_status as CERTIFIED (>=100%), CONDITIONAL (>=95%), REVIEW_REQUIRED (>=80%), or FAILED"
+    },
+    {
+      "block_id": 19,
+      "partition_type": "DATA_STEP",
+      "line_start": 517,
+      "line_end": 548,
+      "test_coverage_type": "full",
+      "description": "DATA step inside generate_reconciliation_report creating reconcil.quality_score from reconcil.migration_dashboard: weighted scoring components (count 0.30, column 0.30, sum 0.25, fk 0.15); quality_score derived from pass_rate; IF/ELSE IF chain generating recommendation text (Proceed to go-live / Review and remediate / Re-run migration / Full re-migration required) based on score thresholds (100/95/80); scored_at timestamp"
+    },
+    {
+      "block_id": 20,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 550,
+      "line_end": 583,
+      "test_coverage_type": "full",
+      "description": "ODS PDF output setup inside generate_reconciliation_report: ODS PDF FILE= with journal style, PROCLABEL, TITLE1/TITLE2 with batch and date; PROC REPORT on reconcil.quality_score with 9 DEFINE columns (batch_id, run_date, total/passed/failed checks, pass_rate, quality_score, migration_status, recommendation); COMPUTE block with conditional CALL DEFINE styling migration_status red/bold for FAILED, green/bold for CERTIFIED"
+    },
+    {
+      "block_id": 21,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 585,
+      "line_end": 603,
+      "test_coverage_type": "full",
+      "description": "PROC REPORT inside generate_reconciliation_report on reconcil.all_count_results: TITLE3 'Row Count Reconciliation'; 6 DEFINE columns (table_name, src_count, tgt_count, diff, pct_diff, status) with comma12. and 8.4 formats; COMPUTE block highlighting FAIL rows with lightyellow background"
+    },
+    {
+      "block_id": 22,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 605,
+      "line_end": 628,
+      "test_coverage_type": "full",
+      "description": "PROC REPORT inside generate_reconciliation_report on reconcil.all_fk_results: TITLE3 'Referential Integrity Validation'; 5 DEFINE columns (parent_table, child_table, fk_column, orphan_count, status) with FAIL row highlighting; TITLE reset, ODS PDF CLOSE, %PUT confirmation, %MEND generate_reconciliation_report"
+    },
+    {
+      "block_id": 23,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 634,
+      "line_end": 641,
+      "test_coverage_type": "structural_only",
+      "description": "%PUT messages: migration validation suite execution banner with batch_id, run_date, tolerance parameters; Phase 1 (Count Reconciliation) header"
+    },
+    {
+      "block_id": 24,
+      "partition_type": "LOOP_BLOCK",
+      "line_start": 643,
+      "line_end": 653,
+      "test_coverage_type": "full",
+      "description": "%MACRO run_count_checks with %DO loop iterating over &n_tables (8 tables): calls %count_reconcile(table=&&table&i) for each indexed table; includes %IF &syserr > 4 error check setting migration_rc=1 and emitting ERROR on system failure; %MEND run_count_checks"
+    },
+    {
+      "block_id": 25,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 655,
+      "line_end": 655,
+      "test_coverage_type": "full",
+      "description": "Invocation of %run_count_checks executing count reconciliation loop for all 8 migration tables"
+    },
+    {
+      "block_id": 26,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 657,
+      "line_end": 674,
+      "test_coverage_type": "full",
+      "description": "Phase 2 header and four %column_compare invocations for critical tables: customers (key=customer_id, compare=first_name last_name email phone status), accounts (key=account_id, compare=account_type balance open_date status), products (key=product_id, compare=product_name category unit_price active_flag), orders (key=order_id, compare=order_date customer_id total_amount status)"
+    },
+    {
+      "block_id": 27,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 676,
+      "line_end": 692,
+      "test_coverage_type": "full",
+      "description": "Phase 3 header and three %sum_reconcile invocations for financial tables: transactions (key=account_id, amounts=debit_amount credit_amount balance), orders (key=customer_id, amounts=total_amount tax_amount discount_amount), order_lines (key=order_id, amounts=line_total unit_price); all using &tolerance parameter"
+    },
+    {
+      "block_id": 28,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 694,
+      "line_end": 715,
+      "test_coverage_type": "full",
+      "description": "Phase 4 header and five %referential_integrity invocations: customers->orders (customer_id), orders->order_lines (order_id), products->order_lines (product_id), accounts->transactions (account_id), departments->employees (dept_id)"
+    },
+    {
+      "block_id": 29,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 717,
+      "line_end": 726,
+      "test_coverage_type": "full",
+      "description": "Phase 5 header and %IF &migration_rc=0 conditional: on success invokes %generate_reconciliation_report to compile results and generate PDF; on failure emits ERROR messages about skipping report generation with batch_id reference"
+    },
+    {
+      "block_id": 30,
+      "partition_type": "DATA_STEP",
+      "line_start": 732,
+      "line_end": 753,
+      "test_coverage_type": "full",
+      "description": "DATA step creating reconcil.validation_log: persists final migration validation summary with batch_id, run_date, total/passed/failed counts; IF/ELSE setting status to ALL_PASSED or HAS_FAILURES; CATX building detail string with check breakdown; DATETIME() timestamp with datetime20. format"
+    },
+    {
+      "block_id": 31,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 755,
+      "line_end": 758,
+      "test_coverage_type": "structural_only",
+      "description": "PROC DATASETS cleanup: deletes temporary work datasets matching _compare_:, _sum_src_:, _sum_tgt_: patterns with NOLIST NOWARN options"
+    },
+    {
+      "block_id": 32,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 760,
+      "line_end": 769,
+      "test_coverage_type": "structural_only",
+      "description": "Final %PUT summary banner with migration validation completion status, batch_id, total_checks, passed/failed breakdown; OPTIONS reset to nomprint nomlogic nosymbolgen"
+    }
+  ],
+  "total_blocks": 32,
+  "data_lineage": [
+    {
+      "source_datasets": ["legacy.customers", "legacy.accounts", "legacy.transactions", "legacy.products", "legacy.orders", "legacy.order_lines", "legacy.suppliers", "legacy.employees", "target.customers", "target.accounts", "target.transactions", "target.products", "target.orders", "target.order_lines", "target.suppliers", "target.employees"],
+      "target_datasets": ["reconcil.count_result_customers", "reconcil.count_result_accounts", "reconcil.count_result_transactions", "reconcil.count_result_products", "reconcil.count_result_orders", "reconcil.count_result_order_lines", "reconcil.count_result_suppliers", "reconcil.count_result_employees"],
+      "block_id": 25
+    },
+    {
+      "source_datasets": ["legacy.customers", "legacy.accounts", "legacy.products", "legacy.orders", "target.customers", "target.accounts", "target.products", "target.orders"],
+      "target_datasets": ["work._compare_customers", "work._compare_accounts", "work._compare_products", "work._compare_orders"],
+      "block_id": 26
+    },
+    {
+      "source_datasets": ["work._compare_customers", "work._compare_accounts", "work._compare_products", "work._compare_orders"],
+      "target_datasets": ["reconcil.col_compare_customers", "reconcil.col_compare_accounts", "reconcil.col_compare_products", "reconcil.col_compare_orders"],
+      "block_id": 26
+    },
+    {
+      "source_datasets": ["legacy.transactions", "legacy.orders", "legacy.order_lines"],
+      "target_datasets": ["work._sum_src_transactions", "work._sum_src_orders", "work._sum_src_order_lines"],
+      "block_id": 27
+    },
+    {
+      "source_datasets": ["target.transactions", "target.orders", "target.order_lines"],
+      "target_datasets": ["work._sum_tgt_transactions", "work._sum_tgt_orders", "work._sum_tgt_order_lines"],
+      "block_id": 27
+    },
+    {
+      "source_datasets": ["work._sum_src_transactions", "work._sum_tgt_transactions", "work._sum_src_orders", "work._sum_tgt_orders", "work._sum_src_order_lines", "work._sum_tgt_order_lines"],
+      "target_datasets": ["reconcil.sum_result_transactions", "reconcil.sum_result_orders", "reconcil.sum_result_order_lines"],
+      "block_id": 27
+    },
+    {
+      "source_datasets": ["target.customers", "target.orders", "target.order_lines", "target.products", "target.accounts", "target.transactions", "target.departments", "target.employees"],
+      "target_datasets": ["reconcil.orphans_orders_customer_id", "reconcil.orphans_order_lines_order_id", "reconcil.orphans_order_lines_product_id", "reconcil.orphans_transactions_account_id", "reconcil.orphans_employees_dept_id", "reconcil.fk_result_orders_customer_id", "reconcil.fk_result_order_lines_order_id", "reconcil.fk_result_order_lines_product_id", "reconcil.fk_result_transactions_account_id", "reconcil.fk_result_employees_dept_id"],
+      "block_id": 28
+    },
+    {
+      "source_datasets": ["reconcil.count_result_customers", "reconcil.count_result_accounts", "reconcil.count_result_transactions", "reconcil.count_result_products", "reconcil.count_result_orders", "reconcil.count_result_order_lines", "reconcil.count_result_suppliers", "reconcil.count_result_employees"],
+      "target_datasets": ["reconcil.all_count_results"],
+      "block_id": 16
+    },
+    {
+      "source_datasets": ["reconcil.fk_result_orders_customer_id", "reconcil.fk_result_order_lines_order_id", "reconcil.fk_result_order_lines_product_id", "reconcil.fk_result_transactions_account_id", "reconcil.fk_result_employees_dept_id"],
+      "target_datasets": ["reconcil.all_fk_results"],
+      "block_id": 17
+    },
+    {
+      "source_datasets": ["reconcil.migration_dashboard"],
+      "target_datasets": ["reconcil.quality_score"],
+      "block_id": 19
+    }
+  ],
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

@@ -1,0 +1,345 @@
+{
+  "file_path": "gsh_03_warehouse_load.sas",
+  "tier": "hard",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 1,
+      "line_end": 48,
+      "test_coverage_type": "structural_only",
+      "description": "Program header with change history, OPTIONS for macro debugging and compression, LIBNAME for ODBC source (srcdb with Oracle DSN), staging, warehouse, target, archive, and control libraries, global job control variables (%LET for job_name, run_id, status, rc, process_dt, n_src_tables)"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "INCLUDE_REFERENCE",
+      "line_start": 50,
+      "line_end": 50,
+      "test_coverage_type": "structural_only",
+      "description": "%INCLUDE for etl_utilities.sas shared extraction and audit macro library"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 52,
+      "line_end": 108,
+      "test_coverage_type": "full",
+      "description": "%MACRO extract_table: extracts source data into staging with optional WHERE filter; validates source existence via %SYSFUNC(EXIST), captures row count via CALL SYMPUTX, logs extraction metadata to ctrl.extraction_log via PROC SQL"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 110,
+      "line_end": 130,
+      "test_coverage_type": "full",
+      "description": "%MACRO scd_type2_merge opening: documentation header, declaration with 4 parameters (dim, stage, natural_key, tracked_cols), local variables, and setup for dynamic change detection expression building"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "LOOP_BLOCK",
+      "line_start": 131,
+      "line_end": 138,
+      "test_coverage_type": "full",
+      "description": "%DO loop inside scd_type2_merge building dynamic change_expr from tracked_cols: iterates over column list using COUNTW/SCAN, constructs OR-chained COALESCE/STRIP/PUT comparison expressions for SCD change detection"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "PROC_SQL",
+      "line_start": 140,
+      "line_end": 164,
+      "test_coverage_type": "full",
+      "description": "PROC SQL inside scd_type2_merge classifying records as NEW/CHANGED/UNCHANGED via LEFT JOIN with dynamic change_expr CASE expression; captures classification counts into macro variables &new_cnt, &upd_cnt, &unchanged_cnt"
+    },
+    {
+      "block_id": 7,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 166,
+      "line_end": 180,
+      "test_coverage_type": "full",
+      "description": "%IF &upd_cnt > 0 conditional inside scd_type2_merge: PROC SQL UPDATE expiring changed dimension rows by setting current_flag='N' and effective_to=process_dt with updated_by/updated_ts audit fields"
+    },
+    {
+      "block_id": 8,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 182,
+      "line_end": 198,
+      "test_coverage_type": "full",
+      "description": "%IF &new_cnt > 0 OR &upd_cnt > 0 conditional inside scd_type2_merge: PROC SQL INSERT of new dimension versions with surrogate key generation via MONOTONIC(), effective_from/to dates, current_flag='Y', and audit fields (created_by, created_ts)"
+    },
+    {
+      "block_id": 9,
+      "partition_type": "PROC_SQL",
+      "line_start": 200,
+      "line_end": 213,
+      "test_coverage_type": "full",
+      "description": "PROC SQL inside scd_type2_merge inserting dimension load metrics into ctrl.dimension_load_log; PROC DATASETS cleanup of work._scd2_classified; %MEND scd_type2_merge"
+    },
+    {
+      "block_id": 10,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 215,
+      "line_end": 276,
+      "test_coverage_type": "full",
+      "description": "%MACRO fact_load: loads fact table from staging with dimension key lookups; uses dynamic PROC SQL with %DO loops to build surrogate key JOINs from dim_keys parameter (natural_key=dim_table pairs); appends to target and logs to ctrl.fact_load_log"
+    },
+    {
+      "block_id": 11,
+      "partition_type": "PROC_SQL",
+      "line_start": 278,
+      "line_end": 290,
+      "test_coverage_type": "full",
+      "description": "PROC SQL retrieving last successful watermark value from ctrl.watermark_table for incremental extraction; defaults to 1900-01-01 via COALESCE"
+    },
+    {
+      "block_id": 12,
+      "partition_type": "LOOP_BLOCK",
+      "line_start": 292,
+      "line_end": 325,
+      "test_coverage_type": "full",
+      "description": "%MACRO extract_all_sources with %DO loop iterating over 5 source tables (customers, products, orders, order_lines, suppliers) using indexed macro arrays; calls %extract_table for each with watermark-based incremental filter; includes %IF error check with early %RETURN on failure"
+    },
+    {
+      "block_id": 13,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 327,
+      "line_end": 327,
+      "test_coverage_type": "full",
+      "description": "Invocation of %extract_all_sources to execute the incremental extraction loop"
+    },
+    {
+      "block_id": 14,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 329,
+      "line_end": 333,
+      "test_coverage_type": "full",
+      "description": "%IF &job_rc NE 0 abort check: logs extraction phase failure and %GOTO EXIT_PROGRAM to skip remaining pipeline steps"
+    },
+    {
+      "block_id": 15,
+      "partition_type": "DATA_STEP",
+      "line_start": 335,
+      "line_end": 378,
+      "test_coverage_type": "full",
+      "description": "DATA step transforming staging.stg_customers: name standardization via PROPCASE, null handling for phone/email, status code mapping (A/I/S/C to descriptive labels), date string-to-numeric conversion via INPUT, and country code enrichment"
+    },
+    {
+      "block_id": 16,
+      "partition_type": "DATA_STEP",
+      "line_start": 380,
+      "line_end": 399,
+      "test_coverage_type": "full",
+      "description": "DATA step transforming staging.stg_products: null handling for cost/price fields, margin percentage derivation, and product category/subcategory standardization via PROPCASE"
+    },
+    {
+      "block_id": 17,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 401,
+      "line_end": 418,
+      "test_coverage_type": "full",
+      "description": "Three PROC SORT steps deduplicating staging tables: stg_customers_clean, stg_products_clean, and stg_orders using NODUPKEY by natural key columns"
+    },
+    {
+      "block_id": 18,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 420,
+      "line_end": 431,
+      "test_coverage_type": "full",
+      "description": "%scd_type2_merge invocation for customer dimension: merging staging.stg_customers_dedup into whouse.dim_customer tracking first_name, last_name, email, phone, customer_status, country_name"
+    },
+    {
+      "block_id": 19,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 433,
+      "line_end": 439,
+      "test_coverage_type": "full",
+      "description": "%scd_type2_merge invocation for product dimension: merging staging.stg_products_dedup into whouse.dim_product tracking category, subcategory, unit_cost, list_price, margin_pct"
+    },
+    {
+      "block_id": 20,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 441,
+      "line_end": 447,
+      "test_coverage_type": "full",
+      "description": "%scd_type2_merge invocation for supplier dimension: merging staging.stg_suppliers into whouse.dim_supplier tracking supplier_name, contact_name, city, state, country_code"
+    },
+    {
+      "block_id": 21,
+      "partition_type": "PROC_SQL",
+      "line_start": 449,
+      "line_end": 470,
+      "test_coverage_type": "full",
+      "description": "PROC SQL performing dimension key lookups: joins staging.stg_orders_dedup with whouse.dim_customer, dim_product, dim_supplier, and dim_date (via stg_order_lines) to resolve surrogate keys for fact table loading"
+    },
+    {
+      "block_id": 22,
+      "partition_type": "PROC_SQL",
+      "line_start": 472,
+      "line_end": 485,
+      "test_coverage_type": "full",
+      "description": "PROC SQL identifying orphaned dimension keys: creates staging.orphan_keys for orders missing customer, product, or date dimension matches; captures count into &orphan_count"
+    },
+    {
+      "block_id": 23,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 487,
+      "line_end": 490,
+      "test_coverage_type": "structural_only",
+      "description": "%IF &orphan_count > 0 conditional: emits WARNING messages about orders with missing dimension keys and directs to staging.orphan_keys for investigation"
+    },
+    {
+      "block_id": 24,
+      "partition_type": "DATA_STEP",
+      "line_start": 492,
+      "line_end": 518,
+      "test_coverage_type": "full",
+      "description": "DATA step preparing fact staging from staging.orders_with_keys: excludes orphaned records, calculates derived measures (line_total, discount_amt, net_amount, tax_amount, gross_amount) with null-safe COALESCE for discount_pct and tax_rate"
+    },
+    {
+      "block_id": 25,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 520,
+      "line_end": 526,
+      "test_coverage_type": "full",
+      "description": "%fact_load invocation for order fact table: loads staging.fact_orders_stage into whouse.fact_orders with customer and product dimension key lookups"
+    },
+    {
+      "block_id": 26,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 528,
+      "line_end": 534,
+      "test_coverage_type": "full",
+      "description": "%fact_load invocation for returns fact table: loads staging.stg_returns into whouse.fact_returns with customer and product dimension key lookups"
+    },
+    {
+      "block_id": 27,
+      "partition_type": "DATA_STEP",
+      "line_start": 536,
+      "line_end": 548,
+      "test_coverage_type": "full",
+      "description": "DATA step creating ctrl.watermark_update with job_name, process_dt as watermark_value, COMPLETE status, and datetime timestamp for incremental load checkpoint"
+    },
+    {
+      "block_id": 28,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 550,
+      "line_end": 553,
+      "test_coverage_type": "structural_only",
+      "description": "PROC APPEND adding watermark_update to ctrl.watermark_table with FORCE option; %PUT confirmation message"
+    },
+    {
+      "block_id": 29,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 555,
+      "line_end": 587,
+      "test_coverage_type": "full",
+      "description": "%IF &syserr NE 0 OR &job_rc NE 0 error handling: sets job_status=FAILED, inserts error details into ctrl.error_log via PROC SQL, writes error flag file via DATA _null_; %ELSE sets job_status=COMPLETE with confirmation message"
+    },
+    {
+      "block_id": 30,
+      "partition_type": "PROC_SQL",
+      "line_start": 589,
+      "line_end": 600,
+      "test_coverage_type": "full",
+      "description": "PROC SQL inserting job completion record into ctrl.job_status_log with run_id, job_name, status, process_date, start/end times, and tables_processed count"
+    },
+    {
+      "block_id": 31,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 602,
+      "line_end": 611,
+      "test_coverage_type": "structural_only",
+      "description": "Two PROC DATASETS steps: first deletes all staging datasets (13 tables including stg_*, orders_with_keys, orphan_keys, fact_orders_stage); second kills all WORK library datasets"
+    },
+    {
+      "block_id": 32,
+      "partition_type": "DATA_STEP",
+      "line_start": 613,
+      "line_end": 625,
+      "test_coverage_type": "full",
+      "description": "DATA _null_ with CALL EXECUTE for dynamic post-processing: conditionally generates %PUT notification and FILENAME EMAIL for failure alerts based on &job_status value"
+    },
+    {
+      "block_id": 33,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 627,
+      "line_end": 633,
+      "test_coverage_type": "structural_only",
+      "description": "%EXIT_PROGRAM label for error-path jumps, reset OPTIONS to nomprint/nomlogic/nosymbolgen, and final %PUT messages with completion timestamp and job status"
+    }
+  ],
+  "total_blocks": 33,
+  "data_lineage": [
+    {
+      "source_datasets": ["srcdb.customers", "srcdb.products", "srcdb.orders", "srcdb.order_lines", "srcdb.suppliers"],
+      "target_datasets": ["staging.stg_customers", "staging.stg_products", "staging.stg_orders", "staging.stg_order_lines", "staging.stg_suppliers"],
+      "block_id": 12
+    },
+    {
+      "source_datasets": ["staging.stg_customers"],
+      "target_datasets": ["staging.stg_customers_clean"],
+      "block_id": 15
+    },
+    {
+      "source_datasets": ["staging.stg_products"],
+      "target_datasets": ["staging.stg_products_clean"],
+      "block_id": 16
+    },
+    {
+      "source_datasets": ["staging.stg_customers_clean"],
+      "target_datasets": ["staging.stg_customers_dedup"],
+      "block_id": 17
+    },
+    {
+      "source_datasets": ["staging.stg_products_clean"],
+      "target_datasets": ["staging.stg_products_dedup"],
+      "block_id": 17
+    },
+    {
+      "source_datasets": ["staging.stg_orders"],
+      "target_datasets": ["staging.stg_orders_dedup"],
+      "block_id": 17
+    },
+    {
+      "source_datasets": ["staging.stg_customers_dedup"],
+      "target_datasets": ["whouse.dim_customer"],
+      "block_id": 18
+    },
+    {
+      "source_datasets": ["staging.stg_products_dedup"],
+      "target_datasets": ["whouse.dim_product"],
+      "block_id": 19
+    },
+    {
+      "source_datasets": ["staging.stg_suppliers"],
+      "target_datasets": ["whouse.dim_supplier"],
+      "block_id": 20
+    },
+    {
+      "source_datasets": ["staging.stg_orders_dedup", "whouse.dim_customer", "whouse.dim_product", "whouse.dim_supplier", "whouse.dim_date", "staging.stg_order_lines"],
+      "target_datasets": ["staging.orders_with_keys"],
+      "block_id": 21
+    },
+    {
+      "source_datasets": ["staging.orders_with_keys"],
+      "target_datasets": ["staging.orphan_keys"],
+      "block_id": 22
+    },
+    {
+      "source_datasets": ["staging.orders_with_keys"],
+      "target_datasets": ["staging.fact_orders_stage"],
+      "block_id": 24
+    },
+    {
+      "source_datasets": ["staging.fact_orders_stage"],
+      "target_datasets": ["whouse.fact_orders"],
+      "block_id": 25
+    },
+    {
+      "source_datasets": ["staging.stg_returns"],
+      "target_datasets": ["whouse.fact_returns"],
+      "block_id": 26
+    }
+  ],
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

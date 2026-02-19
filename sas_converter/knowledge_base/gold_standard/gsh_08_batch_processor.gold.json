@@ -1,0 +1,352 @@
+{
+  "file_path": "gsh_08_batch_processor.sas",
+  "tier": "hard",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 1,
+      "line_end": 56,
+      "test_coverage_type": "structural_only",
+      "description": "Program header (batch framework v2.3, Batch Operations Team, change log v1.0-v2.3 by A. Patel/S. Chen/K. Brooks), OPTIONS for macro debugging (mprint mlogic symbolgen msglevel=i nocenter ls=200 ps=65 validvarname=v7 nofmterr); LIBNAME for indata (input, readonly), outdata (output), control (metadata), batchlog (audit); global %LET for batch_id via %SYSFUNC(TODAY/TIME), max_retries=3, email_list, batch_rc=0, total_files/files_success/files_failed=0, total_rows_in/out=0, batch_start via %SYSFUNC(DATETIME), run_date; processing control flags (skip_validation=0, enable_email=1, debug_mode=0, archive_input=1); file format specs (csv_delimiter=%STR(,), csv_encoding=utf-8, fixed_reclen=250)"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "INCLUDE_REFERENCE",
+      "line_start": 57,
+      "line_end": 58,
+      "test_coverage_type": "structural_only",
+      "description": "%INCLUDE for batch_utilities.sas shared batch utility macro library"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 64,
+      "line_end": 121,
+      "test_coverage_type": "full",
+      "description": "%MACRO init_batch(batch_id=): initializes batch run; %LOCAL start_ts n_pending; %SYSFUNC(DATETIME) for start timestamp; %PUT banner with batch_id, start_time, max_retries; PROC SQL INSERT into control.batch_runs with batch_id, start_time, status=RUNNING, operator via &sysuserid, run_date via %SYSFUNC(TODAY); PROC SQL NOPRINT SELECT COUNT(*) into :n_pending from control.file_queue WHERE batch_id and status=PENDING; sets global tracking variables (total_files=&n_pending, files_success=0, files_failed=0, batch_rc=0); DATA batchlog.init_log with event=BATCH_INITIALIZED, detail string with pending count and max_retries, datetime() timestamp; %MEND init_batch"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 123,
+      "line_end": 140,
+      "test_coverage_type": "full",
+      "description": "%MACRO process_file(file_path=, file_type=) opening: documentation header for CSV/FIXED/SAS file processing with validation and CALL EXECUTE; %LOCAL dsname obs_count retry_count file_rc col_list n_cols; initializes retry_count=0, file_rc=0, dsname=work._incoming_%SYSFUNC(MONOTONIC); %PUT file processing banner"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 141,
+      "line_end": 228,
+      "test_coverage_type": "full",
+      "description": "File type branching inside process_file: %IF &file_type=CSV: DATA step with INFILE/INPUT delimiter=&csv_delimiter, missover dsd lrecl=2000 firstobs=2 encoding=&csv_encoding, header parsing via CALL SYMPUTX for col_list, field array INPUT _field1-_field50, _row_num tracking, CALL EXECUTE for dynamic post-processing DATA step; %ELSE %IF &file_type=FIXED: DATA step with INFILE recfm=f lrecl=&fixed_reclen, column-position INPUT (@1 record_type $2, @3 account_id $12, @15 customer_name $40, @55 transaction_dt yymmdd10, @65 amount 12.2, @77 currency_code $3, @80 status_code $2, @82 region_code $5, @87 product_id $10, @97 description $100, @197 filler $54), format application, HD/TR record filtering; %ELSE %IF &file_type=SAS: PROC COPY in=indata out=work with SELECT, PROC DATASETS CHANGE to rename; %ELSE: unsupported type ERROR, %error_handler(severity=CRITICAL), %RETURN"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 230,
+      "line_end": 278,
+      "test_coverage_type": "full",
+      "description": "Post-ingestion validation inside process_file (%IF &file_rc=0): Check 1 — PROC SQL NOPRINT SELECT COUNT(*) into :obs_count, %IF obs_count=0 emits WARNING via %error_handler, %ELSE accumulates total_rows_in via %EVAL; Check 2 — PROC SQL NOPRINT from dictionary.columns counting columns, %IF n_cols<3 emits ERROR via %error_handler(severity=CRITICAL); Check 3 — PROC SORT NODUPKEY with dupout=work._dupes_* out=&dsname._dedup BY account_id, %IF &syserr>0 WARNING via %error_handler for dedup issues"
+    },
+    {
+      "block_id": 7,
+      "partition_type": "PROC_SQL",
+      "line_start": 280,
+      "line_end": 293,
+      "test_coverage_type": "full",
+      "description": "PROC SQL inside process_file: UPDATE control.file_queue SET status=ifc(&file_rc=0, 'PROCESSED', 'FAILED'), processed_at=datetime(), row_count=&obs_count, return_code=&file_rc WHERE file_path and batch_id match"
+    },
+    {
+      "block_id": 8,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 295,
+      "line_end": 303,
+      "test_coverage_type": "full",
+      "description": "Success/failure tracking inside process_file: %IF file_rc=0 increments files_success via %EVAL, %ELSE increments files_failed; %MEND process_file"
+    },
+    {
+      "block_id": 9,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 305,
+      "line_end": 319,
+      "test_coverage_type": "full",
+      "description": "%MACRO transform_data(input_ds=, rules_ds=) opening: documentation header for transformation rule engine with CALL EXECUTE and %DO loop; %LOCAL n_rules n_categories i cat_name transform_rc; initializes transform_rc=0; %PUT transformation banner"
+    },
+    {
+      "block_id": 10,
+      "partition_type": "PROC_SQL",
+      "line_start": 321,
+      "line_end": 340,
+      "test_coverage_type": "full",
+      "description": "Two PROC SQL NOPRINT blocks inside transform_data: first SELECT COUNT(*) into :n_rules from &rules_ds WHERE active_flag='Y'; second SELECT COUNT(DISTINCT category) into :n_categories and SELECT DISTINCT category into :cat1-:cat99 from &rules_ds WHERE active_flag='Y' ORDER BY priority"
+    },
+    {
+      "block_id": 11,
+      "partition_type": "LOOP_BLOCK",
+      "line_start": 342,
+      "line_end": 411,
+      "test_coverage_type": "full",
+      "description": "%DO i=1 %TO &n_categories loop inside transform_data: sets cat_name=&&cat&i; DATA _null_ SET &rules_ds with CALL EXECUTE generating dynamic DATA step code; SELECT(rule_type) dispatching WHEN('RENAME') for column renaming, WHEN('DERIVE') for derived column computation, WHEN('FORMAT') for format assignment, WHEN('FILTER') for row filtering, WHEN('RECODE') for value recoding with QUOTE(); CALL EXECUTE assembles code lines, closes DATA step on _last; %IF &syserr>4 error trapping with %error_handler(severity=CRITICAL) and %GOTO transform_exit; PROC DATASETS DELETE/CHANGE to replace input with transformed version for next category iteration"
+    },
+    {
+      "block_id": 12,
+      "partition_type": "PROC_SQL",
+      "line_start": 413,
+      "line_end": 419,
+      "test_coverage_type": "full",
+      "description": "PROC SQL NOPRINT inside transform_data: post-transformation SELECT COUNT(*) into :post_count from &input_ds for row count validation; %PUT post_count"
+    },
+    {
+      "block_id": 13,
+      "partition_type": "DATA_STEP",
+      "line_start": 421,
+      "line_end": 436,
+      "test_coverage_type": "full",
+      "description": "%transform_exit label inside transform_data; DATA batchlog.transform_log with KEEP= clause: records batch_id, input_ds, n_rules, n_categories, transform_rc, datetime() timestamp; %MEND transform_data"
+    },
+    {
+      "block_id": 14,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 438,
+      "line_end": 465,
+      "test_coverage_type": "full",
+      "description": "%MACRO load_target(source_ds=, target_table=, load_type=) opening: documentation header for FULL (truncate+insert) and INCREMENTAL (upsert) load strategies; %LOCAL src_count tgt_before tgt_after load_rc delta; initializes load_rc=0; %PUT load banner; two PROC SQL NOPRINT blocks: SELECT COUNT(*) into :src_count from &source_ds and SELECT COUNT(*) into :tgt_before from outdata.&target_table for pre-load baseline"
+    },
+    {
+      "block_id": 15,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 467,
+      "line_end": 523,
+      "test_coverage_type": "full",
+      "description": "Load type branching inside load_target: %IF &load_type=FULL: PROC SQL DELETE FROM outdata.&target_table followed by PROC SQL INSERT INTO...SELECT * FROM &source_ds; %IF &syserr>4 error handler CRITICAL; %ELSE (INCREMENTAL): PROC SQL UPDATE outdata.&target_table SET last_updated=datetime() WHERE EXISTS matching record_key, then PROC SQL INSERT INTO target SELECT s.* with datetime() as loaded_at WHERE NOT EXISTS matching record_key for upsert logic; %IF &syserr>4 error handler CRITICAL"
+    },
+    {
+      "block_id": 16,
+      "partition_type": "PROC_SQL",
+      "line_start": 525,
+      "line_end": 535,
+      "test_coverage_type": "full",
+      "description": "PROC SQL NOPRINT inside load_target: post-load SELECT COUNT(*) into :tgt_after from outdata.&target_table; %LET delta=%EVAL(&tgt_after-&tgt_before) and total_rows_out accumulation; %PUT load completion summary with source count, before/after/delta"
+    },
+    {
+      "block_id": 17,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 537,
+      "line_end": 541,
+      "test_coverage_type": "full",
+      "description": "%IF inside load_target: row count consistency check — %IF &load_type=FULL AND &tgt_after NE &src_count emits WARNING for row count mismatch, calls %error_handler(severity=WARNING)"
+    },
+    {
+      "block_id": 18,
+      "partition_type": "DATA_STEP",
+      "line_start": 543,
+      "line_end": 559,
+      "test_coverage_type": "full",
+      "description": "DATA batchlog.load_log inside load_target with KEEP= clause: records batch_id, target_table, load_type, src_count, tgt_before, tgt_after, load_rc, datetime() timestamp for load audit trail; %MEND load_target"
+    },
+    {
+      "block_id": 19,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 561,
+      "line_end": 579,
+      "test_coverage_type": "full",
+      "description": "%MACRO error_handler(step=, severity=) opening: documentation header for centralized error handling with email notifications and CALL SYMPUT error state propagation; %LOCAL err_timestamp err_msg; %SYSFUNC(DATETIME) for err_timestamp; %PUT diagnostic messages with step, severity, &syserr, &sysrc"
+    },
+    {
+      "block_id": 20,
+      "partition_type": "DATA_STEP",
+      "line_start": 581,
+      "line_end": 598,
+      "test_coverage_type": "full",
+      "description": "DATA batchlog.error_log inside error_handler: LENGTH for batch_id $30, step_name $50, severity $10, error_code 8, error_msg $500; assigns batch_id, step_name, severity from macro parameters, error_code=&syserr, error_msg via SYMGET('syserrortext'), datetime() timestamp; CALL SYMPUTX propagating batch_rc=1, last_error_step, last_error_time to global scope ('G')"
+    },
+    {
+      "block_id": 21,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 600,
+      "line_end": 662,
+      "test_coverage_type": "full",
+      "description": "Severity branching inside error_handler: %IF &severity=CRITICAL: FILENAME email_out EMAIL with to=(&email_list) and dynamic subject line, DATA _null_ FILE email_out writing structured alert notification (batch_id, failed step, severity, error code, timestamp), FILENAME CLEAR, sets batch_rc=2; %ELSE %IF &severity=WARNING: %PUT WARNING, PROC SQL INSERT INTO control.batch_warnings with batch_id, step_name, warning_msg, %SYSFUNC(DATETIME); %ELSE (INFO): %PUT NOTE informational event; %MEND error_handler"
+    },
+    {
+      "block_id": 22,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 664,
+      "line_end": 686,
+      "test_coverage_type": "full",
+      "description": "%MACRO finalize_batch(batch_id=, status=) opening: documentation header for batch finalization with optional archiving; %LOCAL end_ts elapsed_sec elapsed_min; %SYSFUNC(DATETIME) for end_ts; %SYSEVALF for elapsed_sec and elapsed_min (ceil); %PUT finalization banner with status, files OK/failed count, elapsed time"
+    },
+    {
+      "block_id": 23,
+      "partition_type": "PROC_SQL",
+      "line_start": 688,
+      "line_end": 701,
+      "test_coverage_type": "full",
+      "description": "PROC SQL inside finalize_batch: UPDATE control.batch_runs SET end_time=&end_ts, status, total_files, files_processed=&files_success, files_failed, rows_in=&total_rows_in, rows_out=&total_rows_out, elapsed_seconds=&elapsed_sec, return_code=&batch_rc WHERE batch_id"
+    },
+    {
+      "block_id": 24,
+      "partition_type": "DATA_STEP",
+      "line_start": 703,
+      "line_end": 732,
+      "test_coverage_type": "full",
+      "description": "DATA batchlog.batch_summary inside finalize_batch: LENGTH for batch_id $30, status $20, detail $500; FORMAT datetime20. for timestamp, batch_start_dt, batch_end_dt; assigns batch_id, status, total_files, files_success, files_failed, total_rows_in/out, batch_start_dt, batch_end_dt, elapsed_min from macro variables; CATX building detail string with Files/OK/Fail/Rows In/Rows Out/Duration breakdown using PUT formatting; datetime() OUTPUT"
+    },
+    {
+      "block_id": 25,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 734,
+      "line_end": 751,
+      "test_coverage_type": "full",
+      "description": "%IF &archive_input=1 inside finalize_batch: DATA _null_ SET control.file_queue WHERE batch_id and status='PROCESSED'; builds archive_path via CATS('/batch/archive/', batch_id, '/', scan(file_path)) and cmd via CATX; CALL SYSTEM to move processed files to archive directory; %MEND finalize_batch"
+    },
+    {
+      "block_id": 26,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 753,
+      "line_end": 761,
+      "test_coverage_type": "structural_only",
+      "description": "Section 3 header comment (Main Program Execution) and %PUT execution banner with BATCH PROCESSING FRAMEWORK title, batch_id, run_date"
+    },
+    {
+      "block_id": 27,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 763,
+      "line_end": 766,
+      "test_coverage_type": "full",
+      "description": "Step 1 comment and %init_batch(batch_id=&batch_id) invocation to initialize the batch run, insert control record, and set global tracking variables"
+    },
+    {
+      "block_id": 28,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 768,
+      "line_end": 789,
+      "test_coverage_type": "full",
+      "description": "%MACRO run_batch_files opening: Step 2 comment; %LOCAL i file_path_i file_type_i n_files; PROC SQL NOPRINT SELECT COUNT(*) into :n_files from control.file_queue WHERE batch_id and status=PENDING; SELECT file_path, file_type INTO :fp1-:fp999, :ft1-:ft999 ORDER BY priority, file_id; %PUT file count"
+    },
+    {
+      "block_id": 29,
+      "partition_type": "LOOP_BLOCK",
+      "line_start": 791,
+      "line_end": 839,
+      "test_coverage_type": "full",
+      "description": "%DO i=1 %TO &n_files loop inside run_batch_files: sets file_path_i=&&fp&i, file_type_i=&&ft&i; %PUT file banner; Step 2a: %process_file(file_path=&file_path_i, file_type=&file_type_i); %IF &batch_rc>=2 abort check with %GOTO batch_abort; Step 2b: %transform_data(input_ds=work._incoming_%EVAL(&i), rules_ds=control.transform_rules); %IF &syserr>4 transformation failure with %error_handler CRITICAL and %GOTO; Step 2c: %load_target(source_ds=work._incoming_%EVAL(&i), target_table=%SCAN, load_type=INCREMENTAL); %IF &syserr>4 load failure check; %batch_abort label; %MEND run_batch_files"
+    },
+    {
+      "block_id": 30,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 841,
+      "line_end": 842,
+      "test_coverage_type": "full",
+      "description": "Invocation of %run_batch_files executing the main batch file processing loop over all pending files"
+    },
+    {
+      "block_id": 31,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 844,
+      "line_end": 861,
+      "test_coverage_type": "full",
+      "description": "%MACRO set_final_status: Step 3 comment; %GLOBAL final_status; %IF &batch_rc>=2 sets final_status=FAILED; %ELSE %IF &files_failed>0 sets final_status=COMPLETED_WITH_ERRORS; %ELSE sets final_status=SUCCESS; %PUT final status; %MEND set_final_status"
+    },
+    {
+      "block_id": 32,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 863,
+      "line_end": 863,
+      "test_coverage_type": "full",
+      "description": "Invocation of %set_final_status determining final batch outcome based on batch_rc and files_failed counts"
+    },
+    {
+      "block_id": 33,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 865,
+      "line_end": 868,
+      "test_coverage_type": "full",
+      "description": "Step 4 comment and %finalize_batch(batch_id=&batch_id, status=&final_status) invocation to update control table, generate batch summary, and archive processed files"
+    },
+    {
+      "block_id": 34,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 870,
+      "line_end": 889,
+      "test_coverage_type": "full",
+      "description": "Step 5: TITLE1/TITLE2 with batch ID and date; PROC PRINT data=batchlog.batch_summary NOOBS LABEL; VAR batch_id status total_files files_success files_failed total_rows_in total_rows_out elapsed_min; LABEL statements for Batch ID, Status, Total Files, Successful, Failed, Rows Ingested, Rows Loaded, Duration (min); TITLE reset"
+    },
+    {
+      "block_id": 35,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 891,
+      "line_end": 906,
+      "test_coverage_type": "full",
+      "description": "Step 6: %IF &files_failed>0 OR &batch_rc>0: TITLE1/TITLE2 for error summary; PROC PRINT data=batchlog.error_log NOOBS WHERE batch_id=&batch_id; VAR step_name severity error_code error_msg timestamp; TITLE reset; %END"
+    },
+    {
+      "block_id": 36,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 908,
+      "line_end": 913,
+      "test_coverage_type": "structural_only",
+      "description": "Step 7: PROC DATASETS lib=work NOLIST NOWARN; DELETE _incoming_: _dupes_: temporary work datasets; QUIT"
+    },
+    {
+      "block_id": 37,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 915,
+      "line_end": 925,
+      "test_coverage_type": "structural_only",
+      "description": "OPTIONS NOMPRINT NOMLOGIC NOSYMBOLGEN reset to defaults; final %PUT completion banner with batch_id, final_status, files_success/total_files, files_failed, total_rows_in, total_rows_out"
+    }
+  ],
+  "total_blocks": 37,
+  "data_lineage": [
+    {
+      "source_datasets": ["control.file_queue"],
+      "target_datasets": ["control.batch_runs", "batchlog.init_log"],
+      "block_id": 3
+    },
+    {
+      "source_datasets": ["indata.*"],
+      "target_datasets": ["work._incoming_*"],
+      "block_id": 5
+    },
+    {
+      "source_datasets": ["work._incoming_*"],
+      "target_datasets": ["work._incoming_*_dedup", "work._dupes_*"],
+      "block_id": 6
+    },
+    {
+      "source_datasets": ["control.file_queue"],
+      "target_datasets": ["control.file_queue"],
+      "block_id": 7
+    },
+    {
+      "source_datasets": ["control.transform_rules", "work._incoming_*"],
+      "target_datasets": ["work._incoming_*"],
+      "block_id": 11
+    },
+    {
+      "source_datasets": ["work._incoming_*"],
+      "target_datasets": ["outdata.*"],
+      "block_id": 15
+    },
+    {
+      "source_datasets": ["control.batch_runs"],
+      "target_datasets": ["control.batch_runs"],
+      "block_id": 23
+    },
+    {
+      "source_datasets": ["batchlog.batch_summary"],
+      "target_datasets": [],
+      "block_id": 34
+    },
+    {
+      "source_datasets": ["batchlog.error_log"],
+      "target_datasets": [],
+      "block_id": 35
+    }
+  ],
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

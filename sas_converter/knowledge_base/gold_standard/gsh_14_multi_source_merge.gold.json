@@ -1,0 +1,442 @@
+{
+  "file_path": "gsh_14_multi_source_merge.sas",
+  "tier": "hard",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 1,
+      "line_end": 69,
+      "test_coverage_type": "structural_only",
+      "description": "Program header (multi-source data integration engine v2.0, Data Integration Team — Master Data Management Division, analyst J. Ramirez, change log v1.0-v2.0 by J. Ramirez/A. Chen/M. Okafor), Section 1 header; OPTIONS mprint mlogic symbolgen nocenter ls=200 ps=65 validvarname=v7 nofmterr msglevel=i compress=yes; LIBNAME for crm (/data/sources/crm readonly), erp (/data/sources/erp readonly), web (/data/sources/web_analytics readonly), external (/data/sources/external_feeds readonly), golden (/data/mdm/golden_records); %LET for run_date via %SYSFUNC(TODAY), run_timestamp via %SYSFUNC(DATETIME), analyst_name=J. Ramirez, run_mode=PRODUCTION, batch_id=MDM_timestamp; match thresholds (match_threshold_high=0.85, match_threshold_low=0.65, exact_match_weight=1.0, fuzzy_match_weight=0.8, partial_match_weight=0.5, max_match_candidates=100); field-level weights (wt_name=0.30, wt_address=0.25, wt_phone=0.20, wt_email=0.15, wt_dob=0.10); source_priority=CRM ERP EXTERNAL WEB, n_sources=4; control flags integration_rc=0, sources_loaded=0, matches_done=0, golden_built=0, xref_created=0, report_done=0"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "INCLUDE_REFERENCE",
+      "line_start": 71,
+      "line_end": 72,
+      "test_coverage_type": "structural_only",
+      "description": "%INCLUDE '/data/mdm/shared/matching_utilities.sas' for shared fuzzy matching helper functions"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 74,
+      "line_end": 96,
+      "test_coverage_type": "full",
+      "description": "Section 2 header (Macro Definitions); %MACRO extract_source(source_name=, lib=, table=, key_cols=, standardize=Y) opening: documentation header for extracting records from a source system, standardizing name/address fields, normalizing phone/email via regex, and deduping within source; outputs work.std_<source_name>; %LOCAL n_raw n_deduped rx_phone rx_email; %PUT banner with source_name, lib, table, key_cols, standardize"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "DATA_STEP",
+      "line_start": 98,
+      "line_end": 136,
+      "test_coverage_type": "full",
+      "description": "DATA work.raw_&source_name inside extract_source: SET &lib..&table; Step 1 — name standardization via STRIP(UPCASE(COMPRESS(first_name/last_name, , 'ka'))), std_full_name via CATX; address standardization via STRIP(UPCASE) for address_line1/2, city, state, COMPRESS(zip_code, , 'kd'); phone normalization via PRXPARSE/PRXMATCH/PRXPOSN extracting 10-digit phone; email normalization via PRXPARSE/PRXMATCH extracting valid email pattern then LOWCASE; source_system and extract_date metadata; DROP rx_phone rx_email; RUN"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 138,
+      "line_end": 162,
+      "test_coverage_type": "full",
+      "description": "%IF &standardize = Y %THEN %DO inside extract_source: Step 2 — additional cleaning DATA step; TRANWRD to remove name prefixes/suffixes (JR, SR, III, II); address abbreviation standardization via TRANWRD (STREET→ST, AVENUE→AVE, BOULEVARD→BLVD, DRIVE→DR, ROAD→RD, SUITE→STE, APARTMENT→APT); TRANSLATE to replace hyphens with spaces in names; COMPRESS(std_full_name, , 'kas'); RUN; %END"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 164,
+      "line_end": 168,
+      "test_coverage_type": "full",
+      "description": "PROC SORT inside extract_source: Step 3 — DATA=work.raw_&source_name OUT=work.std_&source_name NODUPKEY BY &key_cols for deduplication within source; RUN"
+    },
+    {
+      "block_id": 7,
+      "partition_type": "PROC_SQL",
+      "line_start": 170,
+      "line_end": 181,
+      "test_coverage_type": "full",
+      "description": "PROC SQL NOPRINT inside extract_source: SELECT COUNT(*) INTO :n_raw TRIMMED from work.raw_&source_name; SELECT COUNT(*) INTO :n_deduped TRIMMED from work.std_&source_name; QUIT; %PUT extraction complete with raw and deduped counts; %LET sources_loaded=%EVAL increment; %MEND extract_source"
+    },
+    {
+      "block_id": 8,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 184,
+      "line_end": 204,
+      "test_coverage_type": "full",
+      "description": "%MACRO fuzzy_match(ds1=, ds2=, match_cols=, threshold=&match_threshold_high) opening: documentation header for probabilistic matching between two standardized source datasets using Jaro-Winkler similarity approximation, exact key matching, and composite scoring with weighted arrays; outputs work.matches_<pair_label>, work.review_<pair_label>; %LOCAL n_exact n_fuzzy n_review n_total pair_label; %LET pair_label via %SCAN; %PUT banner with ds1, ds2, match_cols, threshold"
+    },
+    {
+      "block_id": 9,
+      "partition_type": "PROC_SQL",
+      "line_start": 206,
+      "line_end": 235,
+      "test_coverage_type": "full",
+      "description": "PROC SQL NOPRINT inside fuzzy_match: Step 1 — exact key matching; CREATE TABLE work.exact_&pair_label with source_1, id_1, name_1, source_2, id_2, name_2, match_score=1.0, match_type='EXACT', score fields zeroed, total_score=1.0 from &ds1 a INNER JOIN &ds2 b ON a.std_phone=b.std_phone AND std_phone NE '' AND a.std_last_name=b.std_last_name ORDER BY customer_id; SELECT COUNT(*) INTO :n_exact TRIMMED; QUIT; %PUT exact matches found"
+    },
+    {
+      "block_id": 10,
+      "partition_type": "DATA_STEP",
+      "line_start": 237,
+      "line_end": 348,
+      "test_coverage_type": "full",
+      "description": "DATA work.fuzzy_candidates_&pair_label inside fuzzy_match: Step 2 — Jaro-Winkler similarity approximation; SET &ds1 with KEEP/RENAME for id_1, name_1, fname_1, lname_1, addr_1, city_1, state_1, zip_1, phone_1, email_1, source_1; hash h2 loaded from &ds2 with DEFINEKEY(_seq2) DEFINEDATA(customer_id, std_full_name, std_first_name, std_last_name, std_address1, std_city, std_state, std_zip, std_phone, std_email, source_system) and hash iterator hi2; ARRAY scores{5} score_name score_addr score_phone score_email score_zip; ARRAY weights{5} _TEMPORARY_ with field-level weights; RETAIN match_pair_seq 0; DO WHILE loop over hash iterator: character-level name overlap approximation (common chars / max length), address exact or substring match (1.0/0.7/0), phone exact match, email exact match (lowcase), zip exact or 3-char prefix match (1.0/0.5/0); composite weighted total_score from all 5 fields; %IF threshold filter: classify FUZZY (>=threshold) or REVIEW (>=low threshold) and OUTPUT; KEEP scoring and match fields; RUN"
+    },
+    {
+      "block_id": 11,
+      "partition_type": "DATA_STEP",
+      "line_start": 350,
+      "line_end": 355,
+      "test_coverage_type": "full",
+      "description": "DATA step inside fuzzy_match: Step 3 — combine exact and fuzzy matches; DATA work.matches_&pair_label(WHERE=(match_type IN ('EXACT' 'FUZZY'))) work.review_&pair_label(WHERE=(match_type='REVIEW')); SET work.exact_&pair_label work.fuzzy_candidates_&pair_label; RUN"
+    },
+    {
+      "block_id": 12,
+      "partition_type": "PROC_SQL",
+      "line_start": 357,
+      "line_end": 370,
+      "test_coverage_type": "full",
+      "description": "PROC SQL NOPRINT inside fuzzy_match: SELECT COUNT(*) INTO :n_fuzzy TRIMMED from work.matches_&pair_label WHERE match_type='FUZZY'; SELECT COUNT(*) INTO :n_review TRIMMED from work.review_&pair_label; QUIT; %LET n_total=%EVAL(n_exact + n_fuzzy); %PUT match summary with exact, fuzzy, total, review counts; %LET matches_done increment; %MEND fuzzy_match"
+    },
+    {
+      "block_id": 13,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 373,
+      "line_end": 391,
+      "test_coverage_type": "full",
+      "description": "%MACRO build_golden_record(matched_ds=, survivorship_rules=SOURCE_PRIORITY) opening: documentation header for creating master golden record by applying survivorship rules (MOST_RECENT / MOST_COMPLETE / SOURCE_PRIORITY) to matched record clusters; outputs work.golden_master, golden.golden_records; %LOCAL n_clusters n_golden i field_group; %PUT banner with matched_ds, survivorship_rules, source_priority"
+    },
+    {
+      "block_id": 14,
+      "partition_type": "PROC_SQL",
+      "line_start": 393,
+      "line_end": 409,
+      "test_coverage_type": "full",
+      "description": "PROC SQL NOPRINT inside build_golden_record: Step 1 — CREATE TABLE work.match_clusters with monotonic() AS cluster_id, id_1, source_1, name_1, id_2, source_2, name_2, total_score AS match_score, match_type from &matched_ds ORDER BY id_1, match_score DESC; SELECT COUNT(DISTINCT cluster_id) INTO :n_clusters TRIMMED; QUIT; %PUT cluster count"
+    },
+    {
+      "block_id": 15,
+      "partition_type": "DATA_STEP",
+      "line_start": 411,
+      "line_end": 441,
+      "test_coverage_type": "full",
+      "description": "DATA work.golden_candidates inside build_golden_record (opening): Step 2 — SET work.match_clusters BY cluster_id; LENGTH golden_id $20 winning_source $20 golden_name $80 golden_address $100 golden_city $50 golden_state $2 golden_zip $10 golden_phone $10 golden_email $80 golden_dob 8 survivorship_method $20; RETAIN golden_id golden_name golden_address golden_city golden_state golden_zip golden_phone golden_email golden_dob winning_source completeness_score; FORMAT golden_dob yymmdd10.; IF first.cluster_id THEN DO: golden_id via CATS/PUT(cluster_id, z8.), initialize golden_name=name_1, winning_source=source_1, all other golden fields to blank/zero; END"
+    },
+    {
+      "block_id": 16,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 442,
+      "line_end": 449,
+      "test_coverage_type": "full",
+      "description": "%IF &survivorship_rules = MOST_RECENT %THEN %DO inside build_golden_record DATA step: survivorship_method='MOST_RECENT'; address field: take most recently updated source record; IF source_2 IN ('CRM' 'ERP') AND golden_address='' THEN winning_source=source_2; %END"
+    },
+    {
+      "block_id": 17,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 451,
+      "line_end": 457,
+      "test_coverage_type": "full",
+      "description": "%IF &survivorship_rules = MOST_COMPLETE %THEN %DO inside build_golden_record DATA step: survivorship_method='MOST_COMPLETE'; completeness_score = count of non-missing golden fields (golden_name, golden_phone, golden_email, golden_address); pick record with most non-missing fields; %END"
+    },
+    {
+      "block_id": 18,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 459,
+      "line_end": 504,
+      "test_coverage_type": "full",
+      "description": "%IF &survivorship_rules = SOURCE_PRIORITY %THEN %DO inside build_golden_record DATA step: survivorship_method='SOURCE_PRIORITY'; %DO i=1 %TO &n_sources loop over field groups via %LET field_group=%SCAN(source_priority, i); %IF CRM: contact preference priority — IF source_1/source_2='CRM' THEN winning_source=CRM; %IF ERP: billing address priority — golden_address gap-fill from ERP; %IF EXTERNAL: demographic data enrichment — golden_dob gap-fill from EXTERNAL; %IF WEB: lowest priority email gap-fill — golden_email from WEB; %END loop; %END SOURCE_PRIORITY; IF last.cluster_id THEN OUTPUT; RUN"
+    },
+    {
+      "block_id": 19,
+      "partition_type": "PROC_SQL",
+      "line_start": 506,
+      "line_end": 529,
+      "test_coverage_type": "full",
+      "description": "PROC SQL NOPRINT inside build_golden_record: Step 3 — final deduplication; CREATE TABLE work.golden_master SELECT DISTINCT golden_id, golden_name, golden_address, golden_city, golden_state, golden_zip, golden_phone, golden_email, winning_source, survivorship_method, created_date=run_date, batch_id, created_by=analyst_name from work.golden_candidates WHERE golden_id NE '' ORDER BY golden_id; SELECT COUNT(*) INTO :n_golden TRIMMED; QUIT"
+    },
+    {
+      "block_id": 20,
+      "partition_type": "DATA_STEP",
+      "line_start": 531,
+      "line_end": 539,
+      "test_coverage_type": "full",
+      "description": "DATA golden.golden_records inside build_golden_record: Step 4 — SET work.golden_master to write permanent golden records; RUN; %PUT golden record build complete with cluster and golden counts; %LET golden_built=1; %MEND build_golden_record"
+    },
+    {
+      "block_id": 21,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 542,
+      "line_end": 554,
+      "test_coverage_type": "full",
+      "description": "%MACRO cross_reference_table opening: documentation header for building cross-reference (XREF) table mapping source system IDs to golden record IDs for bidirectional lookup; outputs golden.xref_source_golden; %LOCAL n_xref; %PUT banner"
+    },
+    {
+      "block_id": 22,
+      "partition_type": "PROC_SQL",
+      "line_start": 556,
+      "line_end": 575,
+      "test_coverage_type": "full",
+      "description": "PROC SQL NOPRINT inside cross_reference_table: Step 1 — CREATE TABLE work.xref_raw via UNION of two SELECT DISTINCT queries: first SELECT golden_id, b.id_1 AS source_id, b.source_1 AS source_system from work.golden_candidates a INNER JOIN work.match_clusters b ON a.cluster_id=b.cluster_id; UNION second SELECT golden_id, b.id_2, b.source_2; ORDER BY golden_id, source_system, source_id; QUIT"
+    },
+    {
+      "block_id": 23,
+      "partition_type": "DATA_STEP",
+      "line_start": 577,
+      "line_end": 596,
+      "test_coverage_type": "full",
+      "description": "DATA golden.xref_source_golden inside cross_reference_table: Step 2 — SET work.xref_raw BY golden_id source_system; RETAIN global_xref_seq 0; global_xref_seq+1; xref_id via CATS('XREF_', PUT(global_xref_seq, z8.)); xref_date=TODAY() format yymmdd10.; LABEL for golden_id, source_id, source_system, xref_id, xref_date; RUN"
+    },
+    {
+      "block_id": 24,
+      "partition_type": "PROC_SQL",
+      "line_start": 598,
+      "line_end": 605,
+      "test_coverage_type": "full",
+      "description": "PROC SQL NOPRINT inside cross_reference_table: SELECT COUNT(*) INTO :n_xref TRIMMED from golden.xref_source_golden; QUIT; %PUT cross-reference count; %LET xref_created=1; %MEND cross_reference_table"
+    },
+    {
+      "block_id": 25,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 608,
+      "line_end": 621,
+      "test_coverage_type": "full",
+      "description": "%MACRO quality_report opening: documentation header for measuring integration quality — match rates per source pair, match type distributions, average match scores, unmatched record analysis, and summary statistics; outputs work.quality_summary, ODS report; %LOCAL n_unmatched total_records overall_match_rate; %PUT banner with run_date and batch_id"
+    },
+    {
+      "block_id": 26,
+      "partition_type": "PROC_SQL",
+      "line_start": 623,
+      "line_end": 639,
+      "test_coverage_type": "full",
+      "description": "PROC SQL NOPRINT inside quality_report: Step 1 — CREATE TABLE work.match_rates with source_1, source_2, COUNT(*) as total_pairs, SUM(CASE EXACT/FUZZY/REVIEW) as exact_matches/fuzzy_matches/review_needed, AVG(total_score) as avg_match_score, MIN/MAX(total_score) from work.all_matches GROUP BY source_1, source_2 ORDER BY source_1, source_2; QUIT"
+    },
+    {
+      "block_id": 27,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 641,
+      "line_end": 645,
+      "test_coverage_type": "full",
+      "description": "PROC FREQ inside quality_report: Step 2 — match type distribution; DATA=work.all_matches NOPRINT; TABLES match_type / OUT=work.match_type_dist; TABLES source_1 * match_type / OUT=work.source_match_dist; RUN"
+    },
+    {
+      "block_id": 28,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 647,
+      "line_end": 655,
+      "test_coverage_type": "full",
+      "description": "PROC MEANS inside quality_report: Step 3 — average match scores summary; DATA=work.all_matches NOPRINT N MEAN STD MIN Q1 MEDIAN Q3 MAX; VAR total_score score_name score_addr score_phone score_email score_zip; CLASS match_type; OUTPUT OUT=work.score_stats MEAN= N= STD= MIN= MAX= / AUTONAME; RUN"
+    },
+    {
+      "block_id": 29,
+      "partition_type": "DATA_STEP",
+      "line_start": 657,
+      "line_end": 682,
+      "test_coverage_type": "full",
+      "description": "DATA work.unmatched_records inside quality_report: Step 4 — unmatched record analysis; SET work.std_CRM(IN=a) work.std_ERP(IN=b) work.std_WEB(IN=c) work.std_EXTERNAL(IN=d); IF a THEN source_system='CRM' ELSE IF b 'ERP' ELSE IF c 'WEB' ELSE IF d 'EXTERNAL'; hash h_matched loaded from work.all_match_ids with DEFINEKEY(matched_id); matched_id=customer_id; rc=h_matched.find(); IF rc NE 0 THEN OUTPUT; DROP rc matched_id; RUN"
+    },
+    {
+      "block_id": 30,
+      "partition_type": "PROC_SQL",
+      "line_start": 684,
+      "line_end": 695,
+      "test_coverage_type": "full",
+      "description": "PROC SQL NOPRINT inside quality_report: SELECT COUNT(*) INTO :n_unmatched TRIMMED from work.unmatched_records; SELECT COUNT(*) INTO :total_records TRIMMED from UNION of id_1 and id_2 from work.all_matches; QUIT; %LET overall_match_rate=%SYSEVALF(total_records / (total_records + n_unmatched) * 100)"
+    },
+    {
+      "block_id": 31,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 697,
+      "line_end": 731,
+      "test_coverage_type": "full",
+      "description": "PROC REPORT inside quality_report: Step 5 — summary report; TITLE1 'Multi-Source Data Integration — Quality Report'; TITLE2 with run_date, batch_id, analyst_name; PROC REPORT DATA=work.match_rates NOWD STYLE(header)=[backgroundcolor=steelblue foreground=white font_weight=bold]; COLUMNS source_1 source_2 total_pairs exact_matches fuzzy_matches review_needed avg_match_score; DEFINE GROUP/SUM/MEAN with formats comma12./8.4; RBREAK AFTER/SUMMARIZE with lightyellow style; COMPUTE AFTER: LINE for overall_match_rate, n_unmatched, golden records reference; ENDCOMP; RUN; TITLE; %PUT quality report metrics; %LET report_done=1; %MEND quality_report"
+    },
+    {
+      "block_id": 32,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 734,
+      "line_end": 742,
+      "test_coverage_type": "structural_only",
+      "description": "Section 3 header (Main Program Execution) and %PUT execution banner with MULTI-SOURCE DATA INTEGRATION ENGINE v2.0 title, run_date, run_mode, analyst_name, batch_id"
+    },
+    {
+      "block_id": 33,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 744,
+      "line_end": 767,
+      "test_coverage_type": "full",
+      "description": "Step 1: Four %extract_source invocations for all source systems — %extract_source(source_name=CRM, lib=crm, table=customers, key_cols=customer_id, standardize=Y); %extract_source(source_name=ERP, lib=erp, table=business_partners, key_cols=partner_id, standardize=Y); %extract_source(source_name=WEB, lib=web, table=registered_users, key_cols=user_id, standardize=Y); %extract_source(source_name=EXTERNAL, lib=external, table=dnb_records, key_cols=duns_number, standardize=N)"
+    },
+    {
+      "block_id": 34,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 769,
+      "line_end": 792,
+      "test_coverage_type": "full",
+      "description": "Step 2: Six %fuzzy_match invocations for all C(4,2)=6 source pair combinations — %fuzzy_match(ds1=work.std_CRM, ds2=work.std_ERP, match_cols=std_full_name std_phone std_email); %fuzzy_match(ds1=work.std_CRM, ds2=work.std_WEB, match_cols=std_full_name std_email); %fuzzy_match(ds1=work.std_CRM, ds2=work.std_EXTERNAL, match_cols=std_full_name std_address1 std_zip); %fuzzy_match(ds1=work.std_ERP, ds2=work.std_WEB, match_cols=std_full_name std_email std_phone); %fuzzy_match(ds1=work.std_ERP, ds2=work.std_EXTERNAL, match_cols=std_full_name std_address1); %fuzzy_match(ds1=work.std_WEB, ds2=work.std_EXTERNAL, match_cols=std_full_name std_email); all with threshold=&match_threshold_high"
+    },
+    {
+      "block_id": 35,
+      "partition_type": "DATA_STEP",
+      "line_start": 794,
+      "line_end": 802,
+      "test_coverage_type": "full",
+      "description": "Step 3: DATA work.all_matches — consolidate all match results; SET work.matches_std_CRM_std_ERP work.matches_std_CRM_std_WEB work.matches_std_CRM_std_EXTERNAL work.matches_std_ERP_std_WEB work.matches_std_ERP_std_EXTERNAL work.matches_std_WEB_std_EXTERNAL; RUN"
+    },
+    {
+      "block_id": 36,
+      "partition_type": "PROC_SQL",
+      "line_start": 804,
+      "line_end": 810,
+      "test_coverage_type": "full",
+      "description": "PROC SQL NOPRINT: CREATE TABLE work.all_match_ids — lookup of all matched IDs for unmatched analysis; SELECT DISTINCT id_1 AS matched_id FROM work.all_matches UNION SELECT DISTINCT id_2 AS matched_id; QUIT"
+    },
+    {
+      "block_id": 37,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 812,
+      "line_end": 814,
+      "test_coverage_type": "full",
+      "description": "Step 4: %build_golden_record(matched_ds=work.all_matches, survivorship_rules=SOURCE_PRIORITY) invocation to create master golden records with source-priority survivorship"
+    },
+    {
+      "block_id": 38,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 816,
+      "line_end": 817,
+      "test_coverage_type": "full",
+      "description": "Step 5: %cross_reference_table invocation to build source-to-golden ID cross-reference mapping"
+    },
+    {
+      "block_id": 39,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 819,
+      "line_end": 820,
+      "test_coverage_type": "full",
+      "description": "Step 6: %quality_report invocation to generate integration quality metrics and PROC REPORT summary"
+    },
+    {
+      "block_id": 40,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 822,
+      "line_end": 833,
+      "test_coverage_type": "full",
+      "description": "Step 7: Error handling — %IF &integration_rc NE 0 %THEN %DO: %PUT ERROR messages for integration failure with RC; %END; %ELSE %DO: %PUT NOTE integration completed successfully (RC=0); %END"
+    },
+    {
+      "block_id": 41,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 835,
+      "line_end": 841,
+      "test_coverage_type": "structural_only",
+      "description": "Cleanup: PROC DATASETS LIB=work NOLIST NOWARN; DELETE raw_: fuzzy_candidates_: exact_: match_clusters xref_raw all_match_ids all_matches unmatched_records match_rates score_stats match_type_dist source_match_dist; QUIT"
+    },
+    {
+      "block_id": 42,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 843,
+      "line_end": 852,
+      "test_coverage_type": "structural_only",
+      "description": "OPTIONS NOMPRINT NOMLOGIC NOSYMBOLGEN reset to defaults; final %PUT completion banner with MULTI-SOURCE INTEGRATION COMPLETE, sources_loaded, matches_done, golden_built, xref_created, report_done, integration_rc"
+    }
+  ],
+  "total_blocks": 42,
+  "data_lineage": [
+    {
+      "source_datasets": ["&lib..&table"],
+      "target_datasets": ["work.raw_&source_name"],
+      "block_id": 4
+    },
+    {
+      "source_datasets": ["work.raw_&source_name"],
+      "target_datasets": ["work.raw_&source_name"],
+      "block_id": 5
+    },
+    {
+      "source_datasets": ["work.raw_&source_name"],
+      "target_datasets": ["work.std_&source_name"],
+      "block_id": 6
+    },
+    {
+      "source_datasets": ["&ds1", "&ds2"],
+      "target_datasets": ["work.exact_&pair_label"],
+      "block_id": 9
+    },
+    {
+      "source_datasets": ["&ds1", "&ds2"],
+      "target_datasets": ["work.fuzzy_candidates_&pair_label"],
+      "block_id": 10
+    },
+    {
+      "source_datasets": ["work.exact_&pair_label", "work.fuzzy_candidates_&pair_label"],
+      "target_datasets": ["work.matches_&pair_label", "work.review_&pair_label"],
+      "block_id": 11
+    },
+    {
+      "source_datasets": ["&matched_ds"],
+      "target_datasets": ["work.match_clusters"],
+      "block_id": 14
+    },
+    {
+      "source_datasets": ["work.match_clusters"],
+      "target_datasets": ["work.golden_candidates"],
+      "block_id": 15
+    },
+    {
+      "source_datasets": ["work.golden_candidates"],
+      "target_datasets": ["work.golden_master"],
+      "block_id": 19
+    },
+    {
+      "source_datasets": ["work.golden_master"],
+      "target_datasets": ["golden.golden_records"],
+      "block_id": 20
+    },
+    {
+      "source_datasets": ["work.golden_candidates", "work.match_clusters"],
+      "target_datasets": ["work.xref_raw"],
+      "block_id": 22
+    },
+    {
+      "source_datasets": ["work.xref_raw"],
+      "target_datasets": ["golden.xref_source_golden"],
+      "block_id": 23
+    },
+    {
+      "source_datasets": ["work.all_matches"],
+      "target_datasets": ["work.match_rates"],
+      "block_id": 26
+    },
+    {
+      "source_datasets": ["work.all_matches"],
+      "target_datasets": ["work.match_type_dist", "work.source_match_dist"],
+      "block_id": 27
+    },
+    {
+      "source_datasets": ["work.all_matches"],
+      "target_datasets": ["work.score_stats"],
+      "block_id": 28
+    },
+    {
+      "source_datasets": ["work.std_CRM", "work.std_ERP", "work.std_WEB", "work.std_EXTERNAL", "work.all_match_ids"],
+      "target_datasets": ["work.unmatched_records"],
+      "block_id": 29
+    },
+    {
+      "source_datasets": ["work.match_rates"],
+      "target_datasets": [],
+      "block_id": 31
+    },
+    {
+      "source_datasets": ["work.matches_std_CRM_std_ERP", "work.matches_std_CRM_std_WEB", "work.matches_std_CRM_std_EXTERNAL", "work.matches_std_ERP_std_WEB", "work.matches_std_ERP_std_EXTERNAL", "work.matches_std_WEB_std_EXTERNAL"],
+      "target_datasets": ["work.all_matches"],
+      "block_id": 35
+    },
+    {
+      "source_datasets": ["work.all_matches"],
+      "target_datasets": ["work.all_match_ids"],
+      "block_id": 36
+    }
+  ],
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}
