@@ -36,5 +36,22 @@
   ],
   "total_blocks": 4,
   "annotator": "manual",
-  "annotation_date": "2026-02-19"
+  "annotation_date": "2026-02-19",
+  "data_lineage": [
+    {
+      "source_datasets": ["raw.insurance_claims"],
+      "target_datasets": ["staging.clean_claims"],
+      "block_id": 2
+    },
+    {
+      "source_datasets": ["staging.clean_claims"],
+      "target_datasets": ["staging.categorized_claims"],
+      "block_id": 3
+    },
+    {
+      "source_datasets": ["staging.categorized_claims"],
+      "target_datasets": ["staging.enriched_claims"],
+      "block_id": 4
+    }
+  ]
 }

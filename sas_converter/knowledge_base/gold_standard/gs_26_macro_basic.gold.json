@@ -28,5 +28,17 @@
   ],
   "total_blocks": 3,
   "annotator": "manual",
-  "annotation_date": "2026-02-19"
+  "annotation_date": "2026-02-19",
+  "data_lineage": [
+    {
+      "source_datasets": ["work.employees"],
+      "target_datasets": ["work._temp_summary"],
+      "block_id": 2
+    },
+    {
+      "source_datasets": ["work.employees"],
+      "target_datasets": ["work._temp_summary"],
+      "block_id": 3
+    }
+  ]
 }

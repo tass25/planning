@@ -20,5 +20,12 @@
   ],
   "total_blocks": 2,
   "annotator": "manual",
-  "annotation_date": "2026-02-19"
+  "annotation_date": "2026-02-19",
+  "data_lineage": [
+    {
+      "source_datasets": ["sashelp.class"],
+      "target_datasets": ["work.employees"],
+      "block_id": 2
+    }
+  ]
 }

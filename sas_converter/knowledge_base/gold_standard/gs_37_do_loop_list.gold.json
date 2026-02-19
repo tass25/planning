@@ -20,5 +20,17 @@
   ],
   "total_blocks": 2,
   "annotator": "manual",
-  "annotation_date": "2026-02-19"
+  "annotation_date": "2026-02-19",
+  "data_lineage": [
+    {
+      "source_datasets": ["work.all_sales"],
+      "target_datasets": ["work.sales_&region", "work.stats_&region"],
+      "block_id": 1
+    },
+    {
+      "source_datasets": ["work.all_sales"],
+      "target_datasets": ["work.sales_&region", "work.stats_&region"],
+      "block_id": 2
+    }
+  ]
 }

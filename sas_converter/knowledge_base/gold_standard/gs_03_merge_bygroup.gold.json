@@ -28,5 +28,22 @@
   ],
   "total_blocks": 3,
   "annotator": "manual",
-  "annotation_date": "2026-02-19"
+  "annotation_date": "2026-02-19",
+  "data_lineage": [
+    {
+      "source_datasets": ["work.orders"],
+      "target_datasets": ["work.orders_sorted"],
+      "block_id": 1
+    },
+    {
+      "source_datasets": ["work.customers"],
+      "target_datasets": ["work.customers_sorted"],
+      "block_id": 2
+    },
+    {
+      "source_datasets": ["work.customers_sorted", "work.orders_sorted"],
+      "target_datasets": ["work.customer_orders"],
+      "block_id": 3
+    }
+  ]
 }

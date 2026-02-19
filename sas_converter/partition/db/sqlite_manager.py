@@ -52,6 +52,27 @@ class CrossFileDependencyRow(Base):
     target_path = Column(String, nullable=True)         # resolved absolute path
 
 
+class DataLineageRow(Base):
+    """Stores one row per dataset-level data-flow edge.
+
+    lineage_type values:
+        TABLE_READ  — block reads from source_dataset (SET, MERGE, FROM)
+        TABLE_WRITE — block writes to target_dataset  (DATA, CREATE TABLE, INSERT INTO)
+    """
+    __tablename__ = "data_lineage"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    source_file_id = Column(String, ForeignKey("file_registry.file_id"), nullable=False)
+    lineage_type = Column(String, nullable=False)       # TABLE_READ | TABLE_WRITE
+    source_dataset = Column(String, nullable=True)      # e.g. 'staging.clean'
+    target_dataset = Column(String, nullable=True)      # e.g. 'tgt.summary'
+    source_columns = Column(Text, nullable=True)        # JSON list: ["unit_price", "qty"]
+    target_column = Column(String, nullable=True)       # e.g. 'revenue'
+    transform_expr = Column(String, nullable=True)      # e.g. 'SUM(unit_price * quantity)'
+    block_line_start = Column(Integer, nullable=True)   # line in source file
+    block_line_end = Column(Integer, nullable=True)
+
+
 # ── Engine / Session helpers ──────────────────────────────────────────────────
 
 def get_engine(db_path: str = "file_registry.db"):

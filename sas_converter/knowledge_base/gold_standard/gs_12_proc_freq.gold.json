@@ -12,5 +12,12 @@
   ],
   "total_blocks": 1,
   "annotator": "manual",
-  "annotation_date": "2026-02-19"
+  "annotation_date": "2026-02-19",
+  "data_lineage": [
+    {
+      "source_datasets": ["work.patient_visits"],
+      "target_datasets": ["work.visit_counts"],
+      "block_id": 1
+    }
+  ]
 }

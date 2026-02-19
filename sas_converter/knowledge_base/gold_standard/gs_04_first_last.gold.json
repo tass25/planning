@@ -20,5 +20,17 @@
   ],
   "total_blocks": 2,
   "annotator": "manual",
-  "annotation_date": "2026-02-19"
+  "annotation_date": "2026-02-19",
+  "data_lineage": [
+    {
+      "source_datasets": ["work.transactions"],
+      "target_datasets": ["work.transactions"],
+      "block_id": 1
+    },
+    {
+      "source_datasets": ["work.transactions"],
+      "target_datasets": ["work.account_summary"],
+      "block_id": 2
+    }
+  ]
 }
