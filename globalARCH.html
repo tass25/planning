@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAS → Python / PySpark · Global Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f0e8;
+    --bg2: #ede8df;
+    --text: #1e1e2e;
+    --muted: #6b6b7b;
+    --blue-bg: #dbeafe;
+    --blue-border: #93c5fd;
+    --blue-label: #2563eb;
+    --yellow-bg: #fef9c3;
+    --yellow-border: #fcd34d;
+    --yellow-label: #a16207;
+    --green-bg: #d1fae5;
+    --green-border: #6ee7b7;
+    --green-label: #047857;
+    --pink-bg: #fce7f3;
+    --pink-border: #f9a8d4;
+    --pink-label: #be185d;
+    --mint-bg: #ccfbf1;
+    --mint-border: #5eead4;
+    --mint-label: #0d9488;
+    --purple-bg: #ede9fe;
+    --purple-border: #a78bfa;
+    --purple-label: #6d28d9;
+    --orange-bg: #ffedd5;
+    --orange-border: #fdba74;
+    --orange-label: #c2410c;
+    --red-bg: #fee2e2;
+    --red-border: #fca5a5;
+    --red-label: #b91c1c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, sans-serif;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    text-align: center;
+    padding: 48px 40px 12px;
+  }
+  .header-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .header h1 {
+    font-size: clamp(22px, 3.2vw, 36px);
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  /* ── CANVAS ── */
+  .canvas {
+    position: relative;
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 20px 40px 60px;
+  }
+
+  /* ── BADGES ── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 6px 18px;
+    border-radius: 20px;
+  }
+  .badge::before, .badge::after {
+    content: '';
+    width: 7px; height: 7px;
+    border-radius: 50%;
+  }
+  .badge-green {
+    background: rgba(4, 120, 87, 0.08);
+    color: var(--green-label);
+    border: 1.5px solid var(--green-border);
+  }
+  .badge-green::before, .badge-green::after { background: var(--green-label); }
+  .badge-purple {
+    background: rgba(109, 40, 217, 0.06);
+    color: var(--purple-label);
+    border: 1.5px solid var(--purple-border);
+  }
+  .badge-purple::before, .badge-purple::after { background: var(--purple-label); }
+  .badge-orange {
+    background: rgba(194, 65, 12, 0.06);
+    color: var(--orange-label);
+    border: 1.5px solid var(--orange-border);
+  }
+  .badge-orange::before, .badge-orange::after { background: var(--orange-label); }
+  .badge-red {
+    background: rgba(185, 28, 28, 0.06);
+    color: var(--red-label);
+    border: 1.5px solid var(--red-border);
+  }
+  .badge-red::before, .badge-red::after { background: var(--red-label); }
+
+  /* ── BOXES ── */
+  .box {
+    border-radius: 12px;
+    padding: 18px 20px;
+    position: relative;
+  }
+  .box .layer-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .box .title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .box .desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .box .desc li {
+    list-style: none;
+    padding-left: 12px;
+    position: relative;
+  }
+  .box .desc li::before {
+    content: '·';
+    position: absolute;
+    left: 0;
+    font-weight: 700;
+  }
+
+  /* Box color variants */
+  .box-blue    { background: var(--blue-bg);   border: 1.5px solid var(--blue-border); }
+  .box-blue .layer-tag { color: var(--blue-label); }
+  .box-yellow  { background: var(--yellow-bg); border: 1.5px solid var(--yellow-border); }
+  .box-yellow .layer-tag { color: var(--yellow-label); }
+  .box-green   { background: var(--green-bg);  border: 1.5px solid var(--green-border); }
+  .box-green .layer-tag { color: var(--green-label); }
+  .box-pink    { background: var(--pink-bg);   border: 1.5px solid var(--pink-border); }
+  .box-pink .layer-tag { color: var(--pink-label); }
+  .box-mint    { background: var(--mint-bg);   border: 1.5px solid var(--mint-border); }
+  .box-mint .layer-tag { color: var(--mint-label); }
+  .box-purple  { background: var(--purple-bg); border: 1.5px solid var(--purple-border); }
+  .box-purple .layer-tag { color: var(--purple-label); }
+  .box-orange  { background: var(--orange-bg); border: 1.5px solid var(--orange-border); }
+  .box-orange .layer-tag { color: var(--orange-label); }
+  .box-red     { background: var(--red-bg);    border: 1.5px solid var(--red-border); }
+  .box-red .layer-tag { color: var(--red-label); }
+
+  /* ── CONTAINER BOXES (groups) ── */
+  .container-box {
+    border-radius: 16px;
+    padding: 20px;
+    position: relative;
+  }
+  .container-box > .badge {
+    position: absolute;
+    top: -14px;
+    left: 20px;
+    z-index: 2;
+  }
+
+  .container-green  { background: rgba(209, 250, 229, 0.5); border: 2px dashed var(--green-border); }
+  .container-purple { background: rgba(237, 233, 254, 0.5); border: 2px dashed var(--purple-border); }
+  .container-orange { background: rgba(255, 237, 213, 0.5); border: 2px dashed var(--orange-border); }
+  .container-red    { background: rgba(254, 226, 226, 0.4); border: 2px dashed var(--red-border); }
+
+  /* ── ARROWS ── */
+  .arrow-h {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    position: relative;
+  }
+  .arrow-h::before {
+    content: '';
+    height: 2px;
+    flex: 1;
+    background: #94a3b8;
+  }
+  .arrow-h::after {
+    content: '';
+    width: 0; height: 0;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    border-left: 10px solid #94a3b8;
+    flex-shrink: 0;
+  }
+  .arrow-h .arrow-label {
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+  }
+
+  .arrow-v {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    position: relative;
+  }
+  .arrow-v::before {
+    content: '';
+    width: 2px;
+    flex: 1;
+    background: #94a3b8;
+  }
+  .arrow-v::after {
+    content: '';
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 10px solid #94a3b8;
+    flex-shrink: 0;
+  }
+  .arrow-v .arrow-label {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* ── LAYOUT: MAIN FLOW ── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 150px 44px 190px 44px 1fr 44px 210px;
+    grid-template-rows: auto;
+    align-items: start;
+    gap: 0;
+  }
+
+  /* Row 1: Persistence badge */
+  .persist-row {
+    grid-column: 3 / 8;
+    grid-row: 1;
+    display: flex;
+    justify-content: center;
+    padding-bottom: 24px;
+  }
+
+  /* Row 2: Main horizontal flow */
+  .cell-input    { grid-column: 1; grid-row: 2; align-self: center; }
+  .cell-arr1     { grid-column: 2; grid-row: 2; align-self: center; }
+  .cell-entry    { grid-column: 3; grid-row: 2; align-self: start; }
+  .cell-arr2     { grid-column: 4; grid-row: 2; align-self: center; }
+  .cell-stream   { grid-column: 5; grid-row: 2 / 4; }
+  .cell-arr3     { grid-column: 6; grid-row: 2; align-self: center; padding-top: 10px; }
+  .cell-right    { grid-column: 7; grid-row: 2 / 7; }
+
+  /* Row 3-4: Control & Strategy under streaming */
+  .cell-control  { grid-column: 4 / 7; grid-row: 4; margin-top: 16px; }
+
+  /* Row 5: empty spacer */
+  /* Row 6-9: Bottom L3/L4/Output/CL */
+  .cell-l3       { grid-column: 1 / 8; grid-row: 6; margin-top: 20px; }
+  .cell-l4       { grid-column: 1 / 8; grid-row: 8; }
+  .cell-output   { grid-column: 1 / 8; grid-row: 10; }
+  .cell-cl       { grid-column: 1 / 8; grid-row: 12; }
+
+  .cell-arr-down { grid-row: auto; grid-column: 1 / 8; display: flex; justify-content: center; }
+
+  /* ── STREAMING INTERNALS ── */
+  .stream-inner {
+    display: flex;
+    gap: 14px;
+    padding-top: 14px;
+  }
+  .stream-inner .box {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* ── RIGHT COLUMN (RAPTOR stack) ── */
+  .right-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* ── BOTTOM SECTION ── */
+  .bottom-section {
+    max-width: 820px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .bottom-section .box,
+  .bottom-section .container-box {
+    width: 100%;
+  }
+
+  /* ── FEEDBACK LOOP ARROW ── */
+  .loop-arrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+  .loop-line {
+    flex: 1;
+    height: 2px;
+    background: repeating-linear-gradient(90deg, #94a3b8 0 8px, transparent 8px 14px);
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    text-align: center;
+    padding: 40px 20px 32px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 1100px) {
+    .main-grid {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+    .cell-input, .cell-entry, .cell-stream, .cell-right,
+    .cell-control, .cell-arr1, .cell-arr2, .cell-arr3 {
+      grid-column: 1; grid-row: auto;
+    }
+    .cell-arr1, .cell-arr2, .cell-arr3 { display: none; }
+    .persist-row { grid-column: 1; }
+    .cell-stream { grid-row: auto; }
+    .cell-right { grid-row: auto; }
+    .cell-control { grid-column: 1; }
+    .cell-l3, .cell-l4, .cell-output, .cell-cl { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════ HEADER ════════ -->
+<div class="header">
+  <div class="header-tag">Architecture V2 &middot; Spec V4.1</div>
+  <h1>SAS &rarr; Python / PySpark &middot; Global Architecture</h1>
+</div>
+
+<!-- ════════ MAIN CANVAS ════════ -->
+<div class="canvas">
+<div class="main-grid">
+
+  <!-- ── Persistence Badge ── -->
+  <div class="persist-row">
+    <div class="badge badge-green">Persistence Layer &middot; Durable State &amp; Recovery</div>
+  </div>
+
+  <!-- ── INPUT ── -->
+  <div class="cell-input">
+    <div class="box box-blue">
+      <div class="layer-tag">Input</div>
+      <div class="title">Project Entry</div>
+      <ul class="desc">
+        <li>Project upload</li>
+        <li>Receive source analysis</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="cell-arr1"><div class="arrow-h"></div></div>
+
+  <!-- ── L2-A ENTRY ── -->
+  <div class="cell-entry">
+    <div class="box box-yellow">
+      <div class="layer-tag">L2-A &middot; Entry</div>
+      <div class="title">File Registry</div>
+      <ul class="desc">
+        <li>Persist file list &amp; hierarchy</li>
+        <li>Cross-file deps</li>
+        <li>Data lineage extraction</li>
+        <li>SHA-256 dedup</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="cell-arr2"><div class="arrow-h"></div></div>
+
+  <!-- ── STREAMING CORE ── -->
+  <div class="cell-stream">
+    <div class="container-box container-green">
+      <div class="badge badge-green" style="top:-14px; left:50%; transform:translateX(-50%);">Streaming Core &middot; Real-Time Code Analysis</div>
+      <div class="stream-inner">
+        <div class="box box-yellow">
+          <div class="layer-tag">L2-B</div>
+          <div class="title">File Stream Reader</div>
+          <ul class="desc">
+            <li>Stream files line-by-line</li>
+            <li>aiofiles async 8 KB buffer</li>
+          </ul>
+        </div>
+        <div class="box box-yellow">
+          <div class="layer-tag">L2-B</div>
+          <div class="title">Streaming State Manager</div>
+          <ul class="desc">
+            <li>Track parsing state &amp; context</li>
+            <li>FSM nesting tracker</li>
+          </ul>
+        </div>
+        <div class="box box-yellow">
+          <div class="layer-tag">L2-D</div>
+          <div class="title">Complexity Analyzer</div>
+          <ul class="desc">
+            <li>Measure logical &amp; structural complexity</li>
+            <li>radon CC &middot; 5 features</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ARROW → RIGHT COLUMN ── -->
+  <div class="cell-arr3">
+    <div class="arrow-h">
+      <span class="arrow-label">Complexity Metadata</span>
+    </div>
+  </div>
+
+  <!-- ── RIGHT COLUMN: RAPTOR → BUILDER → STORE ── -->
+  <div class="cell-right">
+    <div class="right-stack">
+      <div class="box box-pink">
+        <div class="layer-tag">L2-C &middot; RAPTOR &#9733;</div>
+        <div class="title">Partition Detector</div>
+        <ul class="desc">
+          <li>Detect block boundaries</li>
+          <li>GMM &middot; BIC &middot; &tau;=0.72</li>
+          <li>Lark LALR + LLM 20% fallback</li>
+        </ul>
+      </div>
+      <div class="arrow-v"></div>
+      <div class="box box-pink">
+        <div class="layer-tag">L2-C</div>
+        <div class="title">Partition Builder</div>
+        <ul class="desc">
+          <li>Assemble logical partitions</li>
+          <li>9 canonical types</li>
+        </ul>
+      </div>
+      <div class="arrow-v"></div>
+      <div class="box box-mint">
+        <div class="layer-tag">L2-E</div>
+        <div class="title">Partition &amp; KB Store</div>
+        <ul class="desc">
+          <li>Persist partition representation</li>
+          <li>Index blocks &amp; metadata</li>
+          <li>Kuzu graph &middot; SCC condensation</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CONTROL & STRATEGY ── -->
+  <div class="cell-control">
+    <div class="container-box container-purple">
+      <div class="badge badge-purple">Control &amp; Strategy &middot; Decision Layer</div>
+      <div style="padding-top:10px;">
+        <div class="box box-purple">
+          <div class="layer-tag">L2-D</div>
+          <div class="title">Strategy Selector</div>
+          <ul class="desc">
+            <li>Decide partitioning strategy</li>
+            <li>Risk routing &middot; RAPTOR config</li>
+            <li>Platt calibration &middot; ECE &lt; 0.08</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main-grid -->
+
+<!-- ════════ BOTTOM SECTION: L3 → L4 → OUTPUT → CL ════════ -->
+<div style="display:flex; justify-content:center; margin-top:8px;">
+  <div class="arrow-v" style="min-height:28px;"></div>
+</div>
+
+<div class="bottom-section">
+
+  <!-- ── L3: TRANSLATION & VALIDATION ── -->
+  <div class="container-box container-orange">
+    <div class="badge badge-orange">Layer 3 &middot; Translation &amp; Validation</div>
+    <div style="display:flex; gap:14px; padding-top:14px;">
+      <div class="box box-orange" style="flex:1;">
+        <div class="layer-tag">L3</div>
+        <div class="title">Translation Agent</div>
+        <ul class="desc">
+          <li>SAS &rarr; Python / PySpark</li>
+          <li>Failure-mode KB query (k=5)</li>
+          <li>8B / 70B routing by risk</li>
+          <li>Cross-verify chain</li>
+        </ul>
+      </div>
+      <div class="box box-orange" style="flex:1;">
+        <div class="layer-tag">L3</div>
+        <div class="title">Validation Agent</div>
+        <ul class="desc">
+          <li>exec() on synthetic DataFrame</li>
+          <li>Sandboxed namespace &middot; 5 s timeout</li>
+          <li>Column &amp; date-range checks</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-v" style="min-height:28px;"></div>
+
+  <!-- ── L4: MERGE & REPORT ── -->
+  <div class="container-box container-orange" style="border-color: var(--orange-border);">
+    <div class="badge badge-orange">Layer 4 &middot; Merge &amp; Report</div>
+    <div style="display:flex; gap:14px; padding-top:14px;">
+      <div class="box box-orange" style="flex:1;">
+        <div class="layer-tag">L4</div>
+        <div class="title">Script Merger</div>
+        <ul class="desc">
+          <li>Import consolidation</li>
+          <li>Dependency injection</li>
+          <li>ast.parse() syntax gate</li>
+        </ul>
+      </div>
+      <div class="box box-orange" style="flex:1;">
+        <div class="layer-tag">L4</div>
+        <div class="title">Report Agent</div>
+        <ul class="desc">
+          <li>Markdown / HTML conversion report</li>
+          <li>CodeBLEU + validation results</li>
+          <li>Failure-mode breakdown</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-v" style="min-height:28px;"></div>
+
+  <!-- ── OUTPUT ── -->
+  <div class="box box-blue" style="max-width:400px; text-align:center; align-self:center;">
+    <div class="layer-tag">Output</div>
+    <div class="title">Converted Scripts &amp; Reports</div>
+    <ul class="desc" style="text-align:left;">
+      <li>output/*.py &middot; *_spark.py</li>
+      <li>Conversion reports (MD + HTML)</li>
+      <li>DuckDB audit logs</li>
+    </ul>
+  </div>
+
+  <div class="arrow-v" style="min-height:28px;"></div>
+
+  <!-- ── CONTINUOUS LEARNING ── -->
+  <div class="container-box container-red">
+    <div class="badge badge-red">Continuous Learning &middot; Feedback Loop</div>
+    <div style="display:flex; gap:14px; padding-top:14px;">
+      <div class="box box-red" style="flex:1;">
+        <div class="layer-tag">CL</div>
+        <div class="title">Feedback Ingestion</div>
+        <ul class="desc">
+          <li>CLI + automated corrections</li>
+          <li>Cross-verify &rarr; KB auto-growth</li>
+        </ul>
+      </div>
+      <div class="box box-red" style="flex:1;">
+        <div class="layer-tag">CL</div>
+        <div class="title">Quality Monitor</div>
+        <ul class="desc">
+          <li>success_rate &middot; failure_mode_dist</li>
+          <li>ECE drift &rarr; retrain trigger</li>
+        </ul>
+      </div>
+    </div>
+    <div class="loop-arrow" style="margin-top:14px;">
+      <span>&#8634; Feeds back into KB &amp; Complexity Model</span>
+      <div class="loop-line"></div>
+    </div>
+  </div>
+
+</div><!-- /bottom-section -->
+</div><!-- /canvas -->
+
+<!-- ════════ FOOTER ════════ -->
+<div class="footer">
+  Architecture V2 &middot; Spec V4.1 &middot; 16 Agents &middot; 50 Gold Standard Files &middot; 721 Blocks &middot; 3 Tiers &middot; Feb 2026
+</div>
+
+</body>
+</html>
