@@ -1,0 +1,108 @@
+{
+  "file_path": "gsm_01_financial_summary.sas",
+  "tier": "medium",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 1,
+      "line_end": 16,
+      "test_coverage_type": "structural_only",
+      "description": "Program header comments, OPTIONS for report formatting and compression, LIBNAME definitions for raw, staging, and target finance schemas"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "DATA_STEP",
+      "line_start": 18,
+      "line_end": 55,
+      "test_coverage_type": "full",
+      "description": "DATA step cleaning raw financial transactions: standardizes amounts, derives quarter, removes invalid accounts, flags high-value transactions, computes account age"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 57,
+      "line_end": 63,
+      "test_coverage_type": "full",
+      "description": "PROC SORT ordering cleaned transactions by account_id and txn_quarter for downstream aggregation"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 65,
+      "line_end": 78,
+      "test_coverage_type": "full",
+      "description": "PROC MEANS computing quarterly aggregate statistics per account: sum, mean, max, min of transaction amounts and transaction count"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "SQL_BLOCK",
+      "line_start": 80,
+      "line_end": 112,
+      "test_coverage_type": "full",
+      "description": "PROC SQL joining quarterly stats with account master to compute utilization ratio (spend vs credit limit) and average transaction size"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "DATA_STEP",
+      "line_start": 114,
+      "line_end": 145,
+      "test_coverage_type": "full",
+      "description": "DATA step categorizing accounts into performance tiers (HIGH_RISK, WATCH_LIST, PERFORMING, LOW_USAGE) with risk tier assignment and composite risk score calculation"
+    },
+    {
+      "block_id": 7,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 147,
+      "line_end": 151,
+      "test_coverage_type": "structural_only",
+      "description": "Section header comments and TITLE statements for executive report"
+    },
+    {
+      "block_id": 8,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 153,
+      "line_end": 166,
+      "test_coverage_type": "full",
+      "description": "PROC REPORT generating formatted executive report with branch-level summaries of account performance, utilization, and risk scores"
+    },
+    {
+      "block_id": 9,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 168,
+      "line_end": 170,
+      "test_coverage_type": "structural_only",
+      "description": "FOOTNOTE statement and TITLE/FOOTNOTE reset statements"
+    }
+  ],
+  "total_blocks": 9,
+  "data_lineage": [
+    {
+      "source_datasets": ["raw.transactions"],
+      "target_datasets": ["staging.txn_clean"],
+      "block_id": 2
+    },
+    {
+      "source_datasets": ["staging.txn_clean"],
+      "target_datasets": ["staging.txn_sorted"],
+      "block_id": 3
+    },
+    {
+      "source_datasets": ["staging.txn_sorted"],
+      "target_datasets": ["staging.quarterly_stats"],
+      "block_id": 4
+    },
+    {
+      "source_datasets": ["staging.quarterly_stats", "raw.account_master"],
+      "target_datasets": ["staging.account_summary"],
+      "block_id": 5
+    },
+    {
+      "source_datasets": ["staging.account_summary"],
+      "target_datasets": ["tgt.account_classification"],
+      "block_id": 6
+    }
+  ],
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

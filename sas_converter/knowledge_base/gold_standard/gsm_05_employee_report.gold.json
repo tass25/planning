@@ -1,0 +1,98 @@
+{
+  "file_path": "gsm_05_employee_report.sas",
+  "tier": "medium",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 1,
+      "line_end": 20,
+      "test_coverage_type": "structural_only",
+      "description": "Program header comments, OPTIONS with format search path, LIBNAME definitions for HR master, staging, and reports, TITLE statements for workforce analysis report"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "DATA_STEP",
+      "line_start": 22,
+      "line_end": 56,
+      "test_coverage_type": "full",
+      "description": "DATA step computing employee metrics using INTCK/INTNX: current age with birthday adjustment, tenure in years and months, retirement date projection, and compa-ratio (salary vs grade midpoint)"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 58,
+      "line_end": 87,
+      "test_coverage_type": "full",
+      "description": "PROC FORMAT defining three custom value formats: salary bands (Under $40K to $150K+), tenure groups (Less than 1yr to 20+), and age brackets (Under 25 to 55+)"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "SQL_BLOCK",
+      "line_start": 89,
+      "line_end": 115,
+      "test_coverage_type": "full",
+      "description": "PROC SQL joining derived employee data with department master and employee master (self-join for manager lookup) to build comprehensive employee detail table"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 117,
+      "line_end": 129,
+      "test_coverage_type": "full",
+      "description": "PROC TABULATE producing cross-tabulation of salary and tenure statistics by department and job grade with grand totals"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 131,
+      "line_end": 143,
+      "test_coverage_type": "full",
+      "description": "PROC MEANS computing departmental compensation summary: mean/median salary, average compa-ratio, average tenure, and headcount"
+    },
+    {
+      "block_id": 7,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 145,
+      "line_end": 149,
+      "test_coverage_type": "structural_only",
+      "description": "Section header comments and ODS HTML open statement directing output to styled HTML report file"
+    },
+    {
+      "block_id": 8,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 151,
+      "line_end": 163,
+      "test_coverage_type": "full",
+      "description": "PROC PRINT outputting formatted compensation summary with labeled columns for department headcount, salary statistics, compa-ratio, and tenure"
+    },
+    {
+      "block_id": 9,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 165,
+      "line_end": 167,
+      "test_coverage_type": "structural_only",
+      "description": "ODS HTML close statement and TITLE reset"
+    }
+  ],
+  "total_blocks": 9,
+  "data_lineage": [
+    {
+      "source_datasets": ["hr.employee_master"],
+      "target_datasets": ["staging.employee_derived"],
+      "block_id": 2
+    },
+    {
+      "source_datasets": ["staging.employee_derived", "hr.department_master", "hr.employee_master"],
+      "target_datasets": ["tgt.employee_detail"],
+      "block_id": 4
+    },
+    {
+      "source_datasets": ["tgt.employee_detail"],
+      "target_datasets": ["tgt.comp_summary"],
+      "block_id": 6
+    }
+  ],
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

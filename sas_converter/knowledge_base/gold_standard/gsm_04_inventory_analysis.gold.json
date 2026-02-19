@@ -1,0 +1,121 @@
+{
+  "file_path": "gsm_04_inventory_analysis.sas",
+  "tier": "medium",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 1,
+      "line_end": 15,
+      "test_coverage_type": "structural_only",
+      "description": "Program header comments, OPTIONS for compression, LIBNAME definitions for warehouse inventory, staging, and reports libraries"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "DATA_STEP",
+      "line_start": 17,
+      "line_end": 50,
+      "test_coverage_type": "full",
+      "description": "DATA step computing inventory metrics: average daily demand from trailing 90-day demand, days-of-supply, lead time, reorder point with 20% safety buffer, reorder flag, and inventory value"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 52,
+      "line_end": 64,
+      "test_coverage_type": "full",
+      "description": "PROC MEANS computing safety stock statistics by product category and warehouse: average/std demand, average days-of-supply, total inventory value and quantity"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "SQL_BLOCK",
+      "line_start": 66,
+      "line_end": 101,
+      "test_coverage_type": "full",
+      "description": "PROC SQL joining inventory metrics with safety stock stats to classify stock status (CRITICAL_LOW, LOW_STOCK, OVERSTOCK, EXCESS, NORMAL) and estimate stockout dates"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 103,
+      "line_end": 109,
+      "test_coverage_type": "full",
+      "description": "PROC SORT ordering inventory movement transactions by warehouse, SKU, and date for running balance calculation"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "DATA_STEP",
+      "line_start": 111,
+      "line_end": 130,
+      "test_coverage_type": "full",
+      "description": "DATA step with RETAIN computing running inventory balance per SKU: applies receipts, issues, and adjustments, flags negative balances as data quality issues using FIRST.sku_id logic"
+    },
+    {
+      "block_id": 7,
+      "partition_type": "DATA_STEP",
+      "line_start": 132,
+      "line_end": 150,
+      "test_coverage_type": "full",
+      "description": "DATA step preparing visualization dataset: derives monthly/weekly time dimensions using INTNX, creates period labels for chart axes"
+    },
+    {
+      "block_id": 8,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 152,
+      "line_end": 156,
+      "test_coverage_type": "structural_only",
+      "description": "Section header comments and TITLE statements for executive summary report"
+    },
+    {
+      "block_id": 9,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 158,
+      "line_end": 175,
+      "test_coverage_type": "full",
+      "description": "PROC REPORT generating executive summary filtered to actionable stock statuses with warehouse-level break summaries"
+    },
+    {
+      "block_id": 10,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 177,
+      "line_end": 177,
+      "test_coverage_type": "structural_only",
+      "description": "TITLE reset statement"
+    }
+  ],
+  "total_blocks": 10,
+  "data_lineage": [
+    {
+      "source_datasets": ["wh.current_stock"],
+      "target_datasets": ["staging.inventory_metrics"],
+      "block_id": 2
+    },
+    {
+      "source_datasets": ["staging.inventory_metrics"],
+      "target_datasets": ["staging.safety_stock_stats"],
+      "block_id": 3
+    },
+    {
+      "source_datasets": ["staging.inventory_metrics", "staging.safety_stock_stats"],
+      "target_datasets": ["staging.stock_alerts"],
+      "block_id": 4
+    },
+    {
+      "source_datasets": ["wh.inventory_movements"],
+      "target_datasets": ["staging.movements_sorted"],
+      "block_id": 5
+    },
+    {
+      "source_datasets": ["staging.movements_sorted"],
+      "target_datasets": ["staging.running_balance"],
+      "block_id": 6
+    },
+    {
+      "source_datasets": ["staging.running_balance"],
+      "target_datasets": ["staging.viz_inventory_trend"],
+      "block_id": 7
+    }
+  ],
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}
