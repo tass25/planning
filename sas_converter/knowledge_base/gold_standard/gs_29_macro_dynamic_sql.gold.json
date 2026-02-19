@@ -1,0 +1,24 @@
+{
+  "file_path": "gs_29_macro_dynamic_sql.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 2,
+      "line_end": 15,
+      "test_coverage_type": "full",
+      "description": "Macro generating PROC SQL with %DO loop for monthly table creation"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 17,
+      "line_end": 17,
+      "test_coverage_type": "full",
+      "description": "Invocation creating 6 monthly transaction tables"
+    }
+  ],
+  "total_blocks": 2,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

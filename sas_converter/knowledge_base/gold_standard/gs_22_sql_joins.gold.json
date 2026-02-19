@@ -1,0 +1,16 @@
+{
+  "file_path": "gs_22_sql_joins.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "SQL_BLOCK",
+      "line_start": 2,
+      "line_end": 22,
+      "test_coverage_type": "full",
+      "description": "PROC SQL with 4-table JOIN for detailed order report"
+    }
+  ],
+  "total_blocks": 1,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

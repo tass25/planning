@@ -1,0 +1,32 @@
+{
+  "file_path": "gs_26_macro_basic.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 2,
+      "line_end": 12,
+      "test_coverage_type": "full",
+      "description": "Macro definition for summarize_var with default stat parameter"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 14,
+      "line_end": 14,
+      "test_coverage_type": "full",
+      "description": "Invocation of summarize_var with MEDIAN"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 15,
+      "line_end": 15,
+      "test_coverage_type": "full",
+      "description": "Invocation of summarize_var with default MEAN"
+    }
+  ],
+  "total_blocks": 3,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

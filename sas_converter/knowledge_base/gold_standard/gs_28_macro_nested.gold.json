@@ -1,0 +1,24 @@
+{
+  "file_path": "gs_28_macro_nested.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 2,
+      "line_end": 28,
+      "test_coverage_type": "full",
+      "description": "Outer macro etl_pipeline with nested process_table macro and %DO loop"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 30,
+      "line_end": 30,
+      "test_coverage_type": "full",
+      "description": "Invocation of etl_pipeline with three tables"
+    }
+  ],
+  "total_blocks": 2,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}
