@@ -44,7 +44,7 @@
     },
     {
       "block_id": 6,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 112,
       "line_end": 136,
       "test_coverage_type": "full",
@@ -62,23 +62,39 @@
   "total_blocks": 7,
   "data_lineage": [
     {
-      "source_datasets": ["raw.survey_responses"],
-      "target_datasets": ["staging.survey_scored"],
+      "source_datasets": [
+        "raw.survey_responses"
+      ],
+      "target_datasets": [
+        "staging.survey_scored"
+      ],
       "block_id": 2
     },
     {
-      "source_datasets": ["staging.survey_scored"],
-      "target_datasets": ["staging.dept_means"],
+      "source_datasets": [
+        "staging.survey_scored"
+      ],
+      "target_datasets": [
+        "staging.dept_means"
+      ],
       "block_id": 4
     },
     {
-      "source_datasets": ["staging.survey_scored"],
-      "target_datasets": ["staging.demographic_summary"],
+      "source_datasets": [
+        "staging.survey_scored"
+      ],
+      "target_datasets": [
+        "staging.demographic_summary"
+      ],
       "block_id": 6
     },
     {
-      "source_datasets": ["staging.survey_scored"],
-      "target_datasets": ["tgt.survey_flagged"],
+      "source_datasets": [
+        "staging.survey_scored"
+      ],
+      "target_datasets": [
+        "tgt.survey_flagged"
+      ],
       "block_id": 7
     }
   ],

@@ -20,7 +20,7 @@
     },
     {
       "block_id": 3,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 82,
       "line_end": 112,
       "test_coverage_type": "full",
@@ -28,7 +28,7 @@
     },
     {
       "block_id": 4,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 114,
       "line_end": 118,
       "test_coverage_type": "full",
@@ -84,7 +84,7 @@
     },
     {
       "block_id": 11,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 243,
       "line_end": 262,
       "test_coverage_type": "full",
@@ -156,7 +156,7 @@
     },
     {
       "block_id": 20,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 458,
       "line_end": 465,
       "test_coverage_type": "full",
@@ -164,7 +164,7 @@
     },
     {
       "block_id": 21,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 467,
       "line_end": 491,
       "test_coverage_type": "full",
@@ -204,7 +204,7 @@
     },
     {
       "block_id": 26,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 581,
       "line_end": 602,
       "test_coverage_type": "full",
@@ -326,142 +326,247 @@
   "total_blocks": 40,
   "data_lineage": [
     {
-      "source_datasets": ["pos.holdings", "mkt.prices"],
-      "target_datasets": ["work.positions_raw"],
+      "source_datasets": [
+        "pos.holdings",
+        "mkt.prices"
+      ],
+      "target_datasets": [
+        "work.positions_raw"
+      ],
       "block_id": 3
     },
     {
-      "source_datasets": ["work.positions_raw"],
+      "source_datasets": [
+        "work.positions_raw"
+      ],
       "target_datasets": [],
       "block_id": 4
     },
     {
-      "source_datasets": ["work.positions_raw"],
-      "target_datasets": ["work.positions"],
+      "source_datasets": [
+        "work.positions_raw"
+      ],
+      "target_datasets": [
+        "work.positions"
+      ],
       "block_id": 5
     },
     {
-      "source_datasets": ["work.positions", "mkt.fx_rates"],
-      "target_datasets": ["work.positions"],
+      "source_datasets": [
+        "work.positions",
+        "mkt.fx_rates"
+      ],
+      "target_datasets": [
+        "work.positions"
+      ],
       "block_id": 6
     },
     {
-      "source_datasets": ["mkt.prices"],
-      "target_datasets": ["work.price_sorted"],
+      "source_datasets": [
+        "mkt.prices"
+      ],
+      "target_datasets": [
+        "work.price_sorted"
+      ],
       "block_id": 9
     },
     {
-      "source_datasets": ["work.price_sorted"],
-      "target_datasets": ["work.security_returns"],
+      "source_datasets": [
+        "work.price_sorted"
+      ],
+      "target_datasets": [
+        "work.security_returns"
+      ],
       "block_id": 10
     },
     {
-      "source_datasets": ["work.security_returns", "work.positions"],
-      "target_datasets": ["work.portfolio_returns"],
+      "source_datasets": [
+        "work.security_returns",
+        "work.positions"
+      ],
+      "target_datasets": [
+        "work.portfolio_returns"
+      ],
       "block_id": 11
     },
     {
-      "source_datasets": ["work.portfolio_returns"],
-      "target_datasets": ["work.return_stats"],
+      "source_datasets": [
+        "work.portfolio_returns"
+      ],
+      "target_datasets": [
+        "work.return_stats"
+      ],
       "block_id": 12
     },
     {
-      "source_datasets": ["work.portfolio_returns"],
-      "target_datasets": ["work.wealth_index"],
+      "source_datasets": [
+        "work.portfolio_returns"
+      ],
+      "target_datasets": [
+        "work.wealth_index"
+      ],
       "block_id": 13
     },
     {
-      "source_datasets": ["work.portfolio_returns"],
-      "target_datasets": ["work.returns_sorted", "work.var_historical"],
+      "source_datasets": [
+        "work.portfolio_returns"
+      ],
+      "target_datasets": [
+        "work.returns_sorted",
+        "work.var_historical"
+      ],
       "block_id": 15
     },
     {
-      "source_datasets": ["work.return_stats"],
-      "target_datasets": ["work.var_parametric"],
+      "source_datasets": [
+        "work.return_stats"
+      ],
+      "target_datasets": [
+        "work.var_parametric"
+      ],
       "block_id": 16
     },
     {
-      "source_datasets": ["work.return_stats"],
-      "target_datasets": ["work.mc_simulations", "work.mc_sorted", "work.var_montecarlo", "work.mc_cvar"],
+      "source_datasets": [
+        "work.return_stats"
+      ],
+      "target_datasets": [
+        "work.mc_simulations",
+        "work.mc_sorted",
+        "work.var_montecarlo",
+        "work.mc_cvar"
+      ],
       "block_id": 17
     },
     {
       "source_datasets": [],
-      "target_datasets": ["work.var_results"],
+      "target_datasets": [
+        "work.var_results"
+      ],
       "block_id": 18
     },
     {
-      "source_datasets": ["bench.sector_weights"],
+      "source_datasets": [
+        "bench.sector_weights"
+      ],
       "target_datasets": [],
       "block_id": 20
     },
     {
-      "source_datasets": ["work.positions", "work.security_returns", "bench.sector_weights"],
-      "target_datasets": ["work.attrib_raw"],
+      "source_datasets": [
+        "work.positions",
+        "work.security_returns",
+        "bench.sector_weights"
+      ],
+      "target_datasets": [
+        "work.attrib_raw"
+      ],
       "block_id": 21
     },
     {
-      "source_datasets": ["work.attrib_raw"],
-      "target_datasets": ["work.attribution"],
+      "source_datasets": [
+        "work.attrib_raw"
+      ],
+      "target_datasets": [
+        "work.attribution"
+      ],
       "block_id": 22
     },
     {
-      "source_datasets": ["work.attribution"],
-      "target_datasets": ["work.attrib_summary"],
+      "source_datasets": [
+        "work.attribution"
+      ],
+      "target_datasets": [
+        "work.attrib_summary"
+      ],
       "block_id": 23
     },
     {
-      "source_datasets": ["work.positions"],
-      "target_datasets": ["work.style_factors"],
+      "source_datasets": [
+        "work.positions"
+      ],
+      "target_datasets": [
+        "work.style_factors"
+      ],
       "block_id": 24
     },
     {
-      "source_datasets": ["work.wealth_index", "work.return_stats"],
+      "source_datasets": [
+        "work.wealth_index",
+        "work.return_stats"
+      ],
       "target_datasets": [],
       "block_id": 26
     },
     {
-      "source_datasets": ["work.attribution"],
-      "target_datasets": ["work.sector_tab"],
+      "source_datasets": [
+        "work.attribution"
+      ],
+      "target_datasets": [
+        "work.sector_tab"
+      ],
       "block_id": 27
     },
     {
-      "source_datasets": ["work.security_returns"],
-      "target_datasets": ["work.contrib_sorted"],
+      "source_datasets": [
+        "work.security_returns"
+      ],
+      "target_datasets": [
+        "work.contrib_sorted"
+      ],
       "block_id": 28
     },
     {
-      "source_datasets": ["work.contrib_sorted"],
-      "target_datasets": ["work.top_bottom"],
+      "source_datasets": [
+        "work.contrib_sorted"
+      ],
+      "target_datasets": [
+        "work.top_bottom"
+      ],
       "block_id": 29
     },
     {
-      "source_datasets": ["work.attrib_summary", "work.top_bottom"],
+      "source_datasets": [
+        "work.attrib_summary",
+        "work.top_bottom"
+      ],
       "target_datasets": [],
       "block_id": 30
     },
     {
       "source_datasets": [],
-      "target_datasets": ["out.portfolio_report"],
+      "target_datasets": [
+        "out.portfolio_report"
+      ],
       "block_id": 31
     },
     {
-      "source_datasets": ["work.var_results"],
-      "target_datasets": ["out.var_consolidated"],
+      "source_datasets": [
+        "work.var_results"
+      ],
+      "target_datasets": [
+        "out.var_consolidated"
+      ],
       "block_id": 34
     },
     {
-      "source_datasets": ["out.var_consolidated"],
+      "source_datasets": [
+        "out.var_consolidated"
+      ],
       "target_datasets": [],
       "block_id": 36
     },
     {
-      "source_datasets": ["work.return_stats"],
+      "source_datasets": [
+        "work.return_stats"
+      ],
       "target_datasets": [],
       "block_id": 37
     },
     {
-      "source_datasets": ["work.wealth_index"],
+      "source_datasets": [
+        "work.wealth_index"
+      ],
       "target_datasets": [],
       "block_id": 38
     }

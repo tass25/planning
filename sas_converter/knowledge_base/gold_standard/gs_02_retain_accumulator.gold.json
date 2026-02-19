@@ -23,14 +23,23 @@
   "annotation_date": "2026-02-19",
   "data_lineage": [
     {
-      "source_datasets": ["work.sales_data"],
-      "target_datasets": ["work.running_totals"],
+      "source_datasets": [
+        "work.sales_data"
+      ],
+      "target_datasets": [
+        "work.running_totals"
+      ],
       "block_id": 1
     },
     {
-      "source_datasets": ["work.running_totals"],
-      "target_datasets": ["work.flagged_accounts"],
+      "source_datasets": [
+        "work.running_totals"
+      ],
+      "target_datasets": [
+        "work.flagged_accounts"
+      ],
       "block_id": 2
     }
-  ]
+  ],
+  "tier": "simple"
 }

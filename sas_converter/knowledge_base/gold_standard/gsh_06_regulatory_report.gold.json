@@ -124,7 +124,7 @@
     },
     {
       "block_id": 16,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 684,
       "line_end": 697,
       "test_coverage_type": "full",
@@ -220,7 +220,7 @@
     },
     {
       "block_id": 28,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 759,
       "line_end": 778,
       "test_coverage_type": "full",
@@ -262,63 +262,144 @@
   "total_blocks": 32,
   "data_lineage": [
     {
-      "source_datasets": ["risk.exposures", "risk.pd_lgd_models"],
-      "target_datasets": ["work.rwa_corporate_irb", "work.rwa_corporate_summary"],
+      "source_datasets": [
+        "risk.exposures",
+        "risk.pd_lgd_models"
+      ],
+      "target_datasets": [
+        "work.rwa_corporate_irb",
+        "work.rwa_corporate_summary"
+      ],
       "block_id": 8
     },
     {
-      "source_datasets": ["risk.exposures"],
-      "target_datasets": ["work.rwa_sovereign_std", "work.rwa_sovereign_summary"],
+      "source_datasets": [
+        "risk.exposures"
+      ],
+      "target_datasets": [
+        "work.rwa_sovereign_std",
+        "work.rwa_sovereign_summary"
+      ],
       "block_id": 10
     },
     {
-      "source_datasets": ["risk.exposures", "risk.pd_lgd_models"],
-      "target_datasets": ["work.rwa_retail_irb", "work.rwa_retail_summary"],
+      "source_datasets": [
+        "risk.exposures",
+        "risk.pd_lgd_models"
+      ],
+      "target_datasets": [
+        "work.rwa_retail_irb",
+        "work.rwa_retail_summary"
+      ],
       "block_id": 12
     },
     {
-      "source_datasets": ["risk.exposures"],
-      "target_datasets": ["work.rwa_equity_std", "work.rwa_equity_summary"],
+      "source_datasets": [
+        "risk.exposures"
+      ],
+      "target_datasets": [
+        "work.rwa_equity_std",
+        "work.rwa_equity_summary"
+      ],
       "block_id": 14
     },
     {
-      "source_datasets": ["fin.capital_components", "work.rwa_corporate_summary", "work.rwa_sovereign_summary", "work.rwa_retail_summary", "work.rwa_equity_summary"],
-      "target_datasets": ["out.capital_ratios"],
+      "source_datasets": [
+        "fin.capital_components",
+        "work.rwa_corporate_summary",
+        "work.rwa_sovereign_summary",
+        "work.rwa_retail_summary",
+        "work.rwa_equity_summary"
+      ],
+      "target_datasets": [
+        "out.capital_ratios"
+      ],
       "block_id": 4
     },
     {
-      "source_datasets": ["work.rwa_corporate_summary", "work.rwa_sovereign_summary", "work.rwa_retail_summary", "work.rwa_equity_summary"],
-      "target_datasets": ["out.rwa_summary"],
+      "source_datasets": [
+        "work.rwa_corporate_summary",
+        "work.rwa_sovereign_summary",
+        "work.rwa_retail_summary",
+        "work.rwa_equity_summary"
+      ],
+      "target_datasets": [
+        "out.rwa_summary"
+      ],
       "block_id": 16
     },
     {
-      "source_datasets": ["work.rwa_corporate_summary", "work.rwa_retail_summary"],
-      "target_datasets": ["work.stress_base", "out.stress_results"],
+      "source_datasets": [
+        "work.rwa_corporate_summary",
+        "work.rwa_retail_summary"
+      ],
+      "target_datasets": [
+        "work.stress_base",
+        "out.stress_results"
+      ],
       "block_id": 20
     },
     {
-      "source_datasets": ["work.rwa_corporate_summary", "work.rwa_retail_summary"],
-      "target_datasets": ["work.stress_adverse", "out.stress_results"],
+      "source_datasets": [
+        "work.rwa_corporate_summary",
+        "work.rwa_retail_summary"
+      ],
+      "target_datasets": [
+        "work.stress_adverse",
+        "out.stress_results"
+      ],
       "block_id": 22
     },
     {
-      "source_datasets": ["work.rwa_corporate_summary", "work.rwa_retail_summary"],
-      "target_datasets": ["work.stress_severely_adverse", "out.stress_results"],
+      "source_datasets": [
+        "work.rwa_corporate_summary",
+        "work.rwa_retail_summary"
+      ],
+      "target_datasets": [
+        "work.stress_severely_adverse",
+        "out.stress_results"
+      ],
       "block_id": 24
     },
     {
-      "source_datasets": ["fin.capital_components", "work.rwa_corporate_summary", "work.rwa_sovereign_summary", "work.rwa_retail_summary", "work.rwa_equity_summary", "out.capital_ratios", "out.stress_results", "fin.balance_sheet", "risk.exposures", "risk.pd_lgd_models", "risk.collateral"],
-      "target_datasets": ["out.schedule_hcr_p1", "out.schedule_hcr_p2", "out.schedule_y14a_summ", "out.schedule_y14a_loss", "out.schedule_y14a_ppnr", "out.schedule_y14q_supp"],
+      "source_datasets": [
+        "fin.capital_components",
+        "work.rwa_corporate_summary",
+        "work.rwa_sovereign_summary",
+        "work.rwa_retail_summary",
+        "work.rwa_equity_summary",
+        "out.capital_ratios",
+        "out.stress_results",
+        "fin.balance_sheet",
+        "risk.exposures",
+        "risk.pd_lgd_models",
+        "risk.collateral"
+      ],
+      "target_datasets": [
+        "out.schedule_hcr_p1",
+        "out.schedule_hcr_p2",
+        "out.schedule_y14a_summ",
+        "out.schedule_y14a_loss",
+        "out.schedule_y14a_ppnr",
+        "out.schedule_y14q_supp"
+      ],
       "block_id": 6
     },
     {
-      "source_datasets": ["out.rwa_summary", "fin.balance_sheet"],
-      "target_datasets": ["out.filing_cover_page"],
+      "source_datasets": [
+        "out.rwa_summary",
+        "fin.balance_sheet"
+      ],
+      "target_datasets": [
+        "out.filing_cover_page"
+      ],
       "block_id": 28
     },
     {
       "source_datasets": [],
-      "target_datasets": ["out.filing_errors"],
+      "target_datasets": [
+        "out.filing_errors"
+      ],
       "block_id": 30
     }
   ],

@@ -15,9 +15,14 @@
   "annotation_date": "2026-02-19",
   "data_lineage": [
     {
-      "source_datasets": ["work.orders"],
-      "target_datasets": ["work.top_customers"],
+      "source_datasets": [
+        "work.orders"
+      ],
+      "target_datasets": [
+        "work.top_customers"
+      ],
       "block_id": 1
     }
-  ]
+  ],
+  "tier": "simple"
 }

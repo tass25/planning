@@ -6,14 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from sas_converter.partition.db.sqlite_manager import (
+from partition.db.sqlite_manager import (
     get_engine,
     init_db,
     get_session,
     DataLineageRow,
 )
-from sas_converter.partition.entry.data_lineage_extractor import DataLineageExtractor
-from sas_converter.partition.models.file_metadata import FileMetadata
+from partition.entry.data_lineage_extractor import DataLineageExtractor
+from partition.models.file_metadata import FileMetadata
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -40,9 +40,7 @@ def _make_metadata(path: Path) -> FileMetadata:
 
 def _run_extractor(files, engine):
     extractor = DataLineageExtractor()
-    return asyncio.get_event_loop().run_until_complete(
-        extractor.process(files, engine)
-    )
+    return asyncio.run(extractor.process(files, engine))
 
 
 def _query_rows(engine) -> list[DataLineageRow]:
@@ -54,7 +52,7 @@ def _query_rows(engine) -> list[DataLineageRow]:
 
 # Need to insert into file_registry first so FK is satisfied
 def _insert_registry(engine, fm: FileMetadata):
-    from sas_converter.partition.db.sqlite_manager import FileRegistryRow
+    from partition.db.sqlite_manager import FileRegistryRow
     session = get_session(engine)
     session.add(FileRegistryRow(
         file_id=str(fm.file_id),

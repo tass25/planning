@@ -68,7 +68,7 @@
     },
     {
       "block_id": 9,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 185,
       "line_end": 194,
       "test_coverage_type": "full",
@@ -86,13 +86,38 @@
   "total_blocks": 10,
   "data_lineage": [
     {
-      "source_datasets": ["curr.customer_master", "prev.customer_master", "curr.product_catalog", "prev.product_catalog", "curr.order_header", "prev.order_header", "curr.supplier_info", "prev.supplier_info", "curr.employee_roster", "prev.employee_roster"],
-      "target_datasets": ["staging.changes_customer_master", "staging.changes_product_catalog", "staging.changes_order_header", "staging.changes_supplier_info", "staging.changes_employee_roster"],
+      "source_datasets": [
+        "curr.customer_master",
+        "prev.customer_master",
+        "curr.product_catalog",
+        "prev.product_catalog",
+        "curr.order_header",
+        "prev.order_header",
+        "curr.supplier_info",
+        "prev.supplier_info",
+        "curr.employee_roster",
+        "prev.employee_roster"
+      ],
+      "target_datasets": [
+        "staging.changes_customer_master",
+        "staging.changes_product_catalog",
+        "staging.changes_order_header",
+        "staging.changes_supplier_info",
+        "staging.changes_employee_roster"
+      ],
       "block_id": 5
     },
     {
-      "source_datasets": ["staging.changes_customer_master", "staging.changes_product_catalog", "staging.changes_order_header", "staging.changes_supplier_info", "staging.changes_employee_roster"],
-      "target_datasets": ["audit.master_audit_trail"],
+      "source_datasets": [
+        "staging.changes_customer_master",
+        "staging.changes_product_catalog",
+        "staging.changes_order_header",
+        "staging.changes_supplier_info",
+        "staging.changes_employee_roster"
+      ],
+      "target_datasets": [
+        "audit.master_audit_trail"
+      ],
       "block_id": 7
     }
   ],

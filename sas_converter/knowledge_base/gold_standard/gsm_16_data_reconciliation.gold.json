@@ -60,7 +60,7 @@
     },
     {
       "block_id": 8,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 169,
       "line_end": 178,
       "test_coverage_type": "full",
@@ -94,23 +94,44 @@
   "total_blocks": 11,
   "data_lineage": [
     {
-      "source_datasets": ["src_a.customers", "src_b.dim_customer"],
-      "target_datasets": ["staging.recon_customers"],
+      "source_datasets": [
+        "src_a.customers",
+        "src_b.dim_customer"
+      ],
+      "target_datasets": [
+        "staging.recon_customers"
+      ],
       "block_id": 3
     },
     {
-      "source_datasets": ["src_a.orders", "src_b.fact_orders"],
-      "target_datasets": ["staging.recon_orders"],
+      "source_datasets": [
+        "src_a.orders",
+        "src_b.fact_orders"
+      ],
+      "target_datasets": [
+        "staging.recon_orders"
+      ],
       "block_id": 4
     },
     {
-      "source_datasets": ["src_a.products", "src_b.dim_product"],
-      "target_datasets": ["staging.recon_products"],
+      "source_datasets": [
+        "src_a.products",
+        "src_b.dim_product"
+      ],
+      "target_datasets": [
+        "staging.recon_products"
+      ],
       "block_id": 5
     },
     {
-      "source_datasets": ["staging.recon_customers", "staging.recon_orders", "staging.recon_products"],
-      "target_datasets": ["rpt.consolidated_recon"],
+      "source_datasets": [
+        "staging.recon_customers",
+        "staging.recon_orders",
+        "staging.recon_products"
+      ],
+      "target_datasets": [
+        "rpt.consolidated_recon"
+      ],
       "block_id": 7
     }
   ],

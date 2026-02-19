@@ -20,7 +20,7 @@
     },
     {
       "block_id": 3,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 70,
       "line_end": 107,
       "test_coverage_type": "full",
@@ -70,38 +70,68 @@
   "total_blocks": 8,
   "data_lineage": [
     {
-      "source_datasets": ["raw.campaign_daily_stats"],
-      "target_datasets": ["staging.campaign_metrics"],
+      "source_datasets": [
+        "raw.campaign_daily_stats"
+      ],
+      "target_datasets": [
+        "staging.campaign_metrics"
+      ],
       "block_id": 2
     },
     {
-      "source_datasets": ["staging.campaign_metrics", "raw.touchpoint_log", "raw.revenue_events"],
-      "target_datasets": ["staging.campaign_revenue"],
+      "source_datasets": [
+        "staging.campaign_metrics",
+        "raw.touchpoint_log",
+        "raw.revenue_events"
+      ],
+      "target_datasets": [
+        "staging.campaign_revenue"
+      ],
       "block_id": 3
     },
     {
-      "source_datasets": ["raw.channel_monthly_data"],
-      "target_datasets": ["staging.channel_monthly_roi"],
+      "source_datasets": [
+        "raw.channel_monthly_data"
+      ],
+      "target_datasets": [
+        "staging.channel_monthly_roi"
+      ],
       "block_id": 4
     },
     {
-      "source_datasets": ["staging.campaign_revenue"],
-      "target_datasets": ["staging.performance_summary"],
+      "source_datasets": [
+        "staging.campaign_revenue"
+      ],
+      "target_datasets": [
+        "staging.performance_summary"
+      ],
       "block_id": 5
     },
     {
-      "source_datasets": ["staging.campaign_revenue"],
-      "target_datasets": ["staging.campaign_ranked"],
+      "source_datasets": [
+        "staging.campaign_revenue"
+      ],
+      "target_datasets": [
+        "staging.campaign_ranked"
+      ],
       "block_id": 6
     },
     {
-      "source_datasets": ["staging.campaign_ranked"],
-      "target_datasets": ["staging.campaign_tiered"],
+      "source_datasets": [
+        "staging.campaign_ranked"
+      ],
+      "target_datasets": [
+        "staging.campaign_tiered"
+      ],
       "block_id": 7
     },
     {
-      "source_datasets": ["staging.campaign_tiered"],
-      "target_datasets": ["tgt.executive_dashboard"],
+      "source_datasets": [
+        "staging.campaign_tiered"
+      ],
+      "target_datasets": [
+        "tgt.executive_dashboard"
+      ],
       "block_id": 8
     }
   ],

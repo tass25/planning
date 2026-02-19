@@ -20,7 +20,7 @@
     },
     {
       "block_id": 3,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 40,
       "line_end": 59,
       "test_coverage_type": "full",
@@ -78,38 +78,67 @@
   "total_blocks": 9,
   "data_lineage": [
     {
-      "source_datasets": ["raw.purchase_orders"],
-      "target_datasets": ["staging.delivery_metrics"],
+      "source_datasets": [
+        "raw.purchase_orders"
+      ],
+      "target_datasets": [
+        "staging.delivery_metrics"
+      ],
       "block_id": 2
     },
     {
-      "source_datasets": ["staging.delivery_metrics", "raw.suppliers"],
-      "target_datasets": ["staging.supplier_scorecard"],
+      "source_datasets": [
+        "staging.delivery_metrics",
+        "raw.suppliers"
+      ],
+      "target_datasets": [
+        "staging.supplier_scorecard"
+      ],
       "block_id": 3
     },
     {
-      "source_datasets": ["raw.inventory_transactions"],
-      "target_datasets": ["work.inv_sorted"],
+      "source_datasets": [
+        "raw.inventory_transactions"
+      ],
+      "target_datasets": [
+        "work.inv_sorted"
+      ],
       "block_id": 4
     },
     {
-      "source_datasets": ["work.inv_sorted"],
-      "target_datasets": ["staging.backorder_tracking"],
+      "source_datasets": [
+        "work.inv_sorted"
+      ],
+      "target_datasets": [
+        "staging.backorder_tracking"
+      ],
       "block_id": 5
     },
     {
-      "source_datasets": ["raw.daily_demand"],
-      "target_datasets": ["staging.demand_stats"],
+      "source_datasets": [
+        "raw.daily_demand"
+      ],
+      "target_datasets": [
+        "staging.demand_stats"
+      ],
       "block_id": 6
     },
     {
-      "source_datasets": ["staging.demand_stats"],
-      "target_datasets": ["tgt.product_classification"],
+      "source_datasets": [
+        "staging.demand_stats"
+      ],
+      "target_datasets": [
+        "tgt.product_classification"
+      ],
       "block_id": 7
     },
     {
-      "source_datasets": ["tgt.product_classification"],
-      "target_datasets": ["work.exceptions"],
+      "source_datasets": [
+        "tgt.product_classification"
+      ],
+      "target_datasets": [
+        "work.exceptions"
+      ],
       "block_id": 8
     }
   ],

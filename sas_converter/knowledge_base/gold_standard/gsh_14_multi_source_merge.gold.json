@@ -52,7 +52,7 @@
     },
     {
       "block_id": 7,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 170,
       "line_end": 181,
       "test_coverage_type": "full",
@@ -68,7 +68,7 @@
     },
     {
       "block_id": 9,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 206,
       "line_end": 235,
       "test_coverage_type": "full",
@@ -92,7 +92,7 @@
     },
     {
       "block_id": 12,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 357,
       "line_end": 370,
       "test_coverage_type": "full",
@@ -108,7 +108,7 @@
     },
     {
       "block_id": 14,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 393,
       "line_end": 409,
       "test_coverage_type": "full",
@@ -148,7 +148,7 @@
     },
     {
       "block_id": 19,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 506,
       "line_end": 529,
       "test_coverage_type": "full",
@@ -172,7 +172,7 @@
     },
     {
       "block_id": 22,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 556,
       "line_end": 575,
       "test_coverage_type": "full",
@@ -188,7 +188,7 @@
     },
     {
       "block_id": 24,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 598,
       "line_end": 605,
       "test_coverage_type": "full",
@@ -204,7 +204,7 @@
     },
     {
       "block_id": 26,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 623,
       "line_end": 639,
       "test_coverage_type": "full",
@@ -236,7 +236,7 @@
     },
     {
       "block_id": 30,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 684,
       "line_end": 695,
       "test_coverage_type": "full",
@@ -284,7 +284,7 @@
     },
     {
       "block_id": 36,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 804,
       "line_end": 810,
       "test_coverage_type": "full",
@@ -342,98 +342,187 @@
   "total_blocks": 42,
   "data_lineage": [
     {
-      "source_datasets": ["&lib..&table"],
-      "target_datasets": ["work.raw_&source_name"],
+      "source_datasets": [
+        "&lib..&table"
+      ],
+      "target_datasets": [
+        "work.raw_&source_name"
+      ],
       "block_id": 4
     },
     {
-      "source_datasets": ["work.raw_&source_name"],
-      "target_datasets": ["work.raw_&source_name"],
+      "source_datasets": [
+        "work.raw_&source_name"
+      ],
+      "target_datasets": [
+        "work.raw_&source_name"
+      ],
       "block_id": 5
     },
     {
-      "source_datasets": ["work.raw_&source_name"],
-      "target_datasets": ["work.std_&source_name"],
+      "source_datasets": [
+        "work.raw_&source_name"
+      ],
+      "target_datasets": [
+        "work.std_&source_name"
+      ],
       "block_id": 6
     },
     {
-      "source_datasets": ["&ds1", "&ds2"],
-      "target_datasets": ["work.exact_&pair_label"],
+      "source_datasets": [
+        "&ds1",
+        "&ds2"
+      ],
+      "target_datasets": [
+        "work.exact_&pair_label"
+      ],
       "block_id": 9
     },
     {
-      "source_datasets": ["&ds1", "&ds2"],
-      "target_datasets": ["work.fuzzy_candidates_&pair_label"],
+      "source_datasets": [
+        "&ds1",
+        "&ds2"
+      ],
+      "target_datasets": [
+        "work.fuzzy_candidates_&pair_label"
+      ],
       "block_id": 10
     },
     {
-      "source_datasets": ["work.exact_&pair_label", "work.fuzzy_candidates_&pair_label"],
-      "target_datasets": ["work.matches_&pair_label", "work.review_&pair_label"],
+      "source_datasets": [
+        "work.exact_&pair_label",
+        "work.fuzzy_candidates_&pair_label"
+      ],
+      "target_datasets": [
+        "work.matches_&pair_label",
+        "work.review_&pair_label"
+      ],
       "block_id": 11
     },
     {
-      "source_datasets": ["&matched_ds"],
-      "target_datasets": ["work.match_clusters"],
+      "source_datasets": [
+        "&matched_ds"
+      ],
+      "target_datasets": [
+        "work.match_clusters"
+      ],
       "block_id": 14
     },
     {
-      "source_datasets": ["work.match_clusters"],
-      "target_datasets": ["work.golden_candidates"],
+      "source_datasets": [
+        "work.match_clusters"
+      ],
+      "target_datasets": [
+        "work.golden_candidates"
+      ],
       "block_id": 15
     },
     {
-      "source_datasets": ["work.golden_candidates"],
-      "target_datasets": ["work.golden_master"],
+      "source_datasets": [
+        "work.golden_candidates"
+      ],
+      "target_datasets": [
+        "work.golden_master"
+      ],
       "block_id": 19
     },
     {
-      "source_datasets": ["work.golden_master"],
-      "target_datasets": ["golden.golden_records"],
+      "source_datasets": [
+        "work.golden_master"
+      ],
+      "target_datasets": [
+        "golden.golden_records"
+      ],
       "block_id": 20
     },
     {
-      "source_datasets": ["work.golden_candidates", "work.match_clusters"],
-      "target_datasets": ["work.xref_raw"],
+      "source_datasets": [
+        "work.golden_candidates",
+        "work.match_clusters"
+      ],
+      "target_datasets": [
+        "work.xref_raw"
+      ],
       "block_id": 22
     },
     {
-      "source_datasets": ["work.xref_raw"],
-      "target_datasets": ["golden.xref_source_golden"],
+      "source_datasets": [
+        "work.xref_raw"
+      ],
+      "target_datasets": [
+        "golden.xref_source_golden"
+      ],
       "block_id": 23
     },
     {
-      "source_datasets": ["work.all_matches"],
-      "target_datasets": ["work.match_rates"],
+      "source_datasets": [
+        "work.all_matches"
+      ],
+      "target_datasets": [
+        "work.match_rates"
+      ],
       "block_id": 26
     },
     {
-      "source_datasets": ["work.all_matches"],
-      "target_datasets": ["work.match_type_dist", "work.source_match_dist"],
+      "source_datasets": [
+        "work.all_matches"
+      ],
+      "target_datasets": [
+        "work.match_type_dist",
+        "work.source_match_dist"
+      ],
       "block_id": 27
     },
     {
-      "source_datasets": ["work.all_matches"],
-      "target_datasets": ["work.score_stats"],
+      "source_datasets": [
+        "work.all_matches"
+      ],
+      "target_datasets": [
+        "work.score_stats"
+      ],
       "block_id": 28
     },
     {
-      "source_datasets": ["work.std_CRM", "work.std_ERP", "work.std_WEB", "work.std_EXTERNAL", "work.all_match_ids"],
-      "target_datasets": ["work.unmatched_records"],
+      "source_datasets": [
+        "work.std_CRM",
+        "work.std_ERP",
+        "work.std_WEB",
+        "work.std_EXTERNAL",
+        "work.all_match_ids"
+      ],
+      "target_datasets": [
+        "work.unmatched_records"
+      ],
       "block_id": 29
     },
     {
-      "source_datasets": ["work.match_rates"],
+      "source_datasets": [
+        "work.match_rates"
+      ],
       "target_datasets": [],
       "block_id": 31
     },
     {
-      "source_datasets": ["work.matches_std_CRM_std_ERP", "work.matches_std_CRM_std_WEB", "work.matches_std_CRM_std_EXTERNAL", "work.matches_std_ERP_std_WEB", "work.matches_std_ERP_std_EXTERNAL", "work.matches_std_WEB_std_EXTERNAL"],
-      "target_datasets": ["work.all_matches"],
+      "source_datasets": [
+        "work.matches_std_CRM_std_ERP",
+        "work.matches_std_CRM_std_WEB",
+        "work.matches_std_CRM_std_EXTERNAL",
+        "work.matches_std_ERP_std_WEB",
+        "work.matches_std_ERP_std_EXTERNAL",
+        "work.matches_std_WEB_std_EXTERNAL"
+      ],
+      "target_datasets": [
+        "work.all_matches"
+      ],
       "block_id": 35
     },
     {
-      "source_datasets": ["work.all_matches"],
-      "target_datasets": ["work.all_match_ids"],
+      "source_datasets": [
+        "work.all_matches"
+      ],
+      "target_datasets": [
+        "work.all_match_ids"
+      ],
       "block_id": 36
     }
   ],

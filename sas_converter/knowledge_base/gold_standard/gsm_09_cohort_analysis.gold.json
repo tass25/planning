@@ -20,7 +20,7 @@
     },
     {
       "block_id": 3,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 64,
       "line_end": 96,
       "test_coverage_type": "full",
@@ -62,28 +62,48 @@
   "total_blocks": 7,
   "data_lineage": [
     {
-      "source_datasets": ["raw.patient_registry"],
-      "target_datasets": ["staging.eligible_patients"],
+      "source_datasets": [
+        "raw.patient_registry"
+      ],
+      "target_datasets": [
+        "staging.eligible_patients"
+      ],
       "block_id": 2
     },
     {
-      "source_datasets": ["staging.eligible_patients"],
-      "target_datasets": ["staging.matched_cohort"],
+      "source_datasets": [
+        "staging.eligible_patients"
+      ],
+      "target_datasets": [
+        "staging.matched_cohort"
+      ],
       "block_id": 3
     },
     {
-      "source_datasets": ["raw.patient_encounters"],
-      "target_datasets": ["staging.followup"],
+      "source_datasets": [
+        "raw.patient_encounters"
+      ],
+      "target_datasets": [
+        "staging.followup"
+      ],
       "block_id": 4
     },
     {
-      "source_datasets": ["staging.eligible_patients"],
-      "target_datasets": ["tgt.baseline_characteristics"],
+      "source_datasets": [
+        "staging.eligible_patients"
+      ],
+      "target_datasets": [
+        "tgt.baseline_characteristics"
+      ],
       "block_id": 6
     },
     {
-      "source_datasets": ["staging.followup"],
-      "target_datasets": ["tgt.hazard_indicators"],
+      "source_datasets": [
+        "staging.followup"
+      ],
+      "target_datasets": [
+        "tgt.hazard_indicators"
+      ],
       "block_id": 7
     }
   ],

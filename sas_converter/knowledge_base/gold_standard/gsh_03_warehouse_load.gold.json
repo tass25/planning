@@ -44,7 +44,7 @@
     },
     {
       "block_id": 6,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 140,
       "line_end": 164,
       "test_coverage_type": "full",
@@ -68,7 +68,7 @@
     },
     {
       "block_id": 9,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 200,
       "line_end": 213,
       "test_coverage_type": "full",
@@ -84,7 +84,7 @@
     },
     {
       "block_id": 11,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 278,
       "line_end": 290,
       "test_coverage_type": "full",
@@ -164,7 +164,7 @@
     },
     {
       "block_id": 21,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 449,
       "line_end": 470,
       "test_coverage_type": "full",
@@ -172,7 +172,7 @@
     },
     {
       "block_id": 22,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 472,
       "line_end": 485,
       "test_coverage_type": "full",
@@ -236,7 +236,7 @@
     },
     {
       "block_id": 30,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 589,
       "line_end": 600,
       "test_coverage_type": "full",
@@ -270,73 +270,142 @@
   "total_blocks": 33,
   "data_lineage": [
     {
-      "source_datasets": ["srcdb.customers", "srcdb.products", "srcdb.orders", "srcdb.order_lines", "srcdb.suppliers"],
-      "target_datasets": ["staging.stg_customers", "staging.stg_products", "staging.stg_orders", "staging.stg_order_lines", "staging.stg_suppliers"],
+      "source_datasets": [
+        "srcdb.customers",
+        "srcdb.products",
+        "srcdb.orders",
+        "srcdb.order_lines",
+        "srcdb.suppliers"
+      ],
+      "target_datasets": [
+        "staging.stg_customers",
+        "staging.stg_products",
+        "staging.stg_orders",
+        "staging.stg_order_lines",
+        "staging.stg_suppliers"
+      ],
       "block_id": 12
     },
     {
-      "source_datasets": ["staging.stg_customers"],
-      "target_datasets": ["staging.stg_customers_clean"],
+      "source_datasets": [
+        "staging.stg_customers"
+      ],
+      "target_datasets": [
+        "staging.stg_customers_clean"
+      ],
       "block_id": 15
     },
     {
-      "source_datasets": ["staging.stg_products"],
-      "target_datasets": ["staging.stg_products_clean"],
+      "source_datasets": [
+        "staging.stg_products"
+      ],
+      "target_datasets": [
+        "staging.stg_products_clean"
+      ],
       "block_id": 16
     },
     {
-      "source_datasets": ["staging.stg_customers_clean"],
-      "target_datasets": ["staging.stg_customers_dedup"],
+      "source_datasets": [
+        "staging.stg_customers_clean"
+      ],
+      "target_datasets": [
+        "staging.stg_customers_dedup"
+      ],
       "block_id": 17
     },
     {
-      "source_datasets": ["staging.stg_products_clean"],
-      "target_datasets": ["staging.stg_products_dedup"],
+      "source_datasets": [
+        "staging.stg_products_clean"
+      ],
+      "target_datasets": [
+        "staging.stg_products_dedup"
+      ],
       "block_id": 17
     },
     {
-      "source_datasets": ["staging.stg_orders"],
-      "target_datasets": ["staging.stg_orders_dedup"],
+      "source_datasets": [
+        "staging.stg_orders"
+      ],
+      "target_datasets": [
+        "staging.stg_orders_dedup"
+      ],
       "block_id": 17
     },
     {
-      "source_datasets": ["staging.stg_customers_dedup"],
-      "target_datasets": ["whouse.dim_customer"],
+      "source_datasets": [
+        "staging.stg_customers_dedup"
+      ],
+      "target_datasets": [
+        "whouse.dim_customer"
+      ],
       "block_id": 18
     },
     {
-      "source_datasets": ["staging.stg_products_dedup"],
-      "target_datasets": ["whouse.dim_product"],
+      "source_datasets": [
+        "staging.stg_products_dedup"
+      ],
+      "target_datasets": [
+        "whouse.dim_product"
+      ],
       "block_id": 19
     },
     {
-      "source_datasets": ["staging.stg_suppliers"],
-      "target_datasets": ["whouse.dim_supplier"],
+      "source_datasets": [
+        "staging.stg_suppliers"
+      ],
+      "target_datasets": [
+        "whouse.dim_supplier"
+      ],
       "block_id": 20
     },
     {
-      "source_datasets": ["staging.stg_orders_dedup", "whouse.dim_customer", "whouse.dim_product", "whouse.dim_supplier", "whouse.dim_date", "staging.stg_order_lines"],
-      "target_datasets": ["staging.orders_with_keys"],
+      "source_datasets": [
+        "staging.stg_orders_dedup",
+        "whouse.dim_customer",
+        "whouse.dim_product",
+        "whouse.dim_supplier",
+        "whouse.dim_date",
+        "staging.stg_order_lines"
+      ],
+      "target_datasets": [
+        "staging.orders_with_keys"
+      ],
       "block_id": 21
     },
     {
-      "source_datasets": ["staging.orders_with_keys"],
-      "target_datasets": ["staging.orphan_keys"],
+      "source_datasets": [
+        "staging.orders_with_keys"
+      ],
+      "target_datasets": [
+        "staging.orphan_keys"
+      ],
       "block_id": 22
     },
     {
-      "source_datasets": ["staging.orders_with_keys"],
-      "target_datasets": ["staging.fact_orders_stage"],
+      "source_datasets": [
+        "staging.orders_with_keys"
+      ],
+      "target_datasets": [
+        "staging.fact_orders_stage"
+      ],
       "block_id": 24
     },
     {
-      "source_datasets": ["staging.fact_orders_stage"],
-      "target_datasets": ["whouse.fact_orders"],
+      "source_datasets": [
+        "staging.fact_orders_stage"
+      ],
+      "target_datasets": [
+        "whouse.fact_orders"
+      ],
       "block_id": 25
     },
     {
-      "source_datasets": ["staging.stg_returns"],
-      "target_datasets": ["whouse.fact_returns"],
+      "source_datasets": [
+        "staging.stg_returns"
+      ],
+      "target_datasets": [
+        "whouse.fact_returns"
+      ],
       "block_id": 26
     }
   ],

@@ -36,7 +36,7 @@
     },
     {
       "block_id": 5,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 61,
       "line_end": 83,
       "test_coverage_type": "full",
@@ -76,7 +76,7 @@
     },
     {
       "block_id": 10,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 139,
       "line_end": 157,
       "test_coverage_type": "full",
@@ -188,7 +188,7 @@
     },
     {
       "block_id": 24,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 545,
       "line_end": 572,
       "test_coverage_type": "full",
@@ -204,7 +204,7 @@
     },
     {
       "block_id": 26,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 586,
       "line_end": 609,
       "test_coverage_type": "full",
@@ -308,7 +308,7 @@
     },
     {
       "block_id": 39,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 748,
       "line_end": 752,
       "test_coverage_type": "full",
@@ -327,113 +327,219 @@
   "data_lineage": [
     {
       "block_id": 5,
-      "inputs": ["actuary.model_parameters"],
-      "outputs": [":coeff_names", ":coeff_values", ":coeff_types", ":eff_from", ":eff_to", ":n_coefficients"]
+      "inputs": [
+        "actuary.model_parameters"
+      ],
+      "outputs": [
+        ":coeff_names",
+        ":coeff_values",
+        ":coeff_types",
+        ":eff_from",
+        ":eff_to",
+        ":n_coefficients"
+      ]
     },
     {
       "block_id": 6,
-      "inputs": [":coeff_names", ":coeff_values", ":coeff_types"],
-      "outputs": ["macro_variables_from_coefficients"]
+      "inputs": [
+        ":coeff_names",
+        ":coeff_values",
+        ":coeff_types"
+      ],
+      "outputs": [
+        "macro_variables_from_coefficients"
+      ]
     },
     {
       "block_id": 9,
-      "inputs": ["policy.policy_master"],
-      "outputs": ["work.state_factor"]
+      "inputs": [
+        "policy.policy_master"
+      ],
+      "outputs": [
+        "work.state_factor"
+      ]
     },
     {
       "block_id": 10,
-      "inputs": ["work.state_factor", "actuary.territory_defs"],
-      "outputs": ["work.territory_detail"]
+      "inputs": [
+        "work.state_factor",
+        "actuary.territory_defs"
+      ],
+      "outputs": [
+        "work.territory_detail"
+      ]
     },
     {
       "block_id": 11,
-      "inputs": ["work.territory_detail"],
-      "outputs": ["work.sub_territory_1", "work.sub_territory_2", "work.sub_territory_3", "work.sub_territory_4", "work.sub_territory_5"]
+      "inputs": [
+        "work.territory_detail"
+      ],
+      "outputs": [
+        "work.sub_territory_1",
+        "work.sub_territory_2",
+        "work.sub_territory_3",
+        "work.sub_territory_4",
+        "work.sub_territory_5"
+      ]
     },
     {
       "block_id": 12,
-      "inputs": ["work.sub_territory_1", "work.sub_territory_2", "work.sub_territory_3", "work.sub_territory_4", "work.sub_territory_5"],
-      "outputs": ["work.territory_scores"]
+      "inputs": [
+        "work.sub_territory_1",
+        "work.sub_territory_2",
+        "work.sub_territory_3",
+        "work.sub_territory_4",
+        "work.sub_territory_5"
+      ],
+      "outputs": [
+        "work.territory_scores"
+      ]
     },
     {
       "block_id": 14,
-      "inputs": ["claims.auto_claims"],
-      "outputs": ["work.auto_claims_score"]
+      "inputs": [
+        "claims.auto_claims"
+      ],
+      "outputs": [
+        "work.auto_claims_score"
+      ]
     },
     {
       "block_id": 15,
-      "inputs": ["claims.home_claims"],
-      "outputs": ["work.home_claims_score"]
+      "inputs": [
+        "claims.home_claims"
+      ],
+      "outputs": [
+        "work.home_claims_score"
+      ]
     },
     {
       "block_id": 16,
-      "inputs": ["claims.commercial_claims"],
-      "outputs": ["work.commercial_claims_score"]
+      "inputs": [
+        "claims.commercial_claims"
+      ],
+      "outputs": [
+        "work.commercial_claims_score"
+      ]
     },
     {
       "block_id": 17,
-      "inputs": ["claims.all_claims"],
-      "outputs": ["work.loss_ratio_bench"]
+      "inputs": [
+        "claims.all_claims"
+      ],
+      "outputs": [
+        "work.loss_ratio_bench"
+      ]
     },
     {
       "block_id": 18,
-      "inputs": ["work.loss_ratio_bench"],
-      "outputs": ["work.claims_trend"]
+      "inputs": [
+        "work.loss_ratio_bench"
+      ],
+      "outputs": [
+        "work.claims_trend"
+      ]
     },
     {
       "block_id": 21,
-      "inputs": ["policy.bureau_credit", "policy.internal_score"],
-      "outputs": ["work.credit_blended"]
+      "inputs": [
+        "policy.bureau_credit",
+        "policy.internal_score"
+      ],
+      "outputs": [
+        "work.credit_blended"
+      ]
     },
     {
       "block_id": 23,
-      "inputs": ["work.territory_scores", "work.auto_claims_score", "work.home_claims_score", "work.credit_blended"],
-      "outputs": ["work.premium_calc"]
+      "inputs": [
+        "work.territory_scores",
+        "work.auto_claims_score",
+        "work.home_claims_score",
+        "work.credit_blended"
+      ],
+      "outputs": [
+        "work.premium_calc"
+      ]
     },
     {
       "block_id": 24,
-      "inputs": ["work.premium_calc", "actuary.market_benchmarks"],
-      "outputs": ["work.competitive_check"]
+      "inputs": [
+        "work.premium_calc",
+        "actuary.market_benchmarks"
+      ],
+      "outputs": [
+        "work.competitive_check"
+      ]
     },
     {
       "block_id": 26,
-      "inputs": ["claims.all_claims", "actuary.expected_results"],
-      "outputs": ["work.actual_vs_expected"]
+      "inputs": [
+        "claims.all_claims",
+        "actuary.expected_results"
+      ],
+      "outputs": [
+        "work.actual_vs_expected"
+      ]
     },
     {
       "block_id": 27,
-      "inputs": ["work.competitive_check"],
-      "outputs": ["work.gini_drift"]
+      "inputs": [
+        "work.competitive_check"
+      ],
+      "outputs": [
+        "work.gini_drift"
+      ]
     },
     {
       "block_id": 28,
-      "inputs": ["work.premium_calc"],
-      "outputs": ["work.score_stability"]
+      "inputs": [
+        "work.premium_calc"
+      ],
+      "outputs": [
+        "work.score_stability"
+      ]
     },
     {
       "block_id": 29,
-      "inputs": ["work.gini_drift"],
-      "outputs": ["work.gini_summary"]
+      "inputs": [
+        "work.gini_drift"
+      ],
+      "outputs": [
+        "work.gini_summary"
+      ]
     },
     {
       "block_id": 36,
-      "inputs": ["work.premium_calc"],
+      "inputs": [
+        "work.premium_calc"
+      ],
       "outputs": []
     },
     {
       "block_id": 37,
-      "inputs": ["work.premium_calc"],
+      "inputs": [
+        "work.premium_calc"
+      ],
       "outputs": []
     },
     {
       "block_id": 38,
-      "inputs": ["work.premium_calc"],
-      "outputs": ["scoredb.scored_policies"]
+      "inputs": [
+        "work.premium_calc"
+      ],
+      "outputs": [
+        "scoredb.scored_policies"
+      ]
     },
     {
       "block_id": 39,
-      "inputs": ["scoredb.scored_policies"],
-      "outputs": [":n_scored"]
+      "inputs": [
+        "scoredb.scored_policies"
+      ],
+      "outputs": [
+        ":n_scored"
+      ]
     }
   ],
   "annotator": "manual",

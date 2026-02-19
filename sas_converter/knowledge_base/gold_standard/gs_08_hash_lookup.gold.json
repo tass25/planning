@@ -15,9 +15,15 @@
   "annotation_date": "2026-02-19",
   "data_lineage": [
     {
-      "source_datasets": ["work.daily_sales", "work.region_lookup"],
-      "target_datasets": ["work.enriched_sales"],
+      "source_datasets": [
+        "work.daily_sales",
+        "work.region_lookup"
+      ],
+      "target_datasets": [
+        "work.enriched_sales"
+      ],
       "block_id": 1
     }
-  ]
+  ],
+  "tier": "simple"
 }

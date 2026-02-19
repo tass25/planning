@@ -44,7 +44,7 @@
     },
     {
       "block_id": 6,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 125,
       "line_end": 156,
       "test_coverage_type": "full",
@@ -78,18 +78,40 @@
   "total_blocks": 9,
   "data_lineage": [
     {
-      "source_datasets": ["raw.survey_responses"],
-      "target_datasets": ["staging.wave_1", "staging.wave_2", "staging.wave_3", "staging.wave_4", "staging.stats_wave_1", "staging.stats_wave_2", "staging.stats_wave_3", "staging.stats_wave_4"],
+      "source_datasets": [
+        "raw.survey_responses"
+      ],
+      "target_datasets": [
+        "staging.wave_1",
+        "staging.wave_2",
+        "staging.wave_3",
+        "staging.wave_4",
+        "staging.stats_wave_1",
+        "staging.stats_wave_2",
+        "staging.stats_wave_3",
+        "staging.stats_wave_4"
+      ],
       "block_id": 4
     },
     {
-      "source_datasets": ["staging.wave_1", "staging.wave_2", "staging.wave_3", "staging.wave_4"],
-      "target_datasets": ["staging.longitudinal_panel"],
+      "source_datasets": [
+        "staging.wave_1",
+        "staging.wave_2",
+        "staging.wave_3",
+        "staging.wave_4"
+      ],
+      "target_datasets": [
+        "staging.longitudinal_panel"
+      ],
       "block_id": 6
     },
     {
-      "source_datasets": ["staging.longitudinal_panel"],
-      "target_datasets": ["tgt.wave_changes"],
+      "source_datasets": [
+        "staging.longitudinal_panel"
+      ],
+      "target_datasets": [
+        "tgt.wave_changes"
+      ],
       "block_id": 7
     }
   ],

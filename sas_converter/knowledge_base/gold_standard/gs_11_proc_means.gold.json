@@ -31,9 +31,14 @@
   "annotation_date": "2026-02-19",
   "data_lineage": [
     {
-      "source_datasets": ["work.employee_perf"],
-      "target_datasets": ["work.dept_stats"],
+      "source_datasets": [
+        "work.employee_perf"
+      ],
+      "target_datasets": [
+        "work.dept_stats"
+      ],
       "block_id": 2
     }
-  ]
+  ],
+  "tier": "simple"
 }

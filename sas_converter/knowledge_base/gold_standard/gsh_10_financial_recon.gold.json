@@ -20,7 +20,7 @@
     },
     {
       "block_id": 3,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 87,
       "line_end": 110,
       "test_coverage_type": "full",
@@ -116,7 +116,7 @@
     },
     {
       "block_id": 15,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 484,
       "line_end": 496,
       "test_coverage_type": "full",
@@ -140,7 +140,7 @@
     },
     {
       "block_id": 18,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 575,
       "line_end": 584,
       "test_coverage_type": "full",
@@ -156,7 +156,7 @@
     },
     {
       "block_id": 20,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 600,
       "line_end": 637,
       "test_coverage_type": "full",
@@ -172,7 +172,7 @@
     },
     {
       "block_id": 22,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 664,
       "line_end": 669,
       "test_coverage_type": "full",
@@ -286,87 +286,164 @@
   "total_blocks": 35,
   "data_lineage": [
     {
-      "source_datasets": ["gl.journal_entries"],
-      "target_datasets": ["work.gl_raw"],
+      "source_datasets": [
+        "gl.journal_entries"
+      ],
+      "target_datasets": [
+        "work.gl_raw"
+      ],
       "block_id": 3
     },
     {
-      "source_datasets": ["work.gl_raw", "gl.exchange_rates"],
-      "target_datasets": ["work.gl_balances"],
+      "source_datasets": [
+        "work.gl_raw",
+        "gl.exchange_rates"
+      ],
+      "target_datasets": [
+        "work.gl_balances"
+      ],
       "block_id": 4
     },
     {
-      "source_datasets": ["work.gl_balances"],
-      "target_datasets": ["work.gl_consolidated"],
+      "source_datasets": [
+        "work.gl_balances"
+      ],
+      "target_datasets": [
+        "work.gl_consolidated"
+      ],
       "block_id": 5
     },
     {
-      "source_datasets": ["sub.ar_invoices"],
-      "target_datasets": ["work.sub_ar", "work.sub_ar_norm"],
+      "source_datasets": [
+        "sub.ar_invoices"
+      ],
+      "target_datasets": [
+        "work.sub_ar",
+        "work.sub_ar_norm"
+      ],
       "block_id": 7
     },
     {
-      "source_datasets": ["sub.ap_invoices"],
-      "target_datasets": ["work.sub_ap", "work.sub_ap_norm"],
+      "source_datasets": [
+        "sub.ap_invoices"
+      ],
+      "target_datasets": [
+        "work.sub_ap",
+        "work.sub_ap_norm"
+      ],
       "block_id": 8
     },
     {
-      "source_datasets": ["sub.fixed_assets"],
-      "target_datasets": ["work.sub_fa", "work.sub_fa_norm"],
+      "source_datasets": [
+        "sub.fixed_assets"
+      ],
+      "target_datasets": [
+        "work.sub_fa",
+        "work.sub_fa_norm"
+      ],
       "block_id": 9
     },
     {
-      "source_datasets": ["gl.cash_transactions", "bank.statements"],
-      "target_datasets": ["work.gl_cash_sorted", "work.bank_stmt_sorted"],
+      "source_datasets": [
+        "gl.cash_transactions",
+        "bank.statements"
+      ],
+      "target_datasets": [
+        "work.gl_cash_sorted",
+        "work.bank_stmt_sorted"
+      ],
       "block_id": 11
     },
     {
-      "source_datasets": ["work.gl_cash_sorted", "work.bank_stmt_sorted"],
-      "target_datasets": ["work.bank_matched", "work.bank_exceptions_gl"],
+      "source_datasets": [
+        "work.gl_cash_sorted",
+        "work.bank_stmt_sorted"
+      ],
+      "target_datasets": [
+        "work.bank_matched",
+        "work.bank_exceptions_gl"
+      ],
       "block_id": 12
     },
     {
-      "source_datasets": ["work.bank_stmt_sorted", "work.bank_matched"],
-      "target_datasets": ["work.bank_exceptions_bank_temp"],
+      "source_datasets": [
+        "work.bank_stmt_sorted",
+        "work.bank_matched"
+      ],
+      "target_datasets": [
+        "work.bank_exceptions_bank_temp"
+      ],
       "block_id": 13
     },
     {
-      "source_datasets": ["work.bank_exceptions_bank_temp"],
-      "target_datasets": ["work.bank_exceptions_bank"],
+      "source_datasets": [
+        "work.bank_exceptions_bank_temp"
+      ],
+      "target_datasets": [
+        "work.bank_exceptions_bank"
+      ],
       "block_id": 14
     },
     {
-      "source_datasets": ["work.gl_balances"],
-      "target_datasets": ["work._ic_pair_*", "work._ic_net_*", "work.ic_all_exceptions"],
+      "source_datasets": [
+        "work.gl_balances"
+      ],
+      "target_datasets": [
+        "work._ic_pair_*",
+        "work._ic_net_*",
+        "work.ic_all_exceptions"
+      ],
       "block_id": 17
     },
     {
-      "source_datasets": ["work.gl_consolidated", "work.sub_ar_norm", "work.sub_ap_norm", "work.sub_fa_norm", "work.bank_matched", "work.ic_all_exceptions"],
-      "target_datasets": ["work.recon_summary"],
+      "source_datasets": [
+        "work.gl_consolidated",
+        "work.sub_ar_norm",
+        "work.sub_ap_norm",
+        "work.sub_fa_norm",
+        "work.bank_matched",
+        "work.ic_all_exceptions"
+      ],
+      "target_datasets": [
+        "work.recon_summary"
+      ],
       "block_id": 20
     },
     {
-      "source_datasets": ["work.recon_summary"],
-      "target_datasets": ["recon.recon_detail"],
+      "source_datasets": [
+        "work.recon_summary"
+      ],
+      "target_datasets": [
+        "recon.recon_detail"
+      ],
       "block_id": 21
     },
     {
-      "source_datasets": ["recon.recon_detail"],
+      "source_datasets": [
+        "recon.recon_detail"
+      ],
       "target_datasets": [],
       "block_id": 24
     },
     {
-      "source_datasets": ["recon.recon_detail"],
+      "source_datasets": [
+        "recon.recon_detail"
+      ],
       "target_datasets": [],
       "block_id": 31
     },
     {
-      "source_datasets": ["work.bank_exceptions_gl", "work.bank_exceptions_bank"],
+      "source_datasets": [
+        "work.bank_exceptions_gl",
+        "work.bank_exceptions_bank"
+      ],
       "target_datasets": [],
       "block_id": 32
     },
     {
-      "source_datasets": ["work.ic_all_exceptions"],
+      "source_datasets": [
+        "work.ic_all_exceptions"
+      ],
       "target_datasets": [],
       "block_id": 33
     }

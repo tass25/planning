@@ -68,7 +68,7 @@
     },
     {
       "block_id": 9,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 131,
       "line_end": 166,
       "test_coverage_type": "full",
@@ -100,7 +100,7 @@
     },
     {
       "block_id": 13,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 250,
       "line_end": 267,
       "test_coverage_type": "full",
@@ -188,7 +188,7 @@
     },
     {
       "block_id": 24,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 415,
       "line_end": 443,
       "test_coverage_type": "full",
@@ -204,7 +204,7 @@
     },
     {
       "block_id": 26,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 457,
       "line_end": 495,
       "test_coverage_type": "full",
@@ -236,7 +236,7 @@
     },
     {
       "block_id": 30,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 606,
       "line_end": 629,
       "test_coverage_type": "full",
@@ -252,7 +252,7 @@
     },
     {
       "block_id": 32,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 641,
       "line_end": 662,
       "test_coverage_type": "full",
@@ -332,7 +332,7 @@
     },
     {
       "block_id": 42,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 775,
       "line_end": 780,
       "test_coverage_type": "full",
@@ -366,128 +366,221 @@
   "total_blocks": 45,
   "data_lineage": [
     {
-      "source_datasets": ["finance.income_statement"],
-      "target_datasets": ["work.exec_kpis"],
+      "source_datasets": [
+        "finance.income_statement"
+      ],
+      "target_datasets": [
+        "work.exec_kpis"
+      ],
       "block_id": 9
     },
     {
-      "source_datasets": ["work.exec_kpis"],
-      "target_datasets": ["work.exec_period_change"],
+      "source_datasets": [
+        "work.exec_kpis"
+      ],
+      "target_datasets": [
+        "work.exec_period_change"
+      ],
       "block_id": 10
     },
     {
-      "source_datasets": ["work.exec_period_change"],
+      "source_datasets": [
+        "work.exec_period_change"
+      ],
       "target_datasets": [],
       "block_id": 11
     },
     {
-      "source_datasets": ["sales.opportunities"],
-      "target_datasets": ["work.sales_pipeline"],
+      "source_datasets": [
+        "sales.opportunities"
+      ],
+      "target_datasets": [
+        "work.sales_pipeline"
+      ],
       "block_id": 13
     },
     {
-      "source_datasets": ["work.sales_pipeline"],
+      "source_datasets": [
+        "work.sales_pipeline"
+      ],
       "target_datasets": [],
       "block_id": 14
     },
     {
-      "source_datasets": ["work.sales_pipeline"],
-      "target_datasets": ["work.sales_quota"],
+      "source_datasets": [
+        "work.sales_pipeline"
+      ],
+      "target_datasets": [
+        "work.sales_quota"
+      ],
       "block_id": 15
     },
     {
-      "source_datasets": ["work.sales_pipeline"],
-      "target_datasets": ["work.region_NORTH", "work.region_SOUTH", "work.region_EAST", "work.region_WEST"],
+      "source_datasets": [
+        "work.sales_pipeline"
+      ],
+      "target_datasets": [
+        "work.region_NORTH",
+        "work.region_SOUTH",
+        "work.region_EAST",
+        "work.region_WEST"
+      ],
       "block_id": 16
     },
     {
-      "source_datasets": ["work.sales_pipeline"],
-      "target_datasets": ["work.sales_chart"],
+      "source_datasets": [
+        "work.sales_pipeline"
+      ],
+      "target_datasets": [
+        "work.sales_chart"
+      ],
       "block_id": 17
     },
     {
-      "source_datasets": ["work.sales_chart"],
-      "target_datasets": ["work.sales_chart"],
+      "source_datasets": [
+        "work.sales_chart"
+      ],
+      "target_datasets": [
+        "work.sales_chart"
+      ],
       "block_id": 18
     },
     {
-      "source_datasets": ["hr.employee_roster"],
-      "target_datasets": ["work.hr_headcount"],
+      "source_datasets": [
+        "hr.employee_roster"
+      ],
+      "target_datasets": [
+        "work.hr_headcount"
+      ],
       "block_id": 20
     },
     {
-      "source_datasets": ["work.hr_headcount"],
-      "target_datasets": ["work.hr_div_gender", "work.hr_div_ethnicity", "work.hr_div_dept_gender"],
+      "source_datasets": [
+        "work.hr_headcount"
+      ],
+      "target_datasets": [
+        "work.hr_div_gender",
+        "work.hr_div_ethnicity",
+        "work.hr_div_dept_gender"
+      ],
       "block_id": 21
     },
     {
-      "source_datasets": ["work.hr_div_gender", "work.hr_div_ethnicity"],
-      "target_datasets": ["work.hr_diversity"],
+      "source_datasets": [
+        "work.hr_div_gender",
+        "work.hr_div_ethnicity"
+      ],
+      "target_datasets": [
+        "work.hr_diversity"
+      ],
       "block_id": 22
     },
     {
-      "source_datasets": ["work.hr_headcount"],
-      "target_datasets": ["work.hr_comp"],
+      "source_datasets": [
+        "work.hr_headcount"
+      ],
+      "target_datasets": [
+        "work.hr_comp"
+      ],
       "block_id": 23
     },
     {
-      "source_datasets": ["hr.employee_roster", "work.hr_headcount"],
-      "target_datasets": ["work.hr_new_hires", "work.hr_departures"],
+      "source_datasets": [
+        "hr.employee_roster",
+        "work.hr_headcount"
+      ],
+      "target_datasets": [
+        "work.hr_new_hires",
+        "work.hr_departures"
+      ],
       "block_id": 24
     },
     {
-      "source_datasets": ["finance.gl_detail"],
-      "target_datasets": ["work.income_stmt"],
+      "source_datasets": [
+        "finance.gl_detail"
+      ],
+      "target_datasets": [
+        "work.income_stmt"
+      ],
       "block_id": 26
     },
     {
-      "source_datasets": ["finance.trial_balance"],
-      "target_datasets": ["work.balance_sheet"],
+      "source_datasets": [
+        "finance.trial_balance"
+      ],
+      "target_datasets": [
+        "work.balance_sheet"
+      ],
       "block_id": 27
     },
     {
-      "source_datasets": ["work.income_stmt"],
+      "source_datasets": [
+        "work.income_stmt"
+      ],
       "target_datasets": [],
       "block_id": 28
     },
     {
-      "source_datasets": ["finance.monthly_actuals"],
-      "target_datasets": ["work.ytd_accum"],
+      "source_datasets": [
+        "finance.monthly_actuals"
+      ],
+      "target_datasets": [
+        "work.ytd_accum"
+      ],
       "block_id": 29
     },
     {
-      "source_datasets": ["work.income_stmt"],
-      "target_datasets": ["work.budget_variance"],
+      "source_datasets": [
+        "work.income_stmt"
+      ],
+      "target_datasets": [
+        "work.budget_variance"
+      ],
       "block_id": 30
     },
     {
-      "source_datasets": ["sales.order_detail", "sales.customer_master"],
-      "target_datasets": ["work.top_customers"],
+      "source_datasets": [
+        "sales.order_detail",
+        "sales.customer_master"
+      ],
+      "target_datasets": [
+        "work.top_customers"
+      ],
       "block_id": 32
     },
     {
-      "source_datasets": ["finance.ar_open_items"],
+      "source_datasets": [
+        "finance.ar_open_items"
+      ],
       "target_datasets": [],
       "block_id": 33
     },
     {
       "source_datasets": [],
-      "target_datasets": ["work.methodology"],
+      "target_datasets": [
+        "work.methodology"
+      ],
       "block_id": 34
     },
     {
       "source_datasets": [],
-      "target_datasets": ["rptout.report_log"],
+      "target_datasets": [
+        "rptout.report_log"
+      ],
       "block_id": 37
     },
     {
-      "source_datasets": ["rptout.report_log"],
+      "source_datasets": [
+        "rptout.report_log"
+      ],
       "target_datasets": [],
       "block_id": 42
     },
     {
       "source_datasets": [],
-      "target_datasets": ["rptout.report_errors"],
+      "target_datasets": [
+        "rptout.report_errors"
+      ],
       "block_id": 43
     }
   ],

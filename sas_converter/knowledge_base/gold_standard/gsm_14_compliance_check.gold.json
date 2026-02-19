@@ -20,7 +20,7 @@
     },
     {
       "block_id": 3,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 80,
       "line_end": 98,
       "test_coverage_type": "full",
@@ -62,28 +62,51 @@
   "total_blocks": 7,
   "data_lineage": [
     {
-      "source_datasets": ["raw.financial_transactions"],
-      "target_datasets": ["staging.validated_transactions"],
+      "source_datasets": [
+        "raw.financial_transactions"
+      ],
+      "target_datasets": [
+        "staging.validated_transactions"
+      ],
       "block_id": 2
     },
     {
-      "source_datasets": ["staging.validated_transactions", "raw.sanctions_list", "raw.regulation_lookup"],
-      "target_datasets": ["staging.enriched_violations"],
+      "source_datasets": [
+        "staging.validated_transactions",
+        "raw.sanctions_list",
+        "raw.regulation_lookup"
+      ],
+      "target_datasets": [
+        "staging.enriched_violations"
+      ],
       "block_id": 3
     },
     {
-      "source_datasets": ["staging.enriched_violations"],
-      "target_datasets": ["staging.violation_severity"],
+      "source_datasets": [
+        "staging.enriched_violations"
+      ],
+      "target_datasets": [
+        "staging.violation_severity"
+      ],
       "block_id": 4
     },
     {
-      "source_datasets": ["staging.violation_severity"],
-      "target_datasets": ["staging.violation_summary", "staging.severity_counts"],
+      "source_datasets": [
+        "staging.violation_severity"
+      ],
+      "target_datasets": [
+        "staging.violation_summary",
+        "staging.severity_counts"
+      ],
       "block_id": 5
     },
     {
-      "source_datasets": ["staging.violation_severity"],
-      "target_datasets": ["tgt.remediation_actions"],
+      "source_datasets": [
+        "staging.violation_severity"
+      ],
+      "target_datasets": [
+        "tgt.remediation_actions"
+      ],
       "block_id": 6
     }
   ],

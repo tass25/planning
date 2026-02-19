@@ -16,7 +16,7 @@ from partition.db.sqlite_manager import get_engine, init_db, get_session, FileRe
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 def _make_meta(path: str, content: str = "DATA work.x; RUN;", valid: bool = True) -> FileMetadata:

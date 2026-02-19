@@ -92,7 +92,7 @@
     },
     {
       "block_id": 12,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 293,
       "line_end": 313,
       "test_coverage_type": "full",
@@ -132,7 +132,7 @@
     },
     {
       "block_id": 17,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 386,
       "line_end": 406,
       "test_coverage_type": "full",
@@ -164,7 +164,7 @@
     },
     {
       "block_id": 21,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 459,
       "line_end": 479,
       "test_coverage_type": "full",
@@ -196,7 +196,7 @@
     },
     {
       "block_id": 25,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 536,
       "line_end": 543,
       "test_coverage_type": "full",
@@ -238,53 +238,96 @@
   "total_blocks": 29,
   "data_lineage": [
     {
-      "source_datasets": ["raw.customers"],
-      "target_datasets": ["staging.customer_stg"],
+      "source_datasets": [
+        "raw.customers"
+      ],
+      "target_datasets": [
+        "staging.customer_stg"
+      ],
       "block_id": 10
     },
     {
-      "source_datasets": ["staging.customer_stg"],
-      "target_datasets": ["staging.customer_dedup"],
+      "source_datasets": [
+        "staging.customer_stg"
+      ],
+      "target_datasets": [
+        "staging.customer_dedup"
+      ],
       "block_id": 12
     },
     {
-      "source_datasets": ["staging.customer_dedup"],
-      "target_datasets": ["mart.customer_dim"],
+      "source_datasets": [
+        "staging.customer_dedup"
+      ],
+      "target_datasets": [
+        "mart.customer_dim"
+      ],
       "block_id": 14
     },
     {
-      "source_datasets": ["staging.product_stg"],
-      "target_datasets": ["mart.product_dim"],
+      "source_datasets": [
+        "staging.product_stg"
+      ],
+      "target_datasets": [
+        "mart.product_dim"
+      ],
       "block_id": 14
     },
     {
-      "source_datasets": ["staging.calendar_stg"],
-      "target_datasets": ["mart.date_dim"],
+      "source_datasets": [
+        "staging.calendar_stg"
+      ],
+      "target_datasets": [
+        "mart.date_dim"
+      ],
       "block_id": 14
     },
     {
-      "source_datasets": ["raw.transactions", "raw.accounts", "raw.fx_rates"],
-      "target_datasets": ["staging.fact_transactions", "staging.fact_txn_rejects"],
+      "source_datasets": [
+        "raw.transactions",
+        "raw.accounts",
+        "raw.fx_rates"
+      ],
+      "target_datasets": [
+        "staging.fact_transactions",
+        "staging.fact_txn_rejects"
+      ],
       "block_id": 15
     },
     {
-      "source_datasets": ["staging.fact_transactions"],
-      "target_datasets": ["staging.daily_account_summary"],
+      "source_datasets": [
+        "staging.fact_transactions"
+      ],
+      "target_datasets": [
+        "staging.daily_account_summary"
+      ],
       "block_id": 17
     },
     {
-      "source_datasets": ["staging.daily_account_summary"],
-      "target_datasets": ["mart.account_balances"],
+      "source_datasets": [
+        "staging.daily_account_summary"
+      ],
+      "target_datasets": [
+        "mart.account_balances"
+      ],
       "block_id": 19
     },
     {
-      "source_datasets": ["mart.account_balances"],
-      "target_datasets": ["mart.executive_summary"],
+      "source_datasets": [
+        "mart.account_balances"
+      ],
+      "target_datasets": [
+        "mart.executive_summary"
+      ],
       "block_id": 21
     },
     {
-      "source_datasets": ["raw.transactions"],
-      "target_datasets": ["archive.transactions_YYYYMMDD"],
+      "source_datasets": [
+        "raw.transactions"
+      ],
+      "target_datasets": [
+        "archive.transactions_YYYYMMDD"
+      ],
       "block_id": 24
     }
   ],

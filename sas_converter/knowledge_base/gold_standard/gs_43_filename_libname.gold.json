@@ -29,5 +29,6 @@
   "total_blocks": 3,
   "annotator": "manual",
   "annotation_date": "2026-02-19",
-  "data_lineage": []
+  "data_lineage": [],
+  "tier": "simple"
 }

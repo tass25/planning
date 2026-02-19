@@ -24,7 +24,8 @@
 - [x] `tests/test_file_analysis.py` — 5 tests passing
 - [x] `tests/test_cross_file_deps.py` — 5 tests passing
 - [x] `tests/test_registry_writer.py` — 5 tests passing
-- [x] All tests pass: `pytest tests/ -v` → **15 passed** (2026-02-19)
+- [x] `tests/test_data_lineage.py` — 5 tests passing
+- [x] All tests pass: `pytest tests/ -v` → **20 passed** (2026-02-19)
 
 ### Gold Standard Corpus (3 Complexity Tiers)
 - [x] 50 `.sas` files created in `knowledge_base/gold_standard/`
@@ -48,7 +49,7 @@
 - [x] `data_lineage` table schema created (SQLAlchemy ORM)
 
 ### Git
-- [ ] Pushed to `main` in batches of ~4 files
+- [x] Pushed to `main` in batches
 
 ---
 

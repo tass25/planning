@@ -28,7 +28,7 @@
     },
     {
       "block_id": 4,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 70,
       "line_end": 91,
       "test_coverage_type": "full",
@@ -62,33 +62,58 @@
   "total_blocks": 7,
   "data_lineage": [
     {
-      "source_datasets": ["raw.loan_applications"],
-      "target_datasets": ["staging.risk_factors"],
+      "source_datasets": [
+        "raw.loan_applications"
+      ],
+      "target_datasets": [
+        "staging.risk_factors"
+      ],
       "block_id": 2
     },
     {
-      "source_datasets": ["staging.risk_factors"],
-      "target_datasets": ["staging.population_benchmarks"],
+      "source_datasets": [
+        "staging.risk_factors"
+      ],
+      "target_datasets": [
+        "staging.population_benchmarks"
+      ],
       "block_id": 3
     },
     {
-      "source_datasets": ["staging.risk_factors", "raw.credit_bureau"],
-      "target_datasets": ["staging.enriched_applications"],
+      "source_datasets": [
+        "staging.risk_factors",
+        "raw.credit_bureau"
+      ],
+      "target_datasets": [
+        "staging.enriched_applications"
+      ],
       "block_id": 4
     },
     {
-      "source_datasets": ["staging.enriched_applications"],
-      "target_datasets": ["staging.risk_scored"],
+      "source_datasets": [
+        "staging.enriched_applications"
+      ],
+      "target_datasets": [
+        "staging.risk_scored"
+      ],
       "block_id": 5
     },
     {
-      "source_datasets": ["staging.risk_scored"],
-      "target_datasets": ["staging.pd_estimates"],
+      "source_datasets": [
+        "staging.risk_scored"
+      ],
+      "target_datasets": [
+        "staging.pd_estimates"
+      ],
       "block_id": 6
     },
     {
-      "source_datasets": ["staging.pd_estimates"],
-      "target_datasets": ["tgt.final_decisions"],
+      "source_datasets": [
+        "staging.pd_estimates"
+      ],
+      "target_datasets": [
+        "tgt.final_decisions"
+      ],
       "block_id": 7
     }
   ],

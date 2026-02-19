@@ -20,7 +20,7 @@
     },
     {
       "block_id": 3,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 55,
       "line_end": 89,
       "test_coverage_type": "full",
@@ -78,38 +78,70 @@
   "total_blocks": 9,
   "data_lineage": [
     {
-      "source_datasets": ["raw.sales_transactions"],
-      "target_datasets": ["staging.enriched_sales"],
+      "source_datasets": [
+        "raw.sales_transactions"
+      ],
+      "target_datasets": [
+        "staging.enriched_sales"
+      ],
       "block_id": 2
     },
     {
-      "source_datasets": ["staging.enriched_sales", "raw.sales_reps", "raw.products", "raw.customers", "raw.quotas"],
-      "target_datasets": ["staging.sales_fact"],
+      "source_datasets": [
+        "staging.enriched_sales",
+        "raw.sales_reps",
+        "raw.products",
+        "raw.customers",
+        "raw.quotas"
+      ],
+      "target_datasets": [
+        "staging.sales_fact"
+      ],
       "block_id": 3
     },
     {
-      "source_datasets": ["staging.sales_fact"],
-      "target_datasets": ["staging.regional_rollup"],
+      "source_datasets": [
+        "staging.sales_fact"
+      ],
+      "target_datasets": [
+        "staging.regional_rollup"
+      ],
       "block_id": 4
     },
     {
-      "source_datasets": ["staging.sales_fact"],
-      "target_datasets": ["staging.sales_fact"],
+      "source_datasets": [
+        "staging.sales_fact"
+      ],
+      "target_datasets": [
+        "staging.sales_fact"
+      ],
       "block_id": 5
     },
     {
-      "source_datasets": ["staging.sales_fact"],
-      "target_datasets": ["staging.rep_attainment"],
+      "source_datasets": [
+        "staging.sales_fact"
+      ],
+      "target_datasets": [
+        "staging.rep_attainment"
+      ],
       "block_id": 6
     },
     {
-      "source_datasets": ["staging.rep_attainment"],
-      "target_datasets": ["staging.rep_ranked"],
+      "source_datasets": [
+        "staging.rep_attainment"
+      ],
+      "target_datasets": [
+        "staging.rep_ranked"
+      ],
       "block_id": 7
     },
     {
-      "source_datasets": ["staging.rep_ranked"],
-      "target_datasets": ["tgt.dashboard_kpis"],
+      "source_datasets": [
+        "staging.rep_ranked"
+      ],
+      "target_datasets": [
+        "tgt.dashboard_kpis"
+      ],
       "block_id": 8
     }
   ],

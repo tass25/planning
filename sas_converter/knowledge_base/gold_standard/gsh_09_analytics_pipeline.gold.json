@@ -20,7 +20,7 @@
     },
     {
       "block_id": 3,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 71,
       "line_end": 96,
       "test_coverage_type": "full",
@@ -100,7 +100,7 @@
     },
     {
       "block_id": 13,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 356,
       "line_end": 373,
       "test_coverage_type": "full",
@@ -212,7 +212,7 @@
     },
     {
       "block_id": 27,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 582,
       "line_end": 595,
       "test_coverage_type": "full",
@@ -228,7 +228,7 @@
     },
     {
       "block_id": 29,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 621,
       "line_end": 637,
       "test_coverage_type": "full",
@@ -268,7 +268,7 @@
     },
     {
       "block_id": 34,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 683,
       "line_end": 708,
       "test_coverage_type": "full",
@@ -318,88 +318,175 @@
   "total_blocks": 39,
   "data_lineage": [
     {
-      "source_datasets": ["raw.customers", "raw.transactions"],
-      "target_datasets": ["work.active_customers"],
+      "source_datasets": [
+        "raw.customers",
+        "raw.transactions"
+      ],
+      "target_datasets": [
+        "work.active_customers"
+      ],
       "block_id": 3
     },
     {
-      "source_datasets": ["work.active_customers"],
-      "target_datasets": ["work.population"],
+      "source_datasets": [
+        "work.active_customers"
+      ],
+      "target_datasets": [
+        "work.population"
+      ],
       "block_id": 4
     },
     {
-      "source_datasets": ["work.population"],
-      "target_datasets": ["work.feat_demographic"],
+      "source_datasets": [
+        "work.population"
+      ],
+      "target_datasets": [
+        "work.feat_demographic"
+      ],
       "block_id": 7
     },
     {
-      "source_datasets": ["raw.transactions"],
-      "target_datasets": ["work._txn_sorted", "work.feat_behavioral"],
+      "source_datasets": [
+        "raw.transactions"
+      ],
+      "target_datasets": [
+        "work._txn_sorted",
+        "work.feat_behavioral"
+      ],
       "block_id": 8
     },
     {
-      "source_datasets": ["work.population", "raw.transactions"],
-      "target_datasets": ["work.feat_financial"],
+      "source_datasets": [
+        "work.population",
+        "raw.transactions"
+      ],
+      "target_datasets": [
+        "work.feat_financial"
+      ],
       "block_id": 9
     },
     {
-      "source_datasets": ["work.population"],
-      "target_datasets": ["work.feat_engagement"],
+      "source_datasets": [
+        "work.population"
+      ],
+      "target_datasets": [
+        "work.feat_engagement"
+      ],
       "block_id": 10
     },
     {
-      "source_datasets": ["work.population", "raw.transactions"],
-      "target_datasets": ["work._window_*"],
+      "source_datasets": [
+        "work.population",
+        "raw.transactions"
+      ],
+      "target_datasets": [
+        "work._window_*"
+      ],
       "block_id": 11
     },
     {
-      "source_datasets": ["work.population", "work.feat_demographic", "work.feat_behavioral", "work.feat_financial", "work.feat_engagement"],
-      "target_datasets": ["work.train_data"],
+      "source_datasets": [
+        "work.population",
+        "work.feat_demographic",
+        "work.feat_behavioral",
+        "work.feat_financial",
+        "work.feat_engagement"
+      ],
+      "target_datasets": [
+        "work.train_data"
+      ],
       "block_id": 13
     },
     {
-      "source_datasets": ["work.train_data"],
-      "target_datasets": ["work.train_set", "work.valid_set"],
+      "source_datasets": [
+        "work.train_data"
+      ],
+      "target_datasets": [
+        "work.train_set",
+        "work.valid_set"
+      ],
       "block_id": 14
     },
     {
-      "source_datasets": ["work.train_set", "work.valid_set"],
-      "target_datasets": ["work.model_coefficients", "work.model_association", "work.model_fit", "work.train_scored", "work.valid_scored"],
+      "source_datasets": [
+        "work.train_set",
+        "work.valid_set"
+      ],
+      "target_datasets": [
+        "work.model_coefficients",
+        "work.model_association",
+        "work.model_fit",
+        "work.train_scored",
+        "work.valid_scored"
+      ],
       "block_id": 15
     },
     {
-      "source_datasets": ["work.train_data", "work.model_coefficients"],
-      "target_datasets": ["work.scored_raw"],
+      "source_datasets": [
+        "work.train_data",
+        "work.model_coefficients"
+      ],
+      "target_datasets": [
+        "work.scored_raw"
+      ],
       "block_id": 20
     },
     {
-      "source_datasets": ["work.scored_raw"],
-      "target_datasets": ["work.scored_calibrated"],
+      "source_datasets": [
+        "work.scored_raw"
+      ],
+      "target_datasets": [
+        "work.scored_calibrated"
+      ],
       "block_id": 21
     },
     {
-      "source_datasets": ["work.scored_calibrated"],
-      "target_datasets": ["work.scored_deciled"],
+      "source_datasets": [
+        "work.scored_calibrated"
+      ],
+      "target_datasets": [
+        "work.scored_deciled"
+      ],
       "block_id": 22
     },
     {
-      "source_datasets": ["work.scored_deciled"],
-      "target_datasets": ["output.model_performance"],
+      "source_datasets": [
+        "work.scored_deciled"
+      ],
+      "target_datasets": [
+        "output.model_performance"
+      ],
       "block_id": 27
     },
     {
-      "source_datasets": ["work.scored_deciled"],
-      "target_datasets": ["output.scored_customers"],
+      "source_datasets": [
+        "work.scored_deciled"
+      ],
+      "target_datasets": [
+        "output.scored_customers"
+      ],
       "block_id": 28
     },
     {
-      "source_datasets": ["work.scored_deciled"],
-      "target_datasets": ["output.lift_chart_data"],
+      "source_datasets": [
+        "work.scored_deciled"
+      ],
+      "target_datasets": [
+        "output.lift_chart_data"
+      ],
       "block_id": 29
     },
     {
-      "source_datasets": ["work.population", "work.feat_demographic", "work.feat_behavioral", "work.feat_financial", "work.feat_engagement"],
-      "target_datasets": ["work.model_ready"],
+      "source_datasets": [
+        "work.population",
+        "work.feat_demographic",
+        "work.feat_behavioral",
+        "work.feat_financial",
+        "work.feat_engagement"
+      ],
+      "target_datasets": [
+        "work.model_ready"
+      ],
       "block_id": 34
     }
   ],

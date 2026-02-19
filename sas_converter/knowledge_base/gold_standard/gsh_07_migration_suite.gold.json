@@ -36,7 +36,7 @@
     },
     {
       "block_id": 5,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 151,
       "line_end": 174,
       "test_coverage_type": "full",
@@ -52,7 +52,7 @@
     },
     {
       "block_id": 7,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 226,
       "line_end": 232,
       "test_coverage_type": "full",
@@ -76,7 +76,7 @@
     },
     {
       "block_id": 10,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 269,
       "line_end": 288,
       "test_coverage_type": "full",
@@ -84,7 +84,7 @@
     },
     {
       "block_id": 11,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 290,
       "line_end": 309,
       "test_coverage_type": "full",
@@ -140,7 +140,7 @@
     },
     {
       "block_id": 18,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 494,
       "line_end": 515,
       "test_coverage_type": "full",
@@ -262,53 +262,173 @@
   "total_blocks": 32,
   "data_lineage": [
     {
-      "source_datasets": ["legacy.customers", "legacy.accounts", "legacy.transactions", "legacy.products", "legacy.orders", "legacy.order_lines", "legacy.suppliers", "legacy.employees", "target.customers", "target.accounts", "target.transactions", "target.products", "target.orders", "target.order_lines", "target.suppliers", "target.employees"],
-      "target_datasets": ["reconcil.count_result_customers", "reconcil.count_result_accounts", "reconcil.count_result_transactions", "reconcil.count_result_products", "reconcil.count_result_orders", "reconcil.count_result_order_lines", "reconcil.count_result_suppliers", "reconcil.count_result_employees"],
+      "source_datasets": [
+        "legacy.customers",
+        "legacy.accounts",
+        "legacy.transactions",
+        "legacy.products",
+        "legacy.orders",
+        "legacy.order_lines",
+        "legacy.suppliers",
+        "legacy.employees",
+        "target.customers",
+        "target.accounts",
+        "target.transactions",
+        "target.products",
+        "target.orders",
+        "target.order_lines",
+        "target.suppliers",
+        "target.employees"
+      ],
+      "target_datasets": [
+        "reconcil.count_result_customers",
+        "reconcil.count_result_accounts",
+        "reconcil.count_result_transactions",
+        "reconcil.count_result_products",
+        "reconcil.count_result_orders",
+        "reconcil.count_result_order_lines",
+        "reconcil.count_result_suppliers",
+        "reconcil.count_result_employees"
+      ],
       "block_id": 25
     },
     {
-      "source_datasets": ["legacy.customers", "legacy.accounts", "legacy.products", "legacy.orders", "target.customers", "target.accounts", "target.products", "target.orders"],
-      "target_datasets": ["work._compare_customers", "work._compare_accounts", "work._compare_products", "work._compare_orders"],
+      "source_datasets": [
+        "legacy.customers",
+        "legacy.accounts",
+        "legacy.products",
+        "legacy.orders",
+        "target.customers",
+        "target.accounts",
+        "target.products",
+        "target.orders"
+      ],
+      "target_datasets": [
+        "work._compare_customers",
+        "work._compare_accounts",
+        "work._compare_products",
+        "work._compare_orders"
+      ],
       "block_id": 26
     },
     {
-      "source_datasets": ["work._compare_customers", "work._compare_accounts", "work._compare_products", "work._compare_orders"],
-      "target_datasets": ["reconcil.col_compare_customers", "reconcil.col_compare_accounts", "reconcil.col_compare_products", "reconcil.col_compare_orders"],
+      "source_datasets": [
+        "work._compare_customers",
+        "work._compare_accounts",
+        "work._compare_products",
+        "work._compare_orders"
+      ],
+      "target_datasets": [
+        "reconcil.col_compare_customers",
+        "reconcil.col_compare_accounts",
+        "reconcil.col_compare_products",
+        "reconcil.col_compare_orders"
+      ],
       "block_id": 26
     },
     {
-      "source_datasets": ["legacy.transactions", "legacy.orders", "legacy.order_lines"],
-      "target_datasets": ["work._sum_src_transactions", "work._sum_src_orders", "work._sum_src_order_lines"],
+      "source_datasets": [
+        "legacy.transactions",
+        "legacy.orders",
+        "legacy.order_lines"
+      ],
+      "target_datasets": [
+        "work._sum_src_transactions",
+        "work._sum_src_orders",
+        "work._sum_src_order_lines"
+      ],
       "block_id": 27
     },
     {
-      "source_datasets": ["target.transactions", "target.orders", "target.order_lines"],
-      "target_datasets": ["work._sum_tgt_transactions", "work._sum_tgt_orders", "work._sum_tgt_order_lines"],
+      "source_datasets": [
+        "target.transactions",
+        "target.orders",
+        "target.order_lines"
+      ],
+      "target_datasets": [
+        "work._sum_tgt_transactions",
+        "work._sum_tgt_orders",
+        "work._sum_tgt_order_lines"
+      ],
       "block_id": 27
     },
     {
-      "source_datasets": ["work._sum_src_transactions", "work._sum_tgt_transactions", "work._sum_src_orders", "work._sum_tgt_orders", "work._sum_src_order_lines", "work._sum_tgt_order_lines"],
-      "target_datasets": ["reconcil.sum_result_transactions", "reconcil.sum_result_orders", "reconcil.sum_result_order_lines"],
+      "source_datasets": [
+        "work._sum_src_transactions",
+        "work._sum_tgt_transactions",
+        "work._sum_src_orders",
+        "work._sum_tgt_orders",
+        "work._sum_src_order_lines",
+        "work._sum_tgt_order_lines"
+      ],
+      "target_datasets": [
+        "reconcil.sum_result_transactions",
+        "reconcil.sum_result_orders",
+        "reconcil.sum_result_order_lines"
+      ],
       "block_id": 27
     },
     {
-      "source_datasets": ["target.customers", "target.orders", "target.order_lines", "target.products", "target.accounts", "target.transactions", "target.departments", "target.employees"],
-      "target_datasets": ["reconcil.orphans_orders_customer_id", "reconcil.orphans_order_lines_order_id", "reconcil.orphans_order_lines_product_id", "reconcil.orphans_transactions_account_id", "reconcil.orphans_employees_dept_id", "reconcil.fk_result_orders_customer_id", "reconcil.fk_result_order_lines_order_id", "reconcil.fk_result_order_lines_product_id", "reconcil.fk_result_transactions_account_id", "reconcil.fk_result_employees_dept_id"],
+      "source_datasets": [
+        "target.customers",
+        "target.orders",
+        "target.order_lines",
+        "target.products",
+        "target.accounts",
+        "target.transactions",
+        "target.departments",
+        "target.employees"
+      ],
+      "target_datasets": [
+        "reconcil.orphans_orders_customer_id",
+        "reconcil.orphans_order_lines_order_id",
+        "reconcil.orphans_order_lines_product_id",
+        "reconcil.orphans_transactions_account_id",
+        "reconcil.orphans_employees_dept_id",
+        "reconcil.fk_result_orders_customer_id",
+        "reconcil.fk_result_order_lines_order_id",
+        "reconcil.fk_result_order_lines_product_id",
+        "reconcil.fk_result_transactions_account_id",
+        "reconcil.fk_result_employees_dept_id"
+      ],
       "block_id": 28
     },
     {
-      "source_datasets": ["reconcil.count_result_customers", "reconcil.count_result_accounts", "reconcil.count_result_transactions", "reconcil.count_result_products", "reconcil.count_result_orders", "reconcil.count_result_order_lines", "reconcil.count_result_suppliers", "reconcil.count_result_employees"],
-      "target_datasets": ["reconcil.all_count_results"],
+      "source_datasets": [
+        "reconcil.count_result_customers",
+        "reconcil.count_result_accounts",
+        "reconcil.count_result_transactions",
+        "reconcil.count_result_products",
+        "reconcil.count_result_orders",
+        "reconcil.count_result_order_lines",
+        "reconcil.count_result_suppliers",
+        "reconcil.count_result_employees"
+      ],
+      "target_datasets": [
+        "reconcil.all_count_results"
+      ],
       "block_id": 16
     },
     {
-      "source_datasets": ["reconcil.fk_result_orders_customer_id", "reconcil.fk_result_order_lines_order_id", "reconcil.fk_result_order_lines_product_id", "reconcil.fk_result_transactions_account_id", "reconcil.fk_result_employees_dept_id"],
-      "target_datasets": ["reconcil.all_fk_results"],
+      "source_datasets": [
+        "reconcil.fk_result_orders_customer_id",
+        "reconcil.fk_result_order_lines_order_id",
+        "reconcil.fk_result_order_lines_product_id",
+        "reconcil.fk_result_transactions_account_id",
+        "reconcil.fk_result_employees_dept_id"
+      ],
+      "target_datasets": [
+        "reconcil.all_fk_results"
+      ],
       "block_id": 17
     },
     {
-      "source_datasets": ["reconcil.migration_dashboard"],
-      "target_datasets": ["reconcil.quality_score"],
+      "source_datasets": [
+        "reconcil.migration_dashboard"
+      ],
+      "target_datasets": [
+        "reconcil.quality_score"
+      ],
       "block_id": 19
     }
   ],

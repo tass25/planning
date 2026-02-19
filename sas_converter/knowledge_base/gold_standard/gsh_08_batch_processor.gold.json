@@ -52,7 +52,7 @@
     },
     {
       "block_id": 7,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 280,
       "line_end": 293,
       "test_coverage_type": "full",
@@ -76,7 +76,7 @@
     },
     {
       "block_id": 10,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 321,
       "line_end": 340,
       "test_coverage_type": "full",
@@ -92,7 +92,7 @@
     },
     {
       "block_id": 12,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 413,
       "line_end": 419,
       "test_coverage_type": "full",
@@ -124,7 +124,7 @@
     },
     {
       "block_id": 16,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 525,
       "line_end": 535,
       "test_coverage_type": "full",
@@ -180,7 +180,7 @@
     },
     {
       "block_id": 23,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 688,
       "line_end": 701,
       "test_coverage_type": "full",
@@ -302,47 +302,82 @@
   "total_blocks": 37,
   "data_lineage": [
     {
-      "source_datasets": ["control.file_queue"],
-      "target_datasets": ["control.batch_runs", "batchlog.init_log"],
+      "source_datasets": [
+        "control.file_queue"
+      ],
+      "target_datasets": [
+        "control.batch_runs",
+        "batchlog.init_log"
+      ],
       "block_id": 3
     },
     {
-      "source_datasets": ["indata.*"],
-      "target_datasets": ["work._incoming_*"],
+      "source_datasets": [
+        "indata.*"
+      ],
+      "target_datasets": [
+        "work._incoming_*"
+      ],
       "block_id": 5
     },
     {
-      "source_datasets": ["work._incoming_*"],
-      "target_datasets": ["work._incoming_*_dedup", "work._dupes_*"],
+      "source_datasets": [
+        "work._incoming_*"
+      ],
+      "target_datasets": [
+        "work._incoming_*_dedup",
+        "work._dupes_*"
+      ],
       "block_id": 6
     },
     {
-      "source_datasets": ["control.file_queue"],
-      "target_datasets": ["control.file_queue"],
+      "source_datasets": [
+        "control.file_queue"
+      ],
+      "target_datasets": [
+        "control.file_queue"
+      ],
       "block_id": 7
     },
     {
-      "source_datasets": ["control.transform_rules", "work._incoming_*"],
-      "target_datasets": ["work._incoming_*"],
+      "source_datasets": [
+        "control.transform_rules",
+        "work._incoming_*"
+      ],
+      "target_datasets": [
+        "work._incoming_*"
+      ],
       "block_id": 11
     },
     {
-      "source_datasets": ["work._incoming_*"],
-      "target_datasets": ["outdata.*"],
+      "source_datasets": [
+        "work._incoming_*"
+      ],
+      "target_datasets": [
+        "outdata.*"
+      ],
       "block_id": 15
     },
     {
-      "source_datasets": ["control.batch_runs"],
-      "target_datasets": ["control.batch_runs"],
+      "source_datasets": [
+        "control.batch_runs"
+      ],
+      "target_datasets": [
+        "control.batch_runs"
+      ],
       "block_id": 23
     },
     {
-      "source_datasets": ["batchlog.batch_summary"],
+      "source_datasets": [
+        "batchlog.batch_summary"
+      ],
       "target_datasets": [],
       "block_id": 34
     },
     {
-      "source_datasets": ["batchlog.error_log"],
+      "source_datasets": [
+        "batchlog.error_log"
+      ],
       "target_datasets": [],
       "block_id": 35
     }

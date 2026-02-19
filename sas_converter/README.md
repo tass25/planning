@@ -20,7 +20,7 @@ sas_converter/
 │   ├── base_agent.py          # BaseAgent ABC
 │   ├── logging_config.py      # structlog configuration
 │   ├── models/                # Pydantic data models
-│   ├── entry/                 # L2-A agents (FileAnalysis, CrossFileDeps, RegistryWriter)
+│   ├── entry/                 # L2-A agents (FileAnalysis, CrossFileDeps, RegistryWriter, DataLineageExtractor)
 │   └── db/                    # SQLAlchemy database management
 ├── tests/                     # pytest test suite
 ├── knowledge_base/

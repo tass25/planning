@@ -116,7 +116,7 @@
     },
     {
       "block_id": 15,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 641,
       "line_end": 679,
       "test_coverage_type": "full",
@@ -124,7 +124,7 @@
     },
     {
       "block_id": 16,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 681,
       "line_end": 743,
       "test_coverage_type": "full",
@@ -166,38 +166,70 @@
   "total_blocks": 20,
   "data_lineage": [
     {
-      "source_datasets": ["txn.transactions", "txn.transaction_history", "cust.customer_profiles"],
-      "target_datasets": ["work.txn_featured"],
+      "source_datasets": [
+        "txn.transactions",
+        "txn.transaction_history",
+        "cust.customer_profiles"
+      ],
+      "target_datasets": [
+        "work.txn_featured"
+      ],
       "block_id": 3
     },
     {
-      "source_datasets": ["work.txn_featured"],
-      "target_datasets": ["work.txn_ruled"],
+      "source_datasets": [
+        "work.txn_featured"
+      ],
+      "target_datasets": [
+        "work.txn_ruled"
+      ],
       "block_id": 4
     },
     {
-      "source_datasets": ["work.txn_ruled", "mdl.model_coefficients"],
-      "target_datasets": ["work.txn_scored"],
+      "source_datasets": [
+        "work.txn_ruled",
+        "mdl.model_coefficients"
+      ],
+      "target_datasets": [
+        "work.txn_scored"
+      ],
       "block_id": 5
     },
     {
-      "source_datasets": ["work.txn_scored"],
-      "target_datasets": ["alert.blocked_transactions", "alert.review_queue", "work.passed_transactions", "alert.fraud_alerts"],
+      "source_datasets": [
+        "work.txn_scored"
+      ],
+      "target_datasets": [
+        "alert.blocked_transactions",
+        "alert.review_queue",
+        "work.passed_transactions",
+        "alert.fraud_alerts"
+      ],
       "block_id": 6
     },
     {
-      "source_datasets": ["work.txn_scored"],
-      "target_datasets": ["alert.daily_fraud_metrics"],
+      "source_datasets": [
+        "work.txn_scored"
+      ],
+      "target_datasets": [
+        "alert.daily_fraud_metrics"
+      ],
       "block_id": 15
     },
     {
-      "source_datasets": ["work.txn_scored"],
-      "target_datasets": ["work.rule_effectiveness"],
+      "source_datasets": [
+        "work.txn_scored"
+      ],
+      "target_datasets": [
+        "work.rule_effectiveness"
+      ],
       "block_id": 16
     },
     {
       "source_datasets": [],
-      "target_datasets": ["alert.pipeline_errors"],
+      "target_datasets": [
+        "alert.pipeline_errors"
+      ],
       "block_id": 18
     }
   ],

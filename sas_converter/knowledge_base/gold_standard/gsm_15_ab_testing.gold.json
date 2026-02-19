@@ -36,7 +36,7 @@
     },
     {
       "block_id": 5,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 80,
       "line_end": 111,
       "test_coverage_type": "full",
@@ -62,33 +62,59 @@
   "total_blocks": 7,
   "data_lineage": [
     {
-      "source_datasets": ["raw.assignment_log"],
-      "target_datasets": ["staging.experiment_groups"],
+      "source_datasets": [
+        "raw.assignment_log"
+      ],
+      "target_datasets": [
+        "staging.experiment_groups"
+      ],
       "block_id": 2
     },
     {
-      "source_datasets": ["staging.experiment_groups"],
-      "target_datasets": ["staging.group_stats"],
+      "source_datasets": [
+        "staging.experiment_groups"
+      ],
+      "target_datasets": [
+        "staging.group_stats"
+      ],
       "block_id": 3
     },
     {
-      "source_datasets": ["staging.experiment_groups"],
-      "target_datasets": ["staging.ttest_results", "staging.ttest_stats"],
+      "source_datasets": [
+        "staging.experiment_groups"
+      ],
+      "target_datasets": [
+        "staging.ttest_results",
+        "staging.ttest_stats"
+      ],
       "block_id": 4
     },
     {
-      "source_datasets": ["staging.group_stats"],
-      "target_datasets": ["staging.lift_analysis"],
+      "source_datasets": [
+        "staging.group_stats"
+      ],
+      "target_datasets": [
+        "staging.lift_analysis"
+      ],
       "block_id": 5
     },
     {
-      "source_datasets": ["staging.lift_analysis", "staging.ttest_results"],
-      "target_datasets": ["staging.experiment_decision"],
+      "source_datasets": [
+        "staging.lift_analysis",
+        "staging.ttest_results"
+      ],
+      "target_datasets": [
+        "staging.experiment_decision"
+      ],
       "block_id": 6
     },
     {
-      "source_datasets": ["staging.experiment_decision"],
-      "target_datasets": ["tgt.experiment_report"],
+      "source_datasets": [
+        "staging.experiment_decision"
+      ],
+      "target_datasets": [
+        "tgt.experiment_report"
+      ],
       "block_id": 7
     }
   ],

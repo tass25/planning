@@ -60,7 +60,7 @@
     },
     {
       "block_id": 8,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 578,
       "line_end": 609,
       "test_coverage_type": "full",
@@ -102,28 +102,59 @@
   "total_blocks": 12,
   "data_lineage": [
     {
-      "source_datasets": ["sdtm.dm", "sdtm.ds", "metadata.randlist"],
-      "target_datasets": ["adam.adsl"],
+      "source_datasets": [
+        "sdtm.dm",
+        "sdtm.ds",
+        "metadata.randlist"
+      ],
+      "target_datasets": [
+        "adam.adsl"
+      ],
       "block_id": 3
     },
     {
-      "source_datasets": ["sdtm.ae", "adam.adsl"],
-      "target_datasets": ["adam.adae"],
+      "source_datasets": [
+        "sdtm.ae",
+        "adam.adsl"
+      ],
+      "target_datasets": [
+        "adam.adae"
+      ],
       "block_id": 4
     },
     {
-      "source_datasets": ["adam.adsl"],
-      "target_datasets": ["work.desc_*", "work.lsmeans_*", "work.anova_*", "work.or_*", "work.parms_*"],
+      "source_datasets": [
+        "adam.adsl"
+      ],
+      "target_datasets": [
+        "work.desc_*",
+        "work.lsmeans_*",
+        "work.anova_*",
+        "work.or_*",
+        "work.parms_*"
+      ],
       "block_id": 5
     },
     {
-      "source_datasets": ["adam.adae", "adam.adsl"],
-      "target_datasets": ["output.table_14_3_1", "output.table_14_3_2", "output.table_14_3_3", "output.table_14_3_4"],
+      "source_datasets": [
+        "adam.adae",
+        "adam.adsl"
+      ],
+      "target_datasets": [
+        "output.table_14_3_1",
+        "output.table_14_3_2",
+        "output.table_14_3_3",
+        "output.table_14_3_4"
+      ],
       "block_id": 6
     },
     {
-      "source_datasets": ["adam.adsl"],
-      "target_datasets": ["output.table_14_1"],
+      "source_datasets": [
+        "adam.adsl"
+      ],
+      "target_datasets": [
+        "output.table_14_1"
+      ],
       "block_id": 8
     }
   ],

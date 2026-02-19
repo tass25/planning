@@ -60,7 +60,7 @@
     },
     {
       "block_id": 8,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 186,
       "line_end": 206,
       "test_coverage_type": "full",
@@ -86,13 +86,27 @@
   "total_blocks": 10,
   "data_lineage": [
     {
-      "source_datasets": ["raw.customers", "raw.products", "raw.orders", "raw.shipments", "ctl.etl_watermarks"],
-      "target_datasets": ["tgt.dim_customer", "tgt.dim_product", "tgt.fact_orders", "tgt.fact_shipping", "ctl.etl_watermarks"],
+      "source_datasets": [
+        "raw.customers",
+        "raw.products",
+        "raw.orders",
+        "raw.shipments",
+        "ctl.etl_watermarks"
+      ],
+      "target_datasets": [
+        "tgt.dim_customer",
+        "tgt.dim_product",
+        "tgt.fact_orders",
+        "tgt.fact_shipping",
+        "ctl.etl_watermarks"
+      ],
       "block_id": 5
     },
     {
       "source_datasets": [],
-      "target_datasets": ["tgt.etl_load_summary"],
+      "target_datasets": [
+        "tgt.etl_load_summary"
+      ],
       "block_id": 7
     }
   ],

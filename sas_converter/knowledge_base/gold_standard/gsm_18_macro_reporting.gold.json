@@ -60,7 +60,7 @@
     },
     {
       "block_id": 8,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 172,
       "line_end": 189,
       "test_coverage_type": "full",
@@ -86,12 +86,20 @@
   "total_blocks": 10,
   "data_lineage": [
     {
-      "source_datasets": ["raw.enterprise_data"],
-      "target_datasets": ["staging.region_NORTH", "staging.region_SOUTH", "staging.region_WEST"],
+      "source_datasets": [
+        "raw.enterprise_data"
+      ],
+      "target_datasets": [
+        "staging.region_NORTH",
+        "staging.region_SOUTH",
+        "staging.region_WEST"
+      ],
       "block_id": 6
     },
     {
-      "source_datasets": ["raw.enterprise_data"],
+      "source_datasets": [
+        "raw.enterprise_data"
+      ],
       "target_datasets": [],
       "block_id": 8
     }

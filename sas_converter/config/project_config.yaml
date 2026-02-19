@@ -23,3 +23,7 @@ agents:
     resolve_include: true
   registry_writer:
     dedup_on_hash: true
+  data_lineage_extractor:
+    phase: 1              # Phase 1: table-level regex; Phase 2: column-level via Lark (Week 3-4)
+    detect_reads: true    # SET, MERGE, FROM, JOIN
+    detect_writes: true   # DATA output, CREATE TABLE, INSERT INTO

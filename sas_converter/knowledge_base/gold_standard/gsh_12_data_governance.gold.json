@@ -28,7 +28,7 @@
     },
     {
       "block_id": 4,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 68,
       "line_end": 79,
       "test_coverage_type": "full",
@@ -148,7 +148,7 @@
     },
     {
       "block_id": 19,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 355,
       "line_end": 380,
       "test_coverage_type": "full",
@@ -172,7 +172,7 @@
     },
     {
       "block_id": 22,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 412,
       "line_end": 418,
       "test_coverage_type": "full",
@@ -196,7 +196,7 @@
     },
     {
       "block_id": 25,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 445,
       "line_end": 452,
       "test_coverage_type": "full",
@@ -220,7 +220,7 @@
     },
     {
       "block_id": 28,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 503,
       "line_end": 532,
       "test_coverage_type": "full",
@@ -228,7 +228,7 @@
     },
     {
       "block_id": 29,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 534,
       "line_end": 553,
       "test_coverage_type": "full",
@@ -244,7 +244,7 @@
     },
     {
       "block_id": 31,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 561,
       "line_end": 571,
       "test_coverage_type": "full",
@@ -391,72 +391,140 @@
   "data_lineage": [
     {
       "block_id": 28,
-      "inputs": ["dq.completeness_customers", "dq.completeness_transactions", "dq.completeness_products", "dq.completeness_accounts", "dq.completeness_orders"],
-      "outputs": ["work.score_completeness"]
+      "inputs": [
+        "dq.completeness_customers",
+        "dq.completeness_transactions",
+        "dq.completeness_products",
+        "dq.completeness_accounts",
+        "dq.completeness_orders"
+      ],
+      "outputs": [
+        "work.score_completeness"
+      ]
     },
     {
       "block_id": 29,
-      "inputs": ["dq.validity_customers", "dq.validity_transactions", "dq.validity_products"],
-      "outputs": ["work.score_validity"]
+      "inputs": [
+        "dq.validity_customers",
+        "dq.validity_transactions",
+        "dq.validity_products"
+      ],
+      "outputs": [
+        "work.score_validity"
+      ]
     },
     {
       "block_id": 30,
-      "inputs": ["work.score_completeness", "work.score_validity"],
-      "outputs": ["work.dq_dimensions"]
+      "inputs": [
+        "work.score_completeness",
+        "work.score_validity"
+      ],
+      "outputs": [
+        "work.dq_dimensions"
+      ]
     },
     {
       "block_id": 31,
-      "inputs": ["dq.consistency_customers_ext_customers"],
-      "outputs": ["work.dq_dimensions"]
+      "inputs": [
+        "dq.consistency_customers_ext_customers"
+      ],
+      "outputs": [
+        "work.dq_dimensions"
+      ]
     },
     {
       "block_id": 32,
-      "inputs": ["dq.timeliness_customers", "dq.timeliness_transactions", "dq.timeliness_orders", "dq.timeliness_accounts"],
-      "outputs": ["work.timeliness_scores"]
+      "inputs": [
+        "dq.timeliness_customers",
+        "dq.timeliness_transactions",
+        "dq.timeliness_orders",
+        "dq.timeliness_accounts"
+      ],
+      "outputs": [
+        "work.timeliness_scores"
+      ]
     },
     {
       "block_id": 33,
-      "inputs": ["work.timeliness_scores"],
-      "outputs": ["work.dq_dimensions"]
+      "inputs": [
+        "work.timeliness_scores"
+      ],
+      "outputs": [
+        "work.dq_dimensions"
+      ]
     },
     {
       "block_id": 34,
-      "inputs": ["work.dq_dimensions"],
-      "outputs": ["work.composite_score"]
+      "inputs": [
+        "work.dq_dimensions"
+      ],
+      "outputs": [
+        "work.composite_score"
+      ]
     },
     {
       "block_id": 35,
-      "inputs": ["work.dq_dimensions"],
+      "inputs": [
+        "work.dq_dimensions"
+      ],
       "outputs": []
     },
     {
       "block_id": 36,
-      "inputs": ["work.composite_score", "work.dq_dimensions"],
+      "inputs": [
+        "work.composite_score",
+        "work.dq_dimensions"
+      ],
       "outputs": []
     },
     {
       "block_id": 37,
-      "inputs": ["report.dq_scorecard_history", "work.composite_score"],
-      "outputs": ["report.dq_scorecard_history"]
+      "inputs": [
+        "report.dq_scorecard_history",
+        "work.composite_score"
+      ],
+      "outputs": [
+        "report.dq_scorecard_history"
+      ]
     },
     {
       "block_id": 44,
-      "inputs": ["dq.completeness_customers", "dq.completeness_transactions", "dq.completeness_products", "dq.completeness_accounts", "dq.completeness_orders"],
-      "outputs": ["work.all_failures"]
+      "inputs": [
+        "dq.completeness_customers",
+        "dq.completeness_transactions",
+        "dq.completeness_products",
+        "dq.completeness_accounts",
+        "dq.completeness_orders"
+      ],
+      "outputs": [
+        "work.all_failures"
+      ]
     },
     {
       "block_id": 45,
-      "inputs": ["dq.validity_customers", "dq.validity_transactions", "dq.validity_products"],
-      "outputs": ["work.validity_failures"]
+      "inputs": [
+        "dq.validity_customers",
+        "dq.validity_transactions",
+        "dq.validity_products"
+      ],
+      "outputs": [
+        "work.validity_failures"
+      ]
     },
     {
       "block_id": 46,
-      "inputs": ["work.validity_failures"],
-      "outputs": ["work.all_failures"]
+      "inputs": [
+        "work.validity_failures"
+      ],
+      "outputs": [
+        "work.all_failures"
+      ]
     },
     {
       "block_id": 47,
-      "inputs": ["work.all_failures"],
+      "inputs": [
+        "work.all_failures"
+      ],
       "outputs": []
     }
   ],

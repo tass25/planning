@@ -52,7 +52,7 @@
     },
     {
       "block_id": 7,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 174,
       "line_end": 207,
       "test_coverage_type": "full",
@@ -70,33 +70,61 @@
   "total_blocks": 8,
   "data_lineage": [
     {
-      "source_datasets": ["raw.customer_accounts"],
-      "target_datasets": ["staging.validated", "staging.validation_errors"],
+      "source_datasets": [
+        "raw.customer_accounts"
+      ],
+      "target_datasets": [
+        "staging.validated",
+        "staging.validation_errors"
+      ],
       "block_id": 2
     },
     {
-      "source_datasets": ["staging.validated"],
-      "target_datasets": ["staging.standardized"],
+      "source_datasets": [
+        "staging.validated"
+      ],
+      "target_datasets": [
+        "staging.standardized"
+      ],
       "block_id": 3
     },
     {
-      "source_datasets": ["staging.standardized"],
-      "target_datasets": ["staging.outlier_stats"],
+      "source_datasets": [
+        "staging.standardized"
+      ],
+      "target_datasets": [
+        "staging.outlier_stats"
+      ],
       "block_id": 5
     },
     {
-      "source_datasets": ["staging.standardized"],
-      "target_datasets": ["tgt.customer_cleaned"],
+      "source_datasets": [
+        "staging.standardized"
+      ],
+      "target_datasets": [
+        "tgt.customer_cleaned"
+      ],
       "block_id": 6
     },
     {
-      "source_datasets": ["tgt.customer_cleaned", "master.customer_master", "master.state_reference"],
-      "target_datasets": ["staging.orphan_records", "staging.invalid_states"],
+      "source_datasets": [
+        "tgt.customer_cleaned",
+        "master.customer_master",
+        "master.state_reference"
+      ],
+      "target_datasets": [
+        "staging.orphan_records",
+        "staging.invalid_states"
+      ],
       "block_id": 7
     },
     {
-      "source_datasets": ["tgt.customer_cleaned"],
-      "target_datasets": ["staging.metadata_report"],
+      "source_datasets": [
+        "tgt.customer_cleaned"
+      ],
+      "target_datasets": [
+        "staging.metadata_report"
+      ],
       "block_id": 8
     }
   ],

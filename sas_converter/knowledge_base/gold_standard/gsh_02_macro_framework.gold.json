@@ -76,7 +76,7 @@
     },
     {
       "block_id": 10,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 251,
       "line_end": 268,
       "test_coverage_type": "full",
@@ -196,7 +196,7 @@
     },
     {
       "block_id": 25,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 429,
       "line_end": 455,
       "test_coverage_type": "full",
@@ -220,7 +220,7 @@
     },
     {
       "block_id": 28,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 519,
       "line_end": 531,
       "test_coverage_type": "structural_only",
@@ -254,28 +254,53 @@
   "total_blocks": 31,
   "data_lineage": [
     {
-      "source_datasets": ["raw.product_master"],
-      "target_datasets": ["staging.product_lookup"],
+      "source_datasets": [
+        "raw.product_master"
+      ],
+      "target_datasets": [
+        "staging.product_lookup"
+      ],
       "block_id": 19
     },
     {
-      "source_datasets": ["raw.department_master"],
-      "target_datasets": ["staging.dept_lookup"],
+      "source_datasets": [
+        "raw.department_master"
+      ],
+      "target_datasets": [
+        "staging.dept_lookup"
+      ],
       "block_id": 21
     },
     {
-      "source_datasets": ["raw.sales_data"],
-      "target_datasets": ["staging.region_&current_region", "rptout.&region._summary"],
+      "source_datasets": [
+        "raw.sales_data"
+      ],
+      "target_datasets": [
+        "staging.region_&current_region",
+        "rptout.&region._summary"
+      ],
       "block_id": 24
     },
     {
-      "source_datasets": ["rptout.Northeast_summary", "rptout.Midwest_summary", "rptout.South_summary", "rptout.West_summary", "rptout.International_summary"],
-      "target_datasets": ["mart.quarterly_summary"],
+      "source_datasets": [
+        "rptout.Northeast_summary",
+        "rptout.Midwest_summary",
+        "rptout.South_summary",
+        "rptout.West_summary",
+        "rptout.International_summary"
+      ],
+      "target_datasets": [
+        "mart.quarterly_summary"
+      ],
       "block_id": 25
     },
     {
-      "source_datasets": ["mart.quarterly_summary"],
-      "target_datasets": ["mart.rolling_trends"],
+      "source_datasets": [
+        "mart.quarterly_summary"
+      ],
+      "target_datasets": [
+        "mart.rolling_trends"
+      ],
       "block_id": 27
     }
   ],

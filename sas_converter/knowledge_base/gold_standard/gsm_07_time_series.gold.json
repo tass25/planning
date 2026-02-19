@@ -28,7 +28,7 @@
     },
     {
       "block_id": 4,
-      "partition_type": "PROC_SQL",
+      "partition_type": "SQL_BLOCK",
       "line_start": 97,
       "line_end": 123,
       "test_coverage_type": "full",
@@ -54,28 +54,48 @@
   "total_blocks": 6,
   "data_lineage": [
     {
-      "source_datasets": ["raw.monthly_sales"],
-      "target_datasets": ["staging.sales_moving_avg"],
+      "source_datasets": [
+        "raw.monthly_sales"
+      ],
+      "target_datasets": [
+        "staging.sales_moving_avg"
+      ],
       "block_id": 2
     },
     {
-      "source_datasets": ["staging.sales_moving_avg"],
-      "target_datasets": ["staging.sales_interpolated"],
+      "source_datasets": [
+        "staging.sales_moving_avg"
+      ],
+      "target_datasets": [
+        "staging.sales_interpolated"
+      ],
       "block_id": 3
     },
     {
-      "source_datasets": ["staging.sales_moving_avg"],
-      "target_datasets": ["staging.yoy_comparison"],
+      "source_datasets": [
+        "staging.sales_moving_avg"
+      ],
+      "target_datasets": [
+        "staging.yoy_comparison"
+      ],
       "block_id": 4
     },
     {
-      "source_datasets": ["staging.yoy_comparison"],
-      "target_datasets": ["staging.sales_fiscal"],
+      "source_datasets": [
+        "staging.yoy_comparison"
+      ],
+      "target_datasets": [
+        "staging.sales_fiscal"
+      ],
       "block_id": 5
     },
     {
-      "source_datasets": ["staging.sales_fiscal"],
-      "target_datasets": ["tgt.seasonal_summary"],
+      "source_datasets": [
+        "staging.sales_fiscal"
+      ],
+      "target_datasets": [
+        "tgt.seasonal_summary"
+      ],
       "block_id": 6
     }
   ],
