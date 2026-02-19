@@ -246,7 +246,7 @@
       "block_id": 31,
       "partition_type": "GLOBAL_STATEMENT",
       "line_start": 547,
-      "line_end": 550,
+      "line_end": 549,
       "test_coverage_type": "structural_only",
       "description": "Reset OPTIONS to nomprint/nomlogic/nosymbolgen and final %PUT completion message with timestamp"
     }

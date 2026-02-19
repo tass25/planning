@@ -262,7 +262,7 @@
       "block_id": 33,
       "partition_type": "GLOBAL_STATEMENT",
       "line_start": 627,
-      "line_end": 633,
+      "line_end": 632,
       "test_coverage_type": "structural_only",
       "description": "%EXIT_PROGRAM label for error-path jumps, reset OPTIONS to nomprint/nomlogic/nosymbolgen, and final %PUT messages with completion timestamp and job status"
     }
