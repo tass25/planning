@@ -29,23 +29,23 @@
 ### Gold Standard Corpus (3 Complexity Tiers)
 - [x] 50 `.sas` files created in `knowledge_base/gold_standard/`
 - [x] 50 `.gold.json` annotation files created
-- [x] ~150 blocks annotated across all files (simple tier only — all ≤41 lines)
-- [ ] **Upgrade**: ~15 simple files (7–50 lines) retained
-- [ ] **Upgrade**: ~20 medium files (100–250 lines) — mixed blocks, macros, realistic workflows
-- [ ] **Upgrade**: ~15 hard files (400+ lines) — enterprise ETL, nested macros, CALL EXECUTE
-- [ ] **Upgrade**: ~300+ total blocks annotated across all tiers
-- [ ] **Upgrade**: `.gold.json` extended with `data_lineage` annotations
+- [x] ~15 simple files (7–50 lines) — `gs_*` prefix, single block type
+- [x] ~20 medium files (100–250 lines) — `gsm_*` prefix, mixed blocks, macros, realistic workflows
+- [x] ~15 hard files (400+ lines) — `gsh_*` prefix, enterprise ETL, nested macros, CALL EXECUTE
+- [x] 721 total blocks annotated across all tiers
+- [x] `.gold.json` extended with `data_lineage` annotations
 
 ### Data Lineage Tracking
-- [ ] `data_lineage` table added to SQLite schema (DataLineageRow model)
-- [ ] Table-level lineage regex extraction (SET, MERGE, FROM, DATA output, CREATE TABLE, INSERT INTO)
-- [ ] `tests/test_data_lineage.py` — 5 tests passing
-- [ ] Gold standard `.gold.json` annotated with `data_lineage` fields
+- [x] `DataLineageRow` model added to `sqlite_manager.py`
+- [x] `data_lineage` table auto-created via `init_db()`
+- [x] `data_lineage_extractor.py` — regex extraction (SET, MERGE, FROM, JOIN, DATA, CREATE TABLE, INSERT INTO)
+- [x] `tests/test_data_lineage.py` — 5 tests passing
+- [x] Gold standard `.gold.json` annotated with `data_lineage` fields
 
 ### Database
 - [x] `file_registry` table schema created (SQLAlchemy ORM)
 - [x] `cross_file_deps` table schema created (SQLAlchemy ORM)
-- [ ] `data_lineage` table schema created (SQLAlchemy ORM)
+- [x] `data_lineage` table schema created (SQLAlchemy ORM)
 
 ### Git
 - [ ] Pushed to `main` in batches of ~4 files
