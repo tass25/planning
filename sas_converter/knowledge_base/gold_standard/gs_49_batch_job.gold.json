@@ -1,0 +1,72 @@
+{
+  "file_path": "gs_49_batch_job.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 2,
+      "line_end": 6,
+      "test_coverage_type": "structural_only",
+      "description": "Macro vars, OPTIONS, LIBNAME setup"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "INCLUDE_REFERENCE",
+      "line_start": 8,
+      "line_end": 8,
+      "test_coverage_type": "structural_only",
+      "description": "%INCLUDE for batch parameters"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 10,
+      "line_end": 15,
+      "test_coverage_type": "full",
+      "description": "log_step macro for batch audit logging"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 17,
+      "line_end": 17,
+      "test_coverage_type": "full",
+      "description": "log_step START invocation"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "CONDITIONAL_BLOCK",
+      "line_start": 19,
+      "line_end": 30,
+      "test_coverage_type": "full",
+      "description": "%IF/%ELSE for FULL vs INCREMENTAL SQL extract"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "DATA_STEP",
+      "line_start": 32,
+      "line_end": 41,
+      "test_coverage_type": "full",
+      "description": "DATA step with FIRST/LAST running balance computation"
+    },
+    {
+      "block_id": 7,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 43,
+      "line_end": 47,
+      "test_coverage_type": "full",
+      "description": "PROC MEANS balance summary by account type"
+    },
+    {
+      "block_id": 8,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 49,
+      "line_end": 49,
+      "test_coverage_type": "full",
+      "description": "log_step COMPLETE invocation"
+    }
+  ],
+  "total_blocks": 8,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

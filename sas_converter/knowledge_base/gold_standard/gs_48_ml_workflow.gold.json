@@ -1,0 +1,56 @@
+{
+  "file_path": "gs_48_ml_workflow.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 2,
+      "line_end": 3,
+      "test_coverage_type": "structural_only",
+      "description": "OPTIONS and LIBNAME for ML project"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "DATA_STEP",
+      "line_start": 6,
+      "line_end": 15,
+      "test_coverage_type": "full",
+      "description": "DATA step feature engineering with arrays and transforms"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 18,
+      "line_end": 20,
+      "test_coverage_type": "full",
+      "description": "PROC SURVEYSELECT for train-test split"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "DATA_STEP",
+      "line_start": 22,
+      "line_end": 26,
+      "test_coverage_type": "full",
+      "description": "DATA step splitting into train and test sets"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 29,
+      "line_end": 33,
+      "test_coverage_type": "full",
+      "description": "PROC LOGISTIC model training with scoring"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 36,
+      "line_end": 39,
+      "test_coverage_type": "full",
+      "description": "PROC FREQ confusion matrix evaluation"
+    }
+  ],
+  "total_blocks": 6,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

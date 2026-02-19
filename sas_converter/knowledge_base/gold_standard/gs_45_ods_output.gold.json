@@ -1,0 +1,48 @@
+{
+  "file_path": "gs_45_ods_output.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 2,
+      "line_end": 5,
+      "test_coverage_type": "structural_only",
+      "description": "OPTIONS and ODS setup statements"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 7,
+      "line_end": 8,
+      "test_coverage_type": "structural_only",
+      "description": "TITLE statements"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 10,
+      "line_end": 13,
+      "test_coverage_type": "full",
+      "description": "PROC SGPLOT bar chart of monthly revenue"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 15,
+      "line_end": 19,
+      "test_coverage_type": "full",
+      "description": "PROC TABULATE department summary"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 21,
+      "line_end": 23,
+      "test_coverage_type": "structural_only",
+      "description": "ODS close and TITLE reset"
+    }
+  ],
+  "total_blocks": 5,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

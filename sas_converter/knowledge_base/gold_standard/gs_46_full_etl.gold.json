@@ -1,0 +1,56 @@
+{
+  "file_path": "gs_46_full_etl.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 2,
+      "line_end": 4,
+      "test_coverage_type": "structural_only",
+      "description": "OPTIONS and LIBNAME statements"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 6,
+      "line_end": 18,
+      "test_coverage_type": "full",
+      "description": "etl_customers macro with PROC SQL and JOINs"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 20,
+      "line_end": 20,
+      "test_coverage_type": "full",
+      "description": "Invocation of etl_customers"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 22,
+      "line_end": 24,
+      "test_coverage_type": "full",
+      "description": "PROC SORT by lifetime value"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "DATA_STEP",
+      "line_start": 26,
+      "line_end": 35,
+      "test_coverage_type": "full",
+      "description": "DATA step assigning customer tiers"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 37,
+      "line_end": 40,
+      "test_coverage_type": "full",
+      "description": "PROC FREQ tier distribution"
+    }
+  ],
+  "total_blocks": 6,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

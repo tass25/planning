@@ -1,0 +1,64 @@
+{
+  "file_path": "gs_47_data_quality.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "INCLUDE_REFERENCE",
+      "line_start": 2,
+      "line_end": 2,
+      "test_coverage_type": "structural_only",
+      "description": "%INCLUDE for DQ framework macros"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 4,
+      "line_end": 5,
+      "test_coverage_type": "structural_only",
+      "description": "OPTIONS and LIBNAME"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "DATA_STEP",
+      "line_start": 8,
+      "line_end": 13,
+      "test_coverage_type": "full",
+      "description": "DATA step for initial claims cleaning"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 16,
+      "line_end": 19,
+      "test_coverage_type": "full",
+      "description": "PROC MEANS statistical profiling"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "SQL_BLOCK",
+      "line_start": 22,
+      "line_end": 29,
+      "test_coverage_type": "full",
+      "description": "PROC SQL outlier detection with subquery"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "DATA_STEP",
+      "line_start": 32,
+      "line_end": 42,
+      "test_coverage_type": "full",
+      "description": "DATA step splitting into validated and rejected"
+    },
+    {
+      "block_id": 7,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 44,
+      "line_end": 44,
+      "test_coverage_type": "full",
+      "description": "DQ summary report macro invocation"
+    }
+  ],
+  "total_blocks": 7,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

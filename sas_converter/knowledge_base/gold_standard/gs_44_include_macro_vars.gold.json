@@ -1,0 +1,48 @@
+{
+  "file_path": "gs_44_include_macro_vars.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 2,
+      "line_end": 3,
+      "test_coverage_type": "structural_only",
+      "description": "LET statements defining project paths"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "INCLUDE_REFERENCE",
+      "line_start": 5,
+      "line_end": 7,
+      "test_coverage_type": "structural_only",
+      "description": "%INCLUDE references using macro variable paths"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 9,
+      "line_end": 9,
+      "test_coverage_type": "full",
+      "description": "init_logging macro invocation"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "DATA_STEP",
+      "line_start": 11,
+      "line_end": 14,
+      "test_coverage_type": "full",
+      "description": "DATA step filtering source table by today's date"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 16,
+      "line_end": 16,
+      "test_coverage_type": "full",
+      "description": "data_quality_check macro invocation"
+    }
+  ],
+  "total_blocks": 5,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}
