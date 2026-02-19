@@ -1,0 +1,32 @@
+{
+  "file_path": "gs_10_transpose.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 2,
+      "line_end": 4,
+      "test_coverage_type": "full",
+      "description": "PROC SORT on quarterly sales by product"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 6,
+      "line_end": 12,
+      "test_coverage_type": "full",
+      "description": "PROC TRANSPOSE pivoting quarterly revenue to wide format"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "DATA_STEP",
+      "line_start": 14,
+      "line_end": 23,
+      "test_coverage_type": "full",
+      "description": "DATA step computing annual totals and growth rates"
+    }
+  ],
+  "total_blocks": 3,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

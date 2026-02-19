@@ -1,0 +1,16 @@
+{
+  "file_path": "gs_08_hash_lookup.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "DATA_STEP",
+      "line_start": 2,
+      "line_end": 17,
+      "test_coverage_type": "full",
+      "description": "DATA step using hash object for region lookup enrichment"
+    }
+  ],
+  "total_blocks": 1,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

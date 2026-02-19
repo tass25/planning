@@ -1,0 +1,16 @@
+{
+  "file_path": "gs_06_arrays_do_loop.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "DATA_STEP",
+      "line_start": 2,
+      "line_end": 18,
+      "test_coverage_type": "full",
+      "description": "DATA step using ARRAY and DO loop for z-score standardization"
+    }
+  ],
+  "total_blocks": 1,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

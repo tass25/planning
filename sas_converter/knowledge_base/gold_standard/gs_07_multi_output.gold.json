@@ -1,0 +1,24 @@
+{
+  "file_path": "gs_07_multi_output.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "DATA_STEP",
+      "line_start": 2,
+      "line_end": 8,
+      "test_coverage_type": "full",
+      "description": "DATA step splitting loan applications into three risk datasets"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 10,
+      "line_end": 13,
+      "test_coverage_type": "full",
+      "description": "PROC FREQ cross-tabulation of loan type and default flag"
+    }
+  ],
+  "total_blocks": 2,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}
