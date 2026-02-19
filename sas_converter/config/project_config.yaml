@@ -1,0 +1,25 @@
+# Project configuration
+project:
+  name: sas_converter
+  version: "0.1.0"
+  description: "SAS-to-Python partition-based conversion pipeline"
+
+paths:
+  project_root: "."
+  gold_standard: "knowledge_base/gold_standard"
+  database: "file_registry.db"
+  logs: "logs"
+
+logging:
+  level: INFO
+  format: console  # or 'json' for production
+
+agents:
+  file_analysis:
+    encoding_fallback: "utf-8"
+    hash_algorithm: "sha256"
+  cross_file_deps:
+    resolve_libname: true
+    resolve_include: true
+  registry_writer:
+    dedup_on_hash: true
