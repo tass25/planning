@@ -1,0 +1,24 @@
+{
+  "file_path": "gs_39_nested_cond_loop.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 2,
+      "line_end": 38,
+      "test_coverage_type": "full",
+      "description": "Macro with nested %DO %WHILE and %IF/%THEN/%ELSE for batch validation"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 40,
+      "line_end": 40,
+      "test_coverage_type": "full",
+      "description": "Invocation of batch_validate"
+    }
+  ],
+  "total_blocks": 2,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

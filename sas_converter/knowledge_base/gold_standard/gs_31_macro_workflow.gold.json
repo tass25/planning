@@ -1,0 +1,48 @@
+{
+  "file_path": "gs_31_macro_workflow.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 2,
+      "line_end": 2,
+      "test_coverage_type": "structural_only",
+      "description": "OPTIONS statement for macro debugging"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 4,
+      "line_end": 5,
+      "test_coverage_type": "structural_only",
+      "description": "Global macro variable assignments"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 7,
+      "line_end": 9,
+      "test_coverage_type": "full",
+      "description": "Three macro invocations for data loading, cleaning, and rules"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 11,
+      "line_end": 14,
+      "test_coverage_type": "full",
+      "description": "PROC MEANS transaction summary"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 16,
+      "line_end": 17,
+      "test_coverage_type": "full",
+      "description": "Macro invocations for report generation and email"
+    }
+  ],
+  "total_blocks": 5,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

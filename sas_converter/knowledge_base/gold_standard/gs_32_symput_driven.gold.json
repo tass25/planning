@@ -1,0 +1,40 @@
+{
+  "file_path": "gs_32_symput_driven.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "DATA_STEP",
+      "line_start": 2,
+      "line_end": 5,
+      "test_coverage_type": "full",
+      "description": "DATA _NULL_ step using SYMPUTX for data-driven macro variables"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 7,
+      "line_end": 7,
+      "test_coverage_type": "structural_only",
+      "description": "%PUT statement logging parameter values"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "DATA_STEP",
+      "line_start": 9,
+      "line_end": 13,
+      "test_coverage_type": "full",
+      "description": "DATA step using macro variables for conditional logic"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 15,
+      "line_end": 15,
+      "test_coverage_type": "full",
+      "description": "Macro invocation for summary report"
+    }
+  ],
+  "total_blocks": 4,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}

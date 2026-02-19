@@ -1,0 +1,48 @@
+{
+  "file_path": "gs_35_mixed_macro_data.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 2,
+      "line_end": 3,
+      "test_coverage_type": "structural_only",
+      "description": "Global LET statements for paths"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "MACRO_DEFINITION",
+      "line_start": 5,
+      "line_end": 12,
+      "test_coverage_type": "full",
+      "description": "load_monthly macro for CSV import by month number"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "MACRO_INVOCATION",
+      "line_start": 14,
+      "line_end": 16,
+      "test_coverage_type": "full",
+      "description": "Three invocations of load_monthly for Jan-Mar"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "DATA_STEP",
+      "line_start": 18,
+      "line_end": 22,
+      "test_coverage_type": "full",
+      "description": "DATA step combining three monthly datasets"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 24,
+      "line_end": 28,
+      "test_coverage_type": "full",
+      "description": "PROC MEANS Q1 summary by product line"
+    }
+  ],
+  "total_blocks": 5,
+  "annotator": "manual",
+  "annotation_date": "2026-02-19"
+}
