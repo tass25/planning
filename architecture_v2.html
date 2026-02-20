@@ -770,7 +770,7 @@ flowchart TB
         <tr>
           <td>Evaluation</td>
           <td class="bad">None defined</td>
-          <td class="good">150-block benchmark + RAPTOR hit-rate + ECE</td>
+          <td class="good">721-block benchmark + RAPTOR hit-rate + ECE</td>
           <td>Measurable accuracy</td>
         </tr>
         <tr>
@@ -1049,7 +1049,7 @@ flowchart LR
       <tbody>
         <tr><td>1–2</td><td>L2-A: Entry + CrossFileDeps + DataLineageExtractor + Gold Standard (50 files, 721 blocks, 3 tiers)</td><td class="good">P0</td><td>4 agents · 3 SQLite tables · 50 .sas + .gold.json · 20 tests passing · data_lineage populated</td><td><span class="status done">Done</span></td></tr>
         <tr><td>2–3</td><td>L2-B: StreamAgent + StateAgent. 10K-line file in &lt;2s.</td><td class="good">P0</td><td>aiofiles streaming · FSM nesting tracker · backpressure queue</td><td><span class="status planned">Planned</span></td></tr>
-        <tr><td>3–4</td><td>L2-C: BoundaryDetector + LLM resolver. 150-block benchmark &gt;90%.</td><td class="good">P0</td><td>Lark LALR grammar · 80/20 rule/LLM split · 9 partition types · test_coverage_type</td><td><span class="status planned">Planned</span></td></tr>
+        <tr><td>3–4</td><td>L2-C: BoundaryDetector + LLM resolver. 721-block benchmark &gt;90%.</td><td class="good">P0</td><td>Lark LALR grammar · 80/20 rule/LLM split · 9 partition types · test_coverage_type</td><td><span class="status planned">Planned</span></td></tr>
         <tr><td>4</td><td>L2-D: ComplexityAgent + StrategyAgent. ECE &lt;0.08. RAPTOR models.</td><td class="good">P0</td><td>radon CC features · sklearn LR · Platt calibration · RAPTORNode.summary_tier</td><td><span class="status planned">Planned</span></td></tr>
         <tr><td>5–6</td><td>L2-C: Nomic Embed + GMM (k=√N, τ=0.72) + ClusterSummarizer + cache</td><td class="warn">P1</td><td>BIC convergence ε=0.01 · tiktoken guard · summary_tier · hash cache</td><td><span class="status planned">Planned</span></td></tr>
         <tr><td>7</td><td>L2-E: Persistence + Kuzu + SCC condensation + dynamic hop cap</td><td class="warn">P1</td><td>SCC condensation · dag_longest_path_length · DuckDB schemas</td><td><span class="status planned">Planned</span></td></tr>
@@ -1057,7 +1057,7 @@ flowchart LR
         <tr><td>9</td><td>Robustness + Large file (RAPTOR on HIGH only &gt;100MB) + KB gen start (250 pairs)</td><td class="muted">P2</td><td>PYTORCH_CUDA_ALLOC_CONF · RAPTOR 20% large files · 250 KB pairs</td><td><span class="status planned">Planned</span></td></tr>
         <tr><td>10</td><td>Translation Layer (L3) + ValidationAgent + KB expand to 250 pairs</td><td class="muted">P2</td><td>TranslationAgent · ValidationAgent · failure_mode routing · cross-verify chain</td><td><span class="status planned">Planned</span></td></tr>
         <tr><td>11</td><td>Merge Layer (L4) + ReportAgent + Continuous Learning + KB to 330 pairs</td><td class="muted">P2</td><td>ImportConsolidator · DependencyInjector · ScriptMerger · ReportAgent · FeedbackLoop</td><td><span class="status planned">Planned</span></td></tr>
-        <tr><td>12</td><td>Ablation study: RAPTOR vs flat · 150 blocks · 10 queries each</td><td class="muted">P2</td><td>test_raptor_hitrate &gt;0.82 · test_ece &lt;0.08 · test_boundary &gt;0.90</td><td><span class="status planned">Planned</span></td></tr>
+        <tr><td>12</td><td>Ablation study: RAPTOR vs flat · 721 blocks · 10 queries each</td><td class="muted">P2</td><td>test_raptor_hitrate &gt;0.82 · test_ece &lt;0.08 · test_boundary &gt;0.90</td><td><span class="status planned">Planned</span></td></tr>
         <tr><td>13</td><td>Defense prep: slides + demo video (partition → translate → .py)</td><td class="muted">P3</td><td>20 slides · 3–5 min demo · KB query + SCC detection showcase</td><td><span class="status planned">Planned</span></td></tr>
         <tr><td>14</td><td>Buffer: polish ablation plots, add 50 more KB pairs, README</td><td class="muted">P3</td><td>Final docs · all plots · README finalized</td><td><span class="status planned">Planned</span></td></tr>
       </tbody>

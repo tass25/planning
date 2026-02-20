@@ -65,7 +65,7 @@ Our approach: Agent-based pipeline with RAG-augmented translation
 ```
 Use the Mermaid diagram from architecture_v2.html, rendered as PNG.
 Annotate with:
-- 15 agents across 6 layers
+- 16 agents across 6 layers
 - 3 LLM tiers (local 8B, Groq 70B, heuristic fallback)
 - 5 storage systems (SQLite, DuckDB, LanceDB, Kuzu, Redis)
 - RAPTOR hierarchical tree
@@ -284,7 +284,7 @@ python scripts/submit_correction.py \
 and added to the KB, improving future translations."
 
 ### 4:00–4:30 — Wrap Up
-"In summary: 15 agents, 6 layers, 330+ KB pairs, continuous learning.
+"In summary: 16 agents, 6 layers, 330+ KB pairs, continuous learning.
 The system converts SAS to Python with 70%+ success rate and produces
 structured reports for human reviewers. Thank you."
 ```

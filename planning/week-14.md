@@ -143,7 +143,7 @@ for cat, count in categories_added:
 - [ ] Badges (Python version, license, test status)
 - [ ] Quick Start (3 commands: install, setup, run)
 - [ ] Architecture overview (Mermaid diagram or image link)
-- [ ] Features list (15 agents, 6 layers)
+- [ ] Features list (16 agents, 6 layers)
 - [ ] Installation (pip install, Ollama setup, DB init)
 - [ ] Usage examples (CLI, Python API)
 - [ ] Configuration (environment variables, config files)
@@ -567,7 +567,7 @@ if __name__ == "__main__":
 ├── cahier.txt                      ← authoritative spec
 ├── docker-compose.yml              ← optional (Cut #2)
 ├── Dockerfile                      ← optional
-├── partition/                      ← all 15 agents
+├── partition/                      ← all 16 agents
 │   ├── agents/
 │   ├── boundary/
 │   ├── complexity/
@@ -689,7 +689,7 @@ echo "Contributors: $(git shortlog -sn | wc -l)"
 
 At the end of Week 14, you should have:
 
-- **15 agents** implemented and tested across 6 layers
+- **16 agents** implemented and tested across 6 layers
 - **330+ KB pairs** (target 380 with Week 14 expansion)
 - **Ablation study** with quantitative RAPTOR vs flat comparison
 - **20-slide defense deck** with filled evaluation table

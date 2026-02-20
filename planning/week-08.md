@@ -921,4 +921,4 @@ def _redis_available():
 
 ---
 
-> *Week 8 Complete → You have: 15 agents, full L2 pipeline orchestrated with LangGraph, Redis checkpointing, DuckDB audit logging. P1 phase is done! Next: Robustness + KB Generation (Week 9, P2).*
+> *Week 8 Complete → You have: 16 agents, full L2 pipeline orchestrated with LangGraph, Redis checkpointing, DuckDB audit logging. P1 phase is done! Next: Robustness + KB Generation (Week 9, P2).*

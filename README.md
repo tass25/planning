@@ -432,7 +432,7 @@ Every SAS code block is classified into exactly one of these 9 types by `Boundar
 | Risk model | ❌ Hardcoded thresholds | ✅ sklearn LR calibrated with Platt scaling | Human review accuracy ↑ |
 | LLM usage | ❌ Always-on LLM assist | ✅ LLM only for ~20% ambiguous cases | Latency ↓60% |
 | Confidence | ❌ Log-probs (unreliable) | ✅ Calibrated classifier (post-hoc Platt) | True ECE measurement |
-| Evaluation | ❌ None defined | ✅ 150-block benchmark + RAPTOR hit-rate + ECE | Measurable accuracy |
+| Evaluation | ❌ None defined | ✅ 721-block benchmark + RAPTOR hit-rate + ECE | Measurable accuracy |
 | Fault tolerance | ⚠️ Mentioned only | ✅ Redis checkpoints + SHA-256 dedup restart | Production-grade |
 | Circular deps | ❌ Not handled | ✅ SCC condensation + scc_id on PartitionIR | Enterprise SAS safe |
 | Multi-hop cap | ❌ Hardcoded | ✅ dag_longest_path_length at index time | Adapts per project |
@@ -960,7 +960,7 @@ sas-to-python-accelerator/
 |---|---|---|---|
 | **1–2** | L2-A: Entry + CrossFileDeps + DataLineageExtractor + Gold Standard (50 files, 3 tiers, 721 blocks) | **P0** | CrossFileDepsResolver · DataLineageExtractor · scc_id prep · BaseAgent · 9 PartitionTypes |
 | **2–3** | L2-B: StreamAgent + StateAgent. 10K-line file in <2s. | **P0** | — |
-| **3–4** | L2-C: BoundaryDetector + LLM resolver. 150-block benchmark >90%. | **P0** | CONDITIONAL/LOOP/INCLUDE types · test_coverage_type · KB stub |
+| **3–4** | L2-C: BoundaryDetector + LLM resolver. 721-block benchmark >90%. | **P0** | CONDITIONAL/LOOP/INCLUDE types · test_coverage_type · KB stub |
 | **4** | L2-D: ComplexityAgent + StrategyAgent. ECE <0.08. RAPTOR models. | **P0** | RAPTORNode.summary_tier · PartitionIR.scc_id + test_coverage_type |
 | **5–6** | L2-C: Nomic Embed + GMM (k=√N, τ=0.72) + ClusterSummarizer + cache | **P1** | BIC convergence ε=0.01 · tiktoken guard · summary_tier · hash cache |
 | **7** | L2-E: Persistence + Kuzu + SCC condensation + dynamic hop cap | **P1** | SCC condensation · dag_longest_path_length · DuckDB schemas |
@@ -968,7 +968,7 @@ sas-to-python-accelerator/
 | **9** | Robustness + Large file (RAPTOR on HIGH only >100MB) + KB gen start | P2 | PYTORCH_CUDA_ALLOC_CONF · RAPTOR 20% large files |
 | **10** | Translation Layer (L3) + ValidationAgent (KB at 250 from Week 9) | P2 | Full TranslationAgent · ValidationAgent · failure_mode routing · cross-verify chain |
 | **11** | Merge Layer (L4) + ReportAgent + Continuous Learning + KB to 330 pairs | P2 | ImportConsolidator · DependencyInjector · ScriptMerger · ReportAgent · FeedbackLoop |
-| **12** | Ablation study: RAPTOR vs flat · 150 blocks · 10 queries each | P2 | test_raptor_hitrate >0.82 · test_ece <0.08 · test_boundary >0.90 |
+| **12** | Ablation study: RAPTOR vs flat · 721 blocks · 10 queries each | P2 | test_raptor_hitrate >0.82 · test_ece <0.08 · test_boundary >0.90 |
 | **13** | Defense prep: slides + demo video (partition → translate → .py) | P3 | Demo includes KB query + SCC detection |
 | **14** | Buffer: polish ablation plots, add 50 more KB pairs, README | P3 | — |
 

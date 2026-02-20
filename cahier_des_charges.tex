@@ -875,7 +875,7 @@ StateAgent latency (p99) & $\leq 1$ ms & Hot path — cannot block streaming. \\
 \toprule
 \textbf{Metric} & \textbf{Target} & \textbf{Why} \\
 \midrule
-Boundary accuracy (overall) & $\geq 0.90$ & Core correctness metric. 150-block gold standard. \\
+Boundary accuracy (overall) & $\geq 0.90$ & Core correctness metric. 721-block gold standard. \\
 Boundary accuracy (complex) & $\geq 0.85$ & Isolates LLM resolver value on hard cases. \\
 LLM resolver rate & $\leq 0.25$ & System targets $\sim$20\%; $> 25\%$ = grammar gaps. \\
 Partition type precision & $\geq 0.92$ & Wrong type $\to$ wrong few-shot examples from KB. \\
@@ -1083,7 +1083,7 @@ Fill in the \textbf{Achieved} column at Week 13. This table provides a single-pa
 \midrule
 \rowcolor{successgreen!8} 1–2 & L2-A: Entry + CrossFileDeps + DataLineageExtractor + Gold Standard (50 files, 3 tiers, 721 blocks) & P0 \\
 \rowcolor{successgreen!8} 2–3 & L2-B: StreamAgent + StateAgent. 10K-line file $< 2$s, $< 100$ MB. & P0 \\
-\rowcolor{successgreen!8} 3–4 & L2-C: BoundaryDetector + LLM resolver. 150-block benchmark $> 90\%$. & P0 \\
+\rowcolor{successgreen!8} 3–4 & L2-C: BoundaryDetector + LLM resolver. 721-block benchmark $> 90\%$. & P0 \\
 \rowcolor{successgreen!8} 4 & L2-D: ComplexityAgent + StrategyAgent. ECE $< 0.08$. RAPTOR models. & P0 \\
 \rowcolor{warncolor!8} 5–6 & L2-C: Nomic Embed + GMM + ClusterSummarizer + RAPTORTreeBuilder & P1 \\
 \rowcolor{warncolor!8} 7 & L2-E: Persistence + IndexAgent + SCC condensation + DuckDB schemas & P1 \\
