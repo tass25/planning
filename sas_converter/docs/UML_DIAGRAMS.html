@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SAS Converter — UML Diagrams</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #fafbfc;
+      --card-bg: #ffffff;
+      --border: #d0d7de;
+      --primary: #1a5276;
+      --accent: #2e86c1;
+      --text: #24292f;
+      --muted: #57606a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    header {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: white;
+      padding: 2rem 2rem 1.5rem;
+      text-align: center;
+    }
+    header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.3rem; }
+    header p { font-size: 0.95rem; opacity: 0.9; }
+
+    nav {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      padding: 1rem 2rem;
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    nav a {
+      display: inline-block;
+      padding: 0.4rem 1rem;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--primary);
+      border: 1px solid var(--border);
+      transition: all 0.2s;
+    }
+    nav a:hover, nav a:focus {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+
+    main { max-width: 1100px; margin: 2rem auto; padding: 0 1.5rem; }
+
+    section {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 2rem;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    section h2 {
+      font-size: 1.25rem;
+      padding: 1rem 1.5rem;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      color: white;
+      border-bottom: 1px solid var(--border);
+    }
+    .diagram-desc {
+      padding: 1rem 1.5rem 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .mermaid {
+      padding: 1.5rem;
+      overflow-x: auto;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>SAS-to-Python/PySpark Conversion Accelerator</h1>
+  <p>UML Diagrams — Architecture & Design (Week 1–2 Milestone)</p>
+</header>
+
+<nav>
+  <a href="#class-diagram">Class Diagram</a>
+  <a href="#sequence-diagram">Sequence Diagram</a>
+  <a href="#component-diagram">Component Diagram</a>
+  <a href="#er-diagram">ER Diagram</a>
+  <a href="#state-diagram">State Machine</a>
+  <a href="#activity-diagram">Activity Flow</a>
+</nav>
+
+<main>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<section id="class-diagram">
+  <h2>1. Class Diagram — Agent Hierarchy & Models</h2>
+  <p class="diagram-desc">
+    Shows the inheritance hierarchy from <code>BaseAgent</code>, all Pydantic data models,
+    SQLAlchemy ORM models, and their relationships.
+  </p>
+  <div class="mermaid">
+classDiagram
+    direction TB
+
+    class BaseAgent {
+        <<abstract>>
+        +UUID trace_id
+        +BoundLogger logger
+        +agent_name()* str
+        +process()* async
+    }
+
+    class FileAnalysisAgent {
+        +agent_name() str
+        +process(project_root: Path) list~FileMetadata~
+        -_analyse_file(filepath: Path) FileMetadata
+    }
+
+    class CrossFileDependencyResolver {
+        +agent_name() str
+        +process(files, project_root, engine) dict
+        -_extract_dependencies(content, ...) list~CrossFileDependencyRow~
+        -_resolve(ref_path, ...) tuple
+    }
+
+    class RegistryWriterAgent {
+        +agent_name() str
+        +process(files, engine) dict
+    }
+
+    class DataLineageExtractor {
+        +agent_name() str
+        +process(files, engine) dict
+        -_extract_lineage(content, file_id) list~DataLineageRow~
+    }
+
+    BaseAgent <|-- FileAnalysisAgent
+    BaseAgent <|-- CrossFileDependencyResolver
+    BaseAgent <|-- RegistryWriterAgent
+    BaseAgent <|-- DataLineageExtractor
+
+    class FileMetadata {
+        <<Pydantic>>
+        +UUID file_id
+        +str file_path
+        +str encoding
+        +str content_hash
+        +int file_size_bytes
+        +int line_count
+        +bool lark_valid
+        +list~str~ lark_errors
+        +datetime created_at
+    }
+
+    class PartitionIR {
+        <<Pydantic>>
+        +UUID block_id
+        +UUID file_id
+        +PartitionType partition_type
+        +str source_code
+        +int line_start
+        +int line_end
+        +RiskLevel risk_level
+        +ConversionStatus conversion_status
+        +list~UUID~ dependencies
+        +dict metadata
+        +datetime created_at
+    }
+
+    class FileRegistryRow {
+        <<SQLAlchemy>>
+        +str file_id PK
+        +str file_path
+        +str encoding
+        +str content_hash UNIQUE
+        +int file_size_bytes
+        +int line_count
+        +bool lark_valid
+        +str lark_errors
+        +str status
+        +str error_log
+        +str created_at
+    }
+
+    class CrossFileDependencyRow {
+        <<SQLAlchemy>>
+        +int id PK
+        +str source_file_id FK
+        +str ref_type
+        +str raw_reference
+        +bool resolved
+        +str target_file_id FK
+        +str target_path
+    }
+
+    class DataLineageRow {
+        <<SQLAlchemy>>
+        +int id PK
+        +str source_file_id FK
+        +str lineage_type
+        +str source_dataset
+        +str target_dataset
+        +str source_columns
+        +str target_column
+        +str transform_expr
+        +int block_line_start
+        +int block_line_end
+    }
+
+    class PartitionType {
+        <<enum>>
+        DATA_STEP
+        PROC_BLOCK
+        MACRO_DEFINITION
+        MACRO_INVOCATION
+        SQL_BLOCK
+        CONDITIONAL_BLOCK
+        LOOP_BLOCK
+        GLOBAL_STATEMENT
+        INCLUDE_REFERENCE
+    }
+
+    class RiskLevel {
+        <<enum>>
+        LOW
+        MODERATE
+        HIGH
+        UNCERTAIN
+    }
+
+    class ConversionStatus {
+        <<enum>>
+        SUCCESS
+        PARTIAL
+        FAILED
+        HUMAN_REVIEW
+    }
+
+    FileAnalysisAgent ..> FileMetadata : produces
+    RegistryWriterAgent ..> FileRegistryRow : writes
+    CrossFileDependencyResolver ..> CrossFileDependencyRow : writes
+    DataLineageExtractor ..> DataLineageRow : writes
+    PartitionIR --> PartitionType : uses
+    PartitionIR --> RiskLevel : uses
+    PartitionIR --> ConversionStatus : uses
+    FileRegistryRow "1" --> "*" CrossFileDependencyRow : source_file_id
+    FileRegistryRow "1" --> "*" DataLineageRow : source_file_id
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<section id="sequence-diagram">
+  <h2>2. Sequence Diagram — L2-A Pipeline Execution</h2>
+  <p class="diagram-desc">
+    Shows the temporal flow when the L2-A pipeline processes a batch of SAS files:
+    scan → register → resolve deps → extract lineage.
+  </p>
+  <div class="mermaid">
+sequenceDiagram
+    participant U as User / Orchestrator
+    participant FA as FileAnalysisAgent
+    participant RW as RegistryWriterAgent
+    participant CD as CrossFileDependencyResolver
+    participant DL as DataLineageExtractor
+    participant DB as SQLite (WAL)
+
+    U->>FA: process(project_root)
+    activate FA
+    FA->>FA: rglob("*.sas")
+    loop Each .sas file
+        FA->>FA: chardet.detect(raw_bytes)
+        FA->>FA: SHA-256(raw_bytes)
+        FA->>FA: _pre_validate(content)
+    end
+    FA-->>U: list[FileMetadata]
+    deactivate FA
+
+    U->>RW: process(files, engine)
+    activate RW
+    loop Each FileMetadata
+        RW->>DB: SELECT content_hash (dedup check)
+        DB-->>RW: exists / not exists
+        alt New file
+            RW->>DB: INSERT FileRegistryRow
+        else Duplicate
+            RW->>RW: skip
+        end
+    end
+    RW->>DB: COMMIT
+    RW-->>U: {inserted, skipped}
+    deactivate RW
+
+    U->>CD: process(files, project_root, engine)
+    activate CD
+    loop Each FileMetadata
+        CD->>CD: regex: %INCLUDE, LIBNAME, &var
+        loop Each match
+            CD->>CD: _resolve(ref_path)
+            CD->>DB: INSERT CrossFileDependencyRow
+        end
+    end
+    CD->>DB: COMMIT
+    CD-->>U: {total, resolved, unresolved}
+    deactivate CD
+
+    U->>DL: process(files, engine)
+    activate DL
+    loop Each FileMetadata
+        DL->>DL: regex: SET, MERGE, FROM, JOIN
+        DL->>DL: regex: DATA, CREATE TABLE, INSERT INTO
+        loop Each match
+            DL->>DB: INSERT DataLineageRow
+        end
+    end
+    DL->>DB: COMMIT
+    DL-->>U: {total_reads, total_writes}
+    deactivate DL
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<section id="component-diagram">
+  <h2>3. Component Diagram — Full 16-Agent Architecture</h2>
+  <p class="diagram-desc">
+    High-level view of all 6 layers and 16 agents in the complete pipeline vision.
+    Agents in <strong>bold</strong> are implemented (Week 1–2). Others are planned.
+  </p>
+  <div class="mermaid">
+graph TB
+    subgraph INPUT["📥 Input"]
+        SAS["Raw .sas Files"]
+        MATRIX["Coverage Matrix"]
+    end
+
+    subgraph L2A["🔍 L2-A: Entry &amp; Scan ✅"]
+        FAA["<b>FileAnalysisAgent</b><br/>chardet + SHA-256 + regex"]
+        CFR["<b>CrossFileDependencyResolver</b><br/>%INCLUDE + LIBNAME"]
+        RWA["<b>RegistryWriterAgent</b><br/>INSERT OR IGNORE dedup"]
+        DLE["<b>DataLineageExtractor</b><br/>SET/MERGE/FROM/DATA/CREATE"]
+    end
+
+    subgraph L2B["⚡ L2-B: Streaming Core"]
+        SA["StreamAgent<br/>async 8KB chunks"]
+        STA["StateAgent<br/>FSM: block type, depth, macro stack"]
+    end
+
+    subgraph L2C["🧩 L2-C: RAPTOR Chunking"]
+        BDA["BoundaryDetectorAgent<br/>Lark 80% + LLM 20%"]
+        PBA["PartitionBuilderAgent<br/>9 canonical types"]
+        RPA["RAPTORPartitionAgent<br/>Nomic Embed + GMM + RAPTOR tree"]
+    end
+
+    subgraph L2D["📊 L2-D: Complexity &amp; Strategy"]
+        CA["ComplexityAgent<br/>5 features + radon"]
+        STRA["StrategyAgent<br/>LogReg, ECE &lt; 0.08"]
+    end
+
+    subgraph L3["🔄 L3: Translation"]
+        TA["TranslationAgent<br/>Groq / Ollama LLM"]
+        VA["ValidationAgent<br/>AST check + syntax"]
+    end
+
+    subgraph L4CL["📋 L4 + CL: Merge &amp; Learning"]
+        RA["ReportAgent"]
+        FIA["FeedbackIngestionAgent"]
+        CQM["ConversionQualityMonitor"]
+    end
+
+    subgraph DB["🗄️ Persistence"]
+        SQLITE[("SQLite<br/>file_registry<br/>cross_file_deps<br/>data_lineage")]
+        KUZU[("Kuzu<br/>graph DAG")]
+        DUCKDB[("DuckDB<br/>audit + metrics")]
+    end
+
+    SAS --> FAA
+    FAA --> RWA
+    FAA --> CFR
+    FAA --> DLE
+    RWA --> SQLITE
+    CFR --> SQLITE
+    DLE --> SQLITE
+    FAA --> SA
+    SA --> STA
+    STA --> BDA
+    BDA --> PBA
+    PBA --> RPA
+    RPA --> CA
+    CA --> STRA
+    STRA --> TA
+    TA --> VA
+    VA --> RA
+    RA --> FIA
+    FIA --> CQM
+
+    style L2A fill:#d4edda,stroke:#28a745,stroke-width:2px
+    style L2B fill:#fff3cd,stroke:#ffc107,stroke-width:1px
+    style L2C fill:#fff3cd,stroke:#ffc107,stroke-width:1px
+    style L2D fill:#fff3cd,stroke:#ffc107,stroke-width:1px
+    style L3 fill:#fff3cd,stroke:#ffc107,stroke-width:1px
+    style L4CL fill:#fff3cd,stroke:#ffc107,stroke-width:1px
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<section id="er-diagram">
+  <h2>4. Entity-Relationship Diagram — Database Schema</h2>
+  <p class="diagram-desc">
+    Shows the 3 SQLite tables and their foreign key relationships.
+    WAL mode and FK enforcement are enabled at engine level.
+  </p>
+  <div class="mermaid">
+erDiagram
+    FILE_REGISTRY {
+        string file_id PK
+        string file_path
+        string encoding
+        string content_hash UK
+        int file_size_bytes
+        int line_count
+        boolean lark_valid
+        text lark_errors
+        string status
+        text error_log
+        string created_at
+    }
+
+    CROSS_FILE_DEPS {
+        int id PK
+        string source_file_id FK
+        string ref_type
+        string raw_reference
+        boolean resolved
+        string target_file_id FK
+        string target_path
+    }
+
+    DATA_LINEAGE {
+        int id PK
+        string source_file_id FK
+        string lineage_type
+        string source_dataset
+        string target_dataset
+        text source_columns
+        string target_column
+        string transform_expr
+        int block_line_start
+        int block_line_end
+    }
+
+    FILE_REGISTRY ||--o{ CROSS_FILE_DEPS : "source_file_id"
+    FILE_REGISTRY ||--o{ CROSS_FILE_DEPS : "target_file_id"
+    FILE_REGISTRY ||--o{ DATA_LINEAGE : "source_file_id"
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<section id="state-diagram">
+  <h2>5. State Diagram — File Processing Status</h2>
+  <p class="diagram-desc">
+    Shows the lifecycle of a SAS file as it moves through the pipeline.
+    Current implementation covers DISCOVERED → REGISTERED. Later stages are planned.
+  </p>
+  <div class="mermaid">
+stateDiagram-v2
+    [*] --> DISCOVERED : FileAnalysisAgent scans
+    DISCOVERED --> INVALID : pre-validation fails
+    DISCOVERED --> REGISTERED : RegistryWriterAgent inserts
+
+    REGISTERED --> DEPS_RESOLVED : CrossFileDependencyResolver
+    DEPS_RESOLVED --> LINEAGE_EXTRACTED : DataLineageExtractor
+
+    LINEAGE_EXTRACTED --> STREAMED : StreamAgent (Week 2-3)
+    STREAMED --> PARTITIONED : BoundaryDetector (Week 3-4)
+    PARTITIONED --> SCORED : ComplexityAgent (Week 4)
+    SCORED --> TRANSLATING : TranslationAgent (Week 10)
+    TRANSLATING --> VALIDATED : ValidationAgent (Week 10)
+    VALIDATED --> MERGED : ReportAgent (Week 11)
+    MERGED --> COMPLETE : ✅
+
+    INVALID --> HUMAN_REVIEW : manual fix required
+    TRANSLATING --> FAILED : LLM error
+    FAILED --> HUMAN_REVIEW
+    HUMAN_REVIEW --> REGISTERED : re-submit after fix
+
+    state REGISTERED {
+        [*] --> PENDING
+        PENDING --> PROCESSING
+    }
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<section id="activity-diagram">
+  <h2>6. Activity Diagram — Gold Standard Validation Flow</h2>
+  <p class="diagram-desc">
+    Shows how gold standard files are used to validate the partitioner and lineage extractor.
+  </p>
+  <div class="mermaid">
+graph TD
+    A([Start]) --> B[Load .sas file from gold_standard/]
+    B --> C[Load matching .gold.json annotation]
+    C --> D{Run FileAnalysisAgent}
+    D --> E[Get FileMetadata]
+    E --> F{Run DataLineageExtractor}
+    F --> G[Get TABLE_READ and TABLE_WRITE rows]
+    
+    G --> H{Compare with gold.json<br/>expected_blocks}
+    H --> |Match| I[✅ Block types correct]
+    H --> |Mismatch| J[❌ Log discrepancy]
+    
+    I --> K{Compare with gold.json<br/>data_lineage}
+    J --> K
+    K --> |Match| L[✅ Lineage correct]
+    K --> |Mismatch| M[❌ Log lineage error]
+    
+    L --> N{More files?}
+    M --> N
+    N --> |Yes| B
+    N --> |No| O[Generate validation report]
+    O --> P([End])
+
+    style I fill:#d4edda,stroke:#28a745
+    style L fill:#d4edda,stroke:#28a745
+    style J fill:#f8d7da,stroke:#dc3545
+    style M fill:#f8d7da,stroke:#dc3545
+  </div>
+</section>
+
+</main>
+
+<footer>
+  SAS-to-Python/PySpark Conversion Accelerator — UML Diagrams — Generated 2026-02-20
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'default',
+    securityLevel: 'loose',
+    flowchart: { useMaxWidth: true, htmlLabels: true },
+    sequence: { useMaxWidth: true },
+    er: { useMaxWidth: true }
+  });
+</script>
+
+</body>
+</html>
