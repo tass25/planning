@@ -1,0 +1,975 @@
+Cahier des Charges — SAS-to-Python/PySpark Code Conversion Accelerator
+Document version: 1.1 — Final
+Project type: Final-year engineering project (PFE)
+Classification: Technical specification
+Research anchor: RAPTOR — Sarthi et al., ICLR 2024 (arXiv:2401.18059)
+
+1. Context and Problem Statement
+1.1 Industrial Context
+Organizations that have operated for decades on SAS (Statistical Analysis System) environments face mounting pressure to migrate their analytical infrastructure to modern, open-source Python stacks. The primary drivers are:
+
+Licensing cost: SAS enterprise licenses average $8,000–$100,000+ per seat annually. Python is free and open-source.
+Ecosystem velocity: Python's data science ecosystem (pandas, scikit-learn, PyTorch, statsmodels) advances at a pace SAS cannot match.
+Talent availability: The global pool of Python developers vastly exceeds that of SAS programmers. New graduates enter the market with Python skills, not SAS.
+Infrastructure modernization: Cloud-native architectures (AWS, GCP, Azure) are built around Python, not SAS.
+
+Manual migration is not a viable solution at scale. A single enterprise SAS codebase can contain thousands of scripts, hundreds of thousands of lines of code, spanning ETL pipelines, statistical analyses, regulatory reporting (particularly in pharma and finance), and complex macro libraries with deeply nested inter-file dependencies. Manual translation by a developer familiar with both languages costs approximately 3–8 hours per 100 lines of SAS code. For a 500,000-line codebase, this means 15,000–40,000 hours of developer time — effectively years of effort.
+1.2 Problem Statement
+The core technical challenge is not syntactic translation — a rule-based regex system can handle the easy cases. The challenge is semantic equivalence under complexity:
+
+SAS has unique date arithmetic (epoch: January 1, 1960 vs Python's 1970) that produces silent numerical errors when naively translated.
+SAS's MERGE statement has specific sorted-join semantics fundamentally different from pd.merge().
+The RETAIN statement creates persistent row-to-row state in a DATA step — a concept with no direct Python equivalent.
+FIRST. and LAST. automatic variables depend on BY-group processing semantics not present in pandas.
+Macro %INCLUDE chains can create circular dependencies spanning dozens of files, requiring dependency graph analysis before any translation can begin.
+Missing value semantics differ: SAS numeric missing (.) behaves as negative infinity in comparisons, while Python's NaN returns False in all comparisons.
+
+These failure modes compound: an LLM that doesn't know about the 1960 epoch will silently produce wrong date calculations in every converted script. A system with no dependency graph will translate blocks in the wrong order, producing scripts that reference DataFrames that don't exist yet.
+1.3 Solution Approach
+This project delivers an AI-powered, agentic SAS-to-Python conversion accelerator that combines:
+
+Semantic partitioning — decompose SAS scripts into logical, typed blocks with full dependency metadata, using RAPTOR-inspired hierarchical clustering (Sarthi et al., ICLR 2024) rather than flat keyword splitting.
+Knowledge-base-augmented translation — retrieve verified SAS→Python/PySpark example pairs before translating each block, providing the LLM with domain-correct few-shot context, particularly for known failure modes.
+Calibrated quality assurance — every translated block is cross-verified by a second LLM call with structured JSON output, and quality metrics are tracked over time to detect and correct drift.
+Structured script reconstruction — translated blocks are merged in correct execution order with consolidated imports, resolved variable names, and syntax validation before output.
+Continuous learning — corrections feed back into the knowledge base automatically, making the system improve with every run.
+
+
+2. Objectives
+2.1 Primary Objectives
+O1 — End-to-end conversion pipeline: The system must accept any valid SAS file as input and produce an equivalent, syntactically valid Python (or PySpark) script as output, without requiring manual intervention for standard SAS constructs (DATA steps, PROC blocks, PROC SQL, standard macros).
+O2 — Semantic correctness: The produced Python code must be functionally equivalent to the SAS source, with explicit handling of the six documented failure modes (date arithmetic, MERGE semantics, RETAIN, FIRST./LAST., missing value comparisons, PROC MEANS OUTPUT OUT=).
+O3 — Coverage breadth: The system must handle all major SAS usage categories: ETL pipelines, statistical analyses, SQL operations, reporting procedures, macro programming, and file I/O — not just simple DATA steps.
+O4 — Measurable quality: Every component must have a quantitative quality target with an automated evaluation suite. Accuracy claims must be verifiable by the jury.
+O5 — Research contribution: The partition layer must constitute an original academic contribution by adapting RAPTOR (Sarthi et al., ICLR 2024) to SAS code block grouping, validated by an ablation study comparing RAPTOR retrieval against flat-index retrieval.
+2.2 Secondary Objectives
+O6 — Fault tolerance: The pipeline must support checkpoint-and-resume so that a crash during processing of a large SAS project does not require starting over.
+O7 — Continuous learning: The system must improve over time by ingesting corrections (human or automated) back into the knowledge base.
+O8 — 100% open-source stack: No proprietary dependencies (no OpenAI API, no Neo4j GPL, no SAS runtime). Every component must be deployable on a student machine without cost.
+
+3. System Architecture
+The system is organized into six layers, processed sequentially per SAS file, with a cross-cutting orchestration layer and a knowledge base serving all translation operations.
+3.1 Layer Overview
+LayerNameResponsibilityPrimary AgentsL2-AEntry & ScanFile discovery, encoding detection, registry, cross-file dependency resolutionFileAnalysisAgent, CrossFileDependencyResolver, RegistryWriterAgentL2-BStreaming CoreAsync line streaming, stateful SAS parsing, block type trackingStreamAgent, StateAgentL2-CRAPTOR ChunkingSemantic boundary detection, embedding, GMM clustering, recursive treeBoundaryDetectorAgent, RAPTORPartitionAgent, PartitionBuilderAgentL2-DComplexity & StrategyFeature extraction, risk classification, partition strategy routingComplexityAgent, StrategyAgentL2-EPersistence & IndexIR storage, vector index, dependency graph, checkpointingPersistenceAgent, IndexAgentL3TranslationSAS→Python/PySpark LLM conversion with KB augmentation and cross-verificationTranslationAgent, ValidationAgentL4MergeImport consolidation, variable name injection, script assembly, syntax validation, conversion reportImportConsolidator, DependencyInjector, ScriptMerger, ReportAgentCLContinuous LearningFeedback ingestion, quality monitoring, retraining triggerFeedbackIngestionAgent, ConversionQualityMonitor
+3.2 Processing Flow
+Input: .sas file(s)
+    │
+    ▼ L2-A
+FileAnalysisAgent         →  FileMetadata[]
+CrossFileDependencyResolver →  cross_file_deps (SQLite)
+RegistryWriterAgent        →  FileRegistry rows
+    │
+    ▼ L2-B
+StreamAgent               →  AsyncIterator[LineChunk]    (8 KB async buffer)
+StateAgent                →  ParsingState per line       (FSM: block_type, nesting, macro_stack)
+BackpressureQueue         →  asyncio.Queue(maxsize=200)
+    │
+    ▼ L2-C  ★ RAPTOR Innovation
+BoundaryDetectorAgent     →  BlockBoundaryEvent[]        (Lark: ~80% of blocks)
+LLM Resolver (Llama 8B)  →  BlockBoundaryEvent[]        (ambiguous: ~20%)
+PartitionBuilderAgent     →  PartitionIR[] (flat)        (9 partition types)
+NomicEmbedder             →  768-dim vectors per block
+GMMClusterer              →  cluster_labels (k = min(√N, 20), BIC minimization)
+ClusterSummarizer         →  cluster summaries (Llama 70B via Groq)
+RAPTORTreeBuilder         →  RAPTORTree (leaf→L1→L2→root, BIC δ < 0.01 stop)
+    │
+    ▼ L2-D
+ComplexityAgent           →  ComplexityMetadata (5 features, composite 0–1)
+StrategyAgent             →  PartitionStrategy + risk_level (LR + Platt scaling)
+    │
+    ▼ L2-E
+PersistenceAgent          →  PartitionIR[] → SQLite/Postgres/Parquet
+RAPTORWriter              →  RAPTORNode[] → LanceDB (cosine IVF)
+IndexAgent                →  NetworkX DAG + SCC condensation → Kuzu graph
+RedisCheckpoint           →  every 50 blocks, TTL 24h
+    │
+    ▼ L3
+TranslationAgent          →  ConversionResult[] (python_code or pyspark_code per block)
+                              failure_mode detection + KB query + cross-verify
+ValidationAgent           →  Executes generated Python/PySpark on synthetic 100-row DataFrame
+                              compares output against expected behaviour rules
+                              gates quality before merge (pass / fail / warn)
+    │
+    ▼ L4
+ImportConsolidator        →  consolidated import block
+DependencyInjector        →  variable name registry, cross-file stubs
+ScriptMerger              →  final .py file, ast.parse() validated
+ReportAgent               →  Markdown/HTML conversion report
+                              files processed, success/partial/failed counts,
+                              failure modes hit, HUMAN_REVIEW blocks, CodeBLEU scores
+    │
+    ▼ Continuous Learning (async)
+FeedbackIngestionAgent    →  corrections → KB upsert
+ConversionQualityMonitor  →  quality_metrics → retraining trigger
+    │
+Output: {filename}_converted.py (or {filename}_converted_spark.py for PySpark target)
+
+4. Component Specifications
+4.1 L2-A — Entry & Scan
+FileAnalysisAgent
+Discovers all .sas files under a project root using pathlib.Path.rglob("*.sas"). For each file: reads raw bytes, detects encoding with chardet, decodes content, computes SHA-256 content hash, counts lines, and runs a Lark LALR pre-validation pass to detect structural errors (unclosed %MACRO definitions, truncated PROC blocks, encoding corruption artifacts) before any streaming begins. Files failing pre-validation are logged to the registry with status=ERROR and skipped — preventing garbage from propagating through seven downstream layers.
+Output: FileMetadata — {file_id, file_path, encoding, content_hash, file_size_bytes, line_count, lark_valid, lark_errors, created_at}
+CrossFileDependencyResolver (new component, not in naive designs)
+Before streaming begins, performs a project-wide regex scan for inter-file references: %INCLUDE 'path', LIBNAME name 'path', and macro variable includes %INCLUDE &var. For each reference, attempts to resolve the target path relative to the file's directory and the project root. Resolved references are written to cross_file_deps (SQLite table in file_registry.db). Unresolved references (macro variable paths, external network paths) are logged with resolved=False. This data is consumed by IndexAgent in L2-E to build accurate DEPENDS_ON edges in Kuzu without guessing.
+RegistryWriterAgent
+Idempotent write of FileMetadata to SQLite (dev) / PostgreSQL (prod) using SQLAlchemy. Deduplication on content_hash — if the same file is scanned twice (e.g., after a crash restart), the second scan produces no new rows. Uses INSERT OR IGNORE semantics.
+4.2 L2-B — Streaming Core
+StreamAgent
+Asynchronous file reader using aiofiles. Opens each SAS file with encoding from FileRegistry, reads in an 8 KB internal buffer, and yields LineChunk objects one at a time without loading the full file into memory. Supports files of arbitrary size — tested up to 500 MB (2+ million lines) without memory overflow. Implements producer side of the backpressure queue.
+StateAgent
+Single-pass finite state machine running per LineChunk, updating ParsingState in under 0.5ms per line (no LLM, no I/O — pure Python logic):
+
+block_type transitions: IDLE → DATA_STEP → PROC_BLOCK → MACRO_DEF → SQL_BLOCK → CONDITIONAL_BLOCK → LOOP_BLOCK → GLOBAL_STATEMENT → INCLUDE_REFERENCE
+nesting_depth: increments on %DO/%IF, decrements on %END, floor at 0
+macro_stack: push on %MACRO name, pop on %MEND — tracks macro call depth
+variable_scope: live dictionary of variable assignments seen so far
+active_dependencies: live set of LIBNAME/%INCLUDE references encountered
+
+BackpressureQueue
+asyncio.Queue(maxsize=200). Producer (StreamAgent) blocks on await queue.put() when full; consumer (BoundaryDetectorAgent) blocks on await queue.get() when empty. This bounds memory consumption regardless of file size — without it, a 500,000-line file produces 500,000 pending LineChunk objects before RAPTOR can process the first batch.
+For files > 100 MB: maxsize drops to 50. For files > 500 MB: sequential processing (one file at a time, 5,000-line segments, Parquet IR store).
+4.3 L2-C — RAPTOR Chunking
+This is the system's primary academic contribution. It adapts RAPTOR (Sarthi et al., ICLR 2024) from long-document question-answering to SAS code block grouping, enabling downstream RAG layers to retrieve at exactly the right abstraction level: leaf for simple blocks, cluster for semantically related procedure families, root for file-level planning context.
+BoundaryDetectorAgent
+Lark LALR grammar (sas.lark) detects canonical SAS block boundaries from the ParsingState stream. Handles all 9 canonical partition types:
+Partition TypeDetection Triggertest_coverage_typeDATA_STEPLine starts with DATA fullPROC_BLOCKLine starts with PROC fullMACRO_DEFINITIONLine starts with %MACRO fullMACRO_INVOCATION%macroname() call patternfullSQL_BLOCKPROC SQL specificallyfullCONDITIONAL_BLOCK%IF/%THEN/%ELSE outside PROCstructural_onlyLOOP_BLOCK%DO/%END iterativestructural_onlyGLOBAL_STATEMENTOPTIONS, LIBNAME, FILENAME, TITLEstructural_onlyINCLUDE_REFERENCE%INCLUDE statementstructural_only
+Blocks open for >200 lines with no closing keyword are flagged AMBIGUOUS and routed to the LLM resolver.
+Boundary detection is intentionally cheap: no embedding, no LLM, no I/O beyond pattern matching. This handles approximately 80% of all blocks.
+LLM Boundary Resolver (Llama 3.1 8B via Ollama)
+For AMBIGUOUS blocks only (~20% of total). Uses the instructor library to enforce a typed BlockBoundaryEvent Pydantic output — no JSON parsing errors. Before calling Ollama, queries KBQueryClient.query_similar(raw_lines, block_type, k=3) to retrieve relevant KB examples for few-shot context. Tiktoken guard: prompts exceeding 6,000 tokens are truncated (raw code section first, instructions preserved). Retry: 3× exponential backoff (base 1s). If all retries fail: emit rule-based boundary with boundary_method="lark_fallback" and log to DuckDB audit.
+PartitionBuilderAgent
+Assembles BlockBoundaryEvent + ParsingState metadata into flat PartitionIR objects. Sets partition_type from block type, content_hash from SHA-256 of raw_code, test_coverage_type from partition type (full vs structural_only), carries trace_id from orchestrator. RAPTOR fields (raptor_leaf_id, raptor_cluster_id, raptor_root_id) are empty at this stage — filled by RAPTORPartitionAgent.
+NomicEmbedder
+Embeds each PartitionIR.raw_code block into a 768-dimensional vector using Nomic Embed v1.5 (nomic-ai/nomic-embed-text-v1.5, Apache 2.0, fully local via sentence-transformers). Batch size 32 to avoid CUDA OOM. Sets PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512. Caches in memory as dict[partition_id, np.ndarray]. For files >100 MB, only HIGH-risk blocks are embedded (reduces memory pressure from GMM on large matrices).
+GMMClusterer
+Following Sarthi et al. (2024) §3.1: fits sklearn.mixture.GaussianMixture on L2-normalized leaf embeddings. k selected by BIC minimization over k ∈ [max(2,1), min(⌊√N⌋, 20)] — the √N formula is directly from the paper. Similarity threshold τ=0.72: blocks whose maximum cluster membership probability falls below τ are marked cluster_label=-1 (outliers) and remain as standalone leaves. min_cluster_size=2: singleton clusters are merged with their cosine-nearest neighbour. Fallback: if GMM fitting fails after 3 attempts (numerical divergence, n_blocks < 4), all blocks get cluster_label=0 (flat partitioning).
+ClusterSummarizer
+Generates a natural-language summary of each cluster using Llama 3.1 70B via Groq API. Prompt: "Given these SAS code blocks, write a concise technical summary (max 150 words) describing their collective purpose, the data they process, and how they relate to each other." Hash-cached: if the SHA-256 of the cluster's sorted embedding matrix matches a previous call, the cached summary is returned without an LLM call (critical for enterprise codebases where the same macro family appears repeatedly). Sets summary_tier on RAPTORNode: "groq" | "ollama_fallback" | "heuristic_fallback". Groq 429 → 3× exp backoff (base 2s) → Ollama 70B local → heuristic summary (partition_type count string).
+RAPTORTreeBuilder
+Recursive tree construction algorithm (Sarthi et al. §3.2):
+
+Leaf nodes: each PartitionIR is one RAPTORNode at level=0, embedding already computed.
+GMM clustering on leaf embeddings → cluster assignments.
+For each cluster: call ClusterSummarizer → summary string.
+Embed each cluster summary with Nomic Embed → cluster-level 768-dim vector.
+Create RAPTORNode at level=1 (L1 cluster), child_ids = member partition_ids.
+Convergence check: stop if k=1 OR current_depth >= max_depth OR |BIC_t − BIC_{t-1}| < 0.01.
+If not converged: recurse — treat L1 cluster nodes as new leaves, repeat from step 2.
+Final root node: single RAPTORNode at level=3, full-file summary.
+
+Dynamic depth: max_depth=3 for standard files; max_depth=5 when macro_density > 0.4 (macro-heavy enterprise files benefit from deeper clustering). All nodes stored in LanceDB raptor_nodes table.
+4.4 L2-D — Complexity & Strategy
+ComplexityAgent
+Computes 5 features from raw_code:
+FeatureComputationWeightEdge Case HandlingCyclomatic Complexityradon.complexity.cc_visit(), normalized ÷20, clipped at 10.30Cap at 20 for outliersNesting DepthMax %IF/%DO nesting, normalized ÷100.25Macro-injected nesting counts +2Macro Densitymacro call patterns ÷ total lines, log-scaled0.20Log scale prevents extreme outliersCross-file DepsCount of LIBNAME/FILENAME/%INCLUDE0.15Circular deps → HIGH auto-overrideSQL ComplexityJOIN count + nested SELECT depth, normalized0.10PROC SQL only; else 0
+Composite score = 0.30×f1 + 0.25×f2 + 0.20×f3 + 0.15×f4 + 0.10×f5 ∈ [0,1].
+StrategyAgent
+Loads complexity_model.pkl (sklearn LogisticRegression + Platt scaling via CalibratedClassifierCV). Predicts risk_level and calibration_confidence from the 5-feature vector.
+Risk LevelScore RangeConfidenceActionLOW0.00–0.35>0.70Ollama Llama 8B translationMODERATE0.35–0.68>0.65Groq Llama 70B translationHIGH0.68–1.00>0.60Groq Llama 70B, temp=0.1, +2 KB examplesUNCERTAINAny<0.65HUMAN_REVIEW flag, skip LLM
+Partition strategy mapping:
+
+FLAT_PARTITION: score < 0.35, no macros, cross_file_deps < 3
+MACRO_AWARE: has_macros=True OR score 0.35–0.68
+DEPENDENCY_PRESERVING: cross_file_deps > 3 OR score 0.50–0.68
+STRUCTURAL_GROUPING: score > 0.68 OR has_nested_sql=True
+HUMAN_REVIEW: override when calibration_confidence < 0.65
+
+The model is trained on 500 manually-labeled examples (derived from the 50-file gold standard corpus — each annotated block becomes one training row). Platt scaling is critical for calibrated probability output: a raw logistic regression confidence of 0.73 is not reliable; post-hoc Platt scaling corrects this. ECE (Expected Calibration Error) is tracked every training run in DuckDB calibration_log. Target ECE < 0.08.
+4.5 L2-E — Persistence & Index
+PersistenceAgent
+Writes PartitionIR[] to:
+
+SQLite (dev, < 10,000 blocks): SQLAlchemy ORM, INSERT OR IGNORE dedup on content_hash
+PostgreSQL (prod): same ORM, connection pool
+Parquet (batches ≥ 10,000 blocks): pyarrow serialization, written to data/partitions/file_{file_id}.parquet
+
+RAPTORWriter
+Inserts all RAPTORNode objects (leaf + cluster + root) into LanceDB raptor_nodes table with cosine IVF index (num_partitions=32). Updates PartitionIR.raptor_leaf_id, raptor_cluster_id, raptor_root_id back to SQLite/Postgres.
+IndexAgent
+Builds the dependency graph in three stages:
+Stage 1 — NetworkX DAG construction: For each PartitionIR, scans dependency_refs and cross-references against cross_file_deps (pre-resolved by CrossFileDependencyResolver in L2-A). Creates DEPENDS_ON edges for dataset references, LIBNAME refs, and resolved %INCLUDE targets. Creates MACRO_CALLS edges from macro_scope metadata.
+Stage 2 — SCC Condensation: nx.strongly_connected_components(dag) finds all circular dependency cycles (A → B → C → A). SCCs with size > 1 are collapsed into super-nodes via nx.condensation(dag), guaranteeing an acyclic graph for Kuzu queries. Each partition in a cycle receives scc_id — partitions sharing an scc_id must be translated together in L3.
+Stage 3 — Dynamic Hop Cap: nx.dag_longest_path_length(condensed_dag) computes the longest dependency chain in the project. Result capped at 10, stored in config/project_config.yaml. All Kuzu multi-hop queries use this value: MATCH (a)-[*1..{max_hop}]->(b).
+RedisCheckpoint
+Writes JSON-serialized PartitionIR[] to Redis every 50 processed blocks. Key format: partition:{file_id}:checkpoint:{block_num}, TTL 24 hours. On orchestrator startup: scans Redis for existing checkpoints for the current run — if found, resumes from the highest block number (prevents re-processing already-completed work after a crash). If Redis is unavailable: logs a warning and continues without checkpointing (degraded mode — full restart required on crash, but no data corruption).
+4.6 Layer 3 — Translation
+TranslationAgent
+Per-block SAS→Python/PySpark conversion with four guarantees: (1) KB-augmented few-shot context for every LLM call, (2) failure-mode-aware prompting for the 6 known problem patterns, (3) cross-verification by a second LLM call for MODERATE/HIGH blocks, (4) output-target routing (pandas-based Python or PySpark) based on a target_runtime flag set by StrategyAgent (default: python; set to pyspark when the source SAS file references distributed data constructs or explicit user configuration).
+Failure mode detection (rule-based, no LLM):
+
+RETAIN: "RETAIN " in raw_code.upper()
+FIRST_LAST: "FIRST." or "LAST." in code
+DATE_ARITHMETIC: MDY( or TODAY() or INTNX( or INTCK( in code
+MERGE_SEMANTICS: "MERGE " and "BY " both present
+MISSING_VALUE_COMPARISON: comparison operators present AND has_macros=True
+PROC_MEANS_OUTPUT: "OUTPUT OUT=" in code
+
+KB retrieval: KBQueryClient.query_similar(raw_code, partition_type, k=5, failure_mode=detected_fm, target_runtime=target_runtime). Returns up to 5 verified SAS→Python/PySpark pairs from LanceDB, filtered by partition_type OR failure_mode AND target_runtime. These are injected into the translation prompt as few-shot examples.
+LLM routing:
+
+LOW → Ollama Llama 8B (fast, local, sufficient for simple DATA steps)
+MODERATE → Groq Llama 70B
+HIGH → Groq Llama 70B, temperature=0.1, 2 extra KB examples
+UNCERTAIN → skip, emit status=HUMAN_REVIEW
+
+Cross-verification (Prompt C): For MODERATE and HIGH blocks only, a second LLM call (separate context window) checks the SAS→Python pair for 5 known failure modes and returns {equivalent: bool, issues: list[str], confidence: float}. If confidence < 0.75: retry translation with issues appended to the prompt (max 2 retries). If still failing: status=PARTIAL. All outcomes logged to DuckDB llm_audit.
+SCC batching: Partitions sharing an scc_id (circular dependency group) are translated together in a single batch — all members provided as context simultaneously, preventing reference errors.
+Import detection: Regex scan of generated Python/PySpark code detects which libraries are used (pandas, numpy, statsmodels, scipy, datetime, re, pyspark.sql, etc.) and stores in ConversionResult.imports_detected for ImportConsolidator.
+Output: ConversionResult — {conversion_id, partition_id, python_code, target_runtime, imports_detected, status, llm_confidence, failure_mode_flagged, model_used, kb_examples_used, retry_count, validation_result, trace_id}
+ValidationAgent (NEW — post-translation quality gate)
+Executes the generated Python/PySpark code on a synthetic 100-row pandas (or PySpark) DataFrame to verify runtime correctness before the block proceeds to merge. This addresses a key gap: CodeBLEU and cross-verification measure surface and structural similarity, but neither catches silent runtime errors (e.g., a NameError from a missing variable, a TypeError from wrong column types, or a wrong date offset).
+Process:
+1. Build a synthetic DataFrame: 100 rows, columns inferred from the SAS DATA step’s variable_scope (numeric → random float, character → random string, date → random date in 2020–2024).
+2. Execute the generated Python code via exec() in a sandboxed namespace (restricted builtins, 5-second timeout, no file I/O, no network).
+3. Capture the output DataFrame (or error traceback).
+4. Apply validation rules:
+   • No uncaught exceptions (NameError, TypeError, KeyError, SyntaxError).
+   • Output DataFrame has the expected columns (inferred from SAS OUTPUT or DATA statement).
+   • For DATE_ARITHMETIC blocks: spot-check that date values are in a plausible range (not offset by 3,653 days — the 1960–1970 epoch gap).
+   • For MERGE_SEMANTICS blocks: verify row count is within 0.8–1.5× of input row count (catches Cartesian explode errors).
+5. Result: ValidationResult — {validation_id, conversion_id, passed: bool, errors: list[str], warnings: list[str], execution_time_ms: float}.
+6. Routing:
+   • passed=True → proceed to L4 merge.
+   • passed=False AND retry_count < 2 → re-translate with errors appended to prompt.
+   • passed=False AND retry_count ≥ 2 → status=PARTIAL, proceed with warning.
+   • structural_only blocks (CONDITIONAL_BLOCK, LOOP_BLOCK, etc.) → skip validation, auto-pass.
+For PySpark target: uses a local SparkSession (spark.master=local[1], 512 MB driver memory) with a 10-second timeout. Falls back to pandas validation if Spark is unavailable.
+4.7 Layer 4 — Merge
+ImportConsolidator
+Collects imports_detected from all ConversionResult objects for a given file. Deduplicates (each library appears once). Orders per PEP8: stdlib → third-party → local. Maps detected library names to canonical import statements (pandas → import pandas as pd, statsmodels → import statsmodels.api as sm, etc.).
+DependencyInjector
+Resolves variable name consistency across blocks. Builds a name_registry: dict[str, str] mapping SAS dataset names to Python variable names (snake_case, e.g., WORK.TEMP → work_temp). Scans each PartitionIR.raw_code for datasets produced (DATA {name}) and referenced. Patches the corresponding Python code to use consistent variable names. For unresolvable cross-file references: inserts a comment stub # NOTE: {dataset} expected from external file {source_file}.
+ScriptMerger
+Assembles the final Python script:
+
+Sort ConversionResult[] by PartitionIR.line_start to preserve original SAS execution order.
+For HUMAN_REVIEW or FAILED blocks: insert a structured TODO stub with the original SAS code commented out.
+Prepend consolidated import block from ImportConsolidator.
+Prepend a header comment: source file, timestamp, block count, partial count.
+Run ast.parse(final_script): if SyntaxError is raised, set syntax_valid=False and capture the error location.
+Write to output/{source_filename}_converted.py (or _converted_spark.py for PySpark target).
+Persist MergedScript to merged_scripts database table.
+
+ReportAgent (NEW — post-merge conversion report)
+Generates a structured Markdown and HTML conversion report after ScriptMerger completes each file. The report is the primary deliverable for human reviewers and project managers who need to assess conversion quality without reading code.
+Report contents:
+• Header: source file path, timestamp, total block count, target runtime (Python / PySpark).
+• Summary table: SUCCESS / PARTIAL / FAILED / HUMAN_REVIEW counts with percentages.
+• Failure mode breakdown: per-mode counts (DATE_ARITHMETIC: 3, MERGE_SEMANTICS: 1, etc.).
+• HUMAN_REVIEW blocks: list of block IDs, partition types, and original SAS snippets (first 10 lines).
+• CodeBLEU scores (when gold standard is available): overall and per-partition-type breakdown.
+• Validation results: pass/fail/warn counts from ValidationAgent.
+• Dependency graph summary: number of nodes, edges, SCC groups detected.
+• KB retrieval stats: mean similarity score, hit coverage percentage.
+Output: output/{source_filename}_report.md + output/{source_filename}_report.html (via markdown2 conversion).
+Persist ConversionReport to conversion_reports DuckDB table.
+
+4.8 Continuous Learning
+FeedbackIngestionAgent
+Accepts corrections from two sources:
+
+CLI: python scripts/submit_correction.py --conversion_id {uuid} --python_file corrected.py
+Automated: when cross-verifier rejects a block after 2 retries, the final retry's SAS+Python pair is automatically submitted
+
+For each correction: runs Prompt C cross-verification on the corrected pair. If confidence ≥ 0.85: creates a new KB example with source="correction", embeds with Nomic Embed, upserts into LanceDB sas_python_examples. Updates the original ConversionResult.status to SUCCESS. Logs to feedback_log DuckDB table.
+ConversionQualityMonitor
+Runs at the end of every processing batch. Queries DuckDB for the last 100 conversion_results and computes:
+
+success_rate = n_SUCCESS / n_total (target ≥ 0.70)
+partial_rate = n_PARTIAL / n_total
+avg_llm_confidence (target ≥ 0.75)
+failure_mode_dist = Counter of failure_mode_flagged values
+
+Alerts via structlog WARNING if: success_rate < 0.70, avg_llm_confidence < 0.75, or any single failure mode accounts for >40% of PARTIAL conversions (indicates a KB gap for that pattern category).
+Retraining Trigger
+Monitors four conditions, any of which triggers sklearn LR retraining:
+
+KB grew by ≥500 verified examples since last training
+ECE on held-out 20% > 0.12
+success_rate < 0.70 for two consecutive batches
+A specific failure mode category flagged as KB gap by ConversionQualityMonitor
+
+On KB gap detection: also triggers targeted KB generation (generate_pairs.py for the underrepresented category specifically), rather than full regeneration.
+
+5. Knowledge Base
+5.1 Design Rationale
+The knowledge base (KB) is the primary quality driver for translation accuracy. Every LLM call is augmented with retrieved SAS→Python/PySpark pairs before generation, meaning the quality of the KB directly determines the quality of the output. A KB with wrong examples is worse than no KB at all.
+Key decision: dual-LLM synthetic generation with cross-verification. The KB is built without any human SAS expertise using a 3-prompt chain: Prompt A generates a realistic SAS block, Prompt B converts it to Python (and optionally PySpark) with explicit failure-mode rules in the prompt, Prompt C cross-verifies equivalence and returns structured JSON. Pairs with confidence ≥ 0.85 are accepted with verified=True. This removes the dependency on SAS runtime access or SAS expertise while maintaining quality control.
+KB Versioning: Every KB example carries a version integer (starting at 1). When a correction replaces an existing pair, the old pair is retained with superseded_by pointing to the new example_id, and the new pair gets version = old_version + 1. A dedicated kb_changelog DuckDB table logs every mutation (insert, update, supersede) with timestamp, author ("llm_gen" or "human_correction"), and diff summary. This enables: (1) rollback to any previous version of a specific pair, (2) audit trail for KB quality drift analysis, (3) A/B retrieval experiments comparing old vs. new pairs. Rollback: python scripts/kb_rollback.py --example_id {uuid} --to_version {n} restores the specified version and marks the current one as superseded.
+5.2 Coverage Matrix
+15 SAS construct categories, ~330 verified pairs total:
+CategoryConstructs CoveredTarget PairsKey Failure ModeDATA_STEP_BASICassignment, if/else, keep/drop, length, format30—DATA_STEP_MERGEMERGE BY, one-to-one, one-to-many, UPDATE25MERGE_SEMANTICSDATA_STEP_RETAINRETAIN, running totals, lag patterns, cumulative flags20RETAINDATA_STEP_ARRAYARRAY, DO over array, multi-dim arrays20—DATA_STEP_FIRST_LASTBY group processing, FIRST.var, LAST.var25FIRST_LASTDATE_ARITHMETICMDY, TODAY, INTNX, INTCK, DATEPART, date formats30DATE_ARITHMETICPROC_SQLSELECT, JOIN, subquery, GROUP BY, HAVING30—PROC_MEANSCLASS, VAR, OUTPUT OUT=, NWAY20PROC_MEANS_OUTPUTPROC_FREQTABLES, cross-tabulation, chi-square, WEIGHT15—MACRO_BASIC%MACRO/%MEND, %LET, macro parameters25—MACRO_CONDITIONAL%IF/%THEN/%ELSE, %DO/%END, nested macros20—PROC_SORTBY ascending/descending, NODUPKEY, NODUP15—PROC_REG_LOGISTICMODEL statement, output stats, selection20—PROC_IMPORT_EXPORTDBMS=CSV, DBMS=XLSX, INFILE/INPUT15—MISSING_VALUE_HANDLINGNMISS, CMISS, comparisons with missing20MISSING_VALUE_COMPARISON
+Additionally, 60 targeted "failure mode injection" pairs (6 types × 10 pairs each) generated with explicit trap prompts that name the known failure pattern, ensuring the KB contains correct patterns for exactly the cases where LLMs default to wrong answers.
+5.3 LanceDB Schema
+pythonkb_schema = pa.schema([
+    pa.field('example_id',          pa.string()),
+    pa.field('sas_code',            pa.string()),
+    pa.field('python_code',         pa.string()),
+    pa.field('embedding',           pa.list_(pa.float32(), 768)),
+    pa.field('partition_type',      pa.string()),
+    pa.field('complexity_tier',     pa.string()),    # LOW | MODERATE | HIGH
+    pa.field('target_runtime',      pa.string()),    # python | pyspark
+    pa.field('verified',            pa.bool_()),
+    pa.field('source',              pa.string()),    # sas_docs | github | gold_standard | correction
+    pa.field('failure_mode',        pa.string()),    # '' | DATE_ARITHMETIC | MERGE_SEMANTICS | ...
+    pa.field('verification_method', pa.string()),    # llm_crosscheck | human | unverified
+    pa.field('verification_score',  pa.float32()),   # confidence from cross-verifier
+    pa.field('category',            pa.string()),    # from coverage_matrix
+    pa.field('version',             pa.int32()),     # monotonically increasing per example_id lineage
+    pa.field('superseded_by',       pa.string()),    # example_id of the replacement (null if current)
+    pa.field('created_at',          pa.string()),    # ISO-8601 timestamp
+])
+# IVF cosine index: num_partitions=64
+
+6. Data Models
+6.1 PartitionIR (complete, final)
+pythonclass PartitionIR(BaseModel):
+    # Identity
+    partition_id:          UUID     # auto-generated
+    source_file_id:        UUID     # FK → FileRegistry
+    content_hash:          str      # SHA-256(raw_code), dedup key
+
+    # Classification
+    partition_type:        PartitionType      # 9-value enum
+    risk_level:            RiskLevel          # LOW | MODERATE | HIGH | UNCERTAIN
+    complexity_score:      float              # [0.0, 1.0]
+    calibration_confidence: float            # Platt scaling output
+    strategy:              PartitionStrategy  # 5-value enum
+
+    # Structural metadata
+    line_start:            int
+    line_end:              int
+    control_depth:         int   = 0       # max nesting depth within block
+    has_macros:            bool = False
+    has_nested_sql:        bool = False
+
+    # Scope and dependencies
+    macro_scope:           dict = {}       # macros defined/called in this block
+    variable_scope:        dict = {}       # variables assigned or read
+    dependency_refs:       list[str] = [] # LIBNAME refs, %INCLUDE targets, dataset names
+
+    # RAPTOR tree
+    raptor_leaf_id:        str            # LanceDB node ID
+    raptor_cluster_id:     Optional[str] # L1 cluster node ID
+    raptor_root_id:        Optional[str] # root summary node ID
+
+    # Graph
+    scc_id:                Optional[str] # SCC group ID (set if partition is in a dep cycle)
+
+    # Quality
+    test_coverage_type:    str = "full"  # "full" | "structural_only"
+
+    # Content
+    raw_code:              str
+
+    # Tracing
+    trace_id:              UUID
+    created_at:            datetime
+6.2 RAPTORNode
+pythonclass RAPTORNode(BaseModel):
+    node_id:       UUID
+    level:         int         # 0=leaf, 1=L1 cluster, 2=L2 cluster, 3=root
+    summary:       str         # LLM-generated (or heuristic)
+    summary_tier:  str         # "groq" | "ollama_fallback" | "heuristic_fallback" | "skipped"
+    embedding:     list[float] # 768-dim Nomic v1.5
+    child_ids:     list[str]   # partition_ids or cluster node_ids
+    cluster_label: Optional[int]
+    file_id:       UUID
+    partition_ids: list[str]   # all leaf partitions in this subtree
+6.3 ConversionResult
+pythonclass ConversionResult(BaseModel):
+    conversion_id:        UUID
+    partition_id:         UUID
+    source_file_id:       UUID
+    python_code:          str
+    imports_detected:     list[str]
+    status:               ConversionStatus   # SUCCESS | PARTIAL | FAILED | HUMAN_REVIEW
+    llm_confidence:       float
+    failure_mode_flagged: str
+    model_used:           str                # "groq_70b" | "ollama_70b" | "ollama_8b"
+    kb_examples_used:     list[str]          # example_ids retrieved from KB
+    retry_count:          int
+    trace_id:             UUID
+    created_at:           datetime
+6.4 MergedScript
+pythonclass MergedScript(BaseModel):
+    script_id:           UUID
+    source_file_id:      UUID
+    python_script:       str        # full final script text
+    import_block:        str        # consolidated imports section
+    block_count:         int
+    partial_count:       int        # blocks with status=PARTIAL
+    human_review_count:  int
+    syntax_valid:        bool       # passed ast.parse()
+    syntax_errors:       list[str]
+    status:              MergeStatus   # SUCCESS | HAS_GAPS | FAILED
+    output_path:         str
+    trace_id:            UUID
+    created_at:          datetime
+
+7. Database Schemas
+7.1 SQLite / PostgreSQL Tables
+FileRegistry
+sqlCREATE TABLE file_registry (
+  file_id        TEXT PRIMARY KEY,
+  file_path      TEXT NOT NULL,
+  encoding       TEXT NOT NULL,
+  content_hash   TEXT NOT NULL UNIQUE,
+  file_size_bytes INTEGER,
+  line_count     INTEGER,
+  lark_valid     INTEGER,
+  lark_errors    TEXT,
+  status         TEXT DEFAULT 'PENDING',
+  error_log      TEXT,
+  created_at     TEXT NOT NULL
+);
+cross_file_deps
+sqlCREATE TABLE cross_file_deps (
+  dep_id         TEXT PRIMARY KEY,
+  source_file_id TEXT NOT NULL,
+  target_file_id TEXT,
+  ref_type       TEXT NOT NULL,   -- INCLUDE | LIBNAME | DATASET
+  ref_raw        TEXT NOT NULL,
+  resolved       INTEGER NOT NULL,
+  created_at     TEXT NOT NULL
+);
+partition_ir (core IR store)
+sqlCREATE TABLE partition_ir (
+  partition_id           TEXT PRIMARY KEY,
+  source_file_id         TEXT NOT NULL,
+  content_hash           TEXT NOT NULL,
+  partition_type         TEXT NOT NULL,
+  risk_level             TEXT NOT NULL,
+  complexity_score       REAL,
+  calibration_confidence REAL,
+  strategy               TEXT,
+  line_start             INTEGER,
+  line_end               INTEGER,
+  control_depth          INTEGER DEFAULT 0,
+  has_macros             INTEGER DEFAULT 0,
+  has_nested_sql         INTEGER DEFAULT 0,
+  macro_scope            TEXT,
+  variable_scope         TEXT,
+  dependency_refs        TEXT,
+  raptor_leaf_id         TEXT,
+  raptor_cluster_id      TEXT,
+  raptor_root_id         TEXT,
+  scc_id                 TEXT,
+  test_coverage_type     TEXT DEFAULT 'full',
+  raw_code               TEXT NOT NULL,
+  trace_id               TEXT,
+  created_at             TEXT NOT NULL,
+  FOREIGN KEY (source_file_id) REFERENCES file_registry(file_id)
+);
+conversion_results
+sqlCREATE TABLE conversion_results (
+  conversion_id          TEXT PRIMARY KEY,
+  partition_id           TEXT NOT NULL,
+  source_file_id         TEXT NOT NULL,
+  python_code            TEXT NOT NULL,
+  imports_detected       TEXT,
+  status                 TEXT NOT NULL,
+  llm_confidence         REAL,
+  failure_mode_flagged   TEXT,
+  model_used             TEXT,
+  kb_examples_used       TEXT,
+  retry_count            INTEGER DEFAULT 0,
+  trace_id               TEXT,
+  created_at             TEXT NOT NULL,
+  FOREIGN KEY (partition_id) REFERENCES partition_ir(partition_id)
+);
+merged_scripts
+sqlCREATE TABLE merged_scripts (
+  script_id           TEXT PRIMARY KEY,
+  source_file_id      TEXT NOT NULL,
+  python_script       TEXT NOT NULL,
+  import_block        TEXT,
+  block_count         INTEGER,
+  partial_count       INTEGER,
+  human_review_count  INTEGER,
+  syntax_valid        INTEGER,
+  syntax_errors       TEXT,
+  status              TEXT,
+  output_path         TEXT,
+  trace_id            TEXT,
+  created_at          TEXT NOT NULL,
+  FOREIGN KEY (source_file_id) REFERENCES file_registry(file_id)
+);
+7.2 DuckDB Tables (analytics + audit)
+llm_audit — every LLM call logged
+sqlCREATE TABLE llm_audit (
+  call_id       VARCHAR PRIMARY KEY,
+  agent_name    VARCHAR, model_name VARCHAR,
+  prompt_hash   VARCHAR, response_hash VARCHAR,
+  latency_ms    DOUBLE,  success BOOLEAN,
+  error_msg     VARCHAR, tier VARCHAR,
+  timestamp     TIMESTAMP DEFAULT NOW()
+);
+calibration_log — ECE per training run
+sqlCREATE TABLE calibration_log (
+  log_id        VARCHAR PRIMARY KEY,
+  ece_score     DOUBLE, n_samples INTEGER,
+  n_train       INTEGER, model_version VARCHAR,
+  created_at    TIMESTAMP DEFAULT NOW()
+);
+ablation_results — RAPTOR vs flat study
+sqlCREATE TABLE ablation_results (
+  run_id           VARCHAR, file_id VARCHAR,
+  query_id         VARCHAR, index_type VARCHAR,
+  hit_at_5         BOOLEAN, reciprocal_rank DOUBLE,
+  query_latency_ms DOUBLE,  complexity_tier VARCHAR,
+  depth_level      INTEGER, created_at TIMESTAMP,
+  PRIMARY KEY (run_id, file_id, query_id, index_type)
+);
+quality_metrics — translation quality per batch
+sqlCREATE TABLE quality_metrics (
+  metric_id           VARCHAR PRIMARY KEY,
+  batch_id            VARCHAR, n_evaluated INTEGER,
+  success_rate        DOUBLE,  partial_rate DOUBLE,
+  human_review_rate   DOUBLE,  avg_llm_confidence DOUBLE,
+  avg_retry_count     DOUBLE,  failure_mode_dist VARCHAR,
+  kb_size             INTEGER, created_at TIMESTAMP
+);
+feedback_log — correction tracking
+sqlCREATE TABLE feedback_log (
+  feedback_id         VARCHAR PRIMARY KEY,
+  conversion_id       VARCHAR, partition_id VARCHAR,
+  correction_source   VARCHAR, original_status VARCHAR,
+  new_kb_example_id   VARCHAR, verifier_confidence DOUBLE,
+  accepted            BOOLEAN, rejection_reason VARCHAR,
+  created_at          TIMESTAMP DEFAULT NOW()
+);
+kb_changelog — KB versioning audit trail (NEW)
+sqlCREATE TABLE kb_changelog (
+  changelog_id        VARCHAR PRIMARY KEY,
+  example_id          VARCHAR NOT NULL,
+  action              VARCHAR NOT NULL,   -- 'insert' | 'update' | 'supersede' | 'rollback'
+  old_version         INTEGER,
+  new_version         INTEGER NOT NULL,
+  author              VARCHAR NOT NULL,   -- 'llm_gen' | 'human_correction' | 'rollback_script'
+  diff_summary        VARCHAR,            -- human-readable description of what changed
+  created_at          TIMESTAMP DEFAULT NOW()
+);
+conversion_reports — per-file conversion report metadata (NEW)
+sqlCREATE TABLE conversion_reports (
+  report_id           VARCHAR PRIMARY KEY,
+  source_file_id      VARCHAR NOT NULL,
+  total_blocks        INTEGER,
+  success_count       INTEGER,
+  partial_count       INTEGER,
+  failed_count        INTEGER,
+  human_review_count  INTEGER,
+  validation_pass     INTEGER,
+  validation_fail     INTEGER,
+  codebleu_mean       DOUBLE,
+  failure_mode_dist   VARCHAR,
+  report_md_path      VARCHAR,
+  report_html_path    VARCHAR,
+  created_at          TIMESTAMP DEFAULT NOW()
+);
+7.3 LanceDB Tables
+Two vector tables with cosine IVF indexes:
+
+raptor_nodes — all RAPTOR tree nodes (leaf + cluster + root), num_partitions=32
+sas_python_examples — KB pairs with embeddings, num_partitions=64
+
+7.4 Kuzu Graph Tables
+cypherCREATE NODE TABLE Partition (
+  partition_id   STRING, partition_type STRING,
+  risk_level     STRING, complexity_score DOUBLE,
+  file_id        STRING, scc_id STRING,
+  PRIMARY KEY (partition_id)
+);
+
+CREATE REL TABLE DEPENDS_ON (
+  FROM Partition TO Partition,
+  dep_type STRING  -- "dataset" | "libref" | "join_input"
+);
+
+CREATE REL TABLE MACRO_CALLS (
+  FROM Partition TO Partition,
+  macro_name STRING
+);
+
+8. Technology Stack — With Benchmarking Justification
+Each technology selection is justified against at least one concrete alternative, with measurable criteria.
+
+8.1 LLMs — Local Inference
+Llama 3.1 8B via Ollama — boundary resolution, LOW-risk translation
+Chosen over:
+
+GPT-4o: costs $0.005/1K tokens; a 500K-line SAS project generates ~50M tokens in translation = $250/run. Not viable for a student project.
+Mistral 7B: similar capability tier, but Llama 3.1 has stronger performance on structured code tasks per HuggingFace Open LLM Leaderboard (Aug 2024).
+LlamaCpp: Ollama provides the same GGUF quantized inference with a simpler REST API and automatic GPU/CPU routing.
+
+Benchmarks:
+
+Latency: ~200ms/call on CPU, ~80ms on GPU
+Context window: 128K tokens (sufficient for any SAS block)
+Memory: 4–5 GB RAM for 4-bit quantized Q4_K_M
+Code instruction-following: adequate for simple DATA steps and PROC blocks with few-shot examples
+
+
+Llama 3.1 70B via Groq API — cluster summarization, MODERATE/HIGH translation
+Chosen over:
+
+Local 70B: requires 40+ GB VRAM (A100 or 2×3090) — not available on a student machine
+Claude API / GPT-4: paid APIs; Groq free tier provides Llama 70B with rate limits sufficient for this project
+Llama 3.1 8B for HIGH blocks: empirically, 8B models hallucinate on nested macro chains and PROC SQL with 3-level subqueries; 70B models are measurably better on complex multi-step reasoning tasks (MMLU Pro, HumanEval+)
+
+Benchmarks (Groq free tier):
+
+Rate limit: 30 requests/minute, 6,000 tokens/minute
+Latency: ~800ms/call
+HumanEval: Llama 3.1 70B scores 80.5% vs 8B's 72.6%
+Three-tier fallback: Groq → Ollama 70B local → heuristic (no LLM required)
+
+
+8.2 Embedding Model
+Nomic Embed v1.5 (nomic-ai/nomic-embed-text-v1.5)
+Chosen over:
+
+OpenAI text-embedding-ada-002: costs $0.0001/1K tokens; embedding 50K blocks = 500K tokens = $50/run. Local is always better when viable.
+all-MiniLM-L6-v2: 384-dim only. Too low-dimensional for the diversity of SAS code patterns; MTEB score 56.26 vs Nomic's 62.39.
+bge-large-en-v1.5: 768-dim, strong MTEB (64.23), but 335M parameters (3× larger than Nomic) with no meaningful accuracy gain on code retrieval tasks.
+
+Benchmarks:
+
+MTEB overall score: 62.39 (vs ada-002: 60.99)
+Dimensions: 768 — sufficient for GMM clustering without dimensionality reduction
+License: Apache 2.0 — commercial use permitted
+Inference: 50ms/block on CPU, 15ms on GPU
+Model size: 137M parameters, ~550 MB RAM
+
+
+8.3 Vector Store
+LanceDB
+Chosen over:
+
+FAISS: no persistence (in-memory only unless you build a custom persistence layer); no metadata filtering; no cloud sync.
+Pinecone / Weaviate: cloud-hosted (requires internet, account, billing); not deployable locally.
+ChromaDB: similar capability tier, but LanceDB's columnar on-disk format (based on Apache Lance) provides 10–100× faster filtered vector search vs ChromaDB's SQLite-backed index on datasets > 100K vectors (LanceDB benchmark, 2024).
+pgvector (PostgreSQL extension): viable but requires PostgreSQL running as a service; LanceDB is embedded (like DuckDB — zero-ops).
+
+Benchmarks (LanceDB internal, 2024):
+
+Query latency @1M vectors: 2–5ms (IVF cosine index)
+Filtered search: 10× faster than FAISS on metadata-filtered queries
+License: Apache 2.0
+Storage: columnar Lance format on local disk — no server required
+
+
+8.4 Graph Database
+Kuzu
+Chosen over:
+
+Neo4j: GPL license in Community Edition; requires a JVM server process; 2+ hours to set up; significant ops overhead for a student project. Enterprise features (APOC, bloom) require paid license.
+DGL (Deep Graph Library): designed for graph neural networks, not property graph queries.
+ArangoDB: multi-model (document + graph), which introduces unnecessary complexity; requires server process.
+NetworkX alone: excellent for in-memory DAG operations (topological sort, SCC) but no persistent Cypher-queryable graph — makes the "multi-hop dependency query" demo impossible.
+
+Benchmarks (Kuzu, 2024):
+
+Query speed on 1M edge graph: 40–200ms (Cypher traversal)
+License: Apache 2.0
+Setup: embedded, in-process (like DuckDB) — zero server configuration
+Cypher compatibility: full Cypher support, identical query language to Neo4j
+Memory: < 100 MB for a partition graph of 10,000 nodes
+
+
+8.5 Graph Algorithm Library
+NetworkX (Python)
+Used for: topological sort, SCC detection (strongly_connected_components), longest path computation (dag_longest_path_length), in-memory DAG representation.
+Chosen over:
+
+igraph: faster for large graphs (C backend), but the Python API is less intuitive and the API surface for SCC + condensation is more complex.
+Networkit: designed for billion-edge graphs; massive overkill for SAS dependency graphs (typical: 100–10,000 nodes).
+CuGraph (RAPIDS): GPU-accelerated, requires CUDA — not portable.
+
+For a SAS dependency graph of 100–10,000 partitions, NetworkX is fast enough (SCC on 10,000 nodes: < 100ms) and has the most complete algorithm library.
+
+8.6 Parsing and Grammar
+Lark (LALR parser)
+Chosen over:
+
+Hand-coded regex: regex cannot handle nested structures (nested %IF/%DO inside %MACRO inside PROC SQL) without exponential backtracking. Regex is used for the fast pre-scan in CrossFileDependencyResolver (no nesting required there); Lark handles the structural parsing.
+ANTLR4: more powerful (full LL(*) parsing), but significantly more complex to set up (Java runtime, grammar compilation step). Lark compiles grammars on-the-fly in pure Python with no external tools.
+ply (PLY): older library, LALR-only, less maintained, less clear error messages.
+
+Benchmarks:
+
+Parse speed: ~10,000 lines/second on a standard SAS grammar (measured on test corpus)
+License: MIT
+Grammar format: EBNF-like, human-readable, version-controlled
+
+
+8.7 Complexity Analysis
+Radon
+Chosen over:
+
+Manual AST walking: would require implementing McCabe complexity from scratch for SAS code — weeks of work with no benchmark guarantee.
+Lizard: multi-language complexity tool, but handles SAS as a generic language (no SAS-specific constructs recognized). Radon's Python-focused output is accurate for the parts of SAS that can be analyzed as pseudo-code; we supplement with custom features (macro density, nesting depth) for the SAS-specific elements.
+
+Radon is used only for the cyclomatic_complexity feature. The other 4 features (nesting depth, macro density, cross-file deps, SQL complexity) are computed with custom logic in ComplexityAgent.
+
+8.8 ML Framework
+scikit-learn (Logistic Regression + GaussianMixture + CalibratedClassifierCV)
+Chosen over:
+
+PyTorch / Keras neural network: overkill for a 5-feature classification problem with 500 training examples. A neural network would overfit and produce worse-calibrated probabilities than a properly calibrated LR. The ECE of a neural network softmax output is well-documented to be poorly calibrated without explicit calibration steps.
+XGBoost: better than LR on complex nonlinear data, but with 500 examples and 5 features, the complexity boundary is not complex enough to justify. Interpretability of LR coefficients is a defense advantage.
+Hardcoded thresholds: no probabilistic confidence, no calibration, no retraining capability.
+
+Platt scaling (CalibratedClassifierCV(method='sigmoid', cv=5)) converts raw LR log-odds to calibrated probabilities. ECE measures how well the confidence scores correspond to actual accuracy — a model with ECE=0.08 is 8% off in probability on average, which is the threshold for trusting the calibration_confidence < 0.65 → HUMAN_REVIEW rule.
+
+8.9 Orchestration
+LangGraph
+Chosen over:
+
+Custom FSM: reimplementing state management, error recovery, and fan-out from scratch is weeks of work with no research value. LangGraph provides these primitives out of the box.
+LangChain (without LangGraph): LangChain's sequential chains are not suitable for the branching, parallel, and checkpoint-resume patterns required. LangGraph's StateGraph is purpose-built for complex agentic workflows.
+Prefect / Airflow: workflow orchestrators designed for batch data pipelines with scheduled execution — not for in-process agentic loops with dynamic branching and LLM calls.
+Celery: task queue for distributed workers — appropriate for scaling to a production cluster but excessive complexity for a 4-month student project.
+
+
+8.10 Checkpointing
+Redis
+Chosen over:
+
+SQLite only: every checkpoint write would lock the SQLite database (single-writer), creating a bottleneck on concurrent processing of multiple files. Redis supports atomic SETEX with no lock contention.
+File system: writing checkpoint JSON to disk is viable but slow (disk I/O) and requires custom cleanup logic. Redis TTL (24h) handles cleanup automatically.
+In-memory dict: lost on crash — defeats the purpose.
+
+Redis is used exclusively for fault-tolerant checkpointing. The SQLite store remains the authoritative partition IR.
+
+8.11 Analytics and Audit
+DuckDB
+Chosen over:
+
+Pandas (in-memory): cannot persist across runs; no SQL query capability; poor performance on aggregations over 100K+ audit records.
+PostgreSQL OLAP: requires a server process; same ops overhead as Neo4j — excessive for an analytics sidecar.
+SQLite: OLAP queries (window functions, groupby aggregations over audit logs) are significantly slower in SQLite than DuckDB. DuckDB is specifically optimized for analytical queries, not transactional writes.
+
+DuckDB is used for read-heavy analytics tables (llm_audit, calibration_log, ablation_results, quality_metrics, feedback_log). All writes are append-only, playing to DuckDB's columnar strengths.
+
+8.12 Async I/O
+aiofiles
+The only viable option for async file reading in Python without a thread pool. asyncio itself does not support async file I/O natively (files are not sockets). aiofiles wraps file operations in a thread executor transparently, providing an async/await interface. Used in StreamAgent for the 8 KB async generator.
+
+8.13 Typed LLM Output
+Instructor
+Chosen over:
+
+Manual JSON parsing: LLMs frequently produce malformed JSON, markdown-wrapped JSON, or partial JSON. Retry logic for JSON parsing errors adds significant complexity.
+LangChain's PydanticOutputParser: tightly coupled to LangChain's prompt template system; less flexible for our Ollama + Groq dual-endpoint setup.
+Outlines (structured generation): requires access to model logits (server-side), not available with Groq's API.
+
+Instructor wraps any OpenAI-compatible API (both Ollama and Groq are compatible) and enforces a Pydantic model as the output type, retrying automatically on validation failure. Used in LLMBoundaryResolver and the cross-verifier.
+
+8.14 Data Validation
+Pydantic v2
+All data models (PartitionIR, RAPTORNode, ConversionResult, etc.) use Pydantic v2. Chosen because: Pydantic v2 (Rust-backed) is 5–50× faster than v1 at validation; it is the de-facto standard for FastAPI and LangGraph; model.model_dump() produces clean JSON for serialization; field validators provide centralized data integrity enforcement.
+
+8.15 Logging
+structlog
+Chosen over:
+
+Python stdlib logging: produces line-based text output, making it difficult to query log fields programmatically. No native JSON output without custom formatters.
+Loguru: simpler API, but structlog's structured context binding (every log line carries trace_id, agent_name, partition_id) is critical for debugging LLM calls that produce wrong output.
+
+structlog outputs JSON lines to both stdout and a rotating file (logs/partition.log). Every log record carries: timestamp, level, agent, trace_id, event, and a data dict with structured fields. This is directly queryable with DuckDB's read_json_auto().
+
+9. Agent Architecture
+9.1 Design Principle
+Agents are not functions. Each of the 14 agents has:
+
+Autonomous decision-making logic (not just a wrapper around a library call)
+Retry / fallback behaviour with exponential backoff
+Typed Pydantic input and output contracts
+Structured logs with trace_id + partition_id on every record
+Inherits from BaseAgent abstract class
+
+Helper utilities (the backpressure queue wrapper, the tiktoken guard, the embedding hash function) are plain functions — not agents. This discipline keeps the count at 14 real agents versus the inflated 20+ seen in naive designs.
+9.2 The 14 Agents
+#AgentLayerPrimary Responsibility1FileAnalysisAgentL2-AFile discovery, encoding detection, Lark pre-validation2CrossFileDependencyResolverL2-AProject-wide %INCLUDE / LIBNAME resolution3RegistryWriterAgentL2-AIdempotent file registry write, SHA-256 dedup4StreamAgentL2-BAsync 8KB line streaming5StateAgentL2-BFSM: block_type, nesting, macro_stack, variable_scope6BoundaryDetectorAgentL2-CLark grammar boundary detection + LLM resolver routing7RAPTORPartitionAgentL2-CGMM clustering + recursive tree construction + summarization8ComplexityAgentL2-D5-feature extraction, composite score9StrategyAgentL2-Dsklearn LR prediction, risk_level, partition strategy10PersistenceAgentL2-EIR write to SQLite / Postgres / Parquet11IndexAgentL2-ENetworkX DAG + SCC condensation + Kuzu graph write12TranslationAgentL3SAS→Python/PySpark conversion + KB query + cross-verify13ValidationAgentL3Post-translation execution test on synthetic DataFrame14ReportAgentL4Markdown/HTML conversion report generation15PartitionOrchestratorCrossLangGraph StateGraph, fan-out, Redis checkpoints
+Merge sub-agents (ImportConsolidator, DependencyInjector, ScriptMerger) and continuous learning agents (FeedbackIngestionAgent, ConversionQualityMonitor) operate within Layers 4 and CL respectively — they follow the BaseAgent contract but are counted as pipeline components rather than numbered partition agents.
+9.3 Retry Policy
+Every agent that makes an external call (LLM, embed, Redis, LanceDB, Groq) is wrapped with @with_retry:
+AgentFailure ModeMax RetriesBackoffFallbackBoundaryDetectorAgent (LLM path)Ollama timeout / OOM3exp, base 1sRule-based boundary onlyRAPTORPartitionAgent (summarize)Groq 429 / timeout3exp, base 2sOllama 70B → heuristicRAPTORPartitionAgent (embed)CUDA OOM2clear cache + retryflat_partition fallbackTranslationAgent (Groq)429 / timeout3exp, base 2sOllama 70B → PARTIALValidationAgent (exec)Timeout / OOM2reset namespace + retrySkip validation, log warningReportAgentTemplate render failure1immediatePlain-text fallback reportIndexAgent (Kuzu write)Graph write failure2WAL rollbackLog + skipRedisCheckpointConnection refused1immediateDegraded mode, continue
+
+10. Evaluation Strategy
+10.1 Boundary Accuracy Benchmark
+Dataset: 50 SAS files manually annotated with gold-standard block boundaries. Each file contains 2–5 annotated blocks → ~150 block-level examples total (the knowledge_base/gold_standard/ corpus).
+Metric: Boundary accuracy = correctly detected blocks / 150. A boundary is "correct" if partition_type matches AND line_start is within ±2 lines AND line_end is within ±2 lines of the gold annotation.
+Target: > 90% (spec v4.1 upgrade from the naive design's 85%)
+CI guard: tests/regression/test_boundary_accuracy.py asserts > 0.90 on every push.
+10.2 RAPTOR Retrieval — Ablation Study
+Setup: The 50 benchmark files, each queried with 10 synthetic retrieval questions (→ 500 queries total). Each query is run against both the flat-index (leaf embeddings only) and the RAPTOR index (leaf + cluster + root). Results stored in DuckDB ablation_results.
+Metrics:
+
+Hit-rate@5: is the ground-truth relevant block in the top-5 retrieved results?
+MRR (Mean Reciprocal Rank): 1/rank if found, 0 otherwise
+p50 query latency (ms)
+Hit-rate@5 stratified by complexity tier (LOW / MODERATE / HIGH)
+
+Target: RAPTOR hit-rate@5 > 0.82, RAPTOR > flat by ≥10% on MODERATE/HIGH blocks.
+Research claim: this ablation directly validates the RAPTOR adaptation. If RAPTOR outperforms flat on complex blocks but not on simple ones, this matches the theoretical prediction — RAPTOR adds value precisely when context grouping matters.
+10.3 Calibration — ECE
+Metric: Expected Calibration Error (ECE). Measures how well the calibration_confidence values produced by StrategyAgent correspond to actual prediction accuracy. ECE=0 is perfect calibration; ECE=0.10 means the model's confidence is off by 10% on average.
+Measurement: Held-out 20% of the 500-example training set. Computed via reliability diagram and bin-averaged calibration error.
+Target: ECE < 0.08 (tightened from 0.10 in earlier versions; enforced via CI guard tests/regression/test_ece.py).
+Why it matters for the jury: the calibration_confidence < 0.65 → HUMAN_REVIEW rule only works if the confidence values are meaningful. If ECE > 0.15, a block with confidence=0.70 might actually be correct only 55% of the time — the system would route it to automated translation when it should go to human review. ECE < 0.08 makes the threshold defensible.
+10.4 Differential Testing
+For test_coverage_type="full" blocks, generated Python is tested by: (1) creating a synthetic 100-row pandas DataFrame, (2) running the Python against it, (3) verifying the output matches expectations for the SAS construct being tested.
+Coverage target: 45% of all blocks (only full-coverage type blocks are testable; structural_only blocks are syntax-checked only via ast.parse()).
+Extended test cases:
+
+Nested macro parameter passing (up to depth 3)
+%DO/%WHILE with counter variable injection
+PROC SQL with correlated subqueries (2-level nested SELECT)
+Multi-table joins (INNER, LEFT, FULL OUTER) on 100-row frames
+Edge cases: empty dataset, single-row input, all-null columns, duplicate keys
+
+10.5 Translation Quality
+Tracked by ConversionQualityMonitor via DuckDB quality_metrics:
+
+success_rate (target ≥ 0.70 at Week 10, improving with KB growth)
+avg_llm_confidence (target ≥ 0.75)
+failure_mode_dist (no single mode > 40% of PARTIALs)
+
+End-to-end validation on the two example scripts from the project document (ETL customer script, sales analysis script): both must produce syntactically valid Python that passes ast.parse().
+
+11. Performance Targets
+MetricTargetMeasurement MethodBoundary accuracy (all blocks)> 90%150-block gold standardBoundary accuracy (complex blocks)> 85%Nested macro + PROC SQL subsetRAPTOR retrieval hit-rate@5> 82%500-query ablation studyRAPTOR vs flat advantage≥ 10% on MODERATE/HIGHDuckDB stratified analysisECE (complexity calibration)< 0.08Held-out 20% reliability diagramPartition latency (p50)< 400ms/fileTiming in load testStreaming (10K-line file)< 2 secondstests/test_streaming.pyPeak memory (10K-line file)< 100 MBmemray profilingTranslation success rate≥ 70%DuckDB quality_metricsMerged script syntax valid≥ 95%ast.parse() on all merged_scriptsDifferential test coverage45%DuckDB test_coverage_type distributionKB pairs (Week 9)≥ 250 verifiedLanceDB table countKB pairs (Week 11)≥ 330 verifiedLanceDB table count
+
+12. Methodology
+12.1 Development Methodology
+Hybrid Kanban + Weekly Sprints. Chosen for a solo developer on a bounded 14-week project:
+
+Kanban board (Trello/Notion): visual WIP limit of 2 concurrent tasks prevents context-switching between complex agent implementations. Columns: Backlog → In Progress (max 2) → Done.
+Weekly sprint boundary: every Sunday, review the past week's velocity metric (N_done / N_planned) and plan the next week's 3–5 tasks. This provides Scrum's forcing function (weekly checkpoint) without the meeting overhead of a team ceremony.
+Velocity tracking: if N_done / N_planned < 0.7 for two consecutive weeks, immediately cut one optional deliverable (workshop paper draft first, Docker compose second).
+
+Why not pure Scrum: No standup overhead for a solo developer. The sprint ceremony is a team coordination mechanism — irrelevant here.
+Why not pure Kanban: Without a weekly checkpoint, it is empirically easy to drift for 3–4 weeks on a complex research task before realizing the schedule is broken. The weekly retrospective surfaces this.
+12.2 Version Control
+Git with semantic commit messages (feat:, fix:, test:, docs:). One branch per week (week-01, week-02, etc.) merged to main at the Sunday retrospective after the week's success checklist is verified.
+12.3 Testing Strategy
+
+Unit tests: every agent has a dedicated tests/test_{agent_name}.py with at least 5 assertions.
+Integration tests: tests/test_e2e_smoke.py runs the full pipeline on 10 files from the benchmark corpus.
+Regression guards: tests/regression/ contains the 3 metric-based CI tests (boundary accuracy, ECE, RAPTOR hit-rate) that run in under 60 seconds.
+Load test: tests/load_test.py runs the full pipeline on 100 files, logging throughput, peak memory, and slowest layer.
+
+
+13. Deliverables
+13.1 Code Deliverables
+DeliverableLocationVerificationpartition/ Python package (all layers)partition/pytest tests/ --cov=partition ≥ 12 agents12 agents implemented and testedpartition/*/`ls partition//.pypytest suite (unit + integration + regression)tests/All tests pass, coverage report in htmlcov/TranslationAgent + routingpartition/translation/pytest tests/test_translation.pyMerge pipeline (3 sub-agents)partition/merge/pytest tests/test_merge.pyContinuous learning (feedback + monitor)partition/retraining/pytest tests/test_continuous_learning.py
+13.2 Data Deliverables
+DeliverableLocationVerification330+ verified KB pairs in LanceDBlancedb_data/python -c "import lancedb; print(len(...))"50-file gold standard corpus (150 blocks)knowledge_base/gold_standard/`ls *.gold.json500 labeled training examplesbenchmark/complexity_training.csvwc -l ≥ 500RAPTOR tree for 50+ fileslancedb_data/raptor_nodesLanceDB table countKuzu dependency graphpartition_graph/du -sh partition_graph/ > 0Ablation resultsablation.dbSELECT COUNT(*) FROM ablation_results ≥ 500
+13.3 Documentation Deliverables
+DeliverableLocationVerificationREADME.md (setup + usage + architecture)README.mdwc -l ≥ 100Architecture diagram HTMLdocs/architecture_v2.htmlRenders in browserRAPTOR paper notesdocs/raptor_paper_notes.mdExists, ≥ 500 wordsAblation results (1-page)docs/ablation_results.mdExists, includes defense narrativeDefense slides (20 slides)docs/defense_slides.pptxSlide count ≥ 20Demo video (3–5 min)docs/demo_video.mp4ffprobe duration 180–300s
+
+14. Timeline — 14 Weeks
+WeeksDeliverablePriority1–2L2-A: Entry + CrossFileDeps + Gold Standard corpus (50 files annotated)P02–3L2-B: StreamAgent + StateAgent. 10K-line file < 2s, < 100 MB.P03–4L2-C: BoundaryDetector + LLM resolver. 150-block benchmark > 90%.P04L2-D: ComplexityAgent + StrategyAgent + RAPTORNode/Tree models. ECE < 0.08.P05–6L2-C: Nomic Embed + GMM + ClusterSummarizer + RAPTORTreeBuilderP17L2-E: PersistenceAgent + IndexAgent + SCC condensation + DuckDB schemasP18Orchestration + Redis + CROSS_FILE_RESOLVE state + audit loggingP19Robustness (retry, large file strategy) + KB generation start (250 pairs)P210Translation Layer (L3) + KB to 250 pairsP211Merge Layer (L4) + Continuous Learning + KB to 330 pairsP212Ablation study: RAPTOR vs flat on 50 files × 10 queriesP213Defense prep: slides + demo videoP314Buffer: polish ablation plots, additional KB pairs, READMEP3
+
+15. Risk Register
+RiskProbabilityImpactMitigationGroq API quota exceeded during heavy useMEDIUMHIGHThree-tier fallback (Groq → Ollama 70B → heuristic). Rate-limit semaphore (max 5 concurrent calls).RAPTOR ablation shows null resultLOWMEDIUMDocument honestly: "KB too small for clustering benefit; propose 1,000+ pair threshold." Still a publishable negative result.GMM clustering diverges on large filesMEDIUMHIGHFallback to flat_partition after 3 failed fits. Already implemented.14-week timeline slipsHIGHMEDIUMSunday velocity tracking. Cut: ablation depth (Week 12) → Workshop paper draft → Docker compose. Never cut: Translation and Merge layers.ECE remains > 0.08 after retrainingMEDIUMLOWRelabel 100 more examples, retrain. If still > 0.08: use threshold-based routing (less elegant, still functional).Kuzu installation fails on systemLOWMEDIUMFallback: NetworkX-only DAG. Multi-hop traversal via nx.ancestors(). Cypher queries removed from demo.KB pair quality too low (avg confidence < 0.80)MEDIUMHIGHIncrease cross-verifier retries to 3. Trigger human review queue for categories with <0.80 average confidence.SCC condensation catches too many cycles (false positives)LOWLOWReview scc_id distribution post-indexing. SCC threshold: only log warning if SCC size > 3 (single-node SCCs are not real cycles).
+
+16. Compliance Checklist
+RequirementStatusEvidenceEnd-to-end pipeline (SAS → Python/PySpark)✅Layers L2-A through L4 + Continuous LearningResearch paper adaptation (RAPTOR)✅Sarthi et al. ICLR 2024; ablation study validates adaptation100% free and open-source stack✅All licenses: Apache 2.0 / MIT / BSD / LGPL; Groq free tierKnowledge base construction✅330 pairs, dual-LLM generation, no SAS runtime requiredCovers all SAS usage categories✅ETL, analytics, SQL, reporting, macros, file I/O — 15 categoriesCalibrated confidence system✅Platt scaling + ECE tracking + retraining triggerFault tolerance✅Redis checkpoints + SHA-256 dedup restart + SCC cycle detectionContinuous learning✅FeedbackIngestionAgent + ConversionQualityMonitor + retrainingQuantitative evaluation✅Boundary accuracy + RAPTOR hit-rate + ECE + success_rateDifferential testing✅45% coverage target, 6 edge case categoriesAgent count discipline✅12 partition agents + 3 pipeline agents (TranslationAgent, ValidationAgent, ReportAgent) + merge/CL sub-agents; helpers are functionsDependency graph (multi-file)✅Kuzu + NetworkX + SCC condensation + cross_file_deps resolverLLM audit logging✅Every LLM call → DuckDB llm_audit with trace_id linkageTimeline feasibility✅14 weeks with defined P0/P1/P2/P3 priorities and fallback cuts
+
+End of Cahier des Charges — v1.1 Final
+SAS-to-Python/PySpark Code Conversion Accelerator — Partition Layer + Full Pipeline 20:50Architected evaluation metrics framework with CodeBLEU and tabular structuresThe user wants me to add evaluation criteria to each step of the system, including CodeBLEU/BLEU metrics, with tables for clarity. This is a significant addition to the cahier des charges. Let me think about what evaluation metrics apply to each layer/component.
+Key metrics to cover:
+
+CodeBLEU - for code generation quality (Translation layer primarily)
+BLEU - n-gram overlap, but less suited for code
+Boundary accuracy - already defined
+ECE - calibration
+RAPTOR hit-rate - already defined
+Exact Match (EM) - does the output exactly match reference?
+Execution equivalence - whether the generated code runs and produces identical output
+AST match - structural similarity between code trees
+Edit Distance - the amount of modification needed to transform one output to another
+Precision/Recall - applicable to classification and retrieval tasks
+
+I'm structuring this as an addition to the cahier de charges, with each layer getting its own evaluation framework and tables. CodeBLEU is the primary metric for code generation since it combines token-level n-gram matching, keyword weighting, and abstract syntax tree similarity—which captures both syntactic and semantic code quality better than standard BLEU.Afficher plusTerminéEvaluation Framework — Per Component and Per Layer
+
+This section defines the evaluation criteria for every stage of the pipeline. For each metric, the table gives: what it measures, why it was chosen over alternatives, the target value, and when it is computed. Present this section to the jury alongside the architecture — every claim in the system has a number attached to it.
+
+
+Why CodeBLEU, Not BLEU
+Before the per-layer breakdown, this distinction matters for the jury.
+BLEU (Papineni et al., 2002) was designed for natural language translation. It measures n-gram overlap between a candidate and reference translation. Applied to code, it is a poor metric for three reasons: (1) variable names don't need to match exactly (a correct translation might use df_customers where the reference uses customers — BLEU penalizes this), (2) it treats all tokens equally (the keyword def has the same weight as an arbitrary string), and (3) it ignores syntactic structure (two strings with the same tokens in different order have the same BLEU but one might be a SyntaxError).
+CodeBLEU (Ren et al., 2020) fixes this for code by combining four weighted sub-scores:
+Sub-scoreWeightWhat it Measuresn-gram BLEU0.25Token-level overlap (surface similarity)Weighted n-gram0.25Keyword-aware overlap (Python keywords weighted higher than identifiers)AST Match0.25Syntactic structure similarity (tree edit distance on ASTs)Data-flow Match0.25Semantic equivalence via data-flow graph comparison
+CodeBLEU is used specifically for Layer 3 (Translation) evaluation where a reference Python conversion exists (gold standard corpus). For layers where code quality is not the output (L2-A through L2-E), domain-specific metrics apply.
+Reference: Ren, S., Guo, D., Lu, S., Zhou, J., Liu, S., Tang, D., ... & Ma, S. (2020). CodeBLEU: a Method for Automatic Evaluation of Code Synthesis. arXiv:2009.10297.
+
+L2-A — Entry & Scan Evaluation
+What we are evaluating: Does the scanner correctly identify all SAS files, detect encodings, resolve inter-file dependencies, and reject corrupted inputs?
+MetricFormulaTargetWhy This MetricComputed WhenFile Discovery Recallfiles_found / files_in_corpus= 1.00A missed file is a missed block that silently doesn't get converted. 100% recall is non-negotiable.Every test run on benchmark corpusEncoding Accuracycorrectly_encoded / total_files≥ 0.98A wrong encoding produces garbage characters in raw_code, which propagates through every downstream layer.On the 50-file gold standardCross-file Resolution Rateresolved_deps / total_deps≥ 0.85Unresolved dependencies become scc_id=NULL edges that IndexAgent cannot trace. 15% unresolved is acceptable because macro variable paths (%INCLUDE &path) are genuinely unresolvable at static scan time.On the 50-file gold standardPre-validation True Positive Ratecorrupt_files_flagged / corrupt_files_in_corpus≥ 0.95The Lark pre-validator must catch broken files before they crash the streaming stage.Inject 20 deliberately corrupted files into test runPre-validation False Positive Ratevalid_files_flagged / valid_files_in_corpus≤ 0.02A false positive rejects a valid SAS file entirely — silent data loss.Same injected test runRegistry Idempotencyrows_after_second_run / rows_after_first_run= 1.00SHA-256 dedup must prevent double-counting on resume.Run scanner twice on same corpus, compare DB row counts
+Why these, not others: Precision/Recall on file discovery is standard information retrieval. Idempotency is a correctness property, not a performance metric — it either holds or it doesn't. There is no CodeBLEU here because the output is metadata, not code.
+
+L2-B — Streaming Core Evaluation
+What we are evaluating: Does the streaming engine process files correctly, maintain accurate SAS parsing state, and stay within memory and latency bounds?
+MetricFormulaTargetWhy This MetricComputed WhenStreaming Throughputlines_processed / elapsed_seconds≥ 50,000 lines/sA 500K-line enterprise SAS file must stream in < 10s so the pipeline is interactive.tests/test_streaming.py on 100K-line synthetic filePeak Memory (streaming)measured by memray during 100K-line run≤ 100 MBThe 8KB buffer design exists specifically to prevent memory spikes. Failure to stay under 100 MB means the backpressure queue is misconfigured.memray run --output streaming.bin pytest ...StateAgent Correctness — block_typeblock_type_matches / total_blocks in gold standard≥ 0.95block_type is the primary input to BoundaryDetectorAgent. A wrong state leads to wrong partition types downstream.Compare StateAgent output to gold standard annotationsNesting Depth Accuracydepth_correct / total_blocks (±1 tolerance)≥ 0.90control_depth is a feature in ComplexityAgent. Systematic errors here bias the complexity model.Gold standard has manually annotated max nesting depthMacro Stack Accuracymacro_stack_correct / macro_blocks≥ 0.90An incorrect macro stack means macro-scope metadata in PartitionIR will reference wrong macro definitions — causing incorrect MACRO_CALLS edges in Kuzu.Subset of gold standard with nested macro definitionsBackpressure Enforcementpeak_queue_size ≤ maxsize at all points= 1.00 (boolean)If the queue ever exceeds maxsize, the backpressure mechanism has failed and memory will spike on large files.Log queue size every 100 blocks during load testStateAgent Latency (p99)99th percentile of per-line processing time≤ 1 msStateAgent runs synchronously in the streaming hot path. Any line taking >1ms creates backpressure upstream.cProfile or py-spy during 100K-line run
+
+L2-C — RAPTOR Chunking Evaluation
+This is the most important evaluation section because RAPTOR is the primary research contribution. It has three sub-components, each with its own metrics.
+L2-C Part 1: Boundary Detection
+MetricFormulaTargetWhy This MetricComputed WhenBoundary Accuracy (overall)correct_boundaries / 150 gold blocks≥ 0.90The core correctness metric for the partition layer. A wrong boundary means a block contains mixed SAS constructs → wrong partition type → wrong translation prompt.benchmark/boundary_benchmark.py on 150-block corpusBoundary Accuracy (complex blocks only)correct on MODERATE+HIGH blocks / total MODERATE+HIGH≥ 0.85LLM resolver is specifically invoked for complex blocks. This isolates whether the 70B fallback adds value vs. Lark alone on hard cases.Stratified analysis by risk_levelLLM Resolver Ratellm_resolved_blocks / total_blocks≤ 0.25The system targets ~20% LLM invocation. If > 25%, the Lark grammar is missing patterns and cost/latency will exceed budget.Instrumentation in BoundaryDetectorAgentPartition Type Precisioncorrectly_typed / detected_blocks≥ 0.92Wrong partition type = wrong translation strategy. A DATA_STEP misclassified as PROC_BLOCK gets the wrong few-shot examples from the KB.Compare to gold standard partition type annotationsPartition Type Recall per typetype_found / type_in_gold (per PartitionType)≥ 0.85 per typePer-type recall reveals which SAS constructs the grammar is weak on. A low recall on LOOP_BLOCK means %DO/%END handling needs grammar work.Confusion matrix across 9 typestest_coverage_type Assignment Accuracycorrect_coverage_type / total_blocks≥ 0.95test_coverage_type is used downstream in differential testing decisions. Wrong assignment means testable blocks are skipped or untestable ones are tested (causing false failures).Gold standard has manually labeled coverage types
+L2-C Part 2: RAPTOR Tree Quality
+MetricFormulaTargetWhy This MetricComputed WhenRAPTOR Hit-rate@5 (overall)queries_where_ground_truth_in_top5 / 500 total queries≥ 0.82The primary RAPTOR evaluation metric. Measures whether the tree structure surfaces the right block when queried.benchmark/raptor_hitrate.py — 50 files × 10 queriesRAPTOR vs Flat advantage (MODERATE/HIGH)raptor_hit_rate@5 − flat_hit_rate@5 on MODERATE+HIGH≥ 0.10 (10pp)This is the ablation claim. RAPTOR adds overhead; it must demonstrably outperform flat on complex blocks. If the gap < 10pp, the additional complexity is not justified.Stratified query results in DuckDB ablation_resultsMRR (Mean Reciprocal Rank)mean(1/rank) across 500 queries≥ 0.55Complements hit-rate@5. MRR rewards systems that rank the correct result first, not just anywhere in the top 5.Same ablation runCluster Cohesionmean intra-cluster cosine similarity≥ 0.65A cluster of semantically unrelated blocks is worse than no clustering (it poisons the few-shot context). τ=0.72 threshold should enforce this, but we verify empirically.sklearn.metrics.pairwise_distances on cluster membersTree Depth Distributionhistogram of actual_depth valuesPeak at 2, ≤10% depth=5Verifies that max_depth=5 is only triggered for genuinely macro-heavy files, not for all files.DuckDB query on raptor_nodes tableSummary Cache Hit Ratecache_hits / total_summary_calls≥ 0.20In enterprise SAS codebases, repeated macro families are common. A hit rate below 20% suggests the cache key is misconfigured or the corpus is too diverse.Instrumentation in ClusterSummarizerGroq Tier Usagegroq_summaries / total_summariesReport onlyTracks Groq quota consumption. If > 80% of summaries use Groq, quota may be exhausted on larger projects.DuckDB query on raptor_nodes.summary_tier
+L2-C Part 3: Translation Context Quality (subjective measure for defense)
+A small human evaluation on 20 randomly sampled cluster summaries:
+QuestionScaleTarget Mean Score"Does this summary accurately describe the SAS blocks it groups?"1–5≥ 3.5"Is this summary useful context for translating the member blocks?"1–5≥ 3.0"Is this summary better than reading all raw blocks individually?"1–5≥ 3.0
+Evaluators: project supervisors (2) + one SAS-experienced colleague. Total: 3 evaluators × 20 summaries = 60 ratings.
+
+L2-D — Complexity & Strategy Evaluation
+MetricFormulaTargetWhy This MetricComputed WhenECE (Expected Calibration Error)bin-averagedpredicted_conf − actual_acc≤ 0.08Classification Accuracycorrect_risk_level / held_out_100≥ 0.80Raw accuracy on the 3-class (LOW/MODERATE/HIGH) problem. ECE alone can be good while accuracy is low — both are needed.Same held-out splitMacro F1mean F1 across LOW, MODERATE, HIGH≥ 0.75Class imbalance expected (more LOW blocks than HIGH). Macro F1 prevents the model from gaming accuracy by predicting LOW for everything.Same held-out splitPrecision on HUMAN_REVIEWHUMAN_REVIEW blocks that were actually hard / all HUMAN_REVIEW≥ 0.70The HUMAN_REVIEW flag has a real cost (a block is not translated automatically). Precision must be high enough that it's not flagging easy blocks.Manual audit of 20 HUMAN_REVIEW blocksReliability DiagramvisualDiagonal plot within ±0.05 bandsThe visual complement to ECE. Shown in defense slides: bins of confidence on x-axis, actual accuracy on y-axis. A diagonal = perfect calibration.matplotlib plot from calibration_ece.pyRetraining ConvergenceECE before vs. after retrainingΔeECE ≥ 0.01 improvementRetraining is triggered automatically. If retraining doesn't improve ECE, the new training data is noisy and the trigger threshold should be raised.calibration_log DuckDB tableStrategy Accuracycorrect_strategy / total_blocks in gold standard≥ 0.80Strategy (FLAT_PARTITION, MACRO_AWARE, etc.) determines which RAPTOR retrieval mode L3 uses. Wrong strategy → wrong retrieval context → worse translation.Gold standard has manually labeled strategies
+
+L2-E — Persistence & Index Evaluation
+MetricFormulaTargetWhy This MetricComputed WhenDedup Correctnessunique_content_hashes / total_partition_ir_rows= 1.00SHA-256 dedup is the crash-recovery mechanism. Duplicates mean re-processed blocks corrupt the index.Run pipeline twice, compare table row countsIndex Completenesspartition_ids_in_kuzu / partition_ids_in_sqlite= 1.00Every partition written to SQLite must have a corresponding Kuzu node. A missing node breaks multi-hop dependency queries.SELECT COUNT(*) FROM partition_ir vs Kuzu node countSCC Detection Accuracycorrect_scc_groups / total_cycle_groups_in_corpus≥ 0.90Injected synthetic circular deps (A→B→C→A) must be detected. An undetected cycle means those partitions are translated independently with wrong context.Inject 10 synthetic circular dep scenariosSCC False Positive Ratepartitions_wrongly_in_scc / partitions_with_no_cycles≤ 0.02A false-positive SCC assignment groups unrelated partitions into a forced batch, harming translation context quality.Same synthetic injection testKuzu Multi-hop Query Correctnesscorrect_query_results / total_multi_hop_queries≥ 0.95Verifies that DEPENDS_ON edges traverse correctly. Test: known 3-hop chain (A→B→C→D) must be returned by MATCH (a)-[*1..3]->(d).tests/test_index_agent.py — 10 hardcoded DAG scenariosCheckpoint Resume Correctnessblocks_after_resume / expected_blocks (no double-counting)= 1.00Redis checkpoint must not re-process already-done blocks. Inject a simulated crash at block 150 of 300, resume, verify exactly 300 blocks in DB.tests/test_orchestration.py — crash simulationRedis Degraded Modepipeline_completes_without_redisBoolean = TrueRedis unavailability must not crash the pipeline. Disable Redis, run full pipeline — must complete with warning log only.tests/test_resilience.pyKuzu Query Latency (multi-hop, p50)median query time for *1..max_hop traversal≤ 200 msMulti-hop Kuzu queries are called by L3 to batch SCC partitions. Latency > 200ms creates a bottleneck on each file.Timing in tests/test_index_agent.py
+
+Layer 3 — Translation Evaluation
+This is where CodeBLEU is the primary metric, backed by several complementary measures.
+Primary Code Quality Metrics
+MetricFormulaTargetWhy This MetricReferenceComputed WhenCodeBLEU0.25×BLEU + 0.25×weighted_ngram + 0.25×AST_match + 0.25×dataflow_match≥ 0.55The headline code generation metric. Balances surface similarity (token overlap) with structural correctness (AST) and semantic correctness (data-flow). A CodeBLEU of 0.55 corresponds to "reasonable but improvable" in the paper's human evaluation correlation.Ren et al., 2020Against gold standard pairs (50 manually verified conversions)BLEU-44-gram precision with brevity penalty≥ 0.40Reported alongside CodeBLEU for comparison. Raw BLEU is weaker for code but many prior works report it — including it allows direct comparison with published baselines.Papineni et al., 2002Same gold standardAST Match (CodeBLEU sub-score)tree_edit_similarity(predicted_AST, reference_AST)≥ 0.60A syntactically valid but structurally wrong Python program (e.g., wrong nesting of if/for) will have low AST match even if token BLEU is acceptable. AST match catches structural errors.Ren et al., 2020Via ast + zss (Zhang-Shasha tree edit distance)Exact Match (EM)exact_match / total_blocksReport only (expected: ≤ 0.10)Measures blocks where the generated Python is character-identical to the reference. Expected to be very low (variable names differ). Reported as a lower bound on CodeBLEU.Standard for code genSame gold standard
+Execution and Semantic Equivalence Metrics
+MetricFormulaTargetWhy This MetricComputed WhenDifferential Test Pass Rateblocks_passed / blocks_attempted (full coverage only)≥ 0.60The gold standard for translation correctness: run both SAS (simulated) and Python on the same synthetic DataFrame, compare outputs. CodeBLEU alone cannot catch silent logic errors (e.g., wrong epoch offset, MERGE behavior).benchmark/diff_test_extended.pyFailure Mode Detection Precisioncorrectly_flagged_fm / all_fm_flagged≥ 0.80The failure mode detector (rule-based) must correctly identify which blocks have date/merge/retain/etc. issues. Low precision means non-risky blocks get over-engineered prompts, wasting Groq quota.Test set of 30 blocks with known failure modesFailure Mode Detection Recallcorrectly_flagged_fm / actual_fm_blocks≥ 0.85A missed failure mode means a DATE_ARITHMETIC block gets a generic prompt — the LLM defaults to the wrong epoch. Recall matters more than precision here.Same 30-block test setCross-verifier Agreement Ratepairs_where_crossverify_matches_human≥ 0.78Prompt C (cross-verifier) produces {equivalent, confidence}. Human annotators judge the same pairs. Agreement rate measures how trustworthy the automated verifier is as a quality gate.50 manually reviewed cross-verifier outputsTranslation Success Raten_SUCCESS / n_total_blocks≥ 0.70The operational metric tracked in quality_metrics. Below 0.70 triggers the retraining pipeline.Every batch via ConversionQualityMonitorRetry Rateblocks_needing_≥1_retry / total≤ 0.25High retry rate = the first-pass prompt is systematically insufficient. Should be fixed by KB expansion, not by tolerating retries.conversion_results mean(retry_count)HUMAN_REVIEW RateHUMAN_REVIEW_blocks / total_blocks≤ 0.10The UNCERTAIN / HUMAN_REVIEW path is a manual fallback. If > 10% of blocks go there, the complexity classifier is too conservative and needs retraining.Same conversion_results
+KB Retrieval Quality (backing the Translation metrics)
+MetricFormulaTargetWhy This MetricComputed WhenKB Hit Coverageblocks_with_≥1_kb_example / total_blocks≥ 0.80If 20%+ of blocks retrieve zero KB examples, the KB doesn't cover enough SAS constructs and the LLM is flying blind.Instrumentation in KBQueryClientKB Relevance Scoremean cosine similarity of retrieved examples≥ 0.65Retrieved examples with similarity < 0.50 may actively harm translation by injecting irrelevant code patterns. Log and discard below 0.50.LanceDB search result scoresFailure Mode KB Coveragecategories_with_≥10_pairs / 6 failure modes= 6/6Every one of the 6 failure mode categories must have at least 10 targeted pairs. A gap here means the LLM falls back to default wrong behavior.coverage_stats.py output
+Per-Partition-Type Breakdown (report in defense)
+Partition TypeExpected CodeBLEUKey ChallengeDATA_STEP_BASIC≥ 0.65Mostly straightforward — good reference for baselinePROC_SQL≥ 0.60SQL→pandas idioms are well-represented in KBPROC_MEANS≥ 0.55OUTPUT OUT= structure is trickyDATA_STEP_MERGE≥ 0.50MERGE semantics differ from pd.merge()DATA_STEP_RETAIN≥ 0.48No direct pandas equivalent — loop or cumsumMACRO_DEFINITION≥ 0.50Macro → Python function translation varies widelyDATA_STEP_FIRST_LAST≥ 0.48groupby + diff/cumcount patternsDATE_ARITHMETIC≥ 0.451960 epoch adjustment is a systematic LLM failure
+Lower CodeBLEU on complex categories is expected and defensible — report it stratified. The claim is not "our system achieves 0.65 on everything" but "our system achieves measurably higher CodeBLEU on failure-mode blocks than a baseline system without KB augmentation."
+Baseline Comparison (for defense)
+Run the same 50 gold standard conversions with three configurations:
+ConfigurationCodeBLEUDifferential Pass RatePurposeNo KB, no failure-mode detection(baseline)(baseline)Lower bound — vanilla LLMKB only, no failure-mode detectionΔ vs baselineΔ vs baselineKB contributionKB + failure-mode detection (full system)Target ≥ 0.55Target ≥ 0.60Full system
+The difference between rows 2 and 3 quantifies the value of failure-mode-aware prompting specifically. This is a clean ablation the jury can follow.
+
+Layer 4 — Merge Evaluation
+MetricFormulaTargetWhy This MetricComputed WhenSyntax Validity Ratescripts_where_ast.parse_passes / total_merged_scripts≥ 0.95A Python script that fails ast.parse() cannot be executed at all. This is the minimum bar for a useful output.ast.parse() in ScriptMerger, logged to merged_scriptsImport Deduplication Ratescripts_with_exactly_one_import_per_library / total= 1.00import pandas as pd appearing twice is both wrong and signals a failure in ImportConsolidator.ast.parse() + import visitor on every merged scriptBlock Order Preservationblocks_in_correct_order / total_block_pairs= 1.00Executing blocks out of order (Block 3 before Block 1 which creates the DataFrame) produces NameError at runtime.Compare line_start order to block order in merged scriptVariable Name Consistencyunique_variable_names_for_same_sas_dataset / total_cross_block_refs= 1.00DependencyInjector must give the same pandas variable name to the same SAS dataset across all blocks. An inconsistency means NameError at runtime.tests/test_merge.py — 3-block synthetic file with shared datasetCross-file Dep Stub Ratecross_file_stubs_inserted / cross_file_refs_unresolvable= 1.00Every unresolvable cross-file reference must produce a # NOTE: ... comment stub, not a NameError.Inject 5 scripts with known cross-file refs into test runHUMAN_REVIEW Stub Correctnessstubs_with_sas_commented_out / total_stubs= 1.00The TODO stub must contain the original SAS code commented out. If not, the human reviewer has no context to write the manual translation.tests/test_merge.py — assert # SAS: present in stubEnd-to-end Demo Validitydemo_scripts_passing_ast_parse / 2 (ETL + sales scripts from project doc)= 2/2The two example scripts from Accelerator_Arch_1.docx must produce syntactically valid Python. Non-negotiable for the defense demo.Manual run before defense
+
+Continuous Learning Evaluation
+MetricFormulaTargetWhy This MetricComputed WhenCorrection Acceptance Ratecorrections_accepted / corrections_submitted≥ 0.75The cross-verifier gates every correction. A rate below 0.75 means submitted corrections are poor quality — need better human review protocol.feedback_log DuckDBKB Growth Ratenew_examples_added / corrections_submitted≥ 0.70Accepted corrections that fail the embedding/upsert step should be < 5%. Low growth rate = DB pipeline issue.Compare feedback_log accepted=True to LanceDB countQuality Improvement After KB UpdateCodeBLEU_after − CodeBLEU_before on same 20 test blocks≥ 0.02 improvementThe core claim of continuous learning. If KB updates don't improve CodeBLEU on the blocks they target, the retrieval is not surfacing the new examples.Run CodeBLEU on 20 PARTIAL blocks before and after targeted KB expansionMonitor Alert Precisionactual_quality_drops / alerts_fired≥ 0.70The ConversionQualityMonitor must not raise false alarms (high partial_rate due to a deliberately hard batch, not systemic drift).Manual audit of last 5 fired alertsRetraining ECE ImprovementECE_before_retrain − ECE_after_retrain≥ 0.01Retraining is expensive. It should produce a measurable ECE improvement. If not, the new training data is not informative and the trigger threshold should be raised.calibration_log DuckDB — compare adjacent rows
+
+Knowledge Base Evaluation
+MetricFormulaTargetWhy This MetricComputed WhenVerification Rateverified=True pairs / total pairs≥ 0.85Low verification = the dual-LLM chain is failing to reach confidence ≥ 0.85. Need to check Prompt C quality or lower the threshold.LanceDB table, filter verified=TrueCategory Coveragecategories_with_≥10_pairs / 15= 15/15Every category in the coverage matrix must be represented. A gap means an entire SAS construct family has no retrieval context.coverage_stats.pyFailure Mode Coveragefailure_mode_categories_with_≥10_pairs / 6= 6/6Non-negotiable. See Translation section.Same scriptKB Retrieval Quality (internal)mean cosine similarity of query-to-returned examples≥ 0.65Verifies the IVF index is returning semantically relevant pairs, not just nearest random vectors.Sample 100 queries, log scoresHuman Spot-check Score"Does this Python correctly implement what the SAS says?" 1–5, N=30 sampled pairs≥ 3.5Automated cross-verification (Prompt C) may have systematic blind spots. Human spot-check is the ground truth for KB quality.Evaluator reviews 30 random pairs, assigns 1–5
+
+Overall System Evaluation Summary
+This table is the one to show on slide 2 of the defense — one number per major component, one target, one "we achieved" column filled in at Week 13.
+Layer / ComponentPrimary MetricTargetAchievedStatusL2-A Entry & ScanFile discovery recall1.00——L2-A Cross-file depsResolution rate≥ 0.85——L2-B StreamingThroughput≥ 50K lines/s——L2-B State accuracyblock_type accuracy≥ 0.95——L2-C BoundaryBoundary accuracy (overall)≥ 0.90——L2-C RAPTORHit-rate@5≥ 0.82——L2-C RAPTOR ablationRAPTOR vs flat advantage≥ 0.10 (MODERATE/HIGH)——L2-D ComplexityECE≤ 0.08——L2-D StrategyMacro F1≥ 0.75——L2-E IndexKuzu completeness1.00——L2-E SCCCycle detection accuracy≥ 0.90——L3 TranslationCodeBLEU≥ 0.55——L3 TranslationDifferential test pass rate≥ 0.60——L3 TranslationSuccess rate≥ 0.70——L4 MergeSyntax validity rate≥ 0.95——L4 MergeBlock order preservation1.00——KBVerification rate≥ 0.85——KBHuman spot-check score≥ 3.5/5——Continuous LearningKB growth after correction≥ 0.70——Continuous LearningCodeBLEU improvement≥ 0.02——
+Fill in the "Achieved" column at Week 13 during defense prep. This gives the jury a single-page view of your entire evaluation evidence, with every claim backed by a number.
+
+How to Present CodeBLEU to the Jury
+If a jury member challenges CodeBLEU as "not a real execution test," this is the prepared response:
+
+"CodeBLEU is not a substitute for execution testing — it is a complementary metric. We use it because: (1) we have no SAS runtime to execute the source programs against, which means true input/output comparison is not possible for the SAS side; (2) CodeBLEU's AST sub-score catches structural errors that BLEU misses; (3) our differential testing covers the subset of blocks where we can simulate execution on synthetic DataFrames. The two metrics address different failure modes: CodeBLEU catches structural and surface-level translation errors; differential testing catches semantic equivalence failures on the specific SAS constructs where we expect LLMs to fail. Neither alone is sufficient; together they form a defensible evaluation strategy consistent with the code generation literature (Ren et al. 2020, Lu et al. 2021, Chen et al. 2021)."
+
+Additional references to cite alongside CodeBLEU:
+
+Lu, S. et al. (2021). CodeXGLUE: A Machine Learning Benchmark Dataset for Code Understanding and Generation. NeurIPS 2021. — defines the benchmark suite where CodeBLEU is standard.
+Chen, M. et al. (2021). Evaluating Large Language Models Trained on Code. arXiv:2107.03374. — HumanEval, the execution-based complement to CodeBLEU.
+Austin, J. et al. (2021). Program Synthesis with Large Language Models. arXiv:2108.07732. — MBPP, another execution-based code eval benchmark.
