@@ -87,6 +87,43 @@
       padding: 1.5rem;
       overflow-x: auto;
     }
+    .explanation {
+      padding: 1.2rem 1.5rem 1.5rem;
+      border-top: 1px dashed var(--border);
+      background: #f6f8fa;
+      font-size: 0.92rem;
+      color: var(--text);
+      line-height: 1.75;
+    }
+    .explanation h3 {
+      font-size: 1rem;
+      color: var(--primary);
+      margin-bottom: 0.6rem;
+    }
+    .explanation ol, .explanation ul {
+      margin-left: 1.2rem;
+      margin-bottom: 0.5rem;
+    }
+    .explanation li {
+      margin-bottom: 0.35rem;
+    }
+    .explanation strong {
+      color: var(--primary);
+    }
+    .explanation code {
+      background: #e8ecf0;
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-size: 0.85em;
+    }
+    .explanation .note {
+      margin-top: 0.6rem;
+      padding: 0.6rem 0.8rem;
+      background: #fff3cd;
+      border-left: 3px solid #ffc107;
+      border-radius: 4px;
+      font-size: 0.88rem;
+    }
 
     footer {
       text-align: center;
@@ -269,6 +306,18 @@ classDiagram
     FileRegistryRow "1" --> "*" CrossFileDependencyRow : source_file_id
     FileRegistryRow "1" --> "*" DataLineageRow : source_file_id
   </div>
+  <div class="explanation">
+    <h3>How to read this diagram</h3>
+    <p>Everything starts with <strong>BaseAgent</strong> at the top &mdash; it's an <em>abstract class</em>, meaning you can never create a BaseAgent directly. Instead, it defines the contract that every agent must follow: each agent gets a unique <code>trace_id</code> (for logging and debugging), a structured <code>logger</code>, and must implement two methods: <code>agent_name()</code> (returns a human-readable name like <code>"FileAnalysisAgent"</code>) and <code>process()</code> (the main work method, called asynchronously).</p>
+    <ol>
+      <li><strong>FileAnalysisAgent</strong> inherits from BaseAgent. When you call its <code>process(project_root)</code>, it walks the project folder, analyzes every <code>.sas</code> file it finds, and returns a list of <strong>FileMetadata</strong> objects (the dotted arrow labeled "produces"). FileMetadata is a <em>Pydantic model</em> &mdash; a validated data container holding the file path, detected encoding (UTF-8, Latin-1, etc.), the SHA-256 hash of the file content, line count, and whether the file passed Lark pre-validation.</li>
+      <li><strong>RegistryWriterAgent</strong> takes those FileMetadata objects and writes them to the database as <strong>FileRegistryRow</strong> records (SQLAlchemy ORM model). It uses <code>INSERT OR IGNORE</code> so that if the same file (same <code>content_hash</code>) is already in the database, it silently skips it &mdash; that's how deduplication works.</li>
+      <li><strong>CrossFileDependencyResolver</strong> reads the SAS source code of each file and uses regex to find <code>%INCLUDE</code> and <code>LIBNAME</code> references &mdash; these are how SAS files reference other files. For each reference found, it tries to resolve the path and writes a <strong>CrossFileDependencyRow</strong> to the database. The "1" to "*" arrow from FileRegistryRow means one file can have many cross-file dependencies.</li>
+      <li><strong>DataLineageExtractor</strong> also reads the source code but looks for <em>data flow</em> statements: which tables a SAS program reads from (<code>SET</code>, <code>MERGE</code>, <code>FROM</code>, <code>JOIN</code>) and which tables it writes to (<code>DATA</code>, <code>CREATE TABLE</code>, <code>INSERT INTO</code>). Each match becomes a <strong>DataLineageRow</strong> in the database.</li>
+    </ol>
+    <p>The three <strong>enum</strong> classes on the right (<code>PartitionType</code>, <code>RiskLevel</code>, <code>ConversionStatus</code>) are used by <strong>PartitionIR</strong> &mdash; the intermediate representation of a single code block. Although PartitionIR isn't created by the L2-A agents directly, it's shown here because it's the data model that downstream agents (Week 3+) will use to represent each detected SAS block.</p>
+    <div class="note">Key takeaway: the 4 agents share the same interface (BaseAgent), but each one has a single responsibility &mdash; scan files, register them, resolve dependencies, or extract lineage. They communicate through <strong>Pydantic models</strong> (in-memory) and <strong>SQLAlchemy rows</strong> (persisted to SQLite).</div>
+  </div>
 </section>
 
 <!-- ════════════════════════════════════════════════════════════════════════ -->
@@ -338,6 +387,18 @@ sequenceDiagram
     DL->>DB: COMMIT
     DL-->>U: {total_reads, total_writes}
     deactivate DL
+  </div>
+  <div class="explanation">
+    <h3>Walking through the pipeline step by step</h3>
+    <p>This diagram reads <strong>top to bottom as a timeline</strong>. Each vertical line is a participant (an agent or the database), and horizontal arrows are messages between them. Here's what happens when you run the L2-A pipeline:</p>
+    <ol>
+      <li><strong>Step 1 &mdash; File Discovery.</strong> The user (or orchestrator) calls <code>FileAnalysisAgent.process(project_root)</code>. The agent first runs <code>rglob("*.sas")</code> &mdash; that's Python's recursive glob, which walks every subdirectory under <code>project_root</code> and finds all files ending in <code>.sas</code>. Then, for <em>each file found</em> (that's the loop box), it does three things: (a) detects the character encoding using the <code>chardet</code> library (because SAS files can be UTF-8, Latin-1, Windows-1252, etc.), (b) computes the SHA-256 hash of the raw bytes (this unique fingerprint is used later for deduplication), and (c) runs a quick regex pre-validation to catch obvious syntax issues. The result is a list of <code>FileMetadata</code> objects returned to the caller.</li>
+      <li><strong>Step 2 &mdash; Registration.</strong> The user passes that list to <code>RegistryWriterAgent.process(files, engine)</code>. For each file, it asks the database: "Do you already have a file with this <code>content_hash</code>?" If yes, the file is a duplicate &mdash; skip it. If no, insert a new <code>FileRegistryRow</code> with status <code>PENDING</code>. This prevents re-processing the same file twice, even if it appears in different folders. At the end, it commits the transaction and reports how many files were inserted vs. skipped.</li>
+      <li><strong>Step 3 &mdash; Dependency Resolution.</strong> Next, <code>CrossFileDependencyResolver.process()</code> runs. For each file, it scans the source code with 3 regex patterns looking for <code>%INCLUDE</code>, <code>LIBNAME</code>, and variable-based <code>%INCLUDE &amp;var</code> references. For each match, it calls <code>_resolve(ref_path)</code> to see if the referenced file actually exists in the project. Whether resolved or not, it inserts a <code>CrossFileDependencyRow</code> into the database. The return value tells you how many references were found, how many resolved successfully, and how many remain unresolved.</li>
+      <li><strong>Step 4 &mdash; Lineage Extraction.</strong> Finally, <code>DataLineageExtractor.process()</code> scans each file's source code with two groups of regex patterns: <em>read patterns</em> (SET, MERGE, FROM, JOIN) to find which datasets the code reads from, and <em>write patterns</em> (DATA, CREATE TABLE, INSERT INTO) to find which datasets it writes to. Each match is inserted as a <code>DataLineageRow</code>. The return value summarizes the total reads and writes found.</li>
+    </ol>
+    <p>Notice that the agents run <strong>sequentially</strong> &mdash; each one finishes before the next starts. This is intentional: you first need to discover files (Step 1) before you can register them (Step 2), and you need registered files before you can resolve their dependencies (Step 3) or extract lineage (Step 4).</p>
+    <div class="note">The <code>alt</code> box in Step 2 shows a conditional branch: the agent takes a different path depending on whether the file is new or a duplicate. This is the deduplication logic that prevents the same SAS file from appearing twice in the registry.</div>
   </div>
 </section>
 
@@ -422,6 +483,20 @@ graph TB
     style L3 fill:#fff3cd,stroke:#ffc107,stroke-width:1px
     style L4CL fill:#fff3cd,stroke:#ffc107,stroke-width:1px
   </div>
+  <div class="explanation">
+    <h3>The big picture &mdash; from raw SAS to converted Python</h3>
+    <p>This diagram shows the <strong>complete 16-agent architecture</strong> across 6 processing layers. Think of it as an assembly line: raw <code>.sas</code> files enter on the left and fully converted <code>.py</code> files come out on the right, with each layer adding more understanding.</p>
+    <ol>
+      <li><strong>L2-A: Entry &amp; Scan</strong> (green = implemented) &mdash; The 4 agents we built in Week 1&ndash;2. They discover files, register them in the database, map cross-file dependencies, and extract data lineage. This is the foundation everything else builds on.</li>
+      <li><strong>L2-B: Streaming Core</strong> (yellow = planned) &mdash; <code>StreamAgent</code> will read large SAS files in small 8 KB chunks using async I/O, so we never load a 100 MB file into memory at once. <code>StateAgent</code> maintains a finite-state machine that tracks what kind of code block we're inside (DATA step? PROC? macro?), how deep the nesting is, and which macros are on the stack.</li>
+      <li><strong>L2-C: RAPTOR Chunking</strong> (yellow = planned) &mdash; This is the core innovation. <code>BoundaryDetectorAgent</code> uses a Lark LALR grammar to detect where one SAS block ends and another begins (handles ~80% of cases deterministically). The remaining ~20% ambiguous boundaries are sent to a local LLM (Llama 3.1 8B) for resolution. <code>PartitionBuilderAgent</code> builds a <code>PartitionIR</code> object for each detected block (one of 9 canonical types). Then <code>RAPTORPartitionAgent</code> embeds all blocks using Nomic Embed, clusters them with GMM, summarizes each cluster with Llama 70B, and builds a hierarchical RAPTOR tree &mdash; this is what makes retrieval work better than flat partitioning.</li>
+      <li><strong>L2-D: Complexity &amp; Strategy</strong> (yellow = planned) &mdash; <code>ComplexityAgent</code> computes 5 features for each block (including cyclomatic complexity via radon) and a calibrated logistic regression model assigns a risk level (LOW / MODERATE / HIGH). <code>StrategyAgent</code> decides the translation strategy based on risk: simple blocks get rule-based translation, complex blocks get LLM-assisted translation.</li>
+      <li><strong>L3: Translation</strong> (yellow = planned) &mdash; <code>TranslationAgent</code> queries the knowledge base for similar SAS&rarr;Python examples, then uses an LLM to generate the Python/PySpark equivalent. <code>ValidationAgent</code> checks the generated code via <code>ast.parse()</code> and runs it against a synthetic DataFrame to verify correctness.</li>
+      <li><strong>L4 + CL: Merge &amp; Learning</strong> (yellow = planned) &mdash; <code>ReportAgent</code> assembles the final converted script, merges imports, and generates a conversion report. <code>FeedbackIngestionAgent</code> and <code>ConversionQualityMonitor</code> form the continuous learning loop: human corrections feed back into the KB, and quality metrics trigger model retraining if accuracy drops.</li>
+    </ol>
+    <p>At the bottom, 3 storage systems support the pipeline: <strong>SQLite</strong> for the file registry and lineage data, <strong>Kuzu</strong> (an embedded graph database) for the dependency DAG, and <strong>DuckDB</strong> for analytics and audit logging.</p>
+    <div class="note">The green layer (L2-A) is what we have today &mdash; 4 working agents with 20 passing tests. The yellow layers are the roadmap for Weeks 3&ndash;14. Each layer builds on the previous one, so the pipeline grows incrementally.</div>
+  </div>
 </section>
 
 <!-- ════════════════════════════════════════════════════════════════════════ -->
@@ -474,6 +549,17 @@ erDiagram
     FILE_REGISTRY ||--o{ CROSS_FILE_DEPS : "target_file_id"
     FILE_REGISTRY ||--o{ DATA_LINEAGE : "source_file_id"
   </div>
+  <div class="explanation">
+    <h3>How the data is stored</h3>
+    <p>The system uses a single <strong>SQLite database</strong> (with WAL mode enabled for concurrent reads) containing 3 tables. Here's how they relate:</p>
+    <ol>
+      <li><strong>FILE_REGISTRY</strong> is the central table &mdash; every SAS file discovered by the pipeline gets exactly one row here. The <code>file_id</code> (a UUID) is the primary key, and <code>content_hash</code> has a UNIQUE constraint, which is how deduplication works: if two files have identical content, only the first one is stored. Other columns track the file path, detected encoding, line count, whether it passed Lark pre-validation (<code>lark_valid</code>), and a <code>status</code> field that tracks where the file is in the processing pipeline (PENDING, PROCESSING, etc.).</li>
+      <li><strong>CROSS_FILE_DEPS</strong> stores cross-file references found by the <code>CrossFileDependencyResolver</code>. Each row links a <em>source file</em> to a <em>target file</em> via <code>source_file_id</code> and <code>target_file_id</code> (both foreign keys pointing to FILE_REGISTRY). The <code>ref_type</code> column says what kind of reference it is (<code>%INCLUDE</code>, <code>LIBNAME</code>, etc.), <code>raw_reference</code> stores the original text from the SAS code, and <code>resolved</code> tells you whether the system was able to find the target file in the project. Notice the two relationship lines from FILE_REGISTRY &mdash; one file can be the <em>source</em> of many dependencies, and also the <em>target</em> of many dependencies.</li>
+      <li><strong>DATA_LINEAGE</strong> stores data flow information found by the <code>DataLineageExtractor</code>. Each row represents one "table A is read/written by file X" relationship. The <code>lineage_type</code> says whether it's a read operation (TABLE_READ: SET, MERGE, FROM, JOIN) or a write operation (TABLE_WRITE: DATA, CREATE TABLE, INSERT INTO). The <code>source_dataset</code> and <code>target_dataset</code> columns identify the SAS datasets involved, and <code>block_line_start</code> / <code>block_line_end</code> pinpoint exactly where in the source code this data flow occurs.</li>
+    </ol>
+    <p>The crow's-foot notation on the relationship lines reads as: one FILE_REGISTRY record can have <strong>zero or many</strong> (||--o{) CROSS_FILE_DEPS or DATA_LINEAGE records. This is a classic one-to-many relationship.</p>
+    <div class="note">Foreign key enforcement is turned on explicitly at engine creation time (<code>PRAGMA foreign_keys = ON</code>). This means SQLite will reject any INSERT into CROSS_FILE_DEPS or DATA_LINEAGE if the referenced <code>file_id</code> doesn't exist in FILE_REGISTRY &mdash; ensuring data integrity.</div>
+  </div>
 </section>
 
 <!-- ════════════════════════════════════════════════════════════════════════ -->
@@ -509,6 +595,23 @@ stateDiagram-v2
         [*] --> PENDING
         PENDING --> PROCESSING
     }
+  </div>
+  <div class="explanation">
+    <h3>The life of a SAS file</h3>
+    <p>This diagram tracks <strong>every possible state</strong> a SAS file goes through from the moment it's discovered to the moment it's fully converted. Think of each box as a status badge attached to the file.</p>
+    <ol>
+      <li><strong>DISCOVERED</strong> &mdash; The file has been found by <code>FileAnalysisAgent</code> on disk. At this point, we know its path, encoding, and hash, but nothing else. From here, two things can happen:</li>
+      <ul>
+        <li>If the file fails pre-validation (unclosed macros, truncated PROCs, etc.), it moves to <strong>INVALID</strong>, and then to <strong>HUMAN_REVIEW</strong> because a human needs to fix the syntax error in the original SAS file.</li>
+        <li>If it passes, <code>RegistryWriterAgent</code> inserts it into the database and the state becomes <strong>REGISTERED</strong>. Notice the nested sub-state inside REGISTERED: the file first becomes <code>PENDING</code> (waiting to be processed), then <code>PROCESSING</code> (actively being worked on).</li>
+      </ul>
+      <li><strong>DEPS_RESOLVED</strong> &mdash; <code>CrossFileDependencyResolver</code> has finished scanning this file for <code>%INCLUDE</code>/<code>LIBNAME</code> references. We now know which other files it depends on.</li>
+      <li><strong>LINEAGE_EXTRACTED</strong> &mdash; <code>DataLineageExtractor</code> has mapped all the data flow (which tables are read, which are written). At this point, L2-A is complete for this file.</li>
+      <li><strong>STREAMED &rarr; PARTITIONED &rarr; SCORED</strong> &mdash; These are the L2-B through L2-D stages (Weeks 2&ndash;4). The file is streamed in chunks, split into individual code blocks, and each block is scored for complexity.</li>
+      <li><strong>TRANSLATING &rarr; VALIDATED &rarr; MERGED &rarr; COMPLETE</strong> &mdash; The L3 and L4 stages (Weeks 10&ndash;11). Each block is translated to Python, validated, merged into a final script, and the file reaches its terminal state: <strong>COMPLETE</strong>.</li>
+    </ol>
+    <p>There's also an <strong>error path</strong>: if the LLM fails during translation, the file moves to <strong>FAILED</strong>, then <strong>HUMAN_REVIEW</strong>. Once a human fixes the issue, the file can be re-submitted and goes back to REGISTERED to try again.</p>
+    <div class="note">Currently (Week 1&ndash;2), only the states from DISCOVERED through LINEAGE_EXTRACTED are active in the codebase. The later states (STREAMED onward) will be implemented in Weeks 3&ndash;11 as each new layer is built.</div>
   </div>
 </section>
 
@@ -546,6 +649,21 @@ graph TD
     style L fill:#d4edda,stroke:#28a745
     style J fill:#f8d7da,stroke:#dc3545
     style M fill:#f8d7da,stroke:#dc3545
+  </div>
+  <div class="explanation">
+    <h3>How we validate the system's accuracy</h3>
+    <p>The gold standard corpus is our <strong>ground truth</strong> &mdash; 50 hand-annotated SAS files where a human expert has marked exactly which blocks exist and what data lineage each file contains. This diagram shows the automated validation loop that checks whether our agents produce the same results.</p>
+    <ol>
+      <li><strong>Load a .sas file</strong> from the <code>knowledge_base/gold_standard/</code> folder. For example, <code>gs_simple_read.sas</code>.</li>
+      <li><strong>Load the matching .gold.json</strong> file (<code>gs_simple_read.gold.json</code>). This JSON file contains the human-annotated truth: the expected list of blocks (with their types and line ranges) and the expected data lineage entries (which tables are read and written).</li>
+      <li><strong>Run FileAnalysisAgent</strong> on the SAS file to get a <code>FileMetadata</code> object (path, encoding, hash, etc.). This is the same agent used in production &mdash; we're testing the real code.</li>
+      <li><strong>Run DataLineageExtractor</strong> on the file content to find all TABLE_READ and TABLE_WRITE operations. The extractor returns a list of <code>DataLineageRow</code> objects.</li>
+      <li><strong>Compare blocks:</strong> We check the detected block types and line ranges against the <code>expected_blocks</code> array in the <code>.gold.json</code>. If they match &rarr; green check (correct). If not &rarr; red X (the agent made an error, and we log the discrepancy for investigation).</li>
+      <li><strong>Compare lineage:</strong> We check the detected data lineage (source/target datasets, operation types) against the <code>data_lineage</code> section in the <code>.gold.json</code>. Same pass/fail logic.</li>
+      <li><strong>Loop:</strong> This process repeats for all 50 files in the gold standard. After the last file, a validation report is generated summarizing the overall accuracy.</li>
+    </ol>
+    <p>The 50 gold standard files are split into 3 difficulty tiers: <strong>Simple</strong> (~15 files, 7&ndash;50 lines, single block types), <strong>Medium</strong> (~20 files, 100&ndash;250 lines, mixed blocks with macros), and <strong>Hard</strong> (~15 files, 400+ lines, enterprise ETL with nested macros and CALL EXECUTE). Together they contain <strong>721 annotated blocks</strong>, giving us a robust benchmark for measuring accuracy.</p>
+    <div class="note">This validation flow runs as part of our test suite (<code>pytest tests/</code>). The 20 currently passing tests exercise the FileAnalysisAgent, CrossFileDependencyResolver, RegistryWriterAgent, and DataLineageExtractor against representative gold standard files. As more agents are built, more validation checks will be added.</div>
   </div>
 </section>
 
