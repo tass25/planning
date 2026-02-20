@@ -51,6 +51,15 @@
 ### Git
 - [x] Pushed to `main` in batches
 
+### Documentation
+- [x] `sas_converter/docs/PROJECT.md` — project architecture & overview
+- [x] `sas_converter/docs/API_REFERENCE.md` — full module/class/method reference
+- [x] `sas_converter/docs/USER_GUIDE.md` — installation, usage, troubleshooting
+- [x] `sas_converter/docs/UML_DIAGRAMS.html` — 6 interactive Mermaid.js diagrams (class, sequence, component, ER, state, activity)
+- [x] `cahier_des_charges.tex` updated to v1.2 (16 agents, 721 blocks, DataLineageExtractor, data_lineage table)
+- [x] `README.md` updated to v1.2 (16 agents, DataLineageExtractor in L2-A, 721 blocks)
+- [x] Planning markdowns updated (PLANNING.md, checklist.md)
+
 ---
 
 ## Problems Encountered

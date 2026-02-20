@@ -24,7 +24,7 @@
 |------|-------|-------------|----------|------------|--------------|
 | **1–2** | L2-A | Entry + CrossFileDeps + DataLineageExtractor + Gold Standard (50 files, 3 tiers, 721 blocks) | **P0** | FileAnalysisAgent, CrossFileDependencyResolver, RegistryWriterAgent, DataLineageExtractor | 50 files scanned (simple/med/hard), cross_file_deps populated, data_lineage table filled, gold corpus annotated with lineage |
 | **2–3** | L2-B | StreamAgent + StateAgent | **P0** | StreamAgent, StateAgent | 10K-line file < 2 s, < 100 MB peak memory |
-| **3–4** | L2-C | BoundaryDetector + LLM resolver | **P0** | BoundaryDetectorAgent | 150-block benchmark > 90% boundary accuracy |
+| **3–4** | L2-C | BoundaryDetector + LLM resolver | **P0** | BoundaryDetectorAgent | 721-block benchmark > 90% boundary accuracy |
 | **4** | L2-D | ComplexityAgent + StrategyAgent + models | **P0** | ComplexityAgent, StrategyAgent | ECE < 0.08 on held-out 20% |
 | **5–6** | L2-C | Nomic Embed + GMM + ClusterSummarizer + RAPTORTreeBuilder | **P1** | RAPTORPartitionAgent | BIC convergence, clusters formed, summaries cached |
 | **7** | L2-E | Persistence + Kuzu + SCC + DuckDB schemas | **P1** | PersistenceAgent, IndexAgent | All schemas created, SCC detection ≥ 90% |
@@ -95,4 +95,4 @@ Each file below contains everything you need for that specific week — tasks, c
 
 ---
 
-> *Master Plan v1.1 — SAS-to-Python/PySpark Conversion Accelerator — 16 Agents · 14 Weeks*
+> *Master Plan v1.2 — SAS-to-Python/PySpark Conversion Accelerator — 16 Agents · 14 Weeks*

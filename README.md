@@ -1,6 +1,6 @@
 # SAS → Python / PySpark Partition Layer — System Architecture v2
 
-> **Spec v4.1** · Based on **RAPTOR** (Sarthi et al., ICLR 2024) · 15-Agent Lean Pipeline · Calibrated Confidence · End-to-End Translation + Validation + Merge + Report + Continuous Learning
+> **Spec v4.1** · Based on **RAPTOR** (Sarthi et al., ICLR 2024) · 16-Agent Lean Pipeline · Calibrated Confidence · End-to-End Translation + Validation + Merge + Report + Continuous Learning
 
 ---
 
@@ -62,7 +62,7 @@ This directly addresses the core failure mode of flat partitioning — **losing 
 | Boundary accuracy | > 90% |
 | RAPTOR hit-rate @5 | > 82% |
 | ECE (calibration) | < 0.08 |
-| Real agents (strict SRP) | 15 |
+| Real agents (strict SRP) | 16 |
 | Diff test coverage | 45% |
 | Canonical partition types | 9 |
 
@@ -83,8 +83,10 @@ flowchart TB
     FAA["FileAnalysisAgent\npathlib + chardet + Lark pre-validate"]
     CFR["CrossFileDependencyResolver\n%INCLUDE + LIBNAME regex scan"]
     RWA["RegistryWriterAgent\nSHA-256 dedup"]
-    FR[("FileRegistry\nSQLite + cross_file_deps table")]
+    DLE["DataLineageExtractor\nSET/MERGE/FROM/JOIN regex"]
+    FR[("FileRegistry\nSQLite + cross_file_deps + data_lineage")]
     FAA --> CFR --> RWA --> FR
+    RWA --> DLE --> FR
   end
 
   subgraph L2B["L2-B · Streaming Core"]
@@ -182,7 +184,7 @@ flowchart TB
 The end-to-end flow works as follows:
 
 1. **INPUT** — Raw `.sas` files and a coverage matrix enter the system.
-2. **L2-A (Entry & Scan)** — `FileAnalysisAgent` discovers SAS files, detects encoding, and pre-validates syntax with a Lark LALR parser. `CrossFileDependencyResolver` scans for `%INCLUDE` and `LIBNAME` references to map cross-file relationships. `RegistryWriterAgent` deduplicates (SHA-256) and writes to a SQLite `FileRegistry`.
+2. **L2-A (Entry & Scan)** — `FileAnalysisAgent` discovers SAS files, detects encoding, and pre-validates syntax with a Lark LALR parser. `CrossFileDependencyResolver` scans for `%INCLUDE` and `LIBNAME` references to map cross-file relationships. `RegistryWriterAgent` deduplicates (SHA-256) and writes to a SQLite `FileRegistry`. `DataLineageExtractor` parses SET, MERGE, FROM, JOIN, DATA, CREATE TABLE, and INSERT INTO statements to build a table-level data lineage graph stored in the `data_lineage` table.
 3. **L2-B (Streaming Core)** — `StreamAgent` reads files asynchronously in 8 KB chunks. `StateAgent` maintains a finite-state machine tracking block type, nesting depth, and macro stack. An `asyncio.Queue` with backpressure (max 200) regulates throughput.
 4. **L2-C (RAPTOR Chunking)** — The core innovation. `BoundaryDetectorAgent` uses a Lark LALR grammar for **80% of cases** (rule-based). The remaining **20% ambiguous** boundaries are resolved by a local Llama 3.1 8B model via Ollama, with a tiktoken token guard. `PartitionBuilderAgent` creates partition objects of 9 canonical types. Partitions are then embedded (Nomic Embed v1.5, 768-dim), clustered (GMM with BIC), summarized (Llama 70B via Groq, with hash caching), and assembled into a **RAPTOR tree** (leaf → L1 → L2 → root). Recursion stops when BIC delta < 0.01.
 5. **L2-D (Complexity & Strategy)** — `ComplexityAgent` extracts 5 features (including radon cyclomatic complexity). A calibrated `sklearn` Logistic Regression model (Platt scaling, ECE < 0.08) assigns risk levels. `StrategyAgent` decides the partition strategy per block.
@@ -425,7 +427,7 @@ Every SAS code block is classified into exactly one of these 9 types by `Boundar
 | Dimension | Flat Partitioning (naive) | This Architecture (RAPTOR) | Impact |
 |---|---|---|---|
 | Chunking strategy | ❌ Flat keyword-boundary rules | ✅ RAPTOR recursive semantic tree | Context quality ↑40% |
-| Agent count | ❌ 22 agents (inflated) | ✅ 15 real agents with strict SRP | Dev velocity ↑2× |
+| Agent count | ❌ 22 agents (inflated) | ✅ 16 real agents with strict SRP | Dev velocity ↑2× |
 | Graph store | ❌ Neo4j (GPL, server ops required) | ✅ Kuzu (Apache 2.0, embedded, zero ops) | Setup 0 vs 2 hours |
 | Risk model | ❌ Hardcoded thresholds | ✅ sklearn LR calibrated with Platt scaling | Human review accuracy ↑ |
 | LLM usage | ❌ Always-on LLM assist | ✅ LLM only for ~20% ambiguous cases | Latency ↓60% |
@@ -485,6 +487,8 @@ flowchart LR
    - All results are written to the `cross_file_deps` table in `file_registry.db`.
 
 3. **RegistryWriterAgent** performs SHA-256 deduplication (skipping already-processed identical files) and inserts records with `status=PENDING` via SQLAlchemy.
+
+4. **DataLineageExtractor** parses each registered SAS file for table-level data flow using 7 regex patterns: `SET`, `MERGE`, `FROM`, `JOIN`, `DATA`, `CREATE TABLE`, and `INSERT INTO`. For each match it records the source table, target table, operation type, and line number in the `data_lineage` table. This produces a complete input→output data lineage graph before any downstream processing begins.
 
 ---
 
@@ -946,7 +950,7 @@ sas-to-python-accelerator/
     └── week-14.md
 ```
 
-**Totals**: 18 sub-packages under `partition/`, 15 agents, 27 test files, 15 scripts, 10 docs, 4 benchmark files, 5 databases (SQLite, DuckDB, DuckDB ablation, LanceDB, Kuzu).
+**Totals**: 18 sub-packages under `partition/`, 16 agents, 27 test files, 15 scripts, 10 docs, 4 benchmark files, 5 databases (SQLite, DuckDB, DuckDB ablation, LanceDB, Kuzu).
 
 ---
 
@@ -954,7 +958,7 @@ sas-to-python-accelerator/
 
 | Weeks | Content | Priority | New in v2 |
 |---|---|---|---|
-| **1–2** | L2-A: Entry + CrossFileDeps + Gold Standard (50 files, 150 blocks) | **P0** | CrossFileDepsResolver · scc_id prep · BaseAgent · 9 PartitionTypes |
+| **1–2** | L2-A: Entry + CrossFileDeps + DataLineageExtractor + Gold Standard (50 files, 3 tiers, 721 blocks) | **P0** | CrossFileDepsResolver · DataLineageExtractor · scc_id prep · BaseAgent · 9 PartitionTypes |
 | **2–3** | L2-B: StreamAgent + StateAgent. 10K-line file in <2s. | **P0** | — |
 | **3–4** | L2-C: BoundaryDetector + LLM resolver. 150-block benchmark >90%. | **P0** | CONDITIONAL/LOOP/INCLUDE types · test_coverage_type · KB stub |
 | **4** | L2-D: ComplexityAgent + StrategyAgent. ECE <0.08. RAPTOR models. | **P0** | RAPTORNode.summary_tier · PartitionIR.scc_id + test_coverage_type |
@@ -977,4 +981,4 @@ sas-to-python-accelerator/
 
 ---
 
-> *Architecture v2 · Spec v4.1 · Based on Sarthi et al. ICLR 2024 · Updated Feb 2026 · v1.1*
+> *Architecture v2 · Spec v4.1 · Based on Sarthi et al. ICLR 2024 · Updated Feb 2026 · v1.2*

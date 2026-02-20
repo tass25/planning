@@ -49,7 +49,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\small\textcolor{primary}{SAS-to-Python/PySpark Conversion Accelerator}}
-\fancyhead[R]{\small\textcolor{primary}{Cahier des Charges v1.1}}
+\fancyhead[R]{\small\textcolor{primary}{Cahier des Charges v1.2}}
 \fancyfoot[C]{\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 
@@ -105,7 +105,7 @@
 \textcolor{accent}{\rule{0.6\textwidth}{1.2pt}}\\[1.5cm]
 
 \begin{tabular}{rl}
-    \textbf{Document version:} & 1.1 — Final \\[4pt]
+    \textbf{Document version:} & 1.2 — Updated \\[4pt]
     \textbf{Project type:} & Final-year engineering project (PFE) \\[4pt]
     \textbf{Classification:} & Technical specification \\[4pt]
     \textbf{Research anchor:} & RAPTOR — Sarthi et al., ICLR 2024 \\
@@ -250,7 +250,7 @@ The system is organized into six processing layers, a cross-cutting orchestratio
 \toprule
 \textbf{Layer} & \textbf{Name} & \textbf{Responsibility} & \textbf{Primary Agents} \\
 \midrule
-L2-A & Entry \& Scan & File discovery, encoding, registry, cross-file deps & FileAnalysisAgent, CrossFileDependencyResolver, RegistryWriterAgent \\
+L2-A & Entry \& Scan & File discovery, encoding, registry, cross-file deps, data lineage & FileAnalysisAgent, CrossFileDependencyResolver, RegistryWriterAgent, DataLineageExtractor \\
 L2-B & Streaming Core & Async streaming, stateful SAS parsing & StreamAgent, StateAgent \\
 L2-C & RAPTOR Chunking & Boundary detection, embedding, GMM clustering, recursive tree & BoundaryDetectorAgent, RAPTORPartitionAgent, PartitionBuilderAgent \\
 L2-D & Complexity \& Strategy & Feature extraction, risk classification & ComplexityAgent, StrategyAgent \\
@@ -298,6 +298,8 @@ FileAnalysisAgent & File discovery + pre-validation & \texttt{pathlib.rglob("*.s
 CrossFileDependencyResolver & Cross-file reference resolution & Regex scan for \texttt{\%INCLUDE}, \texttt{LIBNAME}, \texttt{\%INCLUDE \&var}. Resolves paths relative to project root. Stores in \texttt{cross\_file\_deps} SQLite table. \\
 \addlinespace
 RegistryWriterAgent & Idempotent registry write & SHA-256 dedup (\texttt{INSERT OR IGNORE}). SQLAlchemy to SQLite~(dev) / PostgreSQL~(prod). \\
+\addlinespace
+DataLineageExtractor & Table-level data lineage & Regex scan for \texttt{SET}, \texttt{MERGE}, \texttt{FROM}, \texttt{JOIN} (reads) and \texttt{DATA}, \texttt{CREATE TABLE}, \texttt{INSERT INTO} (writes). Stores edges in \texttt{data\_lineage} table. Phase~1: table-level; Phase~2 (Week 3--4): column-level via Lark. \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -685,7 +687,7 @@ MISSING\_VALUE & NMISS, CMISS, comparisons with missing & 20 & MISSING\_VALUE \\
 \toprule
 \textbf{Database} & \textbf{Tables} & \textbf{Purpose} \\
 \midrule
-SQLite / PostgreSQL & \texttt{file\_registry}, \texttt{cross\_file\_deps}, \texttt{partition\_ir}, \texttt{conversion\_results}, \texttt{merged\_scripts} & Core transactional storage. Dedup via \texttt{content\_hash}. \\
+SQLite / PostgreSQL & \texttt{file\_registry}, \texttt{cross\_file\_deps}, \texttt{data\_lineage}, \texttt{partition\_ir}, \texttt{conversion\_results}, \texttt{merged\_scripts} & Core transactional storage. Dedup via \texttt{content\_hash}. \texttt{data\_lineage}: TABLE\_READ / TABLE\_WRITE edges with dataset names and line positions. \\
 \addlinespace
 DuckDB & \texttt{llm\_audit}, \texttt{calibration\_log}, \texttt{ablation\_results}, \texttt{quality\_metrics}, \texttt{feedback\_log} & Append-only analytics \& audit. Columnar for fast OLAP queries. \\
 \addlinespace
@@ -737,11 +739,11 @@ Logging & structlog & stdlib logging, Loguru & JSON structured output, trace\_id
 \section{Agent Architecture}
 % ══════════════════════════════════════════════════════════════
 
-\subsection{The 15 Agents}
+\subsection{The 16 Agents}
 
 \begin{table}[H]
 \centering
-\caption{15 Agents — Strict Single Responsibility}
+\caption{16 Agents — Strict Single Responsibility}
 \renewcommand{\arraystretch}{1.25}
 \small
 \begin{tabularx}{\textwidth}{@{} c l c X @{}}
@@ -751,18 +753,19 @@ Logging & structlog & stdlib logging, Loguru & JSON structured output, trace\_id
 1 & FileAnalysisAgent & L2-A & File discovery, encoding, Lark pre-validation \\
 2 & CrossFileDependencyResolver & L2-A & \texttt{\%INCLUDE} / \texttt{LIBNAME} resolution \\
 3 & RegistryWriterAgent & L2-A & Registry write, SHA-256 dedup \\
-4 & StreamAgent & L2-B & Async 8\,KB line streaming \\
-5 & StateAgent & L2-B & FSM: block\_type, nesting, macro\_stack \\
-6 & BoundaryDetectorAgent & L2-C & Lark boundary detection + LLM resolver routing \\
-7 & RAPTORPartitionAgent & L2-C & GMM clustering + recursive tree + summarization \\
-8 & ComplexityAgent & L2-D & 5-feature extraction, composite score \\
-9 & StrategyAgent & L2-D & sklearn LR prediction, risk\_level, strategy \\
-10 & PersistenceAgent & L2-E & IR write to SQLite / Postgres / Parquet \\
-11 & IndexAgent & L2-E & NetworkX DAG + SCC condensation + Kuzu write \\
-12 & TranslationAgent & L3 & SAS$\to$Python/PySpark conversion + KB + cross-verify \\
-13 & ValidationAgent & L3 & Post-translation exec test on synthetic DataFrame \\
-14 & ReportAgent & L4 & Markdown/HTML conversion report generation \\
-15 & PartitionOrchestrator & Cross & LangGraph StateGraph, fan-out, Redis checkpoints \\
+4 & DataLineageExtractor & L2-A & Table-level data lineage (SET/MERGE/FROM/DATA/CREATE) \\
+5 & StreamAgent & L2-B & Async 8\,KB line streaming \\
+6 & StateAgent & L2-B & FSM: block\_type, nesting, macro\_stack \\
+7 & BoundaryDetectorAgent & L2-C & Lark boundary detection + LLM resolver routing \\
+8 & RAPTORPartitionAgent & L2-C & GMM clustering + recursive tree + summarization \\
+9 & ComplexityAgent & L2-D & 5-feature extraction, composite score \\
+10 & StrategyAgent & L2-D & sklearn LR prediction, risk\_level, strategy \\
+11 & PersistenceAgent & L2-E & IR write to SQLite / Postgres / Parquet \\
+12 & IndexAgent & L2-E & NetworkX DAG + SCC condensation + Kuzu write \\
+13 & TranslationAgent & L3 & SAS$\to$Python/PySpark conversion + KB + cross-verify \\
+14 & ValidationAgent & L3 & Post-translation exec test on synthetic DataFrame \\
+15 & ReportAgent & L4 & Markdown/HTML conversion report generation \\
+16 & PartitionOrchestrator & Cross & LangGraph StateGraph, fan-out, Redis checkpoints \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -1078,7 +1081,7 @@ Fill in the \textbf{Achieved} column at Week 13. This table provides a single-pa
 \toprule
 \textbf{Weeks} & \textbf{Deliverable} & \textbf{Priority} \\
 \midrule
-\rowcolor{successgreen!8} 1–2 & L2-A: Entry + CrossFileDeps + Gold Standard (50 files, 150 blocks) & P0 \\
+\rowcolor{successgreen!8} 1–2 & L2-A: Entry + CrossFileDeps + DataLineageExtractor + Gold Standard (50 files, 3 tiers, 721 blocks) & P0 \\
 \rowcolor{successgreen!8} 2–3 & L2-B: StreamAgent + StateAgent. 10K-line file $< 2$s, $< 100$ MB. & P0 \\
 \rowcolor{successgreen!8} 3–4 & L2-C: BoundaryDetector + LLM resolver. 150-block benchmark $> 90\%$. & P0 \\
 \rowcolor{successgreen!8} 4 & L2-D: ComplexityAgent + StrategyAgent. ECE $< 0.08$. RAPTOR models. & P0 \\
@@ -1183,7 +1186,7 @@ Fault tolerance & \cmark & Redis checkpoints + SHA-256 dedup + SCC \\
 Continuous learning & \cmark & Feedback ingestion + quality monitor + retrain \\
 Quantitative evaluation & \cmark & Boundary + RAPTOR + ECE + CodeBLEU + success rate \\
 Differential testing & \cmark & 45\% coverage, 6 edge case categories \\
-Agent count discipline & \cmark & 15 agents (12 partition + Translation + Validation + Report); helpers are functions \\
+Agent count discipline & \cmark & 16 agents (4 L2-A + 2 L2-B + 3 L2-C + 2 L2-D + 2 L2-E + TranslationAgent + ValidationAgent + ReportAgent); helpers are functions \\
 Dependency graph (multi-file) & \cmark & Kuzu + NetworkX + SCC + cross\_file\_deps \\
 LLM audit logging & \cmark & DuckDB \texttt{llm\_audit} with \texttt{trace\_id} \\
 Timeline feasibility & \cmark & 14 weeks, P0–P3 priorities, fallback cuts \\
@@ -1262,7 +1265,7 @@ Demo video (3–5 min) & \texttt{docs/demo\_video.mp4} & Duration 180–300s \\
 \vfill
 \begin{center}
 \textcolor{accent}{\rule{0.4\textwidth}{0.4pt}}\\[8pt]
-\textit{End of Cahier des Charges — v1.1 Final}\\[4pt]
+\textit{End of Cahier des Charges — v1.2 Updated}\\[4pt]
 \small\textcolor{primary}{SAS-to-Python/PySpark Code Conversion Accelerator — Partition Layer + Full Pipeline}\\[4pt]
 \small\textcolor{primary}{Architecture v2 · Spec v4.1 · RAPTOR (Sarthi et al., ICLR 2024) · February 2026}
 \end{center}

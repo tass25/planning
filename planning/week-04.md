@@ -153,8 +153,8 @@ uuid-3,0.85,0.60,0.50,0.40,0.30,HIGH
 | **UNCERTAIN** | Ambiguous — could go either way. Use sparingly (< 10% of labels) |
 
 **Approach to reach 500 examples**:
-- 150 blocks from gold standard → 150 rows directly
-- Augment with synthetic examples: vary features systematically (350 more)
+- 721 blocks from gold standard → 721 rows directly
+- Augment with synthetic examples: vary features systematically (remaining to reach ~1000)
 - Ensure class balance: ~35% LOW, ~35% MODERATE, ~25% HIGH, ~5% UNCERTAIN
 
 ```python
