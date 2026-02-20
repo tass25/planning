@@ -126,24 +126,24 @@ classDiagram
     direction TB
 
     class BaseAgent {
-        <<abstract>>
+        &lt;&lt;abstract&gt;&gt;
         +UUID trace_id
         +BoundLogger logger
-        +agent_name()* str
-        +process()* async
+        +agent_name() str
+        +process() async
     }
 
     class FileAnalysisAgent {
         +agent_name() str
-        +process(project_root: Path) list~FileMetadata~
-        -_analyse_file(filepath: Path) FileMetadata
+        +process(project_root) list~FileMetadata~
+        -_analyse_file(filepath) FileMetadata
     }
 
     class CrossFileDependencyResolver {
         +agent_name() str
         +process(files, project_root, engine) dict
-        -_extract_dependencies(content, ...) list~CrossFileDependencyRow~
-        -_resolve(ref_path, ...) tuple
+        -_extract_dependencies(content, metadata) list~CrossFileDependencyRow~
+        -_resolve(ref_path, project_root) tuple
     }
 
     class RegistryWriterAgent {
@@ -163,7 +163,7 @@ classDiagram
     BaseAgent <|-- DataLineageExtractor
 
     class FileMetadata {
-        <<Pydantic>>
+        &lt;&lt;Pydantic&gt;&gt;
         +UUID file_id
         +str file_path
         +str encoding
@@ -176,7 +176,7 @@ classDiagram
     }
 
     class PartitionIR {
-        <<Pydantic>>
+        &lt;&lt;Pydantic&gt;&gt;
         +UUID block_id
         +UUID file_id
         +PartitionType partition_type
@@ -191,11 +191,11 @@ classDiagram
     }
 
     class FileRegistryRow {
-        <<SQLAlchemy>>
-        +str file_id PK
+        &lt;&lt;SQLAlchemy&gt;&gt;
+        +str file_id
         +str file_path
         +str encoding
-        +str content_hash UNIQUE
+        +str content_hash
         +int file_size_bytes
         +int line_count
         +bool lark_valid
@@ -206,20 +206,20 @@ classDiagram
     }
 
     class CrossFileDependencyRow {
-        <<SQLAlchemy>>
-        +int id PK
-        +str source_file_id FK
+        &lt;&lt;SQLAlchemy&gt;&gt;
+        +int id
+        +str source_file_id
         +str ref_type
         +str raw_reference
         +bool resolved
-        +str target_file_id FK
+        +str target_file_id
         +str target_path
     }
 
     class DataLineageRow {
-        <<SQLAlchemy>>
-        +int id PK
-        +str source_file_id FK
+        &lt;&lt;SQLAlchemy&gt;&gt;
+        +int id
+        +str source_file_id
         +str lineage_type
         +str source_dataset
         +str target_dataset
@@ -231,7 +231,7 @@ classDiagram
     }
 
     class PartitionType {
-        <<enum>>
+        &lt;&lt;enum&gt;&gt;
         DATA_STEP
         PROC_BLOCK
         MACRO_DEFINITION
@@ -244,7 +244,7 @@ classDiagram
     }
 
     class RiskLevel {
-        <<enum>>
+        &lt;&lt;enum&gt;&gt;
         LOW
         MODERATE
         HIGH
@@ -252,7 +252,7 @@ classDiagram
     }
 
     class ConversionStatus {
-        <<enum>>
+        &lt;&lt;enum&gt;&gt;
         SUCCESS
         PARTIAL
         FAILED
