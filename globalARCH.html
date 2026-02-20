@@ -280,12 +280,15 @@
   .cell-arr1     { grid-column: 2; grid-row: 2; align-self: center; }
   .cell-entry    { grid-column: 3; grid-row: 2; align-self: start; }
   .cell-arr2     { grid-column: 4; grid-row: 2; align-self: center; }
-  .cell-stream   { grid-column: 5; grid-row: 2 / 4; }
+  .cell-stream   { grid-column: 5; grid-row: 2; }
   .cell-arr3     { grid-column: 6; grid-row: 2; align-self: center; padding-top: 10px; }
   .cell-right    { grid-column: 7; grid-row: 2 / 7; }
 
-  /* Row 3-4: Control & Strategy under streaming */
-  .cell-control  { grid-column: 4 / 7; grid-row: 4; margin-top: 16px; }
+  /* Row 3: Arrow from streaming down to control */
+  .cell-arr-to-ctrl { grid-column: 5; grid-row: 3; display: flex; justify-content: center; }
+
+  /* Row 4: Control & Strategy under streaming */
+  .cell-control  { grid-column: 4 / 7; grid-row: 4; }
 
   /* Row 5: empty spacer */
   /* Row 6-9: Bottom L3/L4/Output/CL */
@@ -344,6 +347,76 @@
     background: repeating-linear-gradient(90deg, #94a3b8 0 8px, transparent 8px 14px);
   }
 
+  /* ── STORY SECTION ── */
+  .story {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 12px 40px 28px;
+  }
+  .story-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .story ol {
+    counter-reset: story-step;
+    list-style: none;
+    padding: 0;
+  }
+  .story li {
+    counter-increment: story-step;
+    position: relative;
+    padding: 12px 16px 12px 52px;
+    margin-bottom: 8px;
+    background: var(--bg2);
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--text);
+    border-left: 3px solid transparent;
+  }
+  .story li::before {
+    content: counter(story-step);
+    position: absolute;
+    left: 14px;
+    top: 12px;
+    width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--blue-bg);
+    border: 1.5px solid var(--blue-border);
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--blue-label);
+  }
+  .story li strong { color: var(--text); font-weight: 600; }
+  .story li code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: rgba(37, 99, 235, 0.08);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--blue-label);
+  }
+  .story li.step-entry  { border-left-color: var(--yellow-border); }
+  .story li.step-entry::before  { background: var(--yellow-bg); border-color: var(--yellow-border); color: var(--yellow-label); }
+  .story li.step-stream { border-left-color: var(--green-border); }
+  .story li.step-stream::before { background: var(--green-bg); border-color: var(--green-border); color: var(--green-label); }
+  .story li.step-raptor { border-left-color: var(--pink-border); }
+  .story li.step-raptor::before { background: var(--pink-bg); border-color: var(--pink-border); color: var(--pink-label); }
+  .story li.step-strat  { border-left-color: var(--purple-border); }
+  .story li.step-strat::before  { background: var(--purple-bg); border-color: var(--purple-border); color: var(--purple-label); }
+  .story li.step-store  { border-left-color: var(--mint-border); }
+  .story li.step-store::before  { background: var(--mint-bg); border-color: var(--mint-border); color: var(--mint-label); }
+  .story li.step-trans  { border-left-color: var(--orange-border); }
+  .story li.step-trans::before  { background: var(--orange-bg); border-color: var(--orange-border); color: var(--orange-label); }
+  .story li.step-cl     { border-left-color: var(--red-border); }
+  .story li.step-cl::before     { background: var(--red-bg); border-color: var(--red-border); color: var(--red-label); }
+
   /* ── FOOTER ── */
   .footer {
     text-align: center;
@@ -380,6 +453,32 @@
 <div class="header">
   <div class="header-tag">Architecture V2 &middot; Spec V4.1</div>
   <h1>SAS &rarr; Python / PySpark &middot; Global Architecture</h1>
+</div>
+
+<!-- ════════ STORY ════════ -->
+<div class="story">
+  <div class="story-title">How it works &mdash; end to end</div>
+  <ol>
+    <li>A single <code>.sas</code> file&mdash;or an entire project of hundreds&mdash;enters through <strong>Project Entry</strong>. Each file is received, decoded (auto-detect encoding via chardet), and forwarded to the Entry layer.</li>
+
+    <li class="step-entry">The <strong>File Registry</strong> (L2-A) catalogs every discovered file, computes a SHA-256 content hash to avoid processing duplicates, resolves cross-file references (<code>%INCLUDE</code>, <code>LIBNAME</code> paths), and extracts table-level <strong>data lineage</strong>&mdash;which datasets each block reads from and writes to&mdash;persisting everything into SQLite.</li>
+
+    <li class="step-stream">Registered files flow into the <strong>Streaming Core</strong>. The File Stream Reader opens each file asynchronously (8&nbsp;KB buffered reads) and feeds tokens line-by-line to the Streaming State Manager, a finite-state machine that tracks nesting depth, macro scope, and block boundaries in real time. At the same time, the <strong>Complexity Analyzer</strong> scores each emerging block&rsquo;s logical and structural complexity using cyclomatic-complexity metrics and five statistical features.</li>
+
+    <li class="step-raptor">The stream feeds into the <strong>Partition Detector</strong> (L2-C), powered by the RAPTOR algorithm. A Lark LALR grammar identifies block boundaries (80&nbsp;% rule-based); the remaining 20&nbsp;% of ambiguous cases are resolved by an LLM. Detected blocks are then clustered with Gaussian Mixture Models (BIC-based k-selection, &tau;&nbsp;=&nbsp;0.72), building a recursive semantic tree. The <strong>Partition Builder</strong> assembles each cluster into one of 9 canonical partition types (DATA_STEP, PROC_BLOCK, MACRO_DEFINITION, SQL_BLOCK&hellip;).</li>
+
+    <li class="step-strat">In parallel, the complexity metadata flows down to the <strong>Strategy Selector</strong> (Control &amp; Strategy Decision Layer). Based on the risk level of each partition, it decides the downstream strategy: which LLM to use, whether RAPTOR clustering is needed, and how much human review is required&mdash;all governed by a Platt-calibrated confidence model (ECE&nbsp;&lt;&nbsp;0.08).</li>
+
+    <li class="step-store">Partitions, their RAPTOR tree, and associated metadata are persisted into the <strong>Partition &amp; KB Store</strong> (L2-E): SQLite for structured data, a Kuzu graph for dependency edges (with SCC condensation for circular <code>%INCLUDE</code> chains), and LanceDB for vector embeddings used by downstream retrieval.</li>
+
+    <li class="step-trans">Stored partitions flow into <strong>Layer 3 &mdash; Translation &amp; Validation</strong>. The Translation Agent queries the Knowledge Base for the 5 most similar SAS&rarr;Python/PySpark example pairs (filtered by failure-mode), routes the block to an 8B model (low risk) or 70B model (moderate/high risk) for code generation, and cross-verifies the result. The Validation Agent then executes the generated code on a synthetic 100-row DataFrame in a sandboxed namespace (5&nbsp;s timeout) to confirm correctness.</li>
+
+    <li class="step-trans">Validated translations reach <strong>Layer 4 &mdash; Merge &amp; Report</strong>. The Script Merger consolidates imports, injects cross-file variable dependencies, and gates every output through <code>ast.parse()</code>. The Report Agent generates a full Markdown + HTML conversion report with CodeBLEU scores, validation results, and failure-mode breakdowns.</li>
+
+    <li>The final <strong>output</strong>&mdash;converted <code>.py</code> / <code>_spark.py</code> scripts plus conversion reports&mdash;is written to disk and logged in DuckDB for auditability.</li>
+
+    <li class="step-cl">The <strong>Continuous Learning</strong> loop closes the circle. Corrections (human CLI or automated rejects) are cross-verified and upserted into the Knowledge Base. The Quality Monitor tracks success rates and failure-mode distributions; when ECE drifts above threshold or quality drops, it triggers automatic retraining of the complexity model and targeted KB generation for under-represented categories.</li>
+  </ol>
 </div>
 
 <!-- ════════ MAIN CANVAS ════════ -->
@@ -459,6 +558,11 @@
     <div class="arrow-h">
       <span class="arrow-label">Complexity Metadata</span>
     </div>
+  </div>
+
+  <!-- ── ARROW ↓ from Streaming to Control & Strategy ── -->
+  <div class="cell-arr-to-ctrl">
+    <div class="arrow-v" style="min-height:28px;"></div>
   </div>
 
   <!-- ── RIGHT COLUMN: RAPTOR → BUILDER → STORE ── -->
