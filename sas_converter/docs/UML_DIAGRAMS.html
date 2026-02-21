@@ -137,7 +137,7 @@
 
 <header>
   <h1>SAS-to-Python/PySpark Conversion Accelerator</h1>
-  <p>UML Diagrams — Architecture & Design (Week 1–2 Milestone)</p>
+  <p>UML Diagrams &mdash; Architecture &amp; Design (Week 1&ndash;3 Milestone)</p>
 </header>
 
 <nav>
@@ -147,6 +147,8 @@
   <a href="#er-diagram">ER Diagram</a>
   <a href="#state-diagram">State Machine</a>
   <a href="#activity-diagram">Activity Flow</a>
+  <a href="#frontend-sequence">Frontend Flow</a>
+  <a href="#optimization-state">Optimization States</a>
 </nav>
 
 <main>
@@ -667,10 +669,138 @@ graph TD
   </div>
 </section>
 
+<!-- ============================================================ -->
+<section id="frontend-sequence">
+  <h2>7. Sequence Diagram &mdash; Frontend Optimization Accept/Reject Flow</h2>
+  <p class="diagram-desc">
+    Shows the full interaction between the developer, React frontend, FastAPI gateway,
+    pipeline agents, and the feedback loop when a developer reviews optimization suggestions.
+  </p>
+  <div class="mermaid">
+sequenceDiagram
+    participant Dev as Developer
+    participant UI as React Frontend
+    participant API as FastAPI Gateway
+    participant Orch as PartitionOrchestrator
+    participant TA as TranslationAgent
+    participant OPT as OptimizationSuggester
+    participant DB as SQLite/DuckDB
+    participant FB as FeedbackIngestionAgent
+
+    Dev->>UI: Upload SAS files
+    UI->>API: POST /convert (multipart)
+    API->>Orch: Start pipeline
+    Orch->>TA: Translate SAS blocks
+    TA-->>Orch: Python code + metadata
+    Orch->>OPT: Analyze translated code
+    OPT-->>Orch: Optimization suggestions
+    Orch->>DB: Store suggestions
+    Orch-->>API: Conversion complete
+    API-->>UI: WebSocket: results ready
+
+    UI->>API: GET /results/{job_id}
+    API-->>UI: Code + suggestions list
+    UI->>Dev: Show Monaco editor + suggestion cards
+
+    Note over Dev,UI: Developer reviews each suggestion
+
+    Dev->>UI: Click Accept on suggestion #1
+    UI->>API: PATCH /suggestions/{id} (accepted)
+    API->>DB: Update decision_log
+    API->>FB: Positive feedback signal
+    API-->>UI: Patched code preview
+
+    Dev->>UI: Click Reject on suggestion #2
+    UI->>API: PATCH /suggestions/{id} (rejected)
+    API->>DB: Update decision_log
+    API->>FB: Negative feedback signal
+
+    Dev->>UI: Download final report
+    UI->>API: GET /report/{job_id}
+    API-->>UI: HTML/PDF report with decisions
+  </div>
+  <div class="explanation">
+    <h3>How the developer interacts with optimization suggestions</h3>
+    <p>This diagram captures the <strong>complete lifecycle</strong> of a conversion job from the developer's perspective. The key innovation is the <strong>optimization suggestion review loop</strong>, which puts the developer in control of code quality decisions.</p>
+    <ol>
+      <li><strong>Upload:</strong> The developer drags SAS files into the React frontend. The frontend sends them to the FastAPI gateway, which kicks off the full 16-agent pipeline.</li>
+      <li><strong>Translation + Analysis:</strong> After TranslationAgent converts SAS to Python, the OptimizationSuggester runs static analysis to find improvement opportunities &mdash; things like loop vectorization, pandas idioms, or missing type hints.</li>
+      <li><strong>Review in Monaco Editor:</strong> The frontend presents a side-by-side code view (SAS left, Python right) with suggestion cards anchored to specific line ranges. Each card shows the file, line range, reason, and confidence score.</li>
+      <li><strong>Accept/Reject:</strong> The developer clicks Accept to apply the suggestion (the code is patched in-place) or Reject to keep the original. Both decisions are logged.</li>
+      <li><strong>Feedback Loop:</strong> Every decision feeds into the FeedbackIngestionAgent. Accepted suggestions become positive training signals; rejected ones become negative signals. Over time, the system learns which suggestions developers actually want.</li>
+      <li><strong>Report:</strong> The final report includes all optimization decisions with their outcomes, giving a complete audit trail.</li>
+    </ol>
+    <div class="note">The WebSocket connection enables real-time progress updates during conversion. The developer sees each stage (scanning &rarr; partitioning &rarr; translating &rarr; validating &rarr; optimizing) update live.</div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="optimization-state">
+  <h2>8. State Diagram &mdash; Optimization Suggestion Lifecycle</h2>
+  <p class="diagram-desc">
+    Models the states an optimization suggestion transitions through,
+    from generation to final disposition.
+  </p>
+  <div class="mermaid">
+stateDiagram-v2
+    [*] --> Generated : OptimizationSuggester creates suggestion
+
+    Generated --> Pending : Sent to frontend via WebSocket
+
+    Pending --> Reviewing : Developer opens suggestion card
+
+    Reviewing --> Accepted : Developer clicks Accept
+    Reviewing --> Rejected : Developer clicks Reject
+    Reviewing --> Deferred : Developer clicks Later
+
+    Accepted --> Applied : CodePatcher applies diff
+    Applied --> LoggedPositive : FeedbackIngestionAgent records
+    LoggedPositive --> [*]
+
+    Rejected --> LoggedNegative : FeedbackIngestionAgent records
+    LoggedNegative --> [*]
+
+    Deferred --> Pending : Returns to queue
+
+    note right of Generated
+        Contains: file, start_line,
+        end_line, original_code,
+        suggested_code, reason,
+        confidence score
+    end note
+
+    note right of Applied
+        The patched code replaces
+        the original in the output
+        .py file
+    end note
+
+    note right of LoggedNegative
+        Negative signal trains the
+        system to avoid similar
+        suggestions in future
+    end note
+  </div>
+  <div class="explanation">
+    <h3>How a suggestion moves through the system</h3>
+    <p>Each optimization suggestion is a <strong>first-class entity</strong> with a tracked lifecycle. This state machine ensures no suggestion is lost and every developer decision is captured for continuous improvement.</p>
+    <ol>
+      <li><strong>Generated:</strong> The OptimizationSuggester produces a suggestion after analyzing translated Python code. It includes the exact file path, line range (e.g., <code>AA.py L42&ndash;L58</code>), the original code, the suggested replacement, a human-readable reason, and a confidence score (0&ndash;1).</li>
+      <li><strong>Pending:</strong> The suggestion is queued in the frontend, waiting for the developer to review it. Multiple suggestions can be pending simultaneously.</li>
+      <li><strong>Reviewing:</strong> The developer opens the suggestion card in the Monaco editor. They see the original code highlighted and the suggested replacement in a diff view.</li>
+      <li><strong>Accepted &rarr; Applied:</strong> If the developer clicks Accept, the CodePatcher applies the diff to the output file. The patched code is validated (re-run through ValidationAgent if needed).</li>
+      <li><strong>Rejected:</strong> If the developer clicks Reject, the original code is kept. The rejection reason is optionally captured.</li>
+      <li><strong>Deferred:</strong> If the developer clicks Later, the suggestion returns to Pending. This is useful for suggestions that need more investigation.</li>
+      <li><strong>Feedback:</strong> Both accepted and rejected decisions are logged and sent to the FeedbackIngestionAgent, which maintains the continuous learning signal.</li>
+    </ol>
+    <div class="note">The admin dashboard shows aggregate statistics: acceptance rate per suggestion type, most-rejected patterns, and confidence calibration (are high-confidence suggestions actually accepted more often?).</div>
+  </div>
+</section>
+
 </main>
 
 <footer>
-  SAS-to-Python/PySpark Conversion Accelerator — UML Diagrams — Generated 2026-02-20
+  SAS-to-Python/PySpark Conversion Accelerator &mdash; UML Diagrams &mdash; Generated 2026-02-21
 </footer>
 
 <script>
