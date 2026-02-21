@@ -162,14 +162,14 @@
 
 <!-- HERO -->
 <div class="hero">
-  <div class="hero-tag">Partition Layer · Architecture v2 · Updated from Spec v4.1</div>
+  <div class="hero-tag">Partition Layer · Architecture v2.1 · Updated from Spec v4.2</div>
   <h1>SAS → Python / PySpark <span>Partition Layer</span><br>System Architecture</h1>
-  <p class="hero-sub">RAPTOR-based semantic chunking · 16-agent lean pipeline · Calibrated confidence · Translation + Validation + Merge + Report + Continuous Learning</p>
+  <p class="hero-sub">RAPTOR-based semantic chunking · 16-agent lean pipeline · React frontend + Admin dashboard · Optimization suggestions with accept/reject · Continuous Learning</p>
   <div class="hero-badges">
     <span class="hero-badge paper">RAPTOR · Sarthi et al., ICLR 2024</span>
-    <span class="hero-badge agents">16 Real Agents</span>
+    <span class="hero-badge agents">16 Agents + API + Frontend</span>
     <span class="hero-badge tier">Gold Standard · 50 files · 721 blocks · 3 tiers</span>
-    <span class="hero-badge v">End-to-End Pipeline · v2.0</span>
+    <span class="hero-badge v">End-to-End Pipeline · v2.1</span>
   </div>
 </div>
 
@@ -291,12 +291,22 @@ flowchart TB
     DI["DependencyInjector\nvariable name registry"]
     SM["ScriptMerger\nast.parse() gate + stubs"]
     RA["#16 ReportAgent\nMarkdown/HTML conversion report\nCodeBLEU + validation results"]
-    OUT[("merged_scripts table\n+ output/*.py files\n+ conversion reports")]
-    IC & DI --> SM --> RA --> OUT
+    OPT["OptimizationSuggester\nper-block line-range suggestions\naccept/reject per suggestion"]
+    OUT[("merged_scripts table\n+ output/*.py files\n+ conversion reports\n+ optimization_suggestions")]
+    IC &amp; DI --> SM --> RA --> OUT
+    SM --> OPT --> OUT
+  end
+
+  subgraph L5["Layer 5 · Frontend + API"]
+    API["FastAPI Gateway\nREST + WebSocket\nJWT auth · CORS"]
+    REACT["React Frontend (Lovable)\nUpload · Progress · Code Review\nOptimization Accept/Reject"]
+    ADMIN["Admin Dashboard\nPipeline Monitor · Agent Health\nAudit Logs · User Mgmt"]
+    REACT --> API
+    ADMIN --> API
   end
 
   subgraph CL["Continuous Learning"]
-    FIA["FeedbackIngestionAgent\nCLI + automated corrections"]
+    FIA["FeedbackIngestionAgent\nCLI + automated corrections\n+ frontend accept/reject decisions"]
     CQM["ConversionQualityMonitor\nsuccess_rate + failure_mode_dist"]
     RT["RetrainingTrigger\nECE drift + quality_drop + KB gap"]
     FIA --> KB_STORE
@@ -315,13 +325,17 @@ flowchart TB
   PBA --> CA
   STRA --> PO
   TREE --> RW
-  PO --> PA & RW & IA & RC
+  PO --> PA &amp; RW &amp; IA &amp; RC
   PO --> TA
   CR --> IC
   SM --> CQM
   RA --> AUDIT
   PO --> AUDIT
   KB_STORE --> TA
+  API --> PO
+  OUT --> API
+  API --> FIA
+  AUDIT --> API
 
   style INPUT fill:#1a1e2a,stroke:#4f9eff,color:#e2e8f0
   style L2A fill:#1a1e2a,stroke:#4f9eff,color:#e2e8f0
@@ -332,6 +346,7 @@ flowchart TB
   style L2E fill:#1a1e2a,stroke:#7c5cfc,color:#e2e8f0
   style L3 fill:#1a1e2a,stroke:#4f9eff,color:#e2e8f0
   style L4 fill:#1a1e2a,stroke:#7c5cfc,color:#e2e8f0
+  style L5 fill:#1a1e2a,stroke:#f97316,color:#e2e8f0
   style CL fill:#1a1e2a,stroke:#00d9a3,color:#e2e8f0
   style ORCH fill:#200f0f,stroke:#ef4444,color:#e2e8f0
       </div>
@@ -1097,6 +1112,150 @@ flowchart LR
         <tr><td>Analytics DB</td><td>DuckDB</td><td>—</td><td>Audit logs, ablation data, quality metrics</td></tr>
         <tr><td>Cache</td><td>Redis</td><td>—</td><td>Checkpoints every 50 blocks, TTL 24h</td></tr>
         <tr><td>Orchestration</td><td>LangGraph</td><td>—</td><td>StateGraph pipeline orchestration</td></tr>
+        <tr><td>API Gateway</td><td>FastAPI</td><td>≥ 0.104</td><td>REST + WebSocket, JWT auth, CORS</td></tr>
+        <tr><td>Frontend</td><td>React (Lovable)</td><td>18+</td><td>Upload, code review, optimization accept/reject</td></tr>
+        <tr><td>UI Framework</td><td>shadcn/ui + Tailwind</td><td>—</td><td>Component library, responsive design</td></tr>
+        <tr><td>Code Editor</td><td>Monaco Editor</td><td>—</td><td>Side-by-side SAS/Python diff view</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<hr>
+
+<!-- ══ 13. FRONTEND + ADMIN DASHBOARD ══ -->
+<div class="section">
+  <div class="section-label">Section 13</div>
+  <h2><span class="num">13</span> Frontend + Admin Dashboard — Feature Map</h2>
+  <p>The React frontend (built with Lovable) serves two audiences: <strong>developers</strong> who review and accept/reject converted code, and <strong>admins</strong> who monitor pipeline health and manage users.</p>
+
+  <h3>Developer Frontend — Features</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Feature</th><th>Description</th><th>Key UX</th></tr></thead>
+      <tbody>
+        <tr><td>Upload &amp; Scan</td><td>Drag-and-drop SAS files or ZIP archives. Triggers L2-A scan pipeline.</td><td>Progress bar, encoding/error preview</td></tr>
+        <tr><td>Conversion Dashboard</td><td>Real-time progress per file: scanning → partitioning → translating → validating → merged</td><td>WebSocket live updates, Kanban cards</td></tr>
+        <tr><td>Code Review (Side-by-Side)</td><td>Monaco editor with SAS on left, Python/PySpark on right. Line-linked scrolling.</td><td>Syntax highlighting, diff markers</td></tr>
+        <tr><td>Optimization Suggestions</td><td>Per-block suggestions: "file <code>AA.py</code> line X–Y can be optimized to…" with accept/reject buttons.</td><td>Inline code diff, one-click accept</td></tr>
+        <tr><td>Suggestion History</td><td>Track all accepted/rejected suggestions per conversion session.</td><td>Filter by file, block, suggestion type</td></tr>
+        <tr><td>Dependency Graph Viewer</td><td>Interactive graph of cross-file dependencies (Kuzu data visualized with D3.js or vis.js).</td><td>Click-to-navigate, highlight SCC clusters</td></tr>
+        <tr><td>Data Lineage Viewer</td><td>Table-level lineage flow: which datasets are read/written by each block.</td><td>Sankey diagram, search by dataset name</td></tr>
+        <tr><td>Report Download</td><td>Download conversion report as HTML/PDF with CodeBLEU scores, validation results, and optimization decisions.</td><td>One-click export, embedded charts</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Admin Dashboard — Features</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Feature</th><th>Description</th><th>Data Source</th></tr></thead>
+      <tbody>
+        <tr><td>Pipeline Monitor</td><td>Live status of all 16 agents: idle/running/error. Queue depths, throughput (lines/s).</td><td>PartitionOrchestrator state + Redis</td></tr>
+        <tr><td>Agent Health</td><td>Per-agent success rate, avg latency, error count (last 24h). Alert thresholds.</td><td>DuckDB quality_metrics</td></tr>
+        <tr><td>Conversion Analytics</td><td>Success rate over time, failure mode distribution (pie chart), CodeBLEU histogram.</td><td>DuckDB conversion_reports</td></tr>
+        <tr><td>LLM Audit Logs</td><td>Every LLM call: model, prompt hash, token count, latency, cache hit rate.</td><td>DuckDB llm_audit</td></tr>
+        <tr><td>User Management</td><td>CRUD users, assign roles (admin/developer/viewer), API key management.</td><td>SQLite user_accounts</td></tr>
+        <tr><td>KB Coverage Map</td><td>15-category coverage matrix: which SAS constructs have KB examples, which have gaps.</td><td>LanceDB sas_python_examples</td></tr>
+        <tr><td>Feedback Review</td><td>Queue of developer accept/reject decisions for admin triage. Feeds retraining trigger.</td><td>DuckDB feedback_log</td></tr>
+        <tr><td>System Config</td><td>Tune agent parameters: queue maxsize, LLM routing threshold, checkpoint interval.</td><td>Config file / env vars</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Conversion Report — Contents</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Section</th><th>Content</th></tr></thead>
+      <tbody>
+        <tr><td>Summary</td><td>Total files, blocks, success rate, overall CodeBLEU score, elapsed time</td></tr>
+        <tr><td>Per-File Breakdown</td><td>File name, block count, partition types, complexity tier, risk level</td></tr>
+        <tr><td>Translation Table</td><td>SAS block → Python/PySpark code with validation status (pass/fail/skip)</td></tr>
+        <tr><td>Optimization Suggestions</td><td>Line-range targeted suggestions with developer decision (accepted/rejected/pending)</td></tr>
+        <tr><td>Data Lineage Map</td><td>Dataset read/write flow across all files</td></tr>
+        <tr><td>Dependency Graph</td><td>Cross-file dependency tree with SCC clusters highlighted</td></tr>
+        <tr><td>Quality Metrics</td><td>CodeBLEU, validation pass rate, LLM token usage, cache hit rate per file</td></tr>
+        <tr><td>Error Log</td><td>Failed blocks with error details, stack traces, suggested fixes</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<hr>
+
+<!-- ══ 14. OPTIMIZATION SUGGESTION FLOW ══ -->
+<div class="section">
+  <div class="section-label">Section 14</div>
+  <h2><span class="num">14</span> Optimization Suggestion Flow — Accept / Reject</h2>
+  <p>After translation, the system generates per-block optimization suggestions with precise line references. The developer reviews each suggestion in the frontend code editor and either accepts or rejects it. Accepted suggestions are applied to the output and feed back into the continuous learning loop.</p>
+
+  <div class="diagram-card">
+    <div class="diagram-header">
+      <div class="diagram-dot" style="background:#ef4444"></div>
+      <div class="diagram-dot" style="background:#f59e0b"></div>
+      <div class="diagram-dot" style="background:#22c55e"></div>
+      <span class="title">optimization-suggestion-flow.mermaid</span>
+    </div>
+    <div class="diagram-body">
+      <div class="mermaid">
+flowchart TB
+  subgraph TRANSLATE["Translation Output"]
+    TB["TranslationAgent\nSAS block -> Python code"]
+    CODE["Generated Python\nAA.py with line numbers"]
+    TB --> CODE
+  end
+
+  subgraph ANALYZE["Optimization Analysis"]
+    OPT["OptimizationSuggester\nStatic analysis + pattern matching"]
+    SUGG[("optimization_suggestions\nfile, start_line, end_line\noriginal_code, suggested_code\nreason, confidence")]
+    OPT --> SUGG
+  end
+
+  subgraph FRONTEND["React Frontend"]
+    EDITOR["Monaco Code Editor\nSide-by-side diff view"]
+    CARD["Suggestion Card\nAA.py L42-L58\nReason: vectorize loop\nConfidence: 0.92"]
+    BTN_A["Accept"]
+    BTN_R["Reject"]
+    EDITOR --> CARD
+    CARD --> BTN_A
+    CARD --> BTN_R
+  end
+
+  subgraph APPLY["Decision Processing"]
+    PATCH["CodePatcher\nApply accepted diffs\nto output .py file"]
+    LOG[("decision_log\nsuggestion_id, decision\ntimestamp, user_id")]
+    FB["FeedbackIngestionAgent\nRejected = negative signal\nAccepted = positive signal"]
+  end
+
+  CODE --> OPT
+  SUGG -->|WebSocket| EDITOR
+  BTN_A -->|accepted| PATCH
+  BTN_A -->|log| LOG
+  BTN_R -->|log| LOG
+  BTN_R -->|negative| FB
+  BTN_A -->|positive| FB
+  PATCH --> CODE
+  FB -->|retrain signal| RT["RetrainingTrigger"]
+
+  style TRANSLATE fill:#1a1e2a,stroke:#4f9eff,color:#e2e8f0
+  style ANALYZE fill:#1a1e2a,stroke:#f59e0b,color:#e2e8f0
+  style FRONTEND fill:#1a1e2a,stroke:#f97316,color:#e2e8f0
+  style APPLY fill:#1a1e2a,stroke:#00d9a3,color:#e2e8f0
+      </div>
+    </div>
+  </div>
+
+  <h3>Suggestion Types</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Type</th><th>Example</th><th>Detection Method</th></tr></thead>
+      <tbody>
+        <tr><td>Loop Vectorization</td><td><code>for row in df.iterrows()</code> → <code>df.apply()</code> or vectorized ops</td><td>AST pattern: for-loop over DataFrame</td></tr>
+        <tr><td>Pandas Idiom</td><td>Manual merge logic → <code>pd.merge()</code></td><td>KB pattern matching</td></tr>
+        <tr><td>SQL Pushdown</td><td>Post-query Python filter → <code>WHERE</code> clause in SQL</td><td>Data lineage + filter detection</td></tr>
+        <tr><td>Type Safety</td><td>Missing type hints on function signatures</td><td>AST analysis, mypy rules</td></tr>
+        <tr><td>Error Handling</td><td>Bare <code>except:</code> → specific exception types</td><td>AST pattern</td></tr>
+        <tr><td>PySpark Optimization</td><td><code>collect()</code> in loop → <code>broadcast()</code> join</td><td>Spark plan analysis</td></tr>
       </tbody>
     </table>
   </div>
@@ -1104,7 +1263,7 @@ flowchart LR
 
 <div style="padding:24px 0 8px; text-align:center;">
   <p style="color:var(--muted); font-size:13px; font-family:'JetBrains Mono',monospace;">
-    Architecture v2 · Spec v4.1 · v2.0 · Sarthi et al. ICLR 2024 · Updated Feb 2026
+    Architecture v2 · Spec v4.2 · v2.1 · Sarthi et al. ICLR 2024 · Updated Feb 2026
   </p>
 </div>
 
