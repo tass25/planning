@@ -25,7 +25,7 @@ TranslationAgent (#12)
   ├─ 3. LLM routing: LOW → Ollama 8B, MODERATE/HIGH → Groq 70B
   ├─ 4. Translation prompt (few-shot from KB + failure-mode rules)
   ├─ 5. Cross-verify Prompt C (confidence < 0.75 → retry, max 2)
-  └─ 6. SCC batching (from IndexAgent Kuzu graph)
+  └─ 6. SCC batching (from IndexAgent NetworkX graph)
   ↓
 ConversionResult
   ↓

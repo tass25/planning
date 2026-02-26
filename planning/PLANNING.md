@@ -27,7 +27,7 @@
 | **3–4** | L2-C | BoundaryDetector + LLM resolver | **P0** | BoundaryDetectorAgent | 721-block benchmark > 90% boundary accuracy |
 | **4** | L2-D | ComplexityAgent + StrategyAgent + models | **P0** | ComplexityAgent, StrategyAgent | ECE < 0.08 on held-out 20% |
 | **5–6** | L2-C | Nomic Embed + GMM + ClusterSummarizer + RAPTORTreeBuilder | **P1** | RAPTORPartitionAgent | BIC convergence, clusters formed, summaries cached |
-| **7** | L2-E | Persistence + Kuzu + SCC + DuckDB schemas | **P1** | PersistenceAgent, IndexAgent | All schemas created, SCC detection ≥ 90% |
+| **7** | L2-E | Persistence + NetworkX graph + SCC + DuckDB schemas | **P1** | PersistenceAgent, IndexAgent | All schemas created, SCC detection ≥ 90% |
 | **8** | Orch | Orchestration + Redis + audit logging | **P1** | PartitionOrchestrator | Full L2 pipeline runs end-to-end with checkpoints |
 | **9** | Robust | Robustness + large file strategy + KB gen start | P2 | — | 250 KB pairs generated, large-file fallback tested |
 | **10** | L3 | TranslationAgent + ValidationAgent (KB at 250 from Week 9) | P2 | TranslationAgent, ValidationAgent | Translation success ≥ 70%, validation gate works |
@@ -68,7 +68,7 @@
 | GMM diverges on large files | MED | HIGH | Fallback to flat_partition after 3 failed fits |
 | 14-week timeline slips | HIGH | MED | Sunday velocity tracking + cut order above |
 | ECE > 0.08 after retraining | MED | LOW | Relabel 100 more, retrain; worst case: threshold routing |
-| Kuzu install fails | LOW | MED | NetworkX-only DAG fallback |
+| Kuzu install fails | LOW | MED | No longer applicable — replaced by NetworkX (pure Python, always available) |
 | KB quality too low (avg conf < 0.80) | MED | HIGH | Increase cross-verifier retries to 3 |
 
 ---

@@ -654,7 +654,7 @@ class PartitionOrchestrator:
     async def _node_indexing(self, state: PipelineState) -> dict:
         """L2-E: Build dependency graph."""
         from partition.index.index_agent import IndexAgent
-        from partition.index.kuzu_writer import KuzuGraphWriter
+        from partition.index.graph_builder import NetworkXGraphBuilder
         from partition.config.config_manager import ProjectConfigManager
 
         state["stage"] = PipelineStage.INDEXING.value
@@ -665,13 +665,13 @@ class PartitionOrchestrator:
             state["cross_file_deps"],
         )
 
-        # Write to Kuzu
+        # Build NetworkX graph
         try:
-            kuzu_writer = KuzuGraphWriter()
-            kuzu_writer.write_partitions(state["partitions"])
-            kuzu_writer.write_edges(dag)
+            graph_builder = NetworkXGraphBuilder()
+            graph_builder.add_partitions(state["partitions"])
+            graph_builder.add_edges(dag)
         except Exception as e:
-            state["warnings"].append(f"Kuzu write failed: {e}")
+            state["warnings"].append(f"NetworkX graph build failed: {e}")
 
         # Save hop cap
         config = ProjectConfigManager()

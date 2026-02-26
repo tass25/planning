@@ -10,7 +10,7 @@
 
 ## 🎯 Goal
 
-Implement the persistence and indexing layer. PersistenceAgent writes PartitionIR objects to SQLite (dev) / PostgreSQL (prod) / Parquet (large batches). IndexAgent builds the dependency graph in NetworkX, performs SCC condensation for circular dependency detection, then writes the acyclic graph to Kuzu for Cypher-queryable multi-hop traversal. All DuckDB analytics schemas are initialized this week.
+Implement the persistence and indexing layer. PersistenceAgent writes PartitionIR objects to SQLite (dev) / PostgreSQL (prod) / Parquet (large batches). IndexAgent builds the dependency graph in NetworkX, performs SCC condensation for circular dependency detection, then stores the acyclic graph in a NetworkX DiGraph for multi-hop traversal. All DuckDB analytics schemas are initialized this week.
 
 ---
 
@@ -27,7 +27,7 @@ PartitionIR[] + RAPTORNode[]
         └─── IndexAgent ──► Stage 1: NetworkX DAG
                         └──► Stage 2: SCC Condensation (nx.condensation)
                         └──► Stage 3: Dynamic Hop Cap
-                        └──► Kuzu Graph (Partition + DEPENDS_ON + MACRO_CALLS)
+                        └──► NetworkX Graph (Partition + DEPENDS_ON + MACRO_CALLS)
 ```
 
 ---
@@ -280,7 +280,7 @@ class PersistenceAgent(BaseAgent):
 
 ---
 
-### Task 2: IndexAgent (#11) — NetworkX DAG + SCC + Kuzu
+### Task 2: IndexAgent (#11) — NetworkX DAG + SCC + Graph Build
 
 **File**: `partition/index/index_agent.py`
 
@@ -301,7 +301,7 @@ class IndexAgent(BaseAgent):
     
     Stage 1: NetworkX DAG construction from PartitionIR dependency_refs
     Stage 2: SCC condensation (circular dependency detection)
-    Stage 3: Dynamic hop cap for Kuzu multi-hop queries
+    Stage 3: Dynamic hop cap for NetworkX multi-hop traversals
     """
     agent_name = "IndexAgent"
 
@@ -480,12 +480,13 @@ class IndexAgent(BaseAgent):
 
 ---
 
-### Task 3: Kuzu Graph Writer
+### Task 3: NetworkX Graph Builder
 
-**File**: `partition/index/kuzu_writer.py`
+**File**: `partition/index/graph_builder.py`
 
 ```python
-import kuzu
+import pickle
+import networkx as nx
 from pathlib import Path
 from typing import Optional
 import structlog
@@ -493,167 +494,120 @@ import structlog
 logger = structlog.get_logger()
 
 
-class KuzuGraphWriter:
-    """Write partition dependency graph to Kuzu for Cypher queries."""
+class NetworkXGraphBuilder:
+    """Build partition dependency graph in NetworkX for multi-hop traversal."""
 
-    def __init__(self, db_path: str = "partition_graph"):
-        Path(db_path).mkdir(parents=True, exist_ok=True)
-        self.db = kuzu.Database(db_path)
-        self.conn = kuzu.Connection(self.db)
-        self._init_schema()
+    def __init__(self, persist_path: str = "partition_graph.gpickle"):
+        self.persist_path = Path(persist_path)
+        self.graph: nx.DiGraph = self._load_or_create()
 
-    def _init_schema(self):
-        """Create node and relationship tables."""
-        try:
-            self.conn.execute("""
-                CREATE NODE TABLE IF NOT EXISTS Partition (
-                    partition_id   STRING,
-                    partition_type STRING,
-                    risk_level     STRING,
-                    complexity_score DOUBLE,
-                    file_id        STRING,
-                    scc_id         STRING,
-                    PRIMARY KEY (partition_id)
-                )
-            """)
-        except Exception:
-            pass  # Table may already exist
+    def _load_or_create(self) -> nx.DiGraph:
+        """Load existing graph from pickle or create a new DiGraph."""
+        if self.persist_path.exists():
+            with open(self.persist_path, "rb") as f:
+                return pickle.load(f)
+        return nx.DiGraph()
 
-        try:
-            self.conn.execute("""
-                CREATE REL TABLE IF NOT EXISTS DEPENDS_ON (
-                    FROM Partition TO Partition,
-                    dep_type STRING
-                )
-            """)
-        except Exception:
-            pass
+    def save(self):
+        """Persist graph to pickle file."""
+        self.persist_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.persist_path, "wb") as f:
+            pickle.dump(self.graph, f)
 
-        try:
-            self.conn.execute("""
-                CREATE REL TABLE IF NOT EXISTS MACRO_CALLS (
-                    FROM Partition TO Partition,
-                    macro_name STRING
-                )
-            """)
-        except Exception:
-            pass
-
-    def write_partitions(self, partitions: list) -> int:
-        """Insert partition nodes into Kuzu."""
-        written = 0
+    def add_partitions(self, partitions: list) -> int:
+        """Add partition nodes to the NetworkX graph."""
+        added = 0
         for p in partitions:
+            pid = str(p.partition_id)
             try:
-                self.conn.execute(
-                    """
-                    MERGE (n:Partition {partition_id: $pid})
-                    SET n.partition_type = $ptype,
-                        n.risk_level = $risk,
-                        n.complexity_score = $score,
-                        n.file_id = $fid,
-                        n.scc_id = $scc
-                    """,
-                    {
-                        "pid": str(p.partition_id),
-                        "ptype": p.partition_type.value,
-                        "risk": p.risk_level.value,
-                        "score": p.complexity_score,
-                        "fid": str(p.source_file_id),
-                        "scc": getattr(p, 'scc_id', None) or "",
-                    }
+                self.graph.add_node(
+                    pid,
+                    partition_type=p.partition_type.value,
+                    risk_level=p.risk_level.value,
+                    complexity_score=p.complexity_score,
+                    file_id=str(p.source_file_id),
+                    scc_id=getattr(p, 'scc_id', None) or "",
                 )
-                written += 1
+                added += 1
             except Exception as e:
-                logger.warning("kuzu_node_write_error",
-                               partition_id=str(p.partition_id),
+                logger.warning("graph_node_add_error",
+                               partition_id=pid,
                                error=str(e))
-        return written
+        self.save()
+        return added
 
-    def write_edges(self, dag) -> int:
-        """Write DAG edges to Kuzu relationship tables."""
-        written = 0
+    def add_edges(self, dag) -> int:
+        """Add DAG edges to the NetworkX graph."""
+        added = 0
         for src, tgt, data in dag.edges(data=True):
             dep_type = data.get("dep_type", "dataset")
             try:
                 if dep_type == "macro_call":
-                    self.conn.execute(
-                        """
-                        MATCH (a:Partition {partition_id: $src}),
-                              (b:Partition {partition_id: $tgt})
-                        CREATE (a)-[:MACRO_CALLS {macro_name: $name}]->(b)
-                        """,
-                        {"src": src, "tgt": tgt,
-                         "name": data.get("macro_name", "")}
+                    self.graph.add_edge(
+                        src, tgt,
+                        edge_type="MACRO_CALLS",
+                        macro_name=data.get("macro_name", ""),
                     )
                 else:
-                    self.conn.execute(
-                        """
-                        MATCH (a:Partition {partition_id: $src}),
-                              (b:Partition {partition_id: $tgt})
-                        CREATE (a)-[:DEPENDS_ON {dep_type: $dtype}]->(b)
-                        """,
-                        {"src": src, "tgt": tgt, "dtype": dep_type}
+                    self.graph.add_edge(
+                        src, tgt,
+                        edge_type="DEPENDS_ON",
+                        dep_type=dep_type,
                     )
-                written += 1
+                added += 1
             except Exception as e:
-                logger.warning("kuzu_edge_write_error",
+                logger.warning("graph_edge_add_error",
                                src=src, tgt=tgt, error=str(e))
-        return written
+        self.save()
+        return added
 
     def query_dependencies(
         self,
         partition_id: str,
         max_hop: int = 3,
     ) -> list[dict]:
-        """Multi-hop dependency query via Cypher."""
-        result = self.conn.execute(
-            f"""
-            MATCH (a:Partition {{partition_id: $pid}})-[*1..{max_hop}]->(b:Partition)
-            RETURN b.partition_id, b.partition_type, b.risk_level, b.scc_id
-            """,
-            {"pid": partition_id}
-        )
+        """Multi-hop dependency traversal via nx.descendants bounded by hop cap."""
+        if partition_id not in self.graph:
+            return []
+        # BFS bounded by max_hop
+        visited = set()
+        current_level = {partition_id}
+        for _ in range(max_hop):
+            next_level = set()
+            for node in current_level:
+                for succ in self.graph.successors(node):
+                    if succ not in visited and succ != partition_id:
+                        visited.add(succ)
+                        next_level.add(succ)
+            current_level = next_level
+            if not current_level:
+                break
         rows = []
-        while result.has_next():
-            row = result.get_next()
+        for nid in visited:
+            attrs = self.graph.nodes[nid]
             rows.append({
-                "partition_id": row[0],
-                "partition_type": row[1],
-                "risk_level": row[2],
-                "scc_id": row[3],
+                "partition_id": nid,
+                "partition_type": attrs.get("partition_type", ""),
+                "risk_level": attrs.get("risk_level", ""),
+                "scc_id": attrs.get("scc_id", ""),
             })
         return rows
 
     def query_scc_members(self, scc_id: str) -> list[str]:
         """Get all partitions in an SCC group."""
-        result = self.conn.execute(
-            """
-            MATCH (n:Partition {scc_id: $scc})
-            RETURN n.partition_id
-            """,
-            {"scc": scc_id}
-        )
-        members = []
-        while result.has_next():
-            members.append(result.get_next()[0])
-        return members
+        return [
+            nid for nid, attrs in self.graph.nodes(data=True)
+            if attrs.get("scc_id") == scc_id
+        ]
 
     def count_nodes(self) -> int:
-        result = self.conn.execute("MATCH (n:Partition) RETURN count(n)")
-        return result.get_next()[0] if result.has_next() else 0
+        return self.graph.number_of_nodes()
 
     def count_edges(self) -> int:
-        r1 = self.conn.execute("MATCH ()-[r:DEPENDS_ON]->() RETURN count(r)")
-        r2 = self.conn.execute("MATCH ()-[r:MACRO_CALLS]->() RETURN count(r)")
-        c1 = r1.get_next()[0] if r1.has_next() else 0
-        c2 = r2.get_next()[0] if r2.has_next() else 0
-        return c1 + c2
+        return self.graph.number_of_edges()
 ```
 
-**Install Kuzu**:
-```bash
-pip install kuzu
-```
+**NetworkX is already a dependency** (used by IndexAgent for DAG + SCC). No extra install needed.
 
 ---
 
@@ -834,7 +788,7 @@ class ProjectConfigManager:
             yaml.dump(self._config, f, default_flow_style=False)
 
     def set_max_hop(self, max_hop: int):
-        """Set the dynamic hop cap for Kuzu queries."""
+        """Set the dynamic hop cap for NetworkX traversals."""
         self._config['graph'] = self._config.get('graph', {})
         self._config['graph']['max_hop'] = max_hop
         self.save()
@@ -991,13 +945,13 @@ def _mock_partition(content_hash="test_hash"):
 
 - [ ] `partition/persistence/persistence_agent.py` — PersistenceAgent (#10)
 - [ ] `partition/index/index_agent.py` — IndexAgent (#11) with 3 stages
-- [ ] `partition/index/kuzu_writer.py` — Kuzu graph writer with DEPENDS_ON + MACRO_CALLS
+- [ ] `partition/index/graph_builder.py` — NetworkX graph builder with DEPENDS_ON + MACRO_CALLS
 - [ ] `partition/db/duckdb_manager.py` — All 7 DuckDB tables initialized
 - [ ] `partition/config/config_manager.py` — Dynamic hop cap in YAML
 - [ ] SQLite tables: file_registry, partition_ir, cross_file_deps, conversion_results, merged_scripts
 - [ ] SCC detection works on injected circular deps (≥ 90% accuracy)
 - [ ] Condensed DAG is acyclic (assert `nx.is_directed_acyclic_graph()`)
-- [ ] Kuzu multi-hop query returns correct results on test DAG
+- [ ] NetworkX multi-hop traversal returns correct results on test DAG
 - [ ] Dedup: running pipeline twice produces same row count
 - [ ] Parquet fallback triggers for batches ≥ 10,000
 - [ ] Dynamic hop cap stored in `config/project_config.yaml`
@@ -1011,11 +965,11 @@ def _mock_partition(content_hash="test_hash"):
 | Metric | Target | How to Measure |
 |--------|--------|----------------|
 | Dedup correctness | unique hashes = total rows | Run twice, compare counts |
-| Index completeness | Kuzu nodes = SQLite partition count | Query both |
+| Index completeness | NetworkX nodes = SQLite partition count | Query both |
 | SCC detection accuracy | ≥ 90% | 10 synthetic circular dep scenarios |
 | SCC false positive rate | ≤ 2% | Verify no single-node SCCs reported |
-| Kuzu multi-hop query correctness | ≥ 95% | 10 hardcoded DAG scenarios |
-| Kuzu query latency (p50) | ≤ 200 ms | `tests/test_index_agent.py` timing |
+| NetworkX multi-hop traversal correctness | ≥ 95% | 10 hardcoded DAG scenarios |
+| NetworkX traversal latency (p50) | ≤ 200 ms | `tests/test_index_agent.py` timing |
 | Checkpoint resume correctness | block count after resume = expected | Crash simulation test |
 
 ---
@@ -1024,8 +978,7 @@ def _mock_partition(content_hash="test_hash"):
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| kuzu | ≥ 0.3 | Embedded graph database (Cypher) |
-| networkx | ≥ 3.1 | DAG + SCC + topological sort |
+| networkx | ≥ 3.1 | DAG + SCC + topological sort + graph persistence |
 | sqlalchemy | ≥ 2.0 | ORM for SQLite/PostgreSQL |
 | pyyaml | ≥ 6.0 | Project config file |
 | duckdb | ≥ 0.9 | Analytics tables (extended) |
@@ -1036,13 +989,13 @@ def _mock_partition(content_hash="test_hash"):
 
 | Pitfall | How to Avoid |
 |---------|-------------|
-| Kuzu `CREATE REL TABLE` fails if node table missing | Always create node tables first |
+| NetworkX `add_edge()` with missing source/target node | Nodes are auto-created; ensure `add_partitions()` is called first for complete attributes |
 | `nx.condensation` returns an integer-indexed graph | Map condensation node IDs back to partition sets via `condensation[node]['members']` |
 | SQLite `INSERT OR IGNORE` silently skips — you won't see errors | Check `written` count vs input count; log discrepancies |
-| Kuzu Cypher `MERGE` syntax differs slightly from Neo4j | Test Cypher queries against Kuzu docs, not Neo4j tutorials |
+| NetworkX pickle files are not human-readable | Use `nx.write_graphml()` for debugging; pickle for production speed |
 | SCC on an already-acyclic graph returns N single-node SCCs | Filter: only report SCCs with `len(scc) > 1` |
 | `nx.dag_longest_path_length` crashes on graphs with cycles | Always call on the condensed (acyclic) graph, not the original |
 
 ---
 
-> *Week 7 Complete → You have: 11 agents, full persistence layer (SQLite + LanceDB + Kuzu + DuckDB), SCC detection, dependency graph. P1 infrastructure done! Next: Orchestration (Week 8).*
+> *Week 7 Complete → You have: 11 agents, full persistence layer (SQLite + LanceDB + NetworkX + DuckDB), SCC detection, dependency graph. P1 infrastructure done! Next: Orchestration (Week 8).*

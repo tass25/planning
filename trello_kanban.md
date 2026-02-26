@@ -1,0 +1,224 @@
+# Tableau Trello Détaillé : SAS → Python Partition Layer
+
+Voici la structure exacte à créer dans Trello. 
+Chaque **Liste** représente une étape ou un statut. 
+Dans chaque Liste, il y a plusieurs **Cartes**. 
+Chaque Carte contient sa **Description**, ses **Pièces jointes / Liens**, et sa **Checklist**.
+
+---
+
+## Liste 1 : DONE (Semaines 1-3)
+
+### Carte 1.1 : Infrastructure & Documentation Initiale
+* **Description :** Mise en place du socle du projet, des environnements virtuels, et des documents d'architecture fondateurs (v1.2).
+* **Pièces jointes / Liens :**
+  - `README.md`
+  - `architecture_v2.html`
+  - `cahier_des_charges.tex`
+  - `UML_DIAGRAMS.html`
+* **Checklist :**
+  - [x] Initialiser `.gitignore`, `requirements.txt`, et `venv`
+  - [x] Rédiger et valider l'architecture globale v2
+  - [x] Créer les 6 diagrammes UML interactifs
+  - [x] Mettre à jour le cahier des charges (v1.2)
+
+### Carte 1.2 : Composants d'Entrée (L2-A : Entry & Scan)
+* **Description :** Développement des agents responsables de l'analyse initiale des fichiers `.sas`, de la résolution des dépendances inter-fichiers, et de l'extraction du lignage des données.
+* **Pièces jointes / Liens :**
+  - `partition/entry/`
+  - `partition/db/sqlite_manager.py`
+* **Checklist :**
+  - [x] Implémenter `BaseAgent` avec log structuré (structlog)
+  - [x] Créer `FileAnalysisAgent` (pré-validation Lark LALR, détection d'encodage)
+  - [x] Créer `CrossFileDependencyResolver` (regex `%INCLUDE` et `LIBNAME`)
+  - [x] Créer `RegistryWriterAgent` (Dédoublonnage SHA-256 via SQLite)
+  - [x] Développer `DataLineageExtractor` (Regex de lignage `SET`, `MERGE`, etc.)
+
+### Carte 1.3 : Création du Corpus "Gold Standard"
+* **Description :** Construction d'un jeu de données de référence certifié pour évaluer l'exactitude du pipeline sur 721 sous-blocs de code.
+* **Pièces jointes / Liens :**
+  - `knowledge_base/gold_standard/`
+* **Checklist :**
+  - [x] Créer ~15 fichiers SAS "Simples" (préfixe `gs_`)
+  - [x] Créer ~20 fichiers SAS "Moyens" (préfixe `gsm_`)
+  - [x] Créer ~15 fichiers SAS "Complexes/Entreprise" (préfixe `gsh_`)
+  - [x] Annoter rigoureusement 721 blocs dans les fichiers `.gold.json` correspondants
+
+### Carte 1.4 : Moteur de Flux (L2-B : Streaming Core)
+* **Description :** Implémentation de la lecture asynchrone performante et de la machine à états finis pour pré-découper les blocs.
+* **Pièces jointes / Liens :**
+  - `partition/streaming/`
+* **Checklist :**
+  - [x] Développer `StreamAgent` avec file d'attente (maxsize=200) et lecture par chunks de 8KB
+  - [x] Développer `StateAgent` (FSM, tracking du nesting depth et de la pile macro)
+  - [x] Valider les performances (10K lignes traitées en < 5s)
+  - [x] Profiler la mémoire (Pic RAM < 100MB garanti)
+
+---
+
+## Liste 2 : SPRINT EN COURS (Semaines 3-4)
+
+### Carte 2.1 : Synchronisation du Git
+* **Description :** Réconcilier les travaux effectués sur la branche `Planning` vers la branche principale `main` avant d'avancer sur le ML.
+* **Pièces jointes / Liens :**
+  - GitHub PR / Branch diff `main..Planning`
+* **Checklist :**
+  - [ ] Merger la branche `Planning` dans `main`
+  - [ ] Nettoyer les anciens tests (`test_streaming.py` diffs)
+
+### Carte 2.2 : Détection Fine des Frontières (L2-C : RAPTOR Chunking)
+* **Description :** Détection hyper-précise des blocs sémantiques. Le but est de créer les "feuilles" de notre futur arbre RAPTOR.
+* **Pièces jointes / Liens :**
+  - `partition/chunking/boundary_detector_agent.py`
+  - Grammar File: `sas.lark`
+* **Checklist :**
+  - [ ] Coder `BoundaryDetectorAgent` (80% des cas gérés via règles/Lark LALR)
+  - [ ] Mettre en place la résolution LLM (Llama 3.1 8B local) pour les cas ambigus (20%)
+  - [ ] Ajouter une protection sur le budget tokens (`tiktoken`)
+  - [ ] Implémenter `PartitionBuilderAgent` (Classification en 9 `PartitionTypes` canoniques)
+
+### Carte 2.3 : Validation des Frontières (Benchmarking)
+* **Description :** Validation QA de la détection de frontières contre le Gold Standard.
+* **Pièces jointes / Liens :**
+  - `tests/regression/test_boundary_accuracy.py`
+* **Checklist :**
+  - [ ] Écrire les tests unitaires `test_boundary_detector.py`
+  - [ ] Lancer le script de benchmark complet
+  - [ ] **Objectif KPI :** Atteindre >90% de précision sur les 721 blocs du Gold Standard
+
+---
+
+## Liste 3 : BACKLOG - Core Machine Learning (Semaines 4-6)
+
+### Carte 3.1 : Modélisation de la Complexité (L2-D)
+* **Description :** Attribution d'un score de risque dynamique (LOW/MOD/HIGH) pour diriger le type de RAG à utiliser en aval.
+* **Pièces jointes / Liens :**
+  - `partition/complexity/complexity_agent.py`
+  - `models/complexity_model.pkl`
+* **Checklist :**
+  - [ ] Extraire 5 features analytiques via `ComplexityAgent` (incluant Cyclomatic Complexity `radon`)
+  - [ ] Entraîner le classifieur Machine Learning (Logistic Regression sklearn)
+  - [ ] Étalonner via Platt Scaling (Cible: Expected Calibration Error < 0.08)
+  - [ ] Développer `StrategyAgent` pour tagger le `risk_level`
+
+### Carte 3.2 : Base Sémantique & Embeddings (L2-C suite)
+* **Description :** Vectorisation des blocs isolés.
+* **Pièces jointes / Liens :**
+  - `partition/raptor/embedder.py`
+* **Checklist :**
+  - [ ] Intégrer le modèle `Nomic Embed v1.5` en local
+  - [ ] Générer les vecteurs sémantiques 768-dim pour chaque noeud feuille
+  - [ ] Mettre en cache les vecteurs pour éviter la re-computation
+
+### Carte 3.3 : Regroupement GMM et Arbre RAPTOR (L2-C suite)
+* **Description :** Le cœur académique (basé sur Sarthi et al, ICLR 24) : construction d'un arbre résumé récursif.
+* **Pièces jointes / Liens :**
+  - Rapport académique: arXiv:2401.18059
+  - `partition/raptor/tree_builder.py`
+* **Checklist :**
+  - [ ] Développer l'algo GMM Clustering (sélection auto de K via minimisation BIC, seuil τ=0.72)
+  - [ ] Programmer `ClusterSummarizer` (Appel principal Groq Llama 70B, fallback Ollama)
+  - [ ] Gérer la profondeur dynamique de l'arbre (`depth=5` si forte densité macro, sinon `3`)
+  - [ ] Boucler la création de l'arbre jusqu'à convergence (BIC delta < 0.01)
+
+---
+
+## Liste 4 : BACKLOG - Graphes & Base de Connaissances (Semaines 7-9)
+
+### Carte 4.1 : Indexation et Graphe de Dépendances (L2-E)
+* **Description :** Construction d'un graphe mathématique des fichiers pour comprendre le contexte d'exécution macro / appel inter-fichiers.
+* **Pièces jointes / Liens :**
+  - `partition/index/index_agent.py`
+  - NetworkX Graph documentation
+* **Checklist :**
+  - [ ] Construire le DiGraph NetworkX (arêtes `DEPENDS_ON` et `MACRO_CALLS`)
+  - [ ] Implémenter l'alerte et condensation des SCC (cycles d'inclusion infinis)
+  - [ ] Paramétrer dynamiquement le Hop Cap (`nx.dag_longest_path_length`)
+
+### Carte 4.2 : Orchestration, Audit et Persistance
+* **Description :** Le contrôleur principal LangGraph qui pilote l'ensemble du pipeline L2, L3, L4.
+* **Pièces jointes / Liens :**
+  - `partition/orchestration/orchestrator.py`
+  - Bases DB (DuckDB, LanceDB, Parquet)
+* **Checklist :**
+  - [ ] Établir la machine à état principale LangGraph (`CROSS_FILE_RESOLVE`, `TRANSLATING`, `MERGING`)
+  - [ ] Déployer `PersistenceAgent` (formats finaux: SQLite / Postgres / Parquet)
+  - [ ] Sécuriser la tolérance aux pannes via Redis (Checkpoints tous les 50 blocs, TTL 24h)
+  - [ ] Initialiser l'audit LLM intégral dans DuckDB
+
+### Carte 4.3 : Base de Connaissances Vectorielle Initiale (KB)
+* **Description :** Génération synthétique cross-validée d'exemples de traduction SAS vers Python par LLM (Sans besoin d'expert SAS).
+* **Pièces jointes / Liens :**
+  - `scripts/generate_pairs.py`
+  - `knowledge_base/`
+* **Checklist :**
+  - [ ] Exécuter le pipeline Dual-LLM (Prompt A génération SAS, B génération Python, C vérification)
+  - [ ] Valider et stocker les 250 premières paires expertes dans la base vectorielle LanceDB
+
+---
+
+## Liste 5 : BACKLOG - Traduction & Assemblage (Semaines 10-11)
+
+### Carte 5.1 : Le Moteur de Traduction (Layer 3)
+* **Description :** Traduction des partitions SAS vers Python/PySpark en utilisant les vecteurs RAPTOR et le niveau de risque.
+* **Pièces jointes / Liens :**
+  - `partition/translation/translation_agent.py`
+* **Checklist :**
+  - [ ] Implémenter le switch de 3 paradigmes: Static RAG (Low risk), GraphRAG (Cycles/Deps), Agentic RAG (High risk)
+  - [ ] Coder la détection fine des motifs d'erreur historiques (RETAIN, MERGE, FIRST./LAST., Date Arithmetic)
+  - [ ] Activer les retries automatiques si la cross-validation échoue
+
+### Carte 5.2 : Validation Isolée "Sandbox" (Layer 3 suite)
+* **Description :** Vérification mathématique et logique de chaque traduction Python générée, sans affecter le système hôte.
+* **Pièces jointes / Liens :**
+  - `partition/translation/validation_agent.py`
+* **Checklist :**
+  - [ ] Créer l'environnement `exec()` isolé
+  - [ ] Générer dynamiquement des DataFrames de 100 lignes fictives
+  - [ ] Vérifier automatiquement : absence d'exceptions Python, présence colonnes cibles, limites counts de merge (Timeout: 5s max)
+
+### Carte 5.3 : Fusion des Fichiers et Reporting (Layer 4)
+* **Description :** Ré-assemblage des centaines de partitions traduites en fichiers source `.py` finaux, épurés et syntaxiquement justes.
+* **Pièces jointes / Liens :**
+  - `partition/merge/`
+  - Rapports Markdown/HTML (CodeBLEU)
+* **Checklist :**
+  - [ ] Développer `ImportConsolidator` (Formatage PEP8, suppression des doublons d'imports)
+  - [ ] Activer `DependencyInjector` pour relier les alias SAS aux variables Python
+  - [ ] Compléter `ScriptMerger` avec barrière stricte `ast.parse()` (stubs #TODO si erreur)
+  - [ ] Finir `ReportAgent` : statistiques succès/échecs, rapport CodeBLEU, métriques d'audit
+
+---
+
+## Liste 6 : BACKLOG - Finitions, Évaluations & Démo (Semaines 12-14)
+
+### Carte 6.1 : Boucle d'Apprentissage Continu (CL)
+* **Description :** Mécanismes de surveillance en production et correction automatique de la base vectorielle experte.
+* **Pièces jointes / Liens :**
+  - `partition/retraining/`
+* **Checklist :**
+  - [ ] Autoriser les corrections CLI via `FeedbackIngestionAgent`
+  - [ ] Coder `ConversionQualityMonitor` surveillant les taux de succès LLM en temps réel
+  - [ ] Coder `RetrainingTrigger` qui déclenche un réentraînement sklearn (Drift ECE) en fond
+
+### Carte 6.2 : Étude d'Ablation Scientifique
+* **Description :** Mesure des gains réels de la méthode RAPTOR contre une méthode de partitionnement basique.
+* **Pièces jointes / Liens :**
+  - `benchmark/ablation_runner.py`
+  - `docs/ablation_plots/`
+* **Checklist :**
+  - [ ] Lancer les tests finaux: RAPTOR vs Flat Partitioning (721 blocs * 10 queries chacun)
+  - [ ] Générer et packager les graphiques : `hit_rate_by_complexity.png`, distribution des latences Python
+  - [ ] Vérifier les exigences de thèse : Hit-Rate RAPTOR >82% et ECE Modèle <0.08
+
+### Carte 6.3 : Livrables pour Soutenance
+* **Description :** Package des efforts fournis durant le stage, supports de présentation.
+* **Pièces jointes / Liens :**
+  - `docs/defense_slides.pptx`
+  - `docs/demo_video.mp4`
+  - Fichiers Docker
+* **Checklist :**
+  - [ ] Obtenir les 330 paires d'exemples expertes finales en Base (LanceDB)
+  - [ ] Créer le bundle de distribution `Dockerfile` et `docker-compose.yml`
+  - [ ] Produire les slides de présentation
+  - [ ] Enregistrer la vidéo End-to-End démontrant que 1 code SAS est converti en Python, et exécuté sans faille.

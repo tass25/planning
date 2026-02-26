@@ -183,13 +183,116 @@ An AI-powered, agentic SAS-to-Python conversion accelerator combining:
 \textbf{Component} & \textbf{Description} \\
 \midrule
 Semantic partitioning & RAPTOR-inspired hierarchical clustering (Sarthi et al., ICLR 2024) instead of flat keyword splitting. \\
-KB-augmented translation & Retrieve verified SAS$\to$Python/PySpark pairs as few-shot context, especially for failure modes. \\
+KB-augmented translation & Three RAG paradigms: Static RAG (simple blocks, fixed $k$), GraphRAG (dependency-aware, NetworkX context), Agentic RAG (autonomous retrieval: adaptive $k$, query reformulation, level escalation, retrieval retry). \\
 Calibrated QA & Cross-verification by second LLM call; quality metrics tracked to detect drift. \\
 Structured reconstruction & Merged in execution order with consolidated imports, resolved variables, syntax validation. \\
 Continuous learning & Corrections feed back into the KB automatically. \\
 \bottomrule
 \end{tabularx}
 \end{table}
+
+\subsection{Three RAG Paradigms}
+
+The system uses three distinct retrieval-augmented generation strategies, each triggered by different conditions. This is not a single RAG pattern — each paradigm has its own retrieval policy, context construction, and escalation behavior.
+
+\subsubsection{Static RAG — Simple Blocks}
+
+\begin{infobox}[When: LOW risk, simple partition types (DATA\_STEP, PROC\_SQL, assignment)]
+Fixed retrieval: \texttt{KBQueryClient.query\_similar(k=3)}. No failure mode filtering, no graph context. Retrieved pairs injected as few-shot context. LLM: Ollama 8B. No cross-verification, no retry. Fastest path.
+\end{infobox}
+
+\begin{table}[H]
+\centering
+\caption{Static RAG Pipeline}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} c l X @{}}
+\toprule
+\textbf{Step} & \textbf{Action} & \textbf{Details} \\
+\midrule
+1 & Fixed retrieval & \texttt{query\_similar(k=3, level="leaf")}. No query reformulation. \\
+2 & Inject & 3 SAS$\to$Python pairs as few-shot context. \\
+3 & Generate & Ollama 8B, single pass. \\
+4 & Accept & Output directly to L4 merge (no cross-verify). \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{GraphRAG — Dependency-Aware Blocks}
+
+\begin{infobox}[When: Partition has cross-file dependencies, is part of an SCC group, or uses macros defined elsewhere]
+Before querying the KB, the agent traverses the NetworkX dependency graph to collect \emph{structural context}: upstream partition translations (already converted), downstream consumers, and SCC siblings. This graph context is injected alongside KB pairs, giving the LLM visibility into the dependency chain.
+\end{infobox}
+
+\begin{table}[H]
+\centering
+\caption{GraphRAG Pipeline}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} c l X @{}}
+\toprule
+\textbf{Step} & \textbf{Action} & \textbf{Details} \\
+\midrule
+1 & Graph traversal & \texttt{nx.ancestors(G, partition\_id)} bounded by hop cap $\to$ collect upstream translations. \\
+2 & SCC context & If \texttt{scc\_id} set: gather all sibling partitions in the same cycle. \\
+3 & KB retrieval & \texttt{query\_similar(k=5, level="cluster", failure\_mode=...)}. Cluster level for macro families. \\
+4 & Context merge & Graph context (upstream translations) $+$ KB pairs $+$ failure mode tags $\to$ combined prompt. \\
+5 & Generate & Groq 70B (complexity warrants stronger model). \\
+6 & Cross-verify & Second LLM call checks equivalence. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Agentic RAG — Complex / High-Risk Blocks}
+
+\begin{infobox}[When: MOD/HIGH risk, or any failure mode detected, or cross-verify fails on first attempt]
+The agent \emph{autonomously controls the retrieval strategy}. It decides: (1) whether to retrieve at all, (2) how many results ($k$ adaptive), (3) which RAPTOR level to query, (4) whether to reformulate the query on failure, and (5) whether to escalate to graph-augmented context. Retrieval is retried — not just generation.
+\end{infobox}
+
+\begin{table}[H]
+\centering
+\caption{Agentic RAG Pipeline — Autonomous Retrieval Loop}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} c l X @{}}
+\toprule
+\textbf{Step} & \textbf{Action} & \textbf{Details} \\
+\midrule
+1 & Decide whether to retrieve & UNCERTAIN $\to$ skip KB, emit stub. Otherwise proceed. \\
+2 & Adaptive $k$ & Risk-driven: MOD $\to$ $k{=}5$, HIGH $\to$ $k{=}8$. \\
+3 & Initial retrieval & \texttt{query\_similar(k, level="leaf", failure\_mode=detected\_mode)}. \\
+4 & Generate & Groq 70B with failure mode tags $+$ KB pairs. \\
+5 & Cross-verify & Second LLM checks equivalence. \\
+6 & \textbf{Retrieval retry} (if cross-verify fails) & Reformulate query: append failure mode $+$ error description. \\
+7 & Escalate $k$ and level & $k \mathrel{+}= 3$, switch \texttt{level="cluster"}. Re-retrieve. \\
+8 & Re-generate & New context from escalated retrieval. \\
+9 & Final escalation & If still failing: \texttt{level="root"} $+$ \texttt{nx.ancestors()} graph context (becomes GraphRAG+Agentic). \\
+10 & Accept or PARTIAL & Pass $\to$ L4. All retries exhausted $\to$ mark PARTIAL, log for human review. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{RAG Paradigm Selection Summary}
+
+\begin{table}[H]
+\centering
+\caption{When Each RAG Paradigm Is Used}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} l l l l l @{}}
+\toprule
+\textbf{Paradigm} & \textbf{Trigger} & \textbf{Retrieval $k$} & \textbf{RAPTOR Level} & \textbf{Retry Strategy} \\
+\midrule
+Static RAG & LOW risk, no deps & 3 (fixed) & Leaf & None \\
+GraphRAG & Cross-file deps / SCC & 5 (fixed) & Cluster & Generation only \\
+Agentic RAG & MOD/HIGH risk or failure & 5$\to$8$\to$11 (adaptive) & Leaf$\to$Cluster$\to$Root & Retrieval + generation \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{infobox}[Key Distinction]
+\textbf{Static RAG}: fixed retrieve $+$ generate. \textbf{GraphRAG}: graph-structured context injected before generation. \textbf{Agentic RAG}: the agent autonomously controls retrieval decisions — adaptive $k$, query reformulation, RAPTOR level escalation, and retrieval retry (not just generation retry). The three paradigms are complementary, selected per partition by StrategyAgent based on risk level and dependency structure.
+\end{infobox}
 
 
 % ══════════════════════════════════════════════════════════════
@@ -474,7 +577,7 @@ $$\text{Composite score} = 0.30 f_1 + 0.25 f_2 + 0.20 f_3 + 0.15 f_4 + 0.10 f_5 
 \midrule
 PersistenceAgent & IR storage & SQLite (dev, $<10$K blocks), PostgreSQL (prod), Parquet ($\geq 10$K blocks). \\
 RAPTORWriter & Vector index & All \texttt{RAPTORNode} objects $\to$ LanceDB (cosine IVF, 32 partitions). \\
-IndexAgent & Dependency graph & NetworkX DAG $\to$ SCC condensation $\to$ Kuzu graph. Dynamic hop cap: $\min(\text{longest\_path}, 10)$. \\
+IndexAgent & Dependency graph & NetworkX DAG $\to$ SCC condensation $\to$ NetworkX DiGraph. Dynamic hop cap: $\min(\text{longest\_path}, 10)$. \\
 RedisCheckpoint & Fault tolerance & Every 50 blocks, TTL 24h. Resume from highest checkpoint on restart. \\
 \bottomrule
 \end{tabularx}
@@ -488,7 +591,7 @@ RedisCheckpoint & Fault tolerance & Every 50 blocks, TTL 24h. Resume from highes
 
 \begin{table}[H]
 \centering
-\caption{TranslationAgent Pipeline}
+\caption{TranslationAgent Pipeline (Unified --- Paradigm Selected Per Partition)}
 \renewcommand{\arraystretch}{1.3}
 \small
 \begin{tabularx}{\textwidth}{@{} c L{3cm} X @{}}
@@ -497,11 +600,12 @@ RedisCheckpoint & Fault tolerance & Every 50 blocks, TTL 24h. Resume from highes
 \midrule
 1 & SCC batching & Group partitions with same \texttt{scc\_id}, translate together. \\
 2 & Failure mode detection & Rule-based scan for 6 failure modes (no LLM). \\
-3 & KB retrieval & \texttt{KBQueryClient.query\_similar(k=5, failure\_mode=..., target\_runtime=...)}. \\
-4 & LLM routing & LOW $\to$ Ollama 8B; MOD/HIGH $\to$ Groq 70B; UNCERTAIN $\to$ stub. Target: Python or PySpark. \\
-5 & Cross-verification & Prompt C: second LLM call checks equivalence (MOD/HIGH only). \\
-6 & Retry & If confidence $< 0.75$: retry with issues appended (max 2). \\
-7 & Output & \texttt{ConversionResult} with status, confidence, model used, failure mode, \texttt{target\_runtime}. \\
+3 & RAG paradigm selection & StrategyAgent risk + dependency structure $\to$ Static / GraphRAG / Agentic RAG. \\
+4 & Retrieval & Paradigm-dependent: fixed $k{=}3$ (Static), graph context $+$ $k{=}5$ (GraphRAG), or adaptive $k$ with level escalation (Agentic). \\
+5 & LLM routing & LOW $\to$ Ollama 8B; MOD/HIGH $\to$ Groq 70B; UNCERTAIN $\to$ stub. \\
+6 & Cross-verification & Second LLM call checks equivalence (GraphRAG and Agentic only). \\
+7 & Retry loop & Agentic: retrieval retry (reformulate + escalate $k$ + switch RAPTOR level). Others: generation retry only. \\
+8 & Output & \texttt{ConversionResult} with status, confidence, RAG paradigm used, model, failure mode. \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -693,7 +797,7 @@ DuckDB & \texttt{llm\_audit}, \texttt{calibration\_log}, \texttt{ablation\_resul
 \addlinespace
 LanceDB & \texttt{raptor\_nodes}, \texttt{sas\_python\_examples} & Vector tables with cosine IVF indexes (32 and 64 partitions). \\
 \addlinespace
-Kuzu & \texttt{Partition} nodes, \texttt{DEPENDS\_ON} rels, \texttt{MACRO\_CALLS} rels & Embedded property graph. Cypher queries with dynamic hop cap. \\
+NetworkX & \texttt{Partition} nodes, \texttt{DEPENDS\_ON} edges, \texttt{MACRO\_CALLS} edges & In-memory DiGraph. Multi-hop traversal with dynamic hop cap. \\
 \addlinespace
 Redis & Checkpoint keys & TTL 24h. \texttt{partition:\{file\_id\}:checkpoint:\{block\}}. Fault tolerance only. \\
 \bottomrule
@@ -718,8 +822,7 @@ LLM (light) & Llama 3.1 8B / Ollama & GPT-4o, Mistral 7B & \$0 cost; better code
 LLM (heavy) & Llama 3.1 70B / Groq & Claude API, local 70B & Free tier; 40+\,GB VRAM not available on student machine \\
 Embedding & Nomic Embed v1.5 & ada-002, MiniLM, bge-large & 768-dim, MTEB 62.39, Apache 2.0, fully local \\
 Vector store & LanceDB & FAISS, Pinecone, ChromaDB & Persistent, filtered search, embedded, Apache 2.0 \\
-Graph DB & Kuzu & Neo4j, ArangoDB & Apache 2.0, embedded, zero-ops, full Cypher \\
-Graph algos & NetworkX & igraph, CuGraph & Simplest API for SCC + topo sort; fast enough ($<100$\,ms on 10K nodes) \\
+Graph library & NetworkX & igraph, CuGraph & BSD, pure Python, in-memory, SCC + topo sort + traversal; fast enough ($<100$\,ms on 10K nodes) \\
 Parser & Lark (LALR) & ANTLR4, regex, PLY & Handles nested structures; pure Python; no Java runtime \\
 Complexity & Radon & Manual AST walk & CC computation out of box; supplemented with 4 custom features \\
 ML model & sklearn LR + Platt & XGBoost, PyTorch & 500 examples / 5 features $\to$ LR optimal; interpretable; calibrated \\
@@ -761,7 +864,7 @@ Logging & structlog & stdlib logging, Loguru & JSON structured output, trace\_id
 9 & ComplexityAgent & L2-D & 5-feature extraction, composite score \\
 10 & StrategyAgent & L2-D & sklearn LR prediction, risk\_level, strategy \\
 11 & PersistenceAgent & L2-E & IR write to SQLite / Postgres / Parquet \\
-12 & IndexAgent & L2-E & NetworkX DAG + SCC condensation + Kuzu write \\
+12 & IndexAgent & L2-E & NetworkX DAG + SCC condensation + graph build \\
 13 & TranslationAgent & L3 & SAS$\to$Python/PySpark conversion + KB + cross-verify \\
 14 & ValidationAgent & L3 & Post-translation exec test on synthetic DataFrame \\
 15 & ReportAgent & L4 & Markdown/HTML conversion report generation \\
@@ -787,7 +890,7 @@ RAPTOR (embed) & CUDA OOM & 2 & clear+retry & flat\_partition fallback \\
 TranslationAgent & Groq 429/timeout & 3 & exp, 2s & Ollama 70B $\to$ PARTIAL \\
 ValidationAgent & Exec timeout/OOM & 2 & reset+retry & Skip validation, log warning \\
 ReportAgent & Template render fail & 1 & immediate & Plain-text fallback report \\
-IndexAgent & Kuzu write fail & 2 & WAL rollback & Log + skip \\
+IndexAgent & Graph build fail & 2 & Error handling & Log + skip \\
 RedisCheckpoint & Connection refused & 1 & immediate & Degraded mode, continue \\
 \bottomrule
 \end{tabularx}
@@ -858,7 +961,7 @@ Streaming throughput & $\geq 50$K lines/s & 500K-line file must stream in $< 10$
 Peak memory (streaming) & $\leq 100$ MB & Validates backpressure design. \\
 \texttt{block\_type} accuracy & $\geq 0.95$ & Primary input to BoundaryDetector. \\
 Nesting depth accuracy & $\geq 0.90$ & Feature in ComplexityAgent. \\
-Macro stack accuracy & $\geq 0.90$ & Drives MACRO\_CALLS edges in Kuzu. \\
+Macro stack accuracy & $\geq 0.90$ & Drives MACRO\_CALLS edges in NetworkX graph. \\
 StateAgent latency (p99) & $\leq 1$ ms & Hot path — cannot block streaming. \\
 \bottomrule
 \end{tabularx}
@@ -934,10 +1037,10 @@ Strategy accuracy & $\geq 0.80$ & Wrong strategy $\to$ wrong retrieval mode in L
 \textbf{Metric} & \textbf{Target} & \textbf{Why} \\
 \midrule
 Dedup correctness & $= 1.00$ & Duplicates corrupt the index. \\
-Index completeness & $= 1.00$ & Every SQLite partition must exist in Kuzu. \\
+Index completeness & $= 1.00$ & Every SQLite partition must exist in NetworkX graph. \\
 SCC detection accuracy & $\geq 0.90$ & Undetected cycle $\to$ wrong translation context. \\
 SCC false positive rate & $\leq 0.02$ & Groups unrelated partitions. \\
-Kuzu multi-hop correctness & $\geq 0.95$ & DEPENDS\_ON traversal must be accurate. \\
+NetworkX multi-hop correctness & $\geq 0.95$ & DEPENDS\_ON traversal must be accurate. \\
 Checkpoint resume correctness & $= 1.00$ & No double-counting after crash. \\
 Redis degraded mode & Boolean & Pipeline must complete without Redis. \\
 \bottomrule
@@ -1048,7 +1151,7 @@ L2-C & RAPTOR hit-rate@5 & $\geq 0.82$ & — \\
 L2-C & RAPTOR vs flat advantage & $\geq 0.10$ & — \\
 L2-D & ECE & $\leq 0.08$ & — \\
 L2-D & Macro F1 & $\geq 0.75$ & — \\
-L2-E & Kuzu completeness & $1.00$ & — \\
+L2-E & NetworkX completeness & $1.00$ & — \\
 L2-E & SCC detection accuracy & $\geq 0.90$ & — \\
 L3 & CodeBLEU & $\geq 0.55$ & — \\
 L3 & Differential test pass rate & $\geq 0.60$ & — \\
@@ -1066,6 +1169,96 @@ CL & CodeBLEU improvement & $\geq 0.02$ & — \\
 \begin{infobox}[For the Defense]
 Fill in the \textbf{Achieved} column at Week 13. This table provides a single-page view of the entire evaluation evidence, with every claim backed by a number.
 \end{infobox}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{Formal Correctness Contract}
+% ══════════════════════════════════════════════════════════════
+
+The system defines correctness through three mechanisms: \textbf{layer-level invariants} (properties that must always hold), \textbf{per-agent pre/post-conditions} (input/output contracts), and \textbf{composition guarantees} (if layer $n$ satisfies its postcondition, layer $n{+}1$'s precondition is met).
+
+\subsection{System-Level Invariants}
+
+\begin{table}[H]
+\centering
+\caption{System-Level Invariants — Properties That Must Always Hold}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} c L{3.2cm} X l @{}}
+\toprule
+\textbf{ID} & \textbf{Invariant} & \textbf{Formal Statement} & \textbf{Verified By} \\
+\midrule
+I1 & No data loss & $|\text{partitions in SQLite}| = |\text{blocks emitted by StreamAgent}|$ (modulo dedup) & Dedup correctness $= 1.00$ \\
+I2 & Graph completeness & $\forall p \in \text{SQLite}: p \in \text{NetworkX graph}$ & Index completeness $= 1.00$ \\
+I3 & Cycle safety & The condensed DAG is acyclic: \texttt{nx.is\_directed\_acyclic\_graph(condensed) = True} & SCC detection $\geq 0.90$ \\
+I4 & Idempotency & Running the pipeline twice on the same input produces the same row count & SHA-256 dedup + \texttt{INSERT OR IGNORE} \\
+I5 & Crash recovery & $|\text{blocks after resume}| = |\text{expected blocks}|$, no double-counting & Checkpoint resume $= 1.00$ \\
+I6 & Trace linkage & Every LLM call has a \texttt{trace\_id} linking it back to the originating partition & DuckDB \texttt{llm\_audit} table \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Per-Layer Pre/Post-Conditions}
+
+\begin{table}[H]
+\centering
+\caption{Agent Pre/Post-Conditions — Input/Output Contracts}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} l L{4.5cm} L{4.5cm} @{}}
+\toprule
+\textbf{Layer / Agent} & \textbf{Precondition (Input Contract)} & \textbf{Postcondition (Output Contract)} \\
+\midrule
+L2-A FileAnalysis & Path exists, file is readable, encoding detectable & \texttt{file\_registry} row with SHA-256 hash, encoding, line count \\
+L2-A CrossFileDeps & \texttt{file\_registry} populated for all project files & \texttt{cross\_file\_deps} table with resolved $\geq 85\%$ of references \\
+L2-B StreamAgent & Valid file path in registry, encoding known & Ordered stream of \texttt{(line\_number, raw\_line)} tuples, $\leq 100$ MB peak memory \\
+L2-B StateAgent & Receives lines in order & Per-line FSM state: \texttt{block\_type} ($\geq 0.95$ accuracy), \texttt{nesting\_depth}, \texttt{macro\_stack} \\
+L2-C Boundary & Stream of lines with state annotations & \texttt{PartitionIR[]} with correct boundaries ($\geq 0.90$ accuracy on 721-block benchmark) \\
+L2-C RAPTOR & \texttt{PartitionIR[]} with $\geq 1$ partition & RAPTOR tree in LanceDB: leaf, cluster, and root levels. Hit-rate@5 $\geq 0.82$ \\
+L2-D Complexity & \texttt{PartitionIR} with \texttt{raw\_code} & 5 features extracted, \texttt{complexity\_score}, \texttt{risk\_level}, \texttt{strategy}. ECE $\leq 0.08$ \\
+L2-E Persistence & \texttt{PartitionIR[]} with all fields populated & Rows in SQLite (deduped). \texttt{content\_hash} unique constraint holds \\
+L2-E IndexAgent & \texttt{PartitionIR[]} $+$ \texttt{cross\_file\_deps} & NetworkX DiGraph with all partitions as nodes, dependency edges. SCC groups labeled \\
+L3 Translation & \texttt{PartitionIR} $+$ KB (330+ pairs) $+$ risk level & \texttt{ConversionResult}: Python/PySpark code, status, confidence. CodeBLEU $\geq 0.55$ \\
+L3 Validation & Generated Python/PySpark code & Execution test: no exceptions, expected columns present, row count plausible \\
+L4 Merge & Ordered \texttt{ConversionResult[]} per file & Single syntactically valid Python/PySpark script. Syntax validity $\geq 0.95$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Composition Guarantee}
+
+\begin{infobox}[Formal Composition Rule]
+For any two consecutive agents $A_i$ and $A_{i+1}$: if $A_i$'s postcondition is satisfied, then $A_{i+1}$'s precondition is guaranteed to hold. This is enforced by:
+\begin{enumerate}[nosep]
+    \item \textbf{Typed intermediate representations}: \texttt{PartitionIR}, \texttt{ConversionResult}, \texttt{RAPTORNode} are dataclasses with required fields — missing fields raise \texttt{ValidationError} before the next agent runs.
+    \item \textbf{Schema enforcement}: SQLite tables have \texttt{NOT NULL} constraints; LanceDB vectors are dimension-checked ($= 768$); NetworkX nodes require \texttt{partition\_id}.
+    \item \textbf{Quality gates}: Each agent's postcondition includes a quantitative target. If the target is not met, the retry policy activates (up to $n$ retries with fallback). If all retries fail, the block is marked \texttt{PARTIAL} or \texttt{FAILED} — it is \emph{never silently dropped}.
+    \item \textbf{Monotonic progress}: Redis checkpoints guarantee that on crash recovery, no block is processed twice and no block is skipped. The invariant $|\text{output}| = |\text{input}|$ holds across restarts.
+\end{enumerate}
+\end{infobox}
+
+\subsection{Correctness Evidence at Defense}
+
+At defense, the following artifacts collectively prove the correctness contract:
+
+\begin{table}[H]
+\centering
+\caption{Correctness Evidence Mapping}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} L{3.5cm} L{4cm} X @{}}
+\toprule
+\textbf{Contract Element} & \textbf{Evidence} & \textbf{How Shown} \\
+\midrule
+Invariants I1--I6 & Automated test suite & \texttt{pytest} output: all 6 invariant tests pass \\
+Preconditions & Type-checked dataclasses & \texttt{PartitionIR} with Pydantic-style validation \\
+Postconditions & Per-layer metric targets & Evaluation Summary Table (filled at Week 13) \\
+Composition & End-to-end smoke test & 10 benchmark files through full pipeline, no block lost \\
+RAG paradigm loop & LLM audit log + retry trace & DuckDB query showing paradigm selection $\to$ retrieve $\to$ generate $\to$ cross-verify $\to$ retrieval retry chain \\
+Idempotency & Double-run comparison & Row count identical after two identical runs \\
+\bottomrule
+\end{tabularx}
+\end{table}
 
 
 % ══════════════════════════════════════════════════════════════
@@ -1133,7 +1326,7 @@ RAPTOR ablation null result & LOW & MED & Document honestly as negative result. 
 GMM diverges on large files & MED & HIGH & Fallback to flat\_partition after 3 failures. \\
 14-week timeline slips & HIGH & MED & Sunday velocity tracking. Cut: ablation depth $\to$ paper draft $\to$ Docker. Never cut translation \& merge. \\
 ECE remains $> 0.08$ & MED & LOW & Relabel 100 more examples. Fallback: threshold-based routing. \\
-Kuzu installation fails & LOW & MED & Fallback: NetworkX-only. Multi-hop via \texttt{nx.ancestors()}. \\
+No longer applicable (NetworkX is pure Python) & — & — & NetworkX has no install issues; pure Python, pip-installable. \\
 KB pair quality too low & MED & HIGH & Increase cross-verifier retries to 3. Human review queue for categories $< 0.80$ avg confidence. \\
 SCC false positives & LOW & LOW & Review \texttt{scc\_id} distribution. Threshold: only warn if SCC size $> 3$. \\
 \bottomrule
@@ -1187,7 +1380,7 @@ Continuous learning & \cmark & Feedback ingestion + quality monitor + retrain \\
 Quantitative evaluation & \cmark & Boundary + RAPTOR + ECE + CodeBLEU + success rate \\
 Differential testing & \cmark & 45\% coverage, 6 edge case categories \\
 Agent count discipline & \cmark & 16 agents (4 L2-A + 2 L2-B + 3 L2-C + 2 L2-D + 2 L2-E + TranslationAgent + ValidationAgent + ReportAgent); helpers are functions \\
-Dependency graph (multi-file) & \cmark & Kuzu + NetworkX + SCC + cross\_file\_deps \\
+Dependency graph (multi-file) & \cmark & NetworkX DiGraph + SCC + cross\_file\_deps \\
 LLM audit logging & \cmark & DuckDB \texttt{llm\_audit} with \texttt{trace\_id} \\
 Timeline feasibility & \cmark & 14 weeks, P0–P3 priorities, fallback cuts \\
 \bottomrule
@@ -1235,7 +1428,7 @@ Continuous learning & \texttt{partition/retraining/} & \texttt{test\_continuous\
 50-file gold corpus & \texttt{knowledge\_base/gold\_standard/} & \texttt{ls *.gold.json} \\
 500 labeled training examples & \texttt{benchmark/} & \texttt{wc -l $\geq$ 500} \\
 RAPTOR tree (50+ files) & \texttt{lancedb\_data/raptor\_nodes} & LanceDB table count \\
-Kuzu dependency graph & \texttt{partition\_graph/} & \texttt{du -sh > 0} \\
+NetworkX dependency graph & \texttt{partition\_graph.gpickle} & \texttt{ls -la > 0} \\
 Ablation results & \texttt{ablation.db} & $\geq 500$ rows \\
 \bottomrule
 \end{tabularx}

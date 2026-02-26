@@ -46,7 +46,7 @@ def with_retry(
     - TranslationAgent (Groq): 3 retries, base 2s → Ollama → PARTIAL
     - ValidationAgent (exec): 2 retries → skip validation
     - ReportAgent: 1 retry → plain-text fallback
-    - IndexAgent (Kuzu): 2 retries → log + skip
+    - IndexAgent (NetworkX): 2 retries → log + skip
     - RedisCheckpoint: 1 retry → degraded mode
     """
     def decorator(func):
@@ -220,12 +220,12 @@ class RAPTORPartitionAgent(BaseAgent):
     async def _embed_with_retry(self, texts):
         return self.embedder.embed_batch(texts)
 
-# In partition/index/kuzu_writer.py
-class KuzuGraphWriter:
+# In partition/index/graph_builder.py
+class NetworkXGraphBuilder:
     @with_retry(max_retries=2, base_delay=1.0,
                 agent_name="IndexAgent")
     async def _write_with_retry(self, partition):
-        # Kuzu write with WAL rollback
+        # NetworkX graph build with error handling
         pass
 ```
 

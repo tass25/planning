@@ -273,14 +273,14 @@ flowchart TB
     PA["#12 PersistenceAgent\nSQLite / Postgres / Parquet"]
     RW["RAPTORWriter → LanceDB"]
     IA["#13 IndexAgent\nNetworkX + SCC condensation\n+ dag_longest_path_length hop cap"]
-    KUZU[("Kuzu Graph\nDEPENDS_ON + MACRO_CALLS + scc_id")]
+    NXG[("NetworkX Graph\nDEPENDS_ON + MACRO_CALLS + scc_id")]
     RC["RedisCheckpoint\nevery 50 blocks · TTL 24h"]
     PA & RW & IA & RC
-    IA --> KUZU
+    IA --> NXG
   end
 
   subgraph L3["Layer 3 · Translation + Validation"]
-    TA["#14 TranslationAgent\nfailure_mode detection + KB query\n8B/70B routing + cross-verify\ntarget: Python | PySpark"]
+    TA["#14 TranslationAgent\n3 RAG paradigms: Static · GraphRAG · Agentic\n8B/70B routing + cross-verify\ntarget: Python | PySpark"]
     VA["#15 ValidationAgent\nexec() on synthetic 100-row DataFrame\nsandboxed namespace · 5s timeout"]
     CR[("conversion_results table")]
     TA --> VA --> CR
@@ -380,8 +380,8 @@ flowchart TB
         <tr><td>10</td><td><code>ComplexityAgent</code></td><td>L2-D</td><td>PartitionIR</td><td>risk scores</td><td>radon CC, 5 features, sklearn LR</td><td><span class="status planned">Week 4</span></td></tr>
         <tr><td>11</td><td><code>StrategyAgent</code></td><td>L2-D</td><td>risk scores</td><td>PartitionStrategy</td><td>Threshold routing, Platt calibration</td><td><span class="status planned">Week 4</span></td></tr>
         <tr><td>12</td><td><code>PersistenceAgent</code></td><td>L2-E</td><td>PartitionIR[]</td><td>DB rows</td><td>SQLite / Postgres / Parquet</td><td><span class="status planned">Week 7</span></td></tr>
-        <tr><td>13</td><td><code>IndexAgent</code></td><td>L2-E</td><td>deps graph</td><td>Kuzu graph</td><td>NetworkX SCC, dag_longest_path</td><td><span class="status planned">Week 7</span></td></tr>
-        <tr><td>14</td><td><code>TranslationAgent</code></td><td>L3</td><td>PartitionIR + KB</td><td>Python/PySpark code</td><td>8B/70B routing, failure-mode KB</td><td><span class="status planned">Week 10</span></td></tr>
+        <tr><td>13</td><td><code>IndexAgent</code></td><td>L2-E</td><td>deps graph</td><td>NetworkX graph</td><td>NetworkX SCC, dag_longest_path</td><td><span class="status planned">Week 7</span></td></tr>
+        <tr><td>14</td><td><code>TranslationAgent</code></td><td>L3</td><td>PartitionIR + KB + Graph</td><td>Python/PySpark code + rag_paradigm</td><td>3 RAG paradigms (Static / GraphRAG / Agentic), adaptive k, RAPTOR level escalation</td><td><span class="status planned">Week 10</span></td></tr>
         <tr><td>15</td><td><code>ValidationAgent</code></td><td>L3</td><td>generated code</td><td>pass/fail</td><td>exec() sandbox, synthetic DataFrames</td><td><span class="status planned">Week 10</span></td></tr>
         <tr><td>16</td><td><code>ReportAgent</code></td><td>L4</td><td>conversion results</td><td>reports</td><td>Markdown/HTML, CodeBLEU</td><td><span class="status planned">Week 11</span></td></tr>
       </tbody>
@@ -564,7 +564,7 @@ flowchart TB
 <div class="section">
   <div class="section-label">Section 06</div>
   <h2><span class="num">6</span> IndexAgent — SCC Condensation + Dynamic Hop Cap</h2>
-  <p>Enterprise SAS projects often have circular <code>%INCLUDE</code> chains (A includes B includes C includes A). Standard DAG algorithms fail on cycles. The IndexAgent collapses them into super-nodes via Strongly Connected Component (SCC) condensation before writing to Kuzu.</p>
+  <p>Enterprise SAS projects often have circular <code>%INCLUDE</code> chains (A includes B includes C includes A). Standard DAG algorithms fail on cycles. The IndexAgent collapses them into super-nodes via Strongly Connected Component (SCC) condensation using NetworkX.</p>
 
   <div class="diagram-card">
     <div class="diagram-header">
@@ -589,7 +589,7 @@ flowchart TB
     CYCLE_CHK{"SCC size\n> 1?"}
     SCC_ID["assign scc_id to members\ne.g. scc_0001"]
     LOG_CYCLE["log warning:\ncycle_detected + members list"]
-    CONDENSE["nx.condensation(dag)\nreplace each SCC with super-node\nguarantees acyclic for Kuzu queries"]
+    CONDENSE["nx.condensation(dag)\nreplace each SCC with super-node\nguarantees acyclic graph"]
     SCC_FIND --> CYCLE_CHK
     CYCLE_CHK -->|yes| SCC_ID --> LOG_CYCLE --> CONDENSE
     CYCLE_CHK -->|no| CONDENSE
@@ -598,15 +598,15 @@ flowchart TB
   subgraph HOP["Dynamic Hop Cap"]
     LONGEST["nx.dag_longest_path_length(condensed)\nlongest dependency chain"]
     CAP["min(longest, 10)\nstore in config/project_config.yaml"]
-    CYPHER["all Kuzu queries use\nMATCH (a)-[*1..{cap}]->(b)"]
-    LONGEST --> CAP --> CYPHER
+    QUERY["all graph queries use\nnx.ancestors / nx.descendants\nbounded by hop cap"]
+    LONGEST --> CAP --> QUERY
   end
 
-  subgraph KUZU_W["Kuzu Write"]
-    NODE_W["CREATE Partition nodes\npartition_id, type, risk_level, scc_id"]
-    REL_DEP["CREATE DEPENDS_ON rels\ndep_type: dataset | libref | join_input"]
-    REL_MAC["CREATE MACRO_CALLS rels\nmacro_name property"]
-    REL_DATA["CREATE DATA_FLOW rels\nsource_dataset → target_dataset"]
+  subgraph NX_W["NetworkX Graph Build"]
+    NODE_W["Add Partition nodes\npartition_id, type, risk_level, scc_id"]
+    REL_DEP["Add DEPENDS_ON edges\ndep_type: dataset | libref | join_input"]
+    REL_MAC["Add MACRO_CALLS edges\nmacro_name attribute"]
+    REL_DATA["Add DATA_FLOW edges\nsource_dataset → target_dataset"]
     NODE_W --> REL_DEP & REL_MAC & REL_DATA
   end
 
@@ -623,14 +623,14 @@ flowchart TB
   style BUILD fill:#1a1535,stroke:#7c5cfc,color:#e2e8f0
   style SCC fill:#200f0f,stroke:#ef4444,color:#e2e8f0
   style HOP fill:#1a2035,stroke:#4f9eff,color:#e2e8f0
-  style KUZU_W fill:#1a1535,stroke:#7c5cfc,color:#e2e8f0
+  style NX_W fill:#1a1535,stroke:#7c5cfc,color:#e2e8f0
   style PATCH fill:#1a1e2a,stroke:#252a38,color:#64748b
       </div>
     </div>
   </div>
 
   <div class="callout">
-    <strong>Why this matters for translation:</strong> Partitions in the same SCC (same <code>scc_id</code>) form a circular dependency and must be translated together, not independently. Layer 3's TranslationAgent checks <code>scc_id</code> and groups same-SCC partitions into a single translation batch, providing all members as context to the LLM simultaneously.
+    <strong>Why this matters for translation:</strong> Partitions in the same SCC (same <code>scc_id</code>) form a circular dependency and must be translated together, not independently. Layer 3's TranslationAgent detects SCC membership and automatically routes these partitions to <strong>GraphRAG</strong>, which gathers all SCC siblings and upstream translations as context. If the block is also MOD/HIGH risk, GraphRAG is combined with <strong>Agentic RAG</strong> for adaptive retrieval control.
   </div>
 </div>
 
@@ -755,7 +755,7 @@ flowchart TB
         <tr>
           <td>Graph store</td>
           <td class="bad">Neo4j (GPL, server ops required)</td>
-          <td class="good">Kuzu (Apache 2.0, embedded, zero ops)</td>
+          <td class="good">NetworkX (BSD, pure Python, in-memory)</td>
           <td>Setup 0 vs 2 hours</td>
         </tr>
         <tr>
@@ -947,24 +947,56 @@ flowchart TB
   subgraph L3["Layer 3 · TranslationAgent + ValidationAgent"]
     SCC_CHK["group same scc_id partitions\ntranslate together as batch"]
     FM_DET["detect failure_mode\nRETAIN · MERGE · DATE · FIRST_LAST · MISSING · PROC_MEANS"]
-    KB_Q["KBQueryClient.query_similar()\nk=5 + failure_mode filter\n+ target_runtime filter"]
-    ROUTE{"risk_level\nrouting"}
-    LLM_8B["Ollama Llama 8B\nLOW risk blocks"]
-    LLM_70B["Groq Llama 70B\nMODERATE / HIGH blocks\ntemp=0.1 for HIGH"]
+    RAG_SEL{"RAG paradigm\nselection"}
+
+    subgraph STATIC["Static RAG"]
+      S_KB["KB query k=3\nleaf level only"]
+      S_LLM["Ollama 8B\nsingle-pass gen"]
+    end
+
+    subgraph GRAPH["GraphRAG"]
+      G_NX["nx.ancestors()\ncollect upstream translations\n+ SCC siblings"]
+      G_KB["KB query k=5\ncluster level"]
+      G_LLM["Groq 70B\ngraph context + KB pairs"]
+      G_VERIFY["cross-verify"]
+      G_RETRY["generation retry × 2"]
+    end
+
+    subgraph AGENTIC["Agentic RAG"]
+      A_DECIDE{"retrieve?"}
+      A_KB["KB query adaptive k\n5 → 8 → 11"]
+      A_LLM["Groq 70B\ntemp=0.1"]
+      A_VERIFY["cross-verify"]
+      A_REFORM["query reformulation\n+ RAPTOR escalation\nleaf → cluster → root"]
+      A_GRAPH["final: root + nx.ancestors()"]
+      A_STUB["PARTIAL stub\nhuman review"]
+    end
+
     HR["HUMAN_REVIEW\nskip LLM → stub"]
-    VERIFY["Prompt C cross-verify\nMODERATE + HIGH only"]
-    RETRY_T["retry × 2 with issues"]
+
     VA_D["ValidationAgent\nexec() synthetic 100-row DataFrame\nsandboxed namespace · 5s timeout\ncheck: columns, dates, merge bounds"]
     VA_ROUTE{"validation\nresult"}
-    CR_OUT[("conversion_results\nstatus · llm_confidence\nfailure_mode_flagged · model_used\ntarget_runtime · validation_result")]
-    SCC_CHK --> FM_DET --> KB_Q --> ROUTE
-    ROUTE -->|LOW| LLM_8B
-    ROUTE -->|MOD/HIGH| LLM_70B
-    ROUTE -->|UNCERTAIN| HR
-    LLM_8B & LLM_70B --> VERIFY
-    VERIFY -->|fail| RETRY_T --> VERIFY
-    VERIFY --> VA_D
+    CR_OUT[("conversion_results\nstatus · llm_confidence\nfailure_mode_flagged · model_used\ntarget_runtime · rag_paradigm\nvalidation_result")]
+
+    SCC_CHK --> FM_DET --> RAG_SEL
+
+    RAG_SEL -->|"LOW, no deps"| S_KB --> S_LLM --> VA_D
+
+    RAG_SEL -->|"has deps / SCC"| G_NX --> G_KB --> G_LLM --> G_VERIFY
+    G_VERIFY -->|fail| G_RETRY --> G_VERIFY
+    G_VERIFY -->|pass| VA_D
+
+    RAG_SEL -->|"MOD/HIGH, no deps"| A_DECIDE
+    A_DECIDE -->|yes| A_KB --> A_LLM --> A_VERIFY
+    A_DECIDE -->|uncertain| A_STUB
+    A_VERIFY -->|fail| A_REFORM --> A_KB
+    A_REFORM -->|"all retries exhausted"| A_GRAPH --> A_LLM
+    A_VERIFY -->|pass| VA_D
+
+    RAG_SEL -->|UNCERTAIN| HR
+
     HR --> CR_OUT
+    A_STUB --> CR_OUT
     VA_D --> VA_ROUTE
     VA_ROUTE -->|pass| CR_OUT
     VA_ROUTE -->|"fail, retries&lt;2"| FM_DET
@@ -1067,7 +1099,7 @@ flowchart LR
         <tr><td>3–4</td><td>L2-C: BoundaryDetector + LLM resolver. 721-block benchmark &gt;90%.</td><td class="good">P0</td><td>Lark LALR grammar · 80/20 rule/LLM split · 9 partition types · test_coverage_type</td><td><span class="status planned">Planned</span></td></tr>
         <tr><td>4</td><td>L2-D: ComplexityAgent + StrategyAgent. ECE &lt;0.08. RAPTOR models.</td><td class="good">P0</td><td>radon CC features · sklearn LR · Platt calibration · RAPTORNode.summary_tier</td><td><span class="status planned">Planned</span></td></tr>
         <tr><td>5–6</td><td>L2-C: Nomic Embed + GMM (k=√N, τ=0.72) + ClusterSummarizer + cache</td><td class="warn">P1</td><td>BIC convergence ε=0.01 · tiktoken guard · summary_tier · hash cache</td><td><span class="status planned">Planned</span></td></tr>
-        <tr><td>7</td><td>L2-E: Persistence + Kuzu + SCC condensation + dynamic hop cap</td><td class="warn">P1</td><td>SCC condensation · dag_longest_path_length · DuckDB schemas</td><td><span class="status planned">Planned</span></td></tr>
+        <tr><td>7</td><td>L2-E: Persistence + NetworkX graph + SCC condensation + dynamic hop cap</td><td class="warn">P1</td><td>SCC condensation · dag_longest_path_length · DuckDB schemas</td><td><span class="status planned">Planned</span></td></tr>
         <tr><td>8</td><td>Orchestration + Redis + CROSS_FILE_RESOLVE state + LLM audit</td><td class="warn">P1</td><td>LangGraph StateGraph · DuckDB audit tables · Redis checkpoints</td><td><span class="status planned">Planned</span></td></tr>
         <tr><td>9</td><td>Robustness + Large file (RAPTOR on HIGH only &gt;100MB) + KB gen start (250 pairs)</td><td class="muted">P2</td><td>PYTORCH_CUDA_ALLOC_CONF · RAPTOR 20% large files · 250 KB pairs</td><td><span class="status planned">Planned</span></td></tr>
         <tr><td>10</td><td>Translation Layer (L3) + ValidationAgent + KB expand to 250 pairs</td><td class="muted">P2</td><td>TranslationAgent · ValidationAgent · failure_mode routing · cross-verify chain</td><td><span class="status planned">Planned</span></td></tr>
@@ -1107,7 +1139,7 @@ flowchart LR
         <tr><td>Embeddings</td><td>Nomic Embed v1.5</td><td>—</td><td>768-dim local embeddings for RAPTOR</td></tr>
         <tr><td>LLM (local)</td><td>Ollama + Llama 3.1 8B</td><td>—</td><td>Ambiguous boundary resolution (20%)</td></tr>
         <tr><td>LLM (cloud)</td><td>Groq + Llama 70B</td><td>—</td><td>Cluster summaries, KB generation</td></tr>
-        <tr><td>Graph</td><td>Kuzu</td><td>—</td><td>Dependency graph (Apache 2.0, embedded)</td></tr>
+        <tr><td>Graph</td><td>NetworkX</td><td>≥ 3.0</td><td>Dependency graph (BSD, in-memory, SCC + topo sort)</td></tr>
         <tr><td>Vector DB</td><td>LanceDB</td><td>—</td><td>KB storage, RAPTOR node storage</td></tr>
         <tr><td>Analytics DB</td><td>DuckDB</td><td>—</td><td>Audit logs, ablation data, quality metrics</td></tr>
         <tr><td>Cache</td><td>Redis</td><td>—</td><td>Checkpoints every 50 blocks, TTL 24h</td></tr>
@@ -1139,7 +1171,7 @@ flowchart LR
         <tr><td>Code Review (Side-by-Side)</td><td>Monaco editor with SAS on left, Python/PySpark on right. Line-linked scrolling.</td><td>Syntax highlighting, diff markers</td></tr>
         <tr><td>Optimization Suggestions</td><td>Per-block suggestions: "file <code>AA.py</code> line X–Y can be optimized to…" with accept/reject buttons.</td><td>Inline code diff, one-click accept</td></tr>
         <tr><td>Suggestion History</td><td>Track all accepted/rejected suggestions per conversion session.</td><td>Filter by file, block, suggestion type</td></tr>
-        <tr><td>Dependency Graph Viewer</td><td>Interactive graph of cross-file dependencies (Kuzu data visualized with D3.js or vis.js).</td><td>Click-to-navigate, highlight SCC clusters</td></tr>
+        <tr><td>Dependency Graph Viewer</td><td>Interactive graph of cross-file dependencies (NetworkX data visualized with D3.js or vis.js).</td><td>Click-to-navigate, highlight SCC clusters</td></tr>
         <tr><td>Data Lineage Viewer</td><td>Table-level lineage flow: which datasets are read/written by each block.</td><td>Sankey diagram, search by dataset name</td></tr>
         <tr><td>Report Download</td><td>Download conversion report as HTML/PDF with CodeBLEU scores, validation results, and optimization decisions.</td><td>One-click export, embedded charts</td></tr>
       </tbody>

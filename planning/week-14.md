@@ -268,7 +268,7 @@ nomic>=1.0
 # Databases
 lancedb>=0.5
 duckdb>=0.9
-kuzu>=0.3
+networkx>=3.0
 
 # ML / Evaluation
 scikit-learn>=1.3
@@ -484,7 +484,7 @@ def main():
     ))
 
     results.append(check(
-        "Kuzu graph data",
+        "NetworkX graph data",
         Path("partition_graph").is_dir(),
     ))
 

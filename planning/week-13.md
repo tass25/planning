@@ -34,7 +34,7 @@ Prepare the PFE defense deliverables: a 20-slide presentation and a 3–5 minute
 | 11 | Translation Layer (L3) | Failure-mode-aware prompting, 3-tier LLM fallback, ValidationAgent sandbox | 30s |
 | 12 | Merge Layer (L4) + ReportAgent | ImportConsolidator, DependencyInjector, ScriptMerger, structured report output | 20s |
 | 13 | Continuous Learning | FeedbackIngestion, QualityMonitor, 4 retraining triggers | 20s |
-| 14 | Technology Stack | Table with key choices: Ollama/Groq, LanceDB, Kuzu, DuckDB, Nomic Embed | 20s |
+| 14 | Technology Stack | Table with key choices: Ollama/Groq, LanceDB, NetworkX, DuckDB, Nomic Embed | 20s |
 | 15 | Evaluation: Boundary Accuracy | Table + confusion matrix from gold standard. Target vs achieved | 30s |
 | 16 | Evaluation: RAPTOR Ablation | Bar chart from Week 12 (hit-rate by complexity). RAPTOR vs flat advantage | 40s |
 | 17 | Evaluation: Translation Quality | success_rate, ECE, CodeBLEU. Quality metrics table (target vs achieved) | 30s |
@@ -67,7 +67,7 @@ Use the Mermaid diagram from architecture_v2.html, rendered as PNG.
 Annotate with:
 - 16 agents across 6 layers
 - 3 LLM tiers (local 8B, Groq 70B, heuristic fallback)
-- 5 storage systems (SQLite, DuckDB, LanceDB, Kuzu, Redis)
+- 4 storage systems (SQLite, DuckDB, LanceDB, Redis) + NetworkX graph
 - RAPTOR hierarchical tree
 
 Command to render Mermaid to PNG:
@@ -205,7 +205,7 @@ print(f'KB pairs: {len(t.to_pandas())}')
 - Terminal open with project root
 - Sample SAS file ready: `benchmark/etl_customer.sas` (20–30 lines, covers 3+ construct types)
 - Ollama running: `ollama serve`
-- All DBs populated (LanceDB, DuckDB, SQLite, Kuzu)
+- All DBs populated (LanceDB, DuckDB, SQLite) + NetworkX graph built
 
 ## Recording Flow
 
@@ -524,7 +524,7 @@ scripts/
 | 2 | "How do you handle SAS macros?" | MACRO_BASIC + MACRO_CONDITIONAL categories in KB. Nested macros up to depth 3 tested. ComplexityAgent flags HIGH for nested macros → Groq 70B. |
 | 3 | "What if RAPTOR doesn't help?" | Honest ablation study. If null result: document clustering threshold, propose 1,000+ pairs. Flat retrieval still works as fallback. |
 | 4 | "How confident are you in the calibration?" | ECE < 0.08 on held-out 20%. Platt scaling + reliability diagram. If ECE drifts > 0.12, automatic retraining triggers. |
-| 5 | "Can this scale to 10,000 files?" | StreamAgent + Redis checkpoints + SHA-256 dedup enable restart. DuckDB analytics scale to millions of rows. Kuzu graph handles cross-file deps. |
+| 5 | "Can this scale to 10,000 files?" | StreamAgent + Redis checkpoints + SHA-256 dedup enable restart. DuckDB analytics scale to millions of rows. NetworkX graph handles cross-file deps. |
 | 6 | "What are the limitations?" | KB size (330, not 10,000). PySpark coverage (basic). No SAS runtime for differential testing. Single-developer timeline. |
 | 7 | "Why Nomic Embed over OpenAI embeddings?" | Free, local, 768-dim sufficient, Matryoshka support for dimension reduction. OpenAI = $0.0001/1K tokens, not free. |
 | 8 | "What's the failure rate?" | ~30% PARTIAL or HUMAN_REVIEW (target ≥70% success). DATE_ARITHMETIC and MERGE_SEMANTICS are hardest — addressed by failure-mode-aware prompting. |
