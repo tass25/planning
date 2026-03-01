@@ -1,17 +1,17 @@
-"""StateAgent (#5) — Pure-Python finite-state machine for SAS parsing.
+﻿"""StateAgent (#5)  Pure-Python finite-state machine for SAS parsing.
 
 Consumes ``LineChunk`` objects one at a time and maintains a ``ParsingState``
 snapshot that tracks:
 
-* Current block type (DATA_STEP, PROC_BLOCK, SQL_BLOCK, MACRO_DEFINITION, …)
+* Current block type (DATA_STEP, PROC_BLOCK, SQL_BLOCK, MACRO_DEFINITION, )
 * Block nesting depth (``%DO`` / ``%IF`` inside macros)
 * Macro call stack (push on ``%MACRO``, pop on ``%MEND``)
 * Variable scope (recently assigned variable names)
 * Active dependencies (``%INCLUDE`` / ``LIBNAME`` refs)
 * Block-comment and string-literal tracking
+* last_closed_block  records a block that opened AND closed in one chunk
 
-No LLM, no I/O, no network — pure regex + string checks.  Target: < 0.5 ms
-per line on a modern CPU.
+No LLM, no I/O, no network  pure regex + string checks.
 """
 
 from __future__ import annotations
@@ -22,137 +22,246 @@ from uuid import UUID
 from partition.base_agent import BaseAgent
 from partition.streaming.models import LineChunk, ParsingState
 
+# Block types that end via an explicit keyword (RUN/QUIT/%MEND/%END).
+_EXPLICIT_CLOSE = {"DATA_STEP", "PROC_BLOCK", "SQL_BLOCK", "MACRO_DEFINITION",
+                   "CONDITIONAL_BLOCK", "LOOP_BLOCK"}
+
+# Only these can be implicitly closed when a new top-level keyword arrives.
+# MACRO_DEFINITION, CONDITIONAL_BLOCK, LOOP_BLOCK are never implicitly closed —
+# they require their explicit terminator (%MEND / %END;).
+_IMPLICIT_CLOSEABLE = {"DATA_STEP", "PROC_BLOCK", "SQL_BLOCK"}
+
+# Top-level keywords that implicitly close any open implicit-closeable block.
+# GLOBAL_STATEMENT excluded so that %LET/%OPTIONS inside macros/DATA steps
+# do not prematurely close those blocks.
+_IMPLICIT_CLOSE_TRIGGERS = {
+    "DATA_STEP", "PROC_BLOCK", "SQL_BLOCK", "MACRO_DEFINITION",
+    "INCLUDE_REFERENCE",
+}
+
 
 class StateAgent(BaseAgent):
-    """SAS finite-state-machine agent.
-
-    Parameters:
-        trace_id: Optional UUID for distributed tracing.
-    """
+    """SAS finite-state-machine agent."""
 
     agent_name = "StateAgent"
 
-    # ---- compiled regexes (class-level for speed) ----
     DATA_START  = re.compile(r"^\s*DATA\s+", re.IGNORECASE)
     PROC_START  = re.compile(r"^\s*PROC\s+", re.IGNORECASE)
     PROC_SQL    = re.compile(r"^\s*PROC\s+SQL\b", re.IGNORECASE)
     MACRO_DEF   = re.compile(r"^\s*%MACRO\s+(\w+)", re.IGNORECASE)
     MACRO_END   = re.compile(r"^\s*%MEND\b", re.IGNORECASE)
-    MACRO_CALL  = re.compile(r"%(\w+)\s*\(", re.IGNORECASE)
+    MACRO_CALL  = re.compile(
+        r"%(?!MACRO\b|MEND\b|DO\b|END\b|IF\b|ELSE\b|LET\b|PUT\b|INCLUDE\b)(\w+)\s*[\(;]",
+        re.IGNORECASE,
+    )
     DO_START    = re.compile(r"%DO\b", re.IGNORECASE)
     IF_START    = re.compile(r"%IF\b", re.IGNORECASE)
     END_STMT    = re.compile(r"%END\b", re.IGNORECASE)
     RUN_STMT    = re.compile(r"^\s*RUN\s*;", re.IGNORECASE)
     QUIT_STMT   = re.compile(r"^\s*QUIT\s*;", re.IGNORECASE)
     INCLUDE     = re.compile(r"%INCLUDE\s+", re.IGNORECASE)
-    GLOBAL      = re.compile(
-        r"^\s*(OPTIONS|LIBNAME|FILENAME|TITLE)\b", re.IGNORECASE
-    )
+    GLOBAL      = re.compile(r"^\s*(OPTIONS|LIBNAME|FILENAME|TITLE|%LET)\b", re.IGNORECASE)
     COMMENT_S   = re.compile(r"/\*")
     COMMENT_E   = re.compile(r"\*/")
+    STRIP_COMMENT      = re.compile(r"/\*.*?\*/", re.DOTALL)
+    STRIP_STAR_COMMENT = re.compile(r"^\s*\*[^;]*;", re.MULTILINE)
     ASSIGN      = re.compile(r"\b(\w+)\s*=\s*")
+    # Macro flow-control blocks
+    DO_STMT     = re.compile(r"^\s*%DO\b", re.IGNORECASE)   # loop start
+    COND_IF     = re.compile(r"^\s*%IF\b", re.IGNORECASE)   # conditional start
+    END_BLOCK   = re.compile(r"%END\s*;", re.IGNORECASE)     # LOOP/COND close
 
     def __init__(self, trace_id: UUID | None = None):
         super().__init__(trace_id)
         self.state = ParsingState()
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
     async def process(self, chunk: LineChunk) -> ParsingState:  # type: ignore[override]
-        """Update and return the parsing state for *chunk*.
-
-        The returned ``ParsingState`` is *the same mutable object* held by
-        the agent — callers who need a snapshot should call
-        ``state.model_copy()`` immediately after.
-        """
+        """Update and return the parsing state for *chunk*."""
         line = chunk.content
+        line_num = chunk.line_number
 
-        # 1. Block-comment handling ──────────────────────────────────────
+        # Reset transient signal from previous chunk
+        self.state.last_closed_block = None
+
+        # First physical line of this chunk (before in_comment returns).
+        # Used for pending_block_start backtracking throughout this method.
+        chunk_start_early = max(1, line_num - line.count("\n"))
+
+        # 1. Block-comment handling
         if self.state.in_comment:
             if self.COMMENT_E.search(line):
                 self.state.in_comment = False
+            # Track start of comment region in IDLE for pending_block_start
+            if self.state.current_block_type in (None, "IDLE") and self.state.pending_block_start is None:
+                self.state.pending_block_start = chunk_start_early
             return self.state
 
         if self.COMMENT_S.search(line) and not self.COMMENT_E.search(line):
+            # Multi-line comment start: track for pending_block_start
+            if self.state.current_block_type in (None, "IDLE") and self.state.pending_block_start is None:
+                self.state.pending_block_start = chunk_start_early
             self.state.in_comment = True
             return self.state
 
-        # 2. Block transitions ──────────────────────────────────────────
-        if self.state.current_block_type in (None, "IDLE"):
-            self._detect_block_start(line, chunk.line_number)
-        else:
-            self._check_block_end(line)
+        # 2. Clean line for pattern matching
+        clean = self.STRIP_COMMENT.sub(" ", line)
+        clean = self.STRIP_STAR_COMMENT.sub(" ", clean).strip()
 
-        # 3. Nesting depth ─────────────────────────────────────────────
+        # First physical line of this (possibly multi-statement) chunk.
+        # Used to backtrack block starts/ends to include leading comments.
+        chunk_start = chunk_start_early
+
+        # 3. Block transitions
+        current_bt = self.state.current_block_type
+
+        if current_bt in (None, "IDLE"):
+            # Determine the chunk's first line — captures leading comments that
+            # were coalesced with the keyword into the same chunk.
+            # Update pending_block_start:
+            #   • blank / comment-only clean  → mark this chunk start
+            #   • chunk whose raw content starts with "/*" or "*" → also update
+            #   • other non-block lines         → reset (e.g. %let statements)
+            leads_with_comment = (
+                not clean.strip()
+                or line.lstrip().startswith("/*")
+                or line.lstrip().startswith("*")
+            )
+            if leads_with_comment:
+                if self.state.pending_block_start is None:
+                    self.state.pending_block_start = chunk_start
+                else:
+                    self.state.pending_block_start = min(self.state.pending_block_start, chunk_start)
+            else:
+                # Non-comment, non-block line — reset pending start
+                self.state.pending_block_start = None
+
+            self._detect_and_open(clean, line_num)
+            # Single-line block: check close in same chunk
+            if self.state.current_block_type not in (None, "IDLE"):
+                self._check_close(clean, line_num)
+        else:
+            # Implicit closure: new top-level keyword ends an open DATA/PROC/SQL block
+            # when no RUN;/QUIT; came (e.g. consecutive DATA steps).
+            # CONDITIONAL_BLOCK, LOOP_BLOCK are never implicitly closed —
+            # they contain inner DATA/PROC/SQL and close only on their %END;.
+            # MACRO_DEFINITION stays in _EXPLICIT_CLOSE so it IS implicitly closed
+            # by new top-level blocks (preserving gsh_01-style whole-body macros).
+            _IMPLICIT_CLOSE_SET = _EXPLICIT_CLOSE - {"CONDITIONAL_BLOCK", "LOOP_BLOCK"}
+            new_type = self._peek_block_type(clean)
+            if (
+                new_type is not None
+                and current_bt in _IMPLICIT_CLOSE_SET
+                and new_type in _IMPLICIT_CLOSE_TRIGGERS
+                and new_type != current_bt
+            ):
+                # Close the current block at chunk_start-1 so that leading
+                # comments of the incoming block are NOT included in the old block.
+                close_at = max(chunk_start - 1, self.state.block_start_line or line_num)
+                self._close_block(close_at)
+                # The new block's start should include the leading comment
+                # (chunk_start) rather than just the keyword line.
+                self.state.pending_block_start = chunk_start
+                self._detect_and_open(clean, line_num)
+                if self.state.current_block_type not in (None, "IDLE"):
+                    self._check_close(clean, line_num)
+            else:
+                self._check_close(clean, line_num)
+
+        # 4. Nesting depth
         if self.DO_START.search(line) or self.IF_START.search(line):
             self.state.nesting_depth += 1
         if self.END_STMT.search(line):
             self.state.nesting_depth = max(0, self.state.nesting_depth - 1)
 
-        # 4. Macro stack ───────────────────────────────────────────────
+        # 5. Macro stack
         m = self.MACRO_DEF.search(line)
         if m:
             self.state.macro_stack.append(m.group(1))
         if self.MACRO_END.search(line) and self.state.macro_stack:
             self.state.macro_stack.pop()
 
-        # 5. Dependency tracking ───────────────────────────────────────
+        # 6. Dependency tracking
         if self.INCLUDE.search(line):
             self.state.active_dependencies.append(line.strip())
 
-        # 6. Variable-assignment tracking (simplified) ─────────────────
+        # 7. Variable-assignment tracking (simplified)
         assign = self.ASSIGN.search(line)
-        if assign and self.state.current_block_type:
+        if assign and self.state.current_block_type not in (None, "IDLE"):
             self.state.variable_scope[assign.group(1)] = "assigned"
 
         return self.state
 
     # ------------------------------------------------------------------
-    # Private helpers
-    # ------------------------------------------------------------------
-    def _detect_block_start(self, line: str, line_num: int) -> None:
-        """Identify what kind of SAS block is starting."""
-        if self.DATA_START.match(line):
-            self._open_block("DATA_STEP", line_num)
-        elif self.PROC_SQL.match(line):
-            self._open_block("SQL_BLOCK", line_num)
-        elif self.PROC_START.match(line):
-            self._open_block("PROC_BLOCK", line_num)
-        elif self.MACRO_DEF.match(line):
-            self._open_block("MACRO_DEFINITION", line_num)
-        elif self.MACRO_CALL.search(line):
-            self._open_block("MACRO_INVOCATION", line_num)
-        elif self.GLOBAL.match(line):
-            self._open_block("GLOBAL_STATEMENT", line_num)
-        elif self.INCLUDE.search(line):
-            self._open_block("INCLUDE_REFERENCE", line_num)
+    def _peek_block_type(self, clean: str) -> str | None:
+        """Return what block type *clean* would open, without changing state."""
+        for part in (p.strip() for p in clean.split(";") if p.strip()):
+            if self.DATA_START.match(part):   return "DATA_STEP"
+            if self.PROC_SQL.match(part):     return "SQL_BLOCK"
+            if self.PROC_START.match(part):   return "PROC_BLOCK"
+            if self.MACRO_DEF.match(part):    return "MACRO_DEFINITION"
+            if self.INCLUDE.search(part):     return "INCLUDE_REFERENCE"
+            if self.GLOBAL.match(part):       return "GLOBAL_STATEMENT"
+            if self.DO_STMT.match(part):      return "LOOP_BLOCK"
+            if self.COND_IF.match(part):      return "CONDITIONAL_BLOCK"
+            if self.MACRO_CALL.search(part):  return "MACRO_INVOCATION"
+        return None
+
+    def _detect_and_open(self, clean: str, line_num: int) -> None:
+        """Scan sub-statements for a block-opening keyword."""
+        for part in (p.strip() for p in clean.split(";") if p.strip()):
+            if self.DATA_START.match(part):
+                self._open_block("DATA_STEP", line_num); return
+            elif self.PROC_SQL.match(part):
+                self._open_block("SQL_BLOCK", line_num); return
+            elif self.PROC_START.match(part):
+                self._open_block("PROC_BLOCK", line_num); return
+            elif self.MACRO_DEF.match(part):
+                self._open_block("MACRO_DEFINITION", line_num); return
+            elif self.INCLUDE.search(part):
+                self._open_block("INCLUDE_REFERENCE", line_num); return
+            elif self.GLOBAL.match(part):
+                self._open_block("GLOBAL_STATEMENT", line_num); return
+            elif self.DO_STMT.match(part):        # %DO loop (before MACRO_CALL)
+                self._open_block("LOOP_BLOCK", line_num); return
+            elif self.COND_IF.match(part):         # %IF conditional (before MACRO_CALL)
+                self._open_block("CONDITIONAL_BLOCK", line_num); return
+            elif self.MACRO_CALL.search(part):
+                self._open_block("MACRO_INVOCATION", line_num); return
 
     def _open_block(self, block_type: str, line_num: int) -> None:
+        # Use pending_block_start if it's within 15 lines (leading section comments)
+        start = line_num
+        if (
+            self.state.pending_block_start is not None
+            and (line_num - self.state.pending_block_start) <= 15
+        ):
+            start = self.state.pending_block_start
+        self.state.pending_block_start = None  # Consume the pending start
         self.state.current_block_type = block_type
-        self.state.block_start_line = line_num
-        self.logger.debug("block_start", block_type=block_type, line=line_num)
+        self.state.block_start_line = start
+        self.logger.debug("block_start", block_type=block_type, line=start)
 
-    def _check_block_end(self, line: str) -> None:
+    def _check_close(self, clean: str, line_num: int) -> None:
+        """Check whether the current block closes on *clean*."""
         bt = self.state.current_block_type
+        if bt in ("DATA_STEP", "PROC_BLOCK") and self.RUN_STMT.search(clean):
+            self._close_block(line_num)
+        elif bt == "SQL_BLOCK" and self.QUIT_STMT.search(clean):
+            self._close_block(line_num)
+        elif bt == "MACRO_DEFINITION" and self.MACRO_END.search(clean):
+            self._close_block(line_num)
+        elif bt in ("CONDITIONAL_BLOCK", "LOOP_BLOCK") and self.END_BLOCK.search(clean):
+            self._close_block(line_num)
+        elif bt == "MACRO_INVOCATION" and ";" in clean:
+            self._close_block(line_num)
+        elif bt in ("GLOBAL_STATEMENT", "INCLUDE_REFERENCE") and ";" in clean:
+            self._close_block(line_num)
 
-        if bt in ("DATA_STEP", "PROC_BLOCK") and self.RUN_STMT.search(line):
-            self._close_block()
-        elif bt == "SQL_BLOCK" and self.QUIT_STMT.search(line):
-            self._close_block()
-        elif bt == "MACRO_DEFINITION" and self.MACRO_END.search(line):
-            self._close_block()
-        elif bt == "MACRO_INVOCATION" and ";" in line:
-            self._close_block()
-        elif bt in ("GLOBAL_STATEMENT", "INCLUDE_REFERENCE") and ";" in line:
-            self._close_block()
-
-    def _close_block(self) -> None:
-        self.logger.debug(
-            "block_end",
-            block_type=self.state.current_block_type,
-            started=self.state.block_start_line,
-        )
+    def _close_block(self, end_line: int) -> None:
+        bt    = self.state.current_block_type
+        start = self.state.block_start_line or end_line
+        self.logger.debug("block_end", block_type=bt, started=start)
+        self.state.last_closed_block = (bt, start, end_line)
         self.state.current_block_type = "IDLE"
         self.state.block_start_line = None
 

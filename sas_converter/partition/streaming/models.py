@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -49,3 +49,11 @@ class ParsingState(BaseModel):
     active_dependencies: list[str] = Field(default_factory=list)
     in_comment: bool = False
     in_string: bool = False
+    # Set when a block closes so BoundaryDetector can capture single-line blocks
+    # that open and close within the same chunk (returning IDLE state).
+    # Format: (block_type_str, block_start_line, block_end_line)
+    last_closed_block: Optional[tuple[str, int, int]] = None
+    # Tracks the start of a leading comment/blank region in IDLE state.
+    # When the next block opens, this is used as the block_start_line so that
+    # block boundaries include section-header comments (matching gold offsets).
+    pending_block_start: Optional[int] = None
