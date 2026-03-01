@@ -70,6 +70,8 @@ class StateAgent(BaseAgent):
     DO_STMT     = re.compile(r"^\s*%DO\b", re.IGNORECASE)   # loop start
     COND_IF     = re.compile(r"^\s*%IF\b", re.IGNORECASE)   # conditional start
     END_BLOCK   = re.compile(r"%END\s*;", re.IGNORECASE)     # LOOP/COND close
+    # %ELSE, %ELSE %IF, %ELSE %DO — all continue a CONDITIONAL_BLOCK chain
+    ELSE_CLAUSE = re.compile(r"^\s*%ELSE\b", re.IGNORECASE)
 
     def __init__(self, trace_id: UUID | None = None):
         super().__init__(trace_id)
@@ -132,8 +134,23 @@ class StateAgent(BaseAgent):
                 else:
                     self.state.pending_block_start = min(self.state.pending_block_start, chunk_start)
             else:
-                # Non-comment, non-block line — reset pending start
-                self.state.pending_block_start = None
+                # Non-comment line — preserve pending_block_start only if this
+                # line is itself a block-opening trigger (so that the preceding
+                # comment gets included in the block via _open_block backtrack).
+                # Reset otherwise (stray %LET in IDLE, orphan semicolons, etc.)
+                is_block_trigger = bool(
+                    self.GLOBAL.match(clean)
+                    or self.DATA_START.match(clean)
+                    or self.PROC_START.match(clean)
+                    or self.MACRO_DEF.match(clean)
+                    or self.INCLUDE.search(clean)
+                    or self.DO_STMT.match(clean)
+                    or self.COND_IF.match(clean)
+                    or self.ELSE_CLAUSE.match(clean)
+                    or self.MACRO_CALL.search(clean)
+                )
+                if not is_block_trigger:
+                    self.state.pending_block_start = None
 
             self._detect_and_open(clean, line_num)
             # Single-line block: check close in same chunk
@@ -195,15 +212,16 @@ class StateAgent(BaseAgent):
     def _peek_block_type(self, clean: str) -> str | None:
         """Return what block type *clean* would open, without changing state."""
         for part in (p.strip() for p in clean.split(";") if p.strip()):
-            if self.DATA_START.match(part):   return "DATA_STEP"
-            if self.PROC_SQL.match(part):     return "SQL_BLOCK"
-            if self.PROC_START.match(part):   return "PROC_BLOCK"
-            if self.MACRO_DEF.match(part):    return "MACRO_DEFINITION"
-            if self.INCLUDE.search(part):     return "INCLUDE_REFERENCE"
-            if self.GLOBAL.match(part):       return "GLOBAL_STATEMENT"
-            if self.DO_STMT.match(part):      return "LOOP_BLOCK"
-            if self.COND_IF.match(part):      return "CONDITIONAL_BLOCK"
-            if self.MACRO_CALL.search(part):  return "MACRO_INVOCATION"
+            if self.DATA_START.match(part):    return "DATA_STEP"
+            if self.PROC_SQL.match(part):      return "SQL_BLOCK"
+            if self.PROC_START.match(part):    return "PROC_BLOCK"
+            if self.MACRO_DEF.match(part):     return "MACRO_DEFINITION"
+            if self.INCLUDE.search(part):      return "INCLUDE_REFERENCE"
+            if self.GLOBAL.match(part):        return "GLOBAL_STATEMENT"
+            if self.ELSE_CLAUSE.match(part):   return "CONDITIONAL_BLOCK"
+            if self.DO_STMT.match(part):       return "LOOP_BLOCK"
+            if self.COND_IF.match(part):       return "CONDITIONAL_BLOCK"
+            if self.MACRO_CALL.search(part):   return "MACRO_INVOCATION"
         return None
 
     def _detect_and_open(self, clean: str, line_num: int) -> None:
@@ -221,6 +239,8 @@ class StateAgent(BaseAgent):
                 self._open_block("INCLUDE_REFERENCE", line_num); return
             elif self.GLOBAL.match(part):
                 self._open_block("GLOBAL_STATEMENT", line_num); return
+            elif self.ELSE_CLAUSE.match(part):    # %ELSE / %ELSE %IF / %ELSE %DO
+                self._open_block("CONDITIONAL_BLOCK", line_num); return
             elif self.DO_STMT.match(part):        # %DO loop (before MACRO_CALL)
                 self._open_block("LOOP_BLOCK", line_num); return
             elif self.COND_IF.match(part):         # %IF conditional (before MACRO_CALL)
@@ -229,11 +249,14 @@ class StateAgent(BaseAgent):
                 self._open_block("MACRO_INVOCATION", line_num); return
 
     def _open_block(self, block_type: str, line_num: int) -> None:
-        # Use pending_block_start if it's within 15 lines (leading section comments)
+        # Use pending_block_start if within tolerance (leading section comments).
+        # GLOBAL_STATEMENT allows a larger header-comment backtrack (up to 60 lines)
+        # because SAS program headers can be long multi-line comment blocks.
+        backtrack_limit = 60 if block_type == "GLOBAL_STATEMENT" else 15
         start = line_num
         if (
             self.state.pending_block_start is not None
-            and (line_num - self.state.pending_block_start) <= 15
+            and (line_num - self.state.pending_block_start) <= backtrack_limit
         ):
             start = self.state.pending_block_start
         self.state.pending_block_start = None  # Consume the pending start

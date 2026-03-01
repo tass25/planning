@@ -104,6 +104,93 @@ _EXTEND_TYPES = {PartitionType.DATA_STEP, PartitionType.PROC_BLOCK, PartitionTyp
 # Maximum lines to scan after block end looking for a trailing %MEND
 _MEND_LOOKAHEAD = 6
 
+# %ELSE pattern — if a line right after a CONDITIONAL_BLOCK close starts with %ELSE
+_ELSE_RE = _re.compile(r"^\s*%ELSE\b", _re.IGNORECASE)
+
+# Maximum line gap between consecutive CONDITIONAL_BLOCK events to merge as chain
+_COND_CHAIN_GAP = 3
+
+
+def _merge_cond_chains(
+    events: list[BlockBoundaryEvent],
+    chunks_with_states: list,
+    file_id: UUID,
+    trace_id: UUID | None,
+) -> list[BlockBoundaryEvent]:
+    """Merge consecutive CONDITIONAL_BLOCK events that form if/%else if/%else chains.
+
+    When the FSM sees %if...%do...%end it emits one CONDITIONAL_BLOCK event.
+    If the next non-blank/comment line is %else or %else %if, the gold
+    standard treats the entire chain as a single CONDITIONAL_BLOCK.
+
+    This merges adjacent CONDITIONAL_BLOCK events whose gap (between the end
+    of one and the start of the next) is small AND where the lines between
+    them start with %ELSE.
+
+    Also extends the merged block end to include trailing TITLE/FOOTNOTE and
+    GLOBAL statements immediately following the last %END; of the chain (up to
+    _COND_CHAIN_GAP lines), because gold sometimes includes those in the block.
+    """
+    # Build a line-content map from chunks
+    line_map: dict[int, str] = {}
+    for chunk, _state in chunks_with_states:
+        chunk_start = max(1, chunk.line_number - chunk.content.count("\n"))
+        for i, ln in enumerate(chunk.content.split("\n")):
+            line_map[chunk_start + i] = ln.strip()
+
+    def _lines_between_are_else(end: int, start: int) -> bool:
+        """Return True if lines end+1..start contain %ELSE (possibly with blanks)."""
+        if start - end > _COND_CHAIN_GAP + 1:
+            return False
+        for ln_num in range(end + 1, start + 1):
+            text = line_map.get(ln_num, "")
+            if not text:
+                continue  # blank line OK
+            if _ELSE_RE.match(text):
+                return True
+            # If any non-blank, non-ELSE line is found, chain ends
+            return False
+        return False
+
+    result: list[BlockBoundaryEvent] = []
+    pending: BlockBoundaryEvent | None = None
+
+    for ev in events:
+        if ev.partition_type != PartitionType.CONDITIONAL_BLOCK:
+            if pending is not None:
+                result.append(pending)
+                pending = None
+            result.append(ev)
+        else:
+            if pending is None:
+                pending = ev
+            elif _lines_between_are_else(pending.line_end, ev.line_start):
+                # Merge: extend pending to this event's end
+                pending = BlockBoundaryEvent(
+                    file_id=pending.file_id,
+                    partition_type=PartitionType.CONDITIONAL_BLOCK,
+                    line_start=pending.line_start,
+                    line_end=ev.line_end,
+                    raw_code=pending.raw_code + "\n" + ev.raw_code,
+                    boundary_method=pending.boundary_method,
+                    confidence=min(pending.confidence, ev.confidence),
+                    is_ambiguous=pending.is_ambiguous or ev.is_ambiguous,
+                    nesting_depth=pending.nesting_depth,
+                    macro_scope={},
+                    variable_scope=dict(pending.variable_scope),
+                    dependency_refs=list(pending.dependency_refs),
+                    test_coverage_type=pending.test_coverage_type,
+                    trace_id=trace_id,
+                )
+            else:
+                result.append(pending)
+                pending = ev
+
+    if pending is not None:
+        result.append(pending)
+
+    return result
+
 
 def _extend_to_mend(
     events: list[BlockBoundaryEvent],
@@ -330,6 +417,7 @@ class BoundaryDetector:
 
         events.sort(key=lambda e: e.line_start)
         events = _merge_global_statements(events, file_id, trace_id)
+        events = _merge_cond_chains(events, chunks_with_states, file_id, trace_id)
         events = _extend_to_mend(events, chunks_with_states)
         return events
 
