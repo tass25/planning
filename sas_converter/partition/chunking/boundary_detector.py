@@ -109,7 +109,7 @@ _EXTEND_TYPES = {
     PartitionType.LOOP_BLOCK,
 }
 # Maximum lines to scan after block end looking for a trailing %MEND
-_MEND_LOOKAHEAD = 6
+_MEND_LOOKAHEAD = 12
 
 # %ELSE pattern — if a line right after a CONDITIONAL_BLOCK close starts with %ELSE
 _ELSE_RE = _re.compile(r"^\s*%ELSE\b", _re.IGNORECASE)
@@ -242,6 +242,7 @@ def _extend_to_mend(
 
         # Look ahead from ev.line_end + 1 up to ev.line_end + _MEND_LOOKAHEAD
         mend_line = None
+        last_put_line = None
         for li in range(ev.line_end + 1, ev.line_end + _MEND_LOOKAHEAD + 1):
             lc = line_content.get(li, "")
             if not lc:          # blank line
@@ -249,21 +250,27 @@ def _extend_to_mend(
             if _MEND_RE.match(lc):
                 mend_line = li
                 break
-            elif _PUT_LOG_RE.match(lc) or _LET_RE.match(lc):
-                # %PUT NOTE/WARNING/ERROR: and %LET are skip-worthy lines
-                # that commonly appear between block-end and %MEND
+            elif _PUT_LOG_RE.match(lc):
+                # %PUT NOTE/WARNING/ERROR: — skip-worthy, track last seen
+                last_put_line = li
+                continue
+            elif _LET_RE.match(lc):
+                # %LET inside macro body — skip past it
                 continue
             else:
                 # Any other non-blank content → stop extending
                 break
 
-        if mend_line is not None:
-            # Extend block end to include the %MEND line
+        # Determine new end: prefer %MEND, then last %PUT if no %MEND found
+        extend_to = mend_line if mend_line is not None else last_put_line
+
+        if extend_to is not None:
+            # Extend block end to include the %MEND (or last %PUT) line
             ev = BlockBoundaryEvent(
                 file_id=ev.file_id,
                 partition_type=ev.partition_type,
                 line_start=ev.line_start,
-                line_end=mend_line,
+                line_end=extend_to,
                 raw_code=ev.raw_code,
                 boundary_method=ev.boundary_method,
                 confidence=ev.confidence,
