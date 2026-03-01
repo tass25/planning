@@ -97,10 +97,17 @@ def _merge_global_statements(
 import re as _re
 
 # Patterns for %MEND and %PUT NOTE:%PUT WARNING: after a block close
-_MEND_RE   = _re.compile(r"^\s*%MEND\b", _re.IGNORECASE)
+_MEND_RE    = _re.compile(r"^\s*%MEND\b", _re.IGNORECASE)
 _PUT_LOG_RE = _re.compile(r"^\s*%PUT\s+(NOTE|WARNING|ERROR)\s*:", _re.IGNORECASE)
+_LET_RE     = _re.compile(r"^\s*%LET\b", _re.IGNORECASE)
 # Block types whose end can be extended when trailing %MEND is nearby
-_EXTEND_TYPES = {PartitionType.DATA_STEP, PartitionType.PROC_BLOCK, PartitionType.SQL_BLOCK}
+_EXTEND_TYPES = {
+    PartitionType.DATA_STEP,
+    PartitionType.PROC_BLOCK,
+    PartitionType.SQL_BLOCK,
+    PartitionType.CONDITIONAL_BLOCK,
+    PartitionType.LOOP_BLOCK,
+}
 # Maximum lines to scan after block end looking for a trailing %MEND
 _MEND_LOOKAHEAD = 6
 
@@ -249,6 +256,9 @@ def _extend_to_mend(
                     # %PUT appeared after some non-blank non-%PUT line → stop
                     break
                 seen_put = True
+                seen_non_empty = True
+            elif _LET_RE.match(lc):
+                # %LET inside macro body (e.g. error flag) — skip past it
                 seen_non_empty = True
             else:
                 # Any other non-blank content → stop extending
