@@ -49,11 +49,6 @@ With your $100 credit, you have access to enterprise SLA endpoints.
 * **CodeQL & Dependabot:** Enable GitHub Advanced Security (free for public/academic student repos). CodeQL will autonomously scan your `ScriptMerger` and `ValidationAgent` for injection vulnerabilities or unsafe AST parsing methods.
 * **Secret Scanning:** Ensure your Azure OpenAI API keys are never hardcoded, tracking them via GitHub Secrets.
 
----
-
-## 5. Development Velocity: GitHub Copilot & Codespaces
-* **GitHub Codespaces:** If you run into CUDA OOM (Out of Memory) errors running Nomic embeddings or NetworkX SCC condensations on massive files, do not try to optimize local memory. Spin up a 4-core, 16GB RAM cloud-hosted Codespace directly from your repo.
-* **GitHub Copilot:** Use it aggressively for writing the boilerplate regex (in `CrossFileDependencyResolver`), `ast` walking logic, and generating your synthetic 100-row DataFrames for the validation sandbox.
 
 ---
 
