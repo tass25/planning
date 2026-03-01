@@ -1,11 +1,17 @@
-"""LLMBoundaryResolver — resolves ambiguous SAS block boundaries via Ollama.
+"""LLMBoundaryResolver — resolves ambiguous SAS block boundaries via an LLM.
 
-Uses Ollama llama3.1:8b with instructor for typed JSON output.
-Falls back gracefully when Ollama is unavailable.
+Default provider: Groq (llama-3.1-8b-instant) — fast, free tier, OpenAI-compatible.
+Upgrade paths:
+    LLM_PROVIDER=azure  → Azure OpenAI GPT-4o  (see azure_evaluation.md §1)
+    LLM_PROVIDER=ollama → local Ollama         (set OLLAMA_HOST + OLLAMA_MODEL)
 
-Azure OpenAI upgrade path:
-    Set env var LLM_PROVIDER=azure and configure AZURE_OPENAI_* variables
-    (see azure_evaluation.md §1) to route ambiguous blocks to GPT-4o instead.
+Required env vars per provider:
+    groq  : GROQ_API_KEY   (https://console.groq.com)
+            GROQ_MODEL     (optional, default: llama-3.1-8b-instant)
+    azure : AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_KEY
+            AZURE_OPENAI_DEPLOY (optional, default: gpt-4o)
+    ollama: OLLAMA_HOST    (optional, default: http://localhost:11434)
+            OLLAMA_MODEL   (optional, default: llama3.1:8b)
 """
 
 from __future__ import annotations
@@ -28,23 +34,20 @@ class LLMBoundaryResponse(BaseModel):
 
 
 class LLMBoundaryResolver:
-    """Resolve ambiguous block boundaries using a local LLM (Ollama).
+    """Resolve ambiguous block boundaries using an LLM.
 
-    Configuration via environment variables:
-        LLM_PROVIDER        : ``"ollama"`` (default) or ``"azure"``
-        OLLAMA_HOST         : default ``http://localhost:11434``
-        OLLAMA_MODEL        : default ``llama3.1:8b``
-        AZURE_OPENAI_ENDPOINT: required when LLM_PROVIDER=azure
-        AZURE_OPENAI_KEY    : required when LLM_PROVIDER=azure
-        AZURE_OPENAI_DEPLOY : deployment name, default ``gpt-4o``
+    Provider selected via LLM_PROVIDER env var:
+        ``"groq"``   (default) — Groq API, requires GROQ_API_KEY
+        ``"azure"``  — Azure OpenAI GPT-4o, requires AZURE_OPENAI_* vars
+        ``"ollama"`` — local Ollama (future), requires OLLAMA_* vars
     """
 
     MAX_TOKENS = 6_000
-    DEFAULT_MODEL = "llama3.1:8b"
+    DEFAULT_GROQ_MODEL = "llama-3.1-8b-instant"
 
     def __init__(self, trace_id: UUID | None = None) -> None:
         self.trace_id = trace_id
-        self._provider = os.getenv("LLM_PROVIDER", "ollama").lower()
+        self._provider = os.getenv("LLM_PROVIDER", "groq").lower()
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -55,16 +58,55 @@ class LLMBoundaryResolver:
             event: An event flagged ``is_ambiguous=True``.
 
         Returns:
-            Updated event with ``boundary_method="llm_8b"`` (or ``"azure"``).
+            Updated event with ``boundary_method`` set to the provider name.
 
         Raises:
             RuntimeError: When the LLM call fails after all retries.
         """
         if self._provider == "azure":
             return await self._resolve_azure(event)
-        return await self._resolve_ollama(event)
+        if self._provider == "ollama":
+            return await self._resolve_ollama(event)
+        # Default: Groq
+        return await self._resolve_groq(event)
 
-    # ── Ollama (local, week 3-4 default) ─────────────────────────────────────
+    # ── Groq (default — fast, free tier) ────────────────────────────────────────────
+
+    async def _resolve_groq(self, event: BlockBoundaryEvent) -> BlockBoundaryEvent:
+        try:
+            import instructor
+            from groq import AsyncGroq
+            import tiktoken
+        except ImportError as exc:
+            raise RuntimeError(
+                "groq / instructor / tiktoken not installed. "
+                "Run: pip install groq instructor tiktoken"
+            ) from exc
+
+        api_key = os.environ.get("GROQ_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "GROQ_API_KEY environment variable not set. "
+                "Get a free key at https://console.groq.com"
+            )
+
+        model = os.getenv("GROQ_MODEL", self.DEFAULT_GROQ_MODEL)
+        tokenizer = tiktoken.get_encoding("cl100k_base")
+        raw_code  = _truncate(event.raw_code, tokenizer, self.MAX_TOKENS - 500)
+
+        groq_client = AsyncGroq(api_key=api_key)
+        client = instructor.from_groq(groq_client, mode=instructor.Mode.JSON)
+
+        resp: LLMBoundaryResponse = await client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": _build_prompt(raw_code)}],
+            response_model=LLMBoundaryResponse,
+            max_retries=3,
+        )
+
+        return _apply_response(event, resp, method="groq")
+
+    # ── Ollama (future option — LLM_PROVIDER=ollama) ───────────────────────────
 
     async def _resolve_ollama(self, event: BlockBoundaryEvent) -> BlockBoundaryEvent:
         try:
@@ -78,8 +120,7 @@ class LLMBoundaryResolver:
             ) from exc
 
         host  = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-        model = os.getenv("OLLAMA_MODEL", self.DEFAULT_MODEL)
-
+        model = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
         tokenizer = tiktoken.get_encoding("cl100k_base")
         raw_code  = _truncate(event.raw_code, tokenizer, self.MAX_TOKENS - 500)
 
