@@ -242,8 +242,6 @@ def _extend_to_mend(
 
         # Look ahead from ev.line_end + 1 up to ev.line_end + _MEND_LOOKAHEAD
         mend_line = None
-        seen_non_empty = False
-        seen_put = False
         for li in range(ev.line_end + 1, ev.line_end + _MEND_LOOKAHEAD + 1):
             lc = line_content.get(li, "")
             if not lc:          # blank line
@@ -251,15 +249,10 @@ def _extend_to_mend(
             if _MEND_RE.match(lc):
                 mend_line = li
                 break
-            elif _PUT_LOG_RE.match(lc):
-                if seen_non_empty:
-                    # %PUT appeared after some non-blank non-%PUT line → stop
-                    break
-                seen_put = True
-                seen_non_empty = True
-            elif _LET_RE.match(lc):
-                # %LET inside macro body (e.g. error flag) — skip past it
-                seen_non_empty = True
+            elif _PUT_LOG_RE.match(lc) or _LET_RE.match(lc):
+                # %PUT NOTE/WARNING/ERROR: and %LET are skip-worthy lines
+                # that commonly appear between block-end and %MEND
+                continue
             else:
                 # Any other non-blank content → stop extending
                 break

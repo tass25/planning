@@ -57,3 +57,7 @@ class ParsingState(BaseModel):
     # When the next block opens, this is used as the block_start_line so that
     # block boundaries include section-header comments (matching gold offsets).
     pending_block_start: Optional[int] = None
+    # True when the active CONDITIONAL_BLOCK/LOOP_BLOCK was opened with an
+    # explicit %DO (so it needs %END; to close). False for single-line
+    # %IF ... %THEN statement; conditionals that close after the first ;.
+    cond_has_do: bool = False

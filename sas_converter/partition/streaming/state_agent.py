@@ -240,11 +240,21 @@ class StateAgent(BaseAgent):
             elif self.GLOBAL.match(part):
                 self._open_block("GLOBAL_STATEMENT", line_num); return
             elif self.ELSE_CLAUSE.match(part):    # %ELSE / %ELSE %IF / %ELSE %DO
-                self._open_block("CONDITIONAL_BLOCK", line_num); return
+                # %ELSE %DO has an explicit %DO — needs %END; to close
+                has_do = bool(self.DO_START.search(part))
+                self._open_block("CONDITIONAL_BLOCK", line_num)
+                self.state.cond_has_do = has_do
+                return
             elif self.DO_STMT.match(part):        # %DO loop (before MACRO_CALL)
-                self._open_block("LOOP_BLOCK", line_num); return
+                self._open_block("LOOP_BLOCK", line_num)
+                self.state.cond_has_do = True  # %DO always needs %END;
+                return
             elif self.COND_IF.match(part):         # %IF conditional (before MACRO_CALL)
-                self._open_block("CONDITIONAL_BLOCK", line_num); return
+                # Check if this line contains %DO (single chunk %IF...%THEN %DO)
+                has_do = bool(self.DO_START.search(part))
+                self._open_block("CONDITIONAL_BLOCK", line_num)
+                self.state.cond_has_do = has_do
+                return
             elif self.MACRO_CALL.search(part):
                 self._open_block("MACRO_INVOCATION", line_num); return
 
@@ -262,12 +272,15 @@ class StateAgent(BaseAgent):
         self.state.pending_block_start = None  # Consume the pending start
         self.state.current_block_type = block_type
         self.state.block_start_line = start
+        self.state.cond_has_do = False  # Reset; set True by caller if %DO present
         self.logger.debug("block_start", block_type=block_type, line=start)
 
     def _check_close(self, clean: str, line_num: int) -> None:
         """Check whether the current block closes on *clean*."""
         bt = self.state.current_block_type
-        if bt in ("DATA_STEP", "PROC_BLOCK") and self.RUN_STMT.search(clean):
+        if bt == "DATA_STEP" and self.RUN_STMT.search(clean):
+            self._close_block(line_num)
+        elif bt == "PROC_BLOCK" and (self.RUN_STMT.search(clean) or self.QUIT_STMT.search(clean)):
             self._close_block(line_num)
         elif bt == "SQL_BLOCK" and self.QUIT_STMT.search(clean):
             self._close_block(line_num)
@@ -275,6 +288,15 @@ class StateAgent(BaseAgent):
             self._close_block(line_num)
         elif bt in ("CONDITIONAL_BLOCK", "LOOP_BLOCK") and self.END_BLOCK.search(clean):
             self._close_block(line_num)
+        elif bt == "CONDITIONAL_BLOCK" and not self.state.cond_has_do:
+            # Single-line conditional: %IF...%THEN stmt; or %ELSE stmt; (no %DO/%END)
+            # If the current chunk has %DO, upgrade to do-block (needs %END)
+            if self.DO_START.search(clean):
+                self.state.cond_has_do = True
+            elif ";" in clean and not self.COND_IF.match(clean) and not self.ELSE_CLAUSE.match(clean):
+                # Closing when we see any statement ending with ; that is not
+                # itself a new %IF or %ELSE (which would extend the chain)
+                self._close_block(line_num)
         elif bt == "MACRO_INVOCATION" and ";" in clean:
             self._close_block(line_num)
         elif bt in ("GLOBAL_STATEMENT", "INCLUDE_REFERENCE") and ";" in clean:
