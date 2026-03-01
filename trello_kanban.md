@@ -196,9 +196,11 @@ Chaque Carte contient sa **Description**, ses **Pièces jointes / Liens**, et sa
 * **Description :** Mécanismes de surveillance en production et correction automatique de la base vectorielle experte.
 * **Pièces jointes / Liens :**
   - `partition/retraining/`
+  - Azure Application Insights
 * **Checklist :**
+  - [ ] Intégrer la télémétrie Azure Monitor pour tracker la latence LLM et les crashes du `ValidationAgent`
   - [ ] Autoriser les corrections CLI via `FeedbackIngestionAgent`
-  - [ ] Coder `ConversionQualityMonitor` surveillant les taux de succès LLM en temps réel
+  - [ ] Coder `ConversionQualityMonitor` et pousser les métriques (taux de succès, mode d'erreur) vers Log Analytics
   - [ ] Coder `RetrainingTrigger` qui déclenche un réentraînement sklearn (Drift ECE) en fond
 
 ### Carte 6.2 : Étude d'Ablation Scientifique
@@ -207,6 +209,7 @@ Chaque Carte contient sa **Description**, ses **Pièces jointes / Liens**, et sa
   - `benchmark/ablation_runner.py`
   - `docs/ablation_plots/`
 * **Checklist :**
+  - [ ] Installer le pipeline CI/CD via GitHub Actions pour automatiser les tests
   - [ ] Lancer les tests finaux: RAPTOR vs Flat Partitioning (721 blocs * 10 queries chacun)
   - [ ] Générer et packager les graphiques : `hit_rate_by_complexity.png`, distribution des latences Python
   - [ ] Vérifier les exigences de thèse : Hit-Rate RAPTOR >82% et ECE Modèle <0.08
@@ -220,5 +223,6 @@ Chaque Carte contient sa **Description**, ses **Pièces jointes / Liens**, et sa
 * **Checklist :**
   - [ ] Obtenir les 330 paires d'exemples expertes finales en Base (LanceDB)
   - [ ] Créer le bundle de distribution `Dockerfile` et `docker-compose.yml`
-  - [ ] Produire les slides de présentation
-  - [ ] Enregistrer la vidéo End-to-End démontrant que 1 code SAS est converti en Python, et exécuté sans faille.
+  - [ ] Déployer l'API sur Azure Container Apps (Serverless, scale-to-0)
+  - [ ] Déployer les rapports HTML générés sur Azure Static Web Apps
+  - [ ] Produire les slides de présentation et la vidéo de Démo E2E
