@@ -63,6 +63,10 @@ class StateAgent(BaseAgent):
     GLOBAL      = re.compile(r"^\s*(OPTIONS|LIBNAME|FILENAME|TITLE|%LET)\b", re.IGNORECASE)
     COMMENT_S   = re.compile(r"/\*")
     COMMENT_E   = re.compile(r"\*/")
+    # Strip from beginning of string through (and including) the first */
+    # Used when in_comment=True to remove the comment-end prefix so that
+    # code following the */ on the same chunk can still be processed.
+    STRIP_TILL_COMMENT_E = re.compile(r"^.*?\*/", re.DOTALL)
     STRIP_COMMENT      = re.compile(r"/\*.*?\*/", re.DOTALL)
     STRIP_STAR_COMMENT = re.compile(r"^\s*\*[^;]*;", re.MULTILINE)
     ASSIGN      = re.compile(r"\b(\w+)\s*=\s*")
@@ -93,10 +97,21 @@ class StateAgent(BaseAgent):
         if self.state.in_comment:
             if self.COMMENT_E.search(line):
                 self.state.in_comment = False
-            # Track start of comment region in IDLE for pending_block_start
-            if self.state.current_block_type in (None, "IDLE") and self.state.pending_block_start is None:
-                self.state.pending_block_start = chunk_start_early
-            return self.state
+                # Strip everything from beginning through the closing */
+                # so that code AFTER the comment on the same chunk is processed.
+                # e.g. "-------- */\n    DATA work;" → "\n    DATA work;"
+                line = self.STRIP_TILL_COMMENT_E.sub("", line, count=1)
+                # If the line now has non-trivial content, fall through to process it.
+                if not line.strip():
+                    if self.state.current_block_type in (None, "IDLE") and self.state.pending_block_start is None:
+                        self.state.pending_block_start = chunk_start_early
+                    return self.state
+                # Fall through to process the remaining content after the comment end
+            else:
+                # Still inside comment, nothing to process
+                if self.state.current_block_type in (None, "IDLE") and self.state.pending_block_start is None:
+                    self.state.pending_block_start = chunk_start_early
+                return self.state
 
         if self.COMMENT_S.search(line) and not self.COMMENT_E.search(line):
             # Multi-line comment start: track for pending_block_start
@@ -112,6 +127,24 @@ class StateAgent(BaseAgent):
         # First physical line of this (possibly multi-statement) chunk.
         # Used to backtrack block starts/ends to include leading comments.
         chunk_start = chunk_start_early
+
+        # Track the last physical line containing real SAS code inside a block.
+        # This is used when an implicit close happens after a multi-line comment:
+        # the old block should end at the last real-code line, not inside the comment.
+        # Do NOT update on lines that are themselves top-level block openers, because
+        # those lines belong to the NEW block (they trigger implicit close of the old one).
+        _is_block_opener = bool(
+            self.DATA_START.match(clean)
+            or self.PROC_START.match(clean)
+            or self.PROC_SQL.match(clean)
+            or self.MACRO_DEF.match(clean)
+            or self.INCLUDE.search(clean)
+            or self.DO_STMT.match(clean)
+            or self.COND_IF.match(clean)
+            or self.ELSE_CLAUSE.match(clean)
+        )
+        if clean.strip() and not _is_block_opener and self.state.current_block_type not in (None, "IDLE"):
+            self.state.last_content_line = line_num
 
         # 3. Block transitions
         current_bt = self.state.current_block_type
@@ -171,13 +204,27 @@ class StateAgent(BaseAgent):
                 and new_type in _IMPLICIT_CLOSE_TRIGGERS
                 and new_type != current_bt
             ):
-                # Close the current block at chunk_start-1 so that leading
-                # comments of the incoming block are NOT included in the old block.
-                close_at = max(chunk_start - 1, self.state.block_start_line or line_num)
+                # Close the current block.  Use last_content_line (the last
+                # non-comment code line) if available and closer than
+                # chunk_start-1 — this handles the case where a multi-line
+                # comment between two blocks makes chunk_start-1 land inside
+                # the comment rather than on the actual last code line.
+                raw_close = max(chunk_start - 1, self.state.block_start_line or line_num)
+                if (
+                    self.state.last_content_line is not None
+                    and self.state.last_content_line < chunk_start
+                ):
+                    close_at = self.state.last_content_line
+                else:
+                    close_at = raw_close
+                self.state.last_content_line = None  # reset for new block
                 self._close_block(close_at)
-                # The new block's start should include the leading comment
-                # (chunk_start) rather than just the keyword line.
-                self.state.pending_block_start = chunk_start
+                # The new block's start should include the leading comment.
+                # If pending_block_start was already set (e.g. we saw COMMENT_S
+                # for the incoming block's doc-comment earlier), prefer the
+                # earlier value; otherwise fall back to chunk_start.
+                if self.state.pending_block_start is None:
+                    self.state.pending_block_start = chunk_start
                 self._detect_and_open(clean, line_num)
                 if self.state.current_block_type not in (None, "IDLE"):
                     self._check_close(clean, line_num)
@@ -273,6 +320,7 @@ class StateAgent(BaseAgent):
         self.state.current_block_type = block_type
         self.state.block_start_line = start
         self.state.cond_has_do = False  # Reset; set True by caller if %DO present
+        self.state.last_content_line = None  # reset for new block
         self.logger.debug("block_start", block_type=block_type, line=start)
 
     def _check_close(self, clean: str, line_num: int) -> None:
@@ -309,6 +357,7 @@ class StateAgent(BaseAgent):
         self.state.last_closed_block = (bt, start, end_line)
         self.state.current_block_type = "IDLE"
         self.state.block_start_line = None
+        self.state.last_content_line = None
 
     def reset(self) -> None:
         """Reset the agent state for a new file."""

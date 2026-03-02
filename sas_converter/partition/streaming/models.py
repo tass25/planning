@@ -61,3 +61,8 @@ class ParsingState(BaseModel):
     # explicit %DO (so it needs %END; to close). False for single-line
     # %IF ... %THEN statement; conditionals that close after the first ;.
     cond_has_do: bool = False
+    # Tracks the last physical line that contained non-comment SAS code while
+    # inside a block.  Used to compute accurate implicit-close line numbers:
+    # when a new block starts after a multi-line comment, the old block should
+    # end at last_content_line (= last real code line), not at chunk_start-1.
+    last_content_line: Optional[int] = None
