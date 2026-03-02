@@ -60,7 +60,7 @@ class StateAgent(BaseAgent):
     RUN_STMT    = re.compile(r"^\s*RUN\s*;", re.IGNORECASE)
     QUIT_STMT   = re.compile(r"^\s*QUIT\s*;", re.IGNORECASE)
     INCLUDE     = re.compile(r"%INCLUDE\s+", re.IGNORECASE)
-    GLOBAL      = re.compile(r"^\s*(OPTIONS|LIBNAME|FILENAME|TITLE|%LET)\b", re.IGNORECASE)
+    GLOBAL      = re.compile(r"^\s*(?:OPTIONS|LIBNAME|FILENAME|TITLE|%LET\b|%PUT\s+(?:NOTE|WARNING|ERROR)\s*:)", re.IGNORECASE)
     COMMENT_S   = re.compile(r"/\*")
     COMMENT_E   = re.compile(r"\*/")
     # Strip from beginning of string through (and including) the first */
@@ -184,6 +184,11 @@ class StateAgent(BaseAgent):
                 )
                 if not is_block_trigger:
                     self.state.pending_block_start = None
+                elif self.state.pending_block_start is None and chunk_start < line_num:
+                    # Multi-line chunk (e.g. a macro call spanning several lines)
+                    # with no preceding comment to anchor the start.
+                    # Use the chunk's first physical line so the full call is included.
+                    self.state.pending_block_start = chunk_start
 
             self._detect_and_open(clean, line_num)
             # Single-line block: check close in same chunk
@@ -268,7 +273,7 @@ class StateAgent(BaseAgent):
             if self.ELSE_CLAUSE.match(part):   return "CONDITIONAL_BLOCK"
             if self.DO_STMT.match(part):       return "LOOP_BLOCK"
             if self.COND_IF.match(part):       return "CONDITIONAL_BLOCK"
-            if self.MACRO_CALL.search(part):   return "MACRO_INVOCATION"
+            if self.MACRO_CALL.search(part + ";"):   return "MACRO_INVOCATION"
         return None
 
     def _detect_and_open(self, clean: str, line_num: int) -> None:
@@ -302,7 +307,7 @@ class StateAgent(BaseAgent):
                 self._open_block("CONDITIONAL_BLOCK", line_num)
                 self.state.cond_has_do = has_do
                 return
-            elif self.MACRO_CALL.search(part):
+            elif self.MACRO_CALL.search(part + ";"):
                 self._open_block("MACRO_INVOCATION", line_num); return
 
     def _open_block(self, block_type: str, line_num: int) -> None:
