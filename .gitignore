@@ -38,3 +38,7 @@ htmlcov/
 
 # mypy
 .mypy_cache/
+
+# Debug artefacts — transient outputs from scripts/debug/ sessions
+sas_converter/scripts/debug/output/*.txt
+# (existing .txt captures in the folder are tracked intentionally as audit trail)

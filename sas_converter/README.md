@@ -5,12 +5,34 @@ A partition-based SAS-to-Python conversion pipeline using multi-agent architectu
 ## Setup
 
 ```bash
-# Activate virtual environment
-.\venv\Scripts\Activate.ps1  # Windows
+# From repo root (Stage/)
+python -m venv venv
+.\venv\Scripts\Activate.ps1          # Windows
 
-# Install dependencies
 pip install -r sas_converter/requirements.txt
 ```
+
+## Quick Start — CLI
+
+```bash
+# Process a single SAS file (full L2-A → L2-D pipeline)
+python main.py --file path/to/your/file.sas
+
+# Process an entire directory
+python main.py --dir  path/to/sas/corpus/
+```
+
+## Quick Start — Demo
+
+```bash
+cd sas_converter
+$env:PYTHONPATH    = "$PWD"
+$env:LLM_PROVIDER = "none"          # deterministic only, no API key needed
+$env:PYTHONIOENCODING = "utf-8"     # Windows: required for Unicode output
+../venv/Scripts/python examples/demo_pipeline.py
+```
+
+Expected output: **4/4 blocks detected (100%)** on the bundled `examples/test_input.sas`.
 
 ## Project Structure
 
@@ -20,19 +42,26 @@ sas_converter/
 │   ├── base_agent.py          # BaseAgent ABC
 │   ├── logging_config.py      # structlog configuration
 │   ├── models/                # Pydantic data models
-│   ├── entry/                 # L2-A agents (FileAnalysis, CrossFileDeps, RegistryWriter, DataLineageExtractor)
+│   ├── entry/                 # L2-A: FileAnalysis, CrossFileDeps, RegistryWriter, DataLineage
+│   ├── streaming/             # L2-B: StreamAgent + StateAgent + pipeline
+│   ├── chunking/              # L2-C: BoundaryDetector + PartitionBuilder + LLM resolver
+│   ├── complexity/            # L2-D: ComplexityAgent (LogReg+Platt) + StrategyAgent
 │   └── db/                    # SQLAlchemy database management
-├── tests/                     # pytest test suite
+├── tests/                     # pytest test suite (73 tests)
+├── benchmark/                 # 721-block accuracy benchmark
 ├── knowledge_base/
 │   └── gold_standard/         # 50 annotated .sas + .gold.json files (3 complexity tiers)
+├── docs/                      # PROJECT.md, API_REFERENCE, TECH_JUSTIFICATIONS, UML diagrams
 ├── config/
 │   └── project_config.yaml    # Project configuration
-└── requirements.txt
-```
-
-## Gold Standard Corpus
-
-The gold standard corpus contains 50 annotated SAS files across **3 complexity tiers**:
+├── examples/                  # Runnable end-to-end demos
+│   ├── demo_pipeline.py       # Full L2 pipeline demo
+│   └── test_input.sas         # Sample SAS file (4 blocks, 100% detection)
+├── scripts/
+│   └── debug/                 # Investigation scripts from benchmarking sessions (weeks 2–4)
+│       └── output/            # Captured debug output (.txt)
+├── logs/                      # Runtime logs
+├── README.md
 
 | Tier | Lines | Count | Description |
 |------|-------|-------|-------------|
@@ -61,12 +90,14 @@ Lineage is stored in the `data_lineage` SQLite table and annotated in `.gold.jso
 | Current accuracy | **79.3%** (572/721) |
 
 ```bash
-$env:PYTHONPATH="$PWD/sas_converter"
-python sas_converter/benchmark/boundary_benchmark.py
+cd sas_converter
+$env:PYTHONPATH = "$PWD"
+../venv/Scripts/python benchmark/boundary_benchmark.py
 ```
 
 ## Running Tests
 
 ```bash
-pytest sas_converter/tests/ -v --cov=sas_converter.partition
-```
+cd sas_converter
+$env:PYTHONPATH = "$PWD"
+../venv/Scripts/python -m pytest tests/ -v
