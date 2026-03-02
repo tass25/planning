@@ -41,6 +41,26 @@ _AMBIGUOUS_THRESHOLD = 200
 # Maximum line gap allowed between consecutive GLOBAL_STATEMENTs to merge them.
 _GLOBAL_MERGE_GAP = 3
 
+import re as _re
+
+# Regex that matches a line containing only a %PUT NOTE/WARNING/ERROR: statement
+# (i.e. the %PUT is the sole content).  Used to filter out standalone
+# %PUT-banner GLOBAL_STATEMENTs that should belong to the following macro call.
+_PUT_ONLY_LINE = _re.compile(
+    r"^\s*%PUT\s+(?:NOTE|WARNING|ERROR)\s*:", _re.IGNORECASE
+)
+
+
+def _is_put_only(raw_code: str) -> bool:
+    """Return True if *raw_code* contains only %PUT NOTE/WARNING/ERROR lines."""
+    for line in raw_code.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if not _PUT_ONLY_LINE.match(stripped):
+            return False
+    return True
+
 
 def _merge_global_statements(
     events: list[BlockBoundaryEvent],
@@ -53,19 +73,33 @@ def _merge_global_statements(
     statements as a single multi-line GLOBAL_STATEMENT block.  This function
     collapses adjacent same-type GLOBAL events into one event spanning the
     full range.
+
+    A GLOBAL_STATEMENT that contains ONLY ``%PUT NOTE/WARNING/ERROR:`` lines
+    and was NOT merged with a "core" GLOBAL (OPTIONS/LIBNAME/FILENAME/TITLE/
+    %LET) is dropped.  Such ``%PUT``-banner lines appear before macro-call
+    sections and belong to the following MACRO_INVOCATION block, not to a
+    standalone GLOBAL.
     """
     result: list[BlockBoundaryEvent] = []
     pending: BlockBoundaryEvent | None = None
+    pending_has_core: bool = False   # True if pending contains a non-PUT line
 
     for ev in events:
         if ev.partition_type != PartitionType.GLOBAL_STATEMENT:
             if pending is not None:
-                result.append(pending)
+                # Only emit the pending GLOBAL if it has non-PUT content OR was
+                # merged with another GLOBAL that had core content.
+                if pending_has_core:
+                    result.append(pending)
+                # else: drop the PUT-only standalone GLOBAL (it's a false positive)
                 pending = None
+                pending_has_core = False
             result.append(ev)
         else:
+            ev_has_core = not _is_put_only(ev.raw_code)
             if pending is None:
                 pending = ev
+                pending_has_core = ev_has_core
             elif ev.line_start - pending.line_end <= _GLOBAL_MERGE_GAP:
                 # Merge: extend the pending block's end to this event's end.
                 pending = BlockBoundaryEvent(
@@ -84,17 +118,18 @@ def _merge_global_statements(
                     test_coverage_type=pending.test_coverage_type,
                     trace_id=trace_id,
                 )
+                pending_has_core = pending_has_core or ev_has_core
             else:
-                result.append(pending)
+                if pending_has_core:
+                    result.append(pending)
                 pending = ev
+                pending_has_core = ev_has_core
 
-    if pending is not None:
+    if pending is not None and pending_has_core:
         result.append(pending)
 
     return result
 
-
-import re as _re
 
 # Patterns for %MEND and %PUT NOTE:%PUT WARNING: after a block close
 _MEND_RE    = _re.compile(r"^\s*%MEND\b", _re.IGNORECASE)

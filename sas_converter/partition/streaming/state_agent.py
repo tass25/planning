@@ -61,6 +61,12 @@ class StateAgent(BaseAgent):
     QUIT_STMT   = re.compile(r"^\s*QUIT\s*;", re.IGNORECASE)
     INCLUDE     = re.compile(r"%INCLUDE\s+", re.IGNORECASE)
     GLOBAL      = re.compile(r"^\s*(?:OPTIONS|LIBNAME|FILENAME|TITLE|%LET\b|%PUT\s+(?:NOTE|WARNING|ERROR)\s*:)", re.IGNORECASE)
+    # Core GLOBAL triggers (OPTIONS/LIBNAME/etc.) — excludes %PUT NOTE/WARNING
+    # Used to distinguish "real" GLOBAL_STATEMENTs from PUT-banner lines.
+    GLOBAL_CORE = re.compile(r"^\s*(?:OPTIONS|LIBNAME|FILENAME|TITLE|%LET\b)", re.IGNORECASE)
+    # %PUT NOTE/WARNING/ERROR: banner lines — trigger GLOBAL but are dropped post-merge
+    # unless merged with a GLOBAL_CORE event.
+    PUT_LOG     = re.compile(r"^\s*%PUT\s+(?:NOTE|WARNING|ERROR)\s*:", re.IGNORECASE)
     COMMENT_S   = re.compile(r"/\*")
     COMMENT_E   = re.compile(r"\*/")
     # Strip from beginning of string through (and including) the first */
@@ -290,7 +296,22 @@ class StateAgent(BaseAgent):
             elif self.INCLUDE.search(part):
                 self._open_block("INCLUDE_REFERENCE", line_num); return
             elif self.GLOBAL.match(part):
-                self._open_block("GLOBAL_STATEMENT", line_num); return
+                # For %PUT NOTE/WARNING/ERROR: banner lines, open the GLOBAL block
+                # so the event is emitted (enabling merge with adjacent OPTIONS/etc.),
+                # but restore pending_block_start afterwards so the following
+                # macro/proc call can still inherit the section comment header.
+                # _merge_global_statements will drop the event if it remains
+                # PUT-only (i.e. was never merged with a core GLOBAL trigger).
+                if self.PUT_LOG.match(part):
+                    saved_pending = self.state.pending_block_start
+                    self._open_block("GLOBAL_STATEMENT", line_num)
+                    # Restore pending so that the next block (e.g. %macro_call)
+                    # can backtrack to the section comment.
+                    if saved_pending is not None:
+                        self.state.pending_block_start = saved_pending
+                else:
+                    self._open_block("GLOBAL_STATEMENT", line_num)
+                return
             elif self.ELSE_CLAUSE.match(part):    # %ELSE / %ELSE %IF / %ELSE %DO
                 # %ELSE %DO has an explicit %DO — needs %END; to close
                 has_do = bool(self.DO_START.search(part))
