@@ -1,7 +1,8 @@
 """BoundaryDetector + BoundaryDetectorAgent — L2-C boundary detection.
 
 Deterministic pass: regex + StateAgent FSM transitions (~80% of blocks).
-LLM pass:           Ollama llama3.1:8b for ambiguous blocks (~20%).
+LLM pass:           Groq llama-3.1-8b-instant for ambiguous blocks (~20%).
+                    Configurable via LLM_PROVIDER env var (groq / azure / ollama).
 """
 
 from __future__ import annotations

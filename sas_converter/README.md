@@ -56,7 +56,7 @@ Lineage is stored in the `data_lineage` SQLite table and annotated in `.gold.jso
 
 | Metric | Value |
 |--------|-------|
-| Gold blocks | 721 (60 files, tolerance ±2 lines) |
+| Gold blocks | 721 (50 files, tolerance ±2 lines) |
 | Target accuracy | **80%** |
 | Current accuracy | **79.3%** (572/721) |
 

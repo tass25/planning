@@ -6,8 +6,7 @@ Agents:
 
 Helpers:
     BoundaryDetector       — pure rule-based detector (no LLM)
-    LLMBoundaryResolver    — Ollama / Azure OpenAI resolver
-
+    LLMBoundaryResolver    — Groq (default) / Azure OpenAI / Ollama resolver
 Models:
     BlockBoundaryEvent     — detection event emitted per SAS block
 """
