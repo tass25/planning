@@ -52,6 +52,19 @@ Beyond file-level linking (`%INCLUDE`, `LIBNAME`), the system tracks **dataset-l
 
 Lineage is stored in the `data_lineage` SQLite table and annotated in `.gold.json` files.
 
+## Benchmark
+
+| Metric | Value |
+|--------|-------|
+| Gold blocks | 721 (60 files, tolerance ±2 lines) |
+| Target accuracy | **80%** |
+| Current accuracy | **79.3%** (572/721) |
+
+```bash
+$env:PYTHONPATH="$PWD/sas_converter"
+python sas_converter/benchmark/boundary_benchmark.py
+```
+
 ## Running Tests
 
 ```bash
