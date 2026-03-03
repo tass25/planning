@@ -20,3 +20,7 @@ sentence-transformers>=2.2
 torch>=2.1
 lancedb>=0.4
 pyarrow>=14.0
+# Persistence & Index (week 7)
+networkx>=3.1
+duckdb>=0.9
+pyyaml>=6.0

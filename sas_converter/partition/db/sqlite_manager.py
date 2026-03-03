@@ -9,6 +9,7 @@ from sqlalchemy import (
     Column,
     String,
     Integer,
+    Float,
     Boolean,
     Text,
     ForeignKey,
@@ -71,6 +72,60 @@ class DataLineageRow(Base):
     transform_expr = Column(String, nullable=True)      # e.g. 'SUM(unit_price * quantity)'
     block_line_start = Column(Integer, nullable=True)   # line in source file
     block_line_end = Column(Integer, nullable=True)
+
+
+class PartitionIRRow(Base):
+    """Stores one row per partitioned SAS code block."""
+    __tablename__ = "partition_ir"
+
+    partition_id = Column(String, primary_key=True)
+    source_file_id = Column(String, ForeignKey("file_registry.file_id"), nullable=False)
+    partition_type = Column(String, nullable=False)
+    risk_level = Column(String, default="UNCERTAIN")
+    conversion_status = Column(String, default="HUMAN_REVIEW")
+    content_hash = Column(String, nullable=False)
+    complexity_score = Column(Float, default=0.0)
+    calibration_confidence = Column(Float, default=0.0)
+    strategy = Column(String, default="FLAT_PARTITION")
+    line_start = Column(Integer, nullable=False)
+    line_end = Column(Integer, nullable=False)
+    control_depth = Column(Integer, default=0)
+    has_macros = Column(Boolean, default=False)
+    has_nested_sql = Column(Boolean, default=False)
+    raw_code = Column(Text, default="")
+    raptor_leaf_id = Column(String, nullable=True)
+    raptor_cluster_id = Column(String, nullable=True)
+    raptor_root_id = Column(String, nullable=True)
+    scc_id = Column(String, nullable=True)
+    created_at = Column(String, nullable=False)
+
+
+class ConversionResultRow(Base):
+    """Stores one row per completed block conversion."""
+    __tablename__ = "conversion_results"
+
+    conversion_id = Column(String, primary_key=True)
+    partition_id = Column(String, ForeignKey("partition_ir.partition_id"), nullable=False)
+    target_lang = Column(String, default="python")
+    translated_code = Column(Text, default="")
+    validation_status = Column(String, default="PENDING")
+    error_log = Column(Text, default="")
+    llm_model = Column(String, nullable=True)
+    llm_tier = Column(String, nullable=True)
+    retry_count = Column(Integer, default=0)
+    created_at = Column(String, nullable=False)
+
+
+class MergedScriptRow(Base):
+    """Stores one row per merged output script."""
+    __tablename__ = "merged_scripts"
+
+    script_id = Column(String, primary_key=True)
+    source_file_id = Column(String, ForeignKey("file_registry.file_id"), nullable=False)
+    output_path = Column(String, nullable=False)
+    n_blocks = Column(Integer, default=0)
+    status = Column(String, default="PENDING")
+    created_at = Column(String, nullable=False)
 
 
 # ── Engine / Session helpers ──────────────────────────────────────────────────
