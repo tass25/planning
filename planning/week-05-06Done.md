@@ -275,7 +275,39 @@ L3     persistence/           📅 week 7
 
 ---
 
-## 🔮 What's Next (Week 7)
+## � Visualization Script (Added 2026-03-03)
+
+**File**: `planning/week05_06viz.py`
+
+**Purpose**: RAPTOR tree structure visualization from LanceDB vector store.
+
+**What it shows**:
+- LanceDB `raptor_nodes` table query (limit 1000)
+- Level distribution bar chart (0, 1, 2)
+- Summary tier pie chart (groq/ollama_fallback/heuristic_fallback/cached)
+- Tree structure plot with parent-child edges using Circle patches
+- PCA 2D projection of 768-dim embeddings colored by tree level
+
+**Database required**: `lancedb_data/` folder with `raptor_nodes` table
+
+**Setup**:
+```bash
+# Generate dummy RAPTOR data
+python populate_dummy_data.py
+
+# OR run RAPTOR pipeline with real data (requires Week 5-6 implementation)
+```
+
+**Run**:
+```bash
+python planning/week05_06viz.py
+```
+
+**Output**: Text summary + matplotlib plots showing RAPTOR tree levels, embedding projection, and summary tier distribution.
+
+---
+
+## �🔮 What's Next (Week 7)
 
 Per `planning/week-07.md`: **Persistence & Index Layer (L3)**.
 

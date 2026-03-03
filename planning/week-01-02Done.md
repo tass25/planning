@@ -177,3 +177,37 @@ No automated benchmark yet (created in week 3–4), but the gold corpus was the 
 - Hand-annotating 721 SAS blocks is tedious but unavoidable — SAS boundary rules are complex enough that no existing tool gives reliable ground truth.
 - Pydantic v2's strict enum validation caught annotation errors early; worth the setup cost.
 - The `TOLERANCE=2` heuristic in the benchmark was essential: SAS comment blocks before a `DATA` step legitimately belong to it, so the "true" start is ambiguous by ±1–2 lines.
+
+---
+
+## 📊 Visualization Script (Added 2026-03-03)
+
+**File**: `planning/week01_02viz.py`
+
+**Purpose**: Interactive visualization of Week 1-2 deliverables (file registry, cross-file dependencies, data lineage).
+
+**What it shows**:
+- File registry stats (encoding distribution, line counts)
+- NetworkX dependency graph with spring layout
+- Data lineage flow diagram (dataset-prefix color coding: raw.*/staging.*/mart.*)
+
+**Database required**: `file_registry.db` (SQLite)
+
+**Setup**:
+```bash
+# Generate empty database schema
+python setup_viz_data.py
+
+# Populate with dummy test data
+python populate_dummy_data.py
+
+# OR populate with real data
+python main.py --dir sas_converter/knowledge_base/gold_standard/
+```
+
+**Run**:
+```bash
+python planning/week01_02viz.py
+```
+
+**Output**: Text summary + matplotlib plots showing file registry metrics and dependency graphs.

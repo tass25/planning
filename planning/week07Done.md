@@ -143,3 +143,90 @@ PartitionIR[] + RAPTORNode[]
         DuckDB ──▶ 7 analytics tables
         ProjectConfigManager ──▶ YAML config (hop cap, pipeline settings)
 ```
+
+---
+
+## 📊 Visualization Script (Added 2026-03-03)
+
+**File**: `planning/week07viz.py`
+
+**Purpose**: Full persistence layer visualization (SQLite + NetworkX + DuckDB).
+
+**What it shows**:
+- SQLite `partition_ir` table: risk level & partition type distribution
+- NetworkX graph from `partition_graph.gpickle`: nodes, edges, SCC analysis
+- SCC detection: strongly connected components (circular dependencies)
+- SCC size histogram
+- Dependency graph with SCC highlighting (lightcoral=circular, lightblue=normal)
+- DuckDB analytics: table names + row counts (llm_audit, calibration_log, etc.)
+- Dynamic hop cap calculation: `min(dag_longest_path_length, 10)`
+
+**Databases required**:
+- `file_registry.db` (SQLite)
+- `partition_graph.gpickle` (NetworkX pickle)
+- `analytics.duckdb` (DuckDB)
+
+**Setup**:
+```bash
+# Generate all databases with schemas
+python setup_viz_data.py
+
+# Populate with dummy test data
+python populate_dummy_data.py
+
+# OR populate with real data
+python main.py --dir sas_converter/knowledge_base/gold_standard/
+```
+
+**Run**:
+```bash
+python planning/week07viz.py
+```
+
+**Output**: Text summary + matplotlib 3-subplot layout:
+1. SQLite partition_ir distribution (risk levels, partition types)
+2. NetworkX SCC analysis with size histogram
+3. Dependency graph visualization with SCC node highlighting
+4. DuckDB table row counts
+
+---
+
+## 🛠️ Database Setup Scripts (Added 2026-03-03)
+
+**File**: `setup_viz_data.py`
+
+**Purpose**: Create empty database schemas for visualization testing.
+
+**What it creates**:
+- `file_registry.db` → SQLite schema with 6 ORM tables
+- `analytics.duckdb` → DuckDB with 7 analytics tables
+- `partition_graph.gpickle` → NetworkX DiGraph with 1 dummy node
+
+**Run**: `python setup_viz_data.py`
+
+---
+
+**File**: `populate_dummy_data.py`
+
+**Purpose**: Fill databases with dummy test data for visualization scripts.
+
+**What it populates**:
+- SQLite: 10 files, 15 dependencies, 20 lineage entries, 50 partitions
+- DuckDB: 20 LLM audit logs, 5 calibration entries
+- NetworkX: 50 nodes, 60 edges, 1 SCC
+- LanceDB: 100 RAPTOR nodes across 3 levels
+
+**Run**: `python populate_dummy_data.py`
+
+---
+
+## 📦 Dependencies Added
+
+Visualization scripts require:
+- `matplotlib>=3.10` (upgraded from 3.6.1 for NumPy 2.x compatibility)
+- `networkx` (already present)
+- `lancedb` (already present)
+- `duckdb` (already present)
+- `structlog` (already present)
+
+Install missing packages: `pip install matplotlib`

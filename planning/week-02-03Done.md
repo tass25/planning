@@ -200,3 +200,29 @@ This decision proved correct but caused complexity later when `%PUT NOTE:` lines
 - Building the FSM in `StateAgent` before having any benchmark was risky. Many edge cases (implicit closes, comment backsteps, PUT banners) only became visible when measured against gold data.
 - Mermaid syntax is version-sensitive — always pin or test in the exact renderer being used.
 - Writing 16-choice justifications early was valuable: when challenged in code review, the reasoning was already documented.
+
+---
+
+## 📊 Visualization Script (Added 2026-03-03)
+
+**File**: `planning/week02_03viz.py`
+
+**Purpose**: Run streaming pipeline on a sample .sas file and visualize block detection timeline.
+
+**What it shows**:
+- Async StreamAgent/StateAgent execution
+- Timeline visualization with FancyBboxPatch showing blocks colored by type
+- Line ranges for each detected block
+
+**Database required**: None (runs pipeline directly on .sas files)
+
+**Dependencies**: Requires `sas_converter.partition.streaming` (main branch)
+
+**Run**:
+```bash
+python planning/week02_03viz.py sas_converter/examples/test_input.sas
+# OR
+python planning/week02_03viz.py sas_converter/knowledge_base/gold_standard/gs_01_basic_data_step.sas
+```
+
+**Output**: matplotlib timeline plot with blocks colored by partition type + line range annotations.

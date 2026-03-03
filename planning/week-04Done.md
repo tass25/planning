@@ -333,3 +333,28 @@ This fix was not implemented this week — the target was 80%, the current score
 - **Feature choice matters more than model choice** at this scale. All 6 features were motivated by the SAS domain (e.g., `has_call_execute` is a binary flag for the single hardest pattern in SAS).
 - **asyncio.run() vs asyncio.get_event_loop()** — this distinction has real consequences when running a larger test suite. Always use `asyncio.run()` in new code.
 - The 80% accuracy target is a practical ceiling for pure regex/FSM detection. The remaining 20% requires LLM reasoning or SAS AST parsing.
+
+---
+
+## 📊 Visualization Script (Added 2026-03-03)
+
+**File**: `planning/week04viz.py`
+
+**Purpose**: Complexity agent calibration metrics (LogisticRegression + Platt scaling).
+
+**What it shows**:
+- 4-subplot visualization:
+  1. Feature importance horizontal bar chart (mock coefficients)
+  2. Calibration reliability diagram (predicted vs true probability)
+  3. ECE bin-wise error bars
+  4. Risk level pie chart (LOW/MODERATE/HIGH distribution)
+- Metrics: train_acc=86%, test_acc=73%, **ECE=0.06** (target <0.08 ✅)
+
+**Database required**: None (hardcoded calibration data)
+
+**Run**:
+```bash
+python planning/week04viz.py
+```
+
+**Output**: matplotlib 4-panel plot showing feature importance, calibration curves, and risk distribution.

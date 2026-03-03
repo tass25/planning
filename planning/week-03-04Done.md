@@ -242,3 +242,26 @@ Per-type breakdown at first run:
 - `PROC SQL; … QUIT;` vs `PROC MEANS; … RUN;` — this distinction alone was causing ~37 missed blocks. Always check the full list of SAS block terminators, not just `RUN;`.
 - The `_IMPLICIT_CLOSE_SET` is the most dangerous part of the FSM. Incorrectly classifying a token as an implicit close propagates errors to all subsequent blocks in the file.
 - Benchmark-driven development worked well here: write the test first (gold corpus), see the score, fix the biggest miss, re-measure.
+
+---
+
+## 📊 Visualization Script (Added 2026-03-03)
+
+**File**: `planning/week03_04viz.py`
+
+**Purpose**: Benchmark accuracy progression visualization (boundary detection fixes across 6 commits).
+
+**What it shows**:
+- 2-subplot figure: matched/gold bar chart per partition type
+- Line chart showing 6-iteration progression (59ed3f9 → 737c37e)
+- Annotated with delta gains (+33, +2, +37, +1, +6)
+- Final accuracy: **72.3%** (521/721 blocks matched)
+
+**Database required**: None (hardcoded data from week-03-04Done.md)
+
+**Run**:
+```bash
+python planning/week03_04viz.py
+```
+
+**Output**: matplotlib plots showing per-type accuracy breakdown and commit-by-commit progression.
