@@ -41,3 +41,16 @@ class PartitionIR(BaseModel):
     dependencies: list[UUID] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    # RAPTOR back-links (populated by RAPTORTreeBuilder)
+    raptor_leaf_id: str | None = None
+    raptor_cluster_id: str | None = None
+    raptor_root_id: str | None = None
+
+    @property
+    def has_macros(self) -> bool:
+        """True when the block is macro-related (definition or invocation)."""
+        return self.partition_type in (
+            PartitionType.MACRO_DEFINITION,
+            PartitionType.MACRO_INVOCATION,
+        )
