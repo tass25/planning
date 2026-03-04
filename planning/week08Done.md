@@ -298,3 +298,59 @@ With the full L2 pipeline orchestrated, Week 9 focuses on:
 - Quality metrics tracking in DuckDB
 
 > *P1 phase is COMPLETE. 16 agents, full L2 pipeline orchestrated with LangGraph, Redis checkpointing, DuckDB audit logging.*
+
+---
+
+## ☁️ Azure Migration Update (Added Week 9)
+
+### What was used before
+
+The `LLMAuditLogger` (`partition/orchestration/audit.py`) originally logged every LLM call **only to DuckDB** (`llm_audit` table). This was sufficient for local development — we could query latency percentiles, error rates, and cost estimates via SQL. However, there was no cloud-level observability: no dashboards, no alerting, no cross-session trends.
+
+### Why we added Azure Application Insights
+
+1. **Real-time monitoring**: Azure Portal provides live dashboards for LLM call latency (P50/P95/P99), error rates, and throughput — no SQL queries needed.
+2. **Alerting**: App Insights can trigger email/Teams alerts when error rates spike or latency exceeds thresholds.
+3. **Cross-session analytics**: DuckDB files are local and ephemeral. App Insights aggregates telemetry across all pipeline runs, all machines.
+4. **$100 student credit**: App Insights ingestion is ~$2.30/GB. Our LLM audit telemetry generates <1MB/month — effectively free.
+5. **Production readiness**: When deploying to Azure Container Apps (Week 14), App Insights is the native telemetry solution.
+
+### What changed
+
+| Change | Detail |
+|--------|--------|
+| Dual logging | DuckDB (primary, always) + App Insights (optional, cloud) |
+| Env var | `APPINSIGHTS_CONNECTION_STRING` enables cloud telemetry |
+| Dependencies | Added `azure-monitor-opentelemetry>=1.4.0`, `opencensus-ext-azure>=1.1.0` to requirements.txt |
+| `LLMAuditLogger.__init__` | Added `_appinsights_enabled` flag (auto-detected from env) |
+| `_LLMCallTracker.__init__` | Added `appinsights_enabled` parameter |
+| `_LLMCallTracker.persist()` | After DuckDB insert, sends custom event to App Insights via `AzureLogHandler` |
+| Graceful fallback | If `opencensus` import fails or App Insights connection string is missing, cloud telemetry is silently disabled |
+
+### How it works
+
+```python
+# DuckDB (always — local analytics)
+con.execute("INSERT INTO llm_audit VALUES (...)", [call_id, agent, model, ...])
+
+# App Insights (optional — cloud telemetry)
+if self._appinsights_enabled:
+    az_logger.info("llm_call_completed", extra={
+        "custom_dimensions": {
+            "call_id": self.call_id,
+            "agent_name": self.agent_name,
+            "model_name": self.model_name,
+            "latency_ms": self.latency_ms,
+            "success": self.success,
+            "tier": self.tier,
+        }
+    })
+```
+
+### New env var
+
+```bash
+$env:APPINSIGHTS_CONNECTION_STRING = "InstrumentationKey=xxx;IngestionEndpoint=https://xxx.in.applicationinsights.azure.com/"
+```
+
+If not set, the audit logger works exactly as before (DuckDB only). No breaking change.

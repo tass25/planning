@@ -316,3 +316,43 @@ Expected deliverables:
 - LanceDB IVF index tuning for the full 50-file gold corpus
 - End-to-end pipeline integration test (streaming → partition → RAPTOR → persist)
 - Query API for the TranslationAgent to retrieve context
+
+---
+
+## ☁️ Azure Migration Update (Added Week 9)
+
+### What was used before
+
+The `ClusterSummarizer` (`partition/raptor/summarizer.py`) originally used a 3-tier LLM fallback:
+1. **Tier 1 — Groq Llama-3.1-70B-versatile**: Best quality, but rate-limited to 30 RPM on the free tier
+2. **Tier 2 — Ollama Llama-3.1-70B**: Local fallback, slower (~8s/call) but unlimited
+3. **Tier 3 — Heuristic**: Keyword extraction, no LLM needed
+
+Groq was chosen initially because it was the fastest free option, and Ollama as local fallback didn't require internet. The problem: on the 50-file gold standard corpus, RAPTOR generates dozens of clusters per file. Groq's 30 RPM limit meant summarization alone could take 15+ minutes with constant retry backoffs.
+
+### Why we migrated to Azure OpenAI
+
+1. **Rate limit elimination**: Azure OpenAI has no hard RPM cap on student tier — the 30 RPM Groq bottleneck vanishes.
+2. **GPT-4o for summarization**: GPT-4o produces significantly better cluster summaries than Llama-3.1-70B. The structured output (`ClusterSummary` Pydantic model) has fewer parse failures.
+3. **Cost-effective**: GPT-4o at ~$5/M input tokens. The entire gold corpus summarization costs ~$0.15. The $100 student credit covers the full internship.
+4. **Consistent with boundary resolver**: Using Azure OpenAI for both chunking (GPT-4o-mini) and RAPTOR (GPT-4o) simplifies credential management — one set of `AZURE_OPENAI_*` env vars.
+5. **Ollama dropped from fallback chain**: Ollama required a local 70B model download (~40GB). Groq replaces it as Tier 2 fallback.
+
+### What changed
+
+| Change | Detail |
+|--------|--------|
+| Tier 1 | Groq Llama-3.1-70B → **Azure OpenAI GPT-4o** |
+| Tier 2 | Ollama local → **Groq Llama-3.1-70B** (fallback) |
+| Tier 3 | Heuristic (unchanged) |
+| Constructor | Added `azure_endpoint`, `azure_api_key`, `azure_api_version`, `azure_deployment` params |
+| Auto-config | Reads `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT_FULL` from env |
+| Return tier | `"azure_openai"` (new) or `"groq_fallback"` (renamed from `"groq"`) or `"heuristic_fallback"` |
+| Import | Added `os` import, `from openai import AzureOpenAI` alongside existing `OpenAI` |
+
+### New fallback chain
+
+```
+Azure OpenAI GPT-4o  →  Groq Llama-3.1-70B  →  Heuristic (keyword extraction)
+     (primary)             (fallback)              (offline)
+```

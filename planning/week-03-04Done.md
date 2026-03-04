@@ -265,3 +265,43 @@ python planning/week03_04viz.py
 ```
 
 **Output**: matplotlib plots showing per-type accuracy breakdown and commit-by-commit progression.
+
+---
+
+## ☁️ Azure Migration Update (Added Week 9)
+
+### What was used before
+
+The `LLMBoundaryResolver` (`partition/chunking/llm_boundary_resolver.py`) originally used **Groq** (Llama-3.1-8b-instant) as the default LLM provider for resolving ambiguous SAS block boundaries (~20% of all blocks). Groq was chosen initially because:
+- Free tier available, no upfront cost
+- OpenAI-compatible API (easy instructor integration)
+- Low latency (~0.5s per call vs ~8s with local Ollama)
+
+### Why we migrated to Azure OpenAI
+
+1. **Rate limit bottleneck**: Groq free tier is capped at 30 RPM. On large corpora (50+ files), the boundary resolver would hit the limit within seconds, causing cascading retries and pipeline stalls.
+2. **$100 Azure student credit**: Azure for Students provides $100/year of credit — more than enough for the entire internship.
+3. **GPT-4o-mini > Llama-3.1-8b**: GPT-4o-mini produces better structured-output compliance for Pydantic `LLMBoundaryResponse` models (fewer JSON parse errors).
+4. **Enterprise SLA (99.9%)**: Groq free tier offers best-effort availability. Azure OpenAI guarantees 99.9% uptime.
+5. **Tiered model routing**: Azure lets us deploy both GPT-4o-mini (fast, cheap for LOW/MODERATE risk) and GPT-4o (accurate for HIGH risk) side by side.
+
+### What changed
+
+| Change | Detail |
+|--------|--------|
+| Default provider | `LLM_PROVIDER` env var default changed from `"groq"` to `"azure"` |
+| Env var names | `AZURE_OPENAI_KEY` → `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOY` → `AZURE_OPENAI_DEPLOYMENT_MINI` |
+| API version | `2024-02-01` → `2024-10-21` (latest GA) |
+| Model | `gpt-4o` (single) → `gpt-4o-mini` for boundary resolution (cost-efficient) |
+| Fallback chain | Azure OpenAI (primary) → Groq (fallback) → Ollama (offline) |
+| Groq | Still works — set `LLM_PROVIDER=groq` to use it as before |
+
+### New env vars
+
+```bash
+$env:AZURE_OPENAI_API_KEY = "your-key"
+$env:AZURE_OPENAI_ENDPOINT = "https://your-resource.openai.azure.com/"
+$env:AZURE_OPENAI_API_VERSION = "2024-10-21"        # optional
+$env:AZURE_OPENAI_DEPLOYMENT_MINI = "gpt-4o-mini"    # optional, default
+$env:AZURE_OPENAI_DEPLOYMENT_FULL = "gpt-4o"          # optional, for HIGH risk
+```
