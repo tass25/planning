@@ -1,17 +1,28 @@
 """LLMBoundaryResolver — resolves ambiguous SAS block boundaries via an LLM.
 
-Default provider: Groq (llama-3.1-8b-instant) — fast, free tier, OpenAI-compatible.
-Upgrade paths:
-    LLM_PROVIDER=azure  → Azure OpenAI GPT-4o  (see azure_evaluation.md §1)
-    LLM_PROVIDER=ollama → local Ollama         (set OLLAMA_HOST + OLLAMA_MODEL)
+Default provider: Azure OpenAI (GPT-4o-mini) — enterprise-grade, $100 student credit.
+Fallback chain:
+    LLM_PROVIDER=azure  → Azure OpenAI GPT-4o-mini  (default, primary)
+    LLM_PROVIDER=groq   → Groq Llama-3.1-8b-instant (fallback, 30 RPM limit)
+    LLM_PROVIDER=ollama → local Ollama               (offline fallback)
 
 Required env vars per provider:
+    azure : AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT
+            AZURE_OPENAI_API_VERSION (optional, default: 2024-10-21)
+            AZURE_OPENAI_DEPLOYMENT_MINI (optional, default: gpt-4o-mini)
+            AZURE_OPENAI_DEPLOYMENT_FULL (optional, default: gpt-4o)
     groq  : GROQ_API_KEY   (https://console.groq.com)
             GROQ_MODEL     (optional, default: llama-3.1-8b-instant)
-    azure : AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_KEY
-            AZURE_OPENAI_DEPLOY (optional, default: gpt-4o)
     ollama: OLLAMA_HOST    (optional, default: http://localhost:11434)
             OLLAMA_MODEL   (optional, default: llama3.1:8b)
+
+Migration note (Week 9):
+    Previously used Groq (Llama-3.1-8b-instant) as default provider.
+    Migrated to Azure OpenAI because:
+    - Groq free tier limited to 30 RPM → pipeline bottleneck on large corpora
+    - Azure $100 student credit covers full project usage
+    - GPT-4o-mini provides better structured-output compliance
+    - Enterprise SLA (99.9%) for production reliability
 """
 
 from __future__ import annotations
@@ -37,9 +48,9 @@ class LLMBoundaryResolver:
     """Resolve ambiguous block boundaries using an LLM.
 
     Provider selected via LLM_PROVIDER env var:
-        ``"groq"``   (default) — Groq API, requires GROQ_API_KEY
-        ``"azure"``  — Azure OpenAI GPT-4o, requires AZURE_OPENAI_* vars
-        ``"ollama"`` — local Ollama (future), requires OLLAMA_* vars
+        ``"azure"``  (default) — Azure OpenAI GPT-4o-mini, requires AZURE_OPENAI_* vars
+        ``"groq"``   — Groq API (fallback), requires GROQ_API_KEY
+        ``"ollama"`` — local Ollama (offline), requires OLLAMA_* vars
     """
 
     MAX_TOKENS = 6_000
@@ -47,7 +58,7 @@ class LLMBoundaryResolver:
 
     def __init__(self, trace_id: UUID | None = None) -> None:
         self.trace_id = trace_id
-        self._provider = os.getenv("LLM_PROVIDER", "groq").lower()
+        self._provider = os.getenv("LLM_PROVIDER", "azure").lower()
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -138,7 +149,7 @@ class LLMBoundaryResolver:
 
         return _apply_response(event, resp, method="llm_8b")
 
-    # ── Azure OpenAI (upgrade path — azure_evaluation.md §1) ─────────────────
+    # ── Azure OpenAI (default — GPT-4o-mini, enterprise SLA) ────────────────
 
     async def _resolve_azure(self, event: BlockBoundaryEvent) -> BlockBoundaryEvent:
         try:
@@ -151,9 +162,11 @@ class LLMBoundaryResolver:
                 "Run: pip install openai instructor tiktoken"
             ) from exc
 
-        endpoint = os.environ["AZURE_OPENAI_ENDPOINT"]
-        api_key  = os.environ["AZURE_OPENAI_KEY"]
-        deploy   = os.getenv("AZURE_OPENAI_DEPLOY", "gpt-4o")
+        endpoint    = os.environ["AZURE_OPENAI_ENDPOINT"]
+        api_key     = os.environ["AZURE_OPENAI_API_KEY"]
+        api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21")
+        # GPT-4o-mini for boundary resolution (fast, cost-efficient)
+        deploy = os.getenv("AZURE_OPENAI_DEPLOYMENT_MINI", "gpt-4o-mini")
 
         tokenizer = tiktoken.get_encoding("cl100k_base")
         raw_code  = _truncate(event.raw_code, tokenizer, self.MAX_TOKENS - 500)
@@ -161,7 +174,7 @@ class LLMBoundaryResolver:
         azure_client = AsyncAzureOpenAI(
             azure_endpoint=endpoint,
             api_key=api_key,
-            api_version="2024-02-01",
+            api_version=api_version,
         )
         client = instructor.from_openai(azure_client)
 

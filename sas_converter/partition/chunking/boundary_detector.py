@@ -1,8 +1,8 @@
 """BoundaryDetector + BoundaryDetectorAgent — L2-C boundary detection.
 
 Deterministic pass: regex + StateAgent FSM transitions (~80% of blocks).
-LLM pass:           Groq llama-3.1-8b-instant for ambiguous blocks (~20%).
-                    Configurable via LLM_PROVIDER env var (groq / azure / ollama).
+LLM pass:           Azure OpenAI GPT-4o-mini for ambiguous blocks (~20%).
+                    Configurable via LLM_PROVIDER env var (azure / groq / ollama).
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ import structlog
 from partition.base_agent import BaseAgent, with_retry
 from partition.models.enums import PartitionType
 from partition.streaming.models import LineChunk, ParsingState
+from partition.utils.retry import azure_breaker, azure_limiter
 
 from .models import COVERAGE_MAP, BlockBoundaryEvent
 from .llm_boundary_resolver import LLMBoundaryResolver
@@ -513,10 +514,21 @@ class BoundaryDetectorAgent(BaseAgent):
                     line_end=event.line_end,
                     lines=event.line_end - event.line_start + 1,
                 )
+                if not azure_breaker.allow_request():
+                    self.logger.warning(
+                        "circuit_breaker_open",
+                        fallback="lark_fallback",
+                    )
+                    event.boundary_method = "lark_fallback"
+                    resolved.append(event)
+                    continue
                 try:
-                    llm_event = await self._llm_resolver.resolve(event)
+                    async with azure_limiter:
+                        llm_event = await self._llm_resolver.resolve(event)
+                    azure_breaker.record_success()
                     resolved.append(llm_event)
                 except Exception as exc:
+                    azure_breaker.record_failure()
                     self.logger.warning(
                         "llm_resolver_failed",
                         error=str(exc),

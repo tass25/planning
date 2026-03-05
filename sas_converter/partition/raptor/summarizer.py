@@ -1,8 +1,20 @@
-"""ClusterSummarizer — 3-tier LLM fallback for cluster summarization."""
+"""ClusterSummarizer — 3-tier LLM fallback for cluster summarization.
+
+Migration note (Week 9):
+    Previously: Groq Llama-3.1-70B (Tier 1) → Ollama (Tier 2) → heuristic (Tier 3)
+    Now:        Azure OpenAI GPT-4o (Tier 1) → Groq (Tier 2)  → heuristic (Tier 3)
+
+    Migrated to Azure OpenAI because:
+    - Groq 30 RPM rate limit bottlenecked RAPTOR summarization on large corpora
+    - GPT-4o provides superior structured-output compliance for Pydantic models
+    - Azure $100 student credit covers full project usage
+    - Enterprise SLA (99.9%) vs Groq free tier (best-effort)
+"""
 
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 from typing import Optional
 
@@ -56,9 +68,9 @@ except ImportError:
 class ClusterSummarizer:
     """Summarize a cluster of SAS code blocks — three-tier fallback.
 
-    Tier 1 — Groq Llama-3.1-70B    (best quality, rate-limited 30 req/min)
-    Tier 2 — Ollama Llama-3.1-70B  (local, slower but unlimited)
-    Tier 3 — Heuristic              (keyword extraction, no LLM needed)
+    Tier 1 — Azure OpenAI GPT-4o  (primary, enterprise SLA, $100 student credit)
+    Tier 2 — Groq Llama-3.1-70B   (fallback, 30 RPM rate limit)
+    Tier 3 — Heuristic             (keyword extraction, no LLM needed)
 
     A tiktoken guard (cl100k_base) truncates prompts to MAX_PROMPT_TOKENS
     before calling any LLM tier.  cl100k_base over-estimates Llama tokens by
@@ -76,26 +88,43 @@ class ClusterSummarizer:
         groq_api_key: Optional[str] = None,
         groq_base_url: str = "https://api.groq.com/openai/v1",
         ollama_base_url: str = "http://localhost:11434/v1",
+        azure_endpoint: Optional[str] = None,
+        azure_api_key: Optional[str] = None,
+        azure_api_version: str = "2024-10-21",
+        azure_deployment: Optional[str] = None,
     ):
         self._summary_cache: dict[str, ClusterSummary] = {}
         self._enc = tiktoken.get_encoding(self.ENCODING_NAME)
+        self.azure_client = None
         self.groq_client = None
         self.ollama_client = None
+        self._azure_deployment = azure_deployment or os.getenv(
+            "AZURE_OPENAI_DEPLOYMENT_FULL", "gpt-4o"
+        )
 
         try:
             import instructor
-            from openai import OpenAI
+            from openai import OpenAI, AzureOpenAI
 
+            # Tier 1: Azure OpenAI (primary)
+            _az_endpoint = azure_endpoint or os.getenv("AZURE_OPENAI_ENDPOINT")
+            _az_key = azure_api_key or os.getenv("AZURE_OPENAI_API_KEY")
+            if _az_endpoint and _az_key:
+                self.azure_client = instructor.from_openai(
+                    AzureOpenAI(
+                        azure_endpoint=_az_endpoint,
+                        api_key=_az_key,
+                        api_version=azure_api_version,
+                    )
+                )
+                logger.info("summarizer_tier1_ready", provider="azure_openai")
+
+            # Tier 2: Groq (fallback)
             if groq_api_key:
                 self.groq_client = instructor.from_openai(
                     OpenAI(api_key=groq_api_key, base_url=groq_base_url)
                 )
-                logger.info("summarizer_tier1_ready", provider="groq")
-
-            self.ollama_client = instructor.from_openai(
-                OpenAI(api_key="ollama", base_url=ollama_base_url)
-            )
-            logger.info("summarizer_tier2_ready", provider="ollama")
+                logger.info("summarizer_tier2_ready", provider="groq")
 
         except ImportError:
             logger.warning(
@@ -127,7 +156,21 @@ class ClusterSummarizer:
         truncated = self._truncate_to_token_limit(code_blocks)
         prompt = self._build_prompt(truncated)
 
-        # Tier 1: Groq
+        # Tier 1: Azure OpenAI GPT-4o (primary)
+        if self.azure_client:
+            try:
+                result = self.azure_client.chat.completions.create(
+                    model=self._azure_deployment,
+                    messages=[{"role": "user", "content": prompt}],
+                    response_model=ClusterSummary,
+                    max_retries=2,
+                )
+                self._summary_cache[cache_key] = result
+                return result, "azure_openai"
+            except Exception as exc:
+                logger.warning("azure_summary_failed", error=str(exc))
+
+        # Tier 2: Groq Llama-3.1-70B (fallback)
         if self.groq_client:
             try:
                 result = self.groq_client.chat.completions.create(
@@ -137,23 +180,9 @@ class ClusterSummarizer:
                     max_retries=2,
                 )
                 self._summary_cache[cache_key] = result
-                return result, "groq"
+                return result, "groq_fallback"
             except Exception as exc:
                 logger.warning("groq_summary_failed", error=str(exc))
-
-        # Tier 2: Ollama local
-        if self.ollama_client:
-            try:
-                result = self.ollama_client.chat.completions.create(
-                    model="llama3.1:70b",
-                    messages=[{"role": "user", "content": prompt}],
-                    response_model=ClusterSummary,
-                    max_retries=2,
-                )
-                self._summary_cache[cache_key] = result
-                return result, "ollama_fallback"
-            except Exception as exc:
-                logger.warning("ollama_summary_failed", error=str(exc))
 
         # Tier 3: Heuristic
         result = self._heuristic_summary(code_blocks)

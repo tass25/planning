@@ -27,6 +27,7 @@ from langgraph.graph import END, StateGraph
 from partition.orchestration.audit import LLMAuditLogger
 from partition.orchestration.checkpoint import RedisCheckpointManager
 from partition.orchestration.state import PipelineStage, PipelineState
+from partition.utils.large_file import configure_memory_guards, MemoryMonitor
 
 logger = structlog.get_logger()
 
@@ -54,6 +55,10 @@ class PartitionOrchestrator:
         self.audit = LLMAuditLogger(duckdb_path)
         self.target_runtime = target_runtime
         self.duckdb_path = duckdb_path
+        self.memory_monitor = MemoryMonitor()
+
+        # Configure memory guards at startup (OMP, CUDA)
+        configure_memory_guards()
 
         # Build the LangGraph StateGraph
         self.graph = self._build_graph()
