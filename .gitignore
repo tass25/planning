@@ -9,6 +9,9 @@ venv/
 .venv/
 env/
 
+# Environment secrets
+.env
+
 # IDE
 .vscode/
 .idea/
@@ -21,8 +24,12 @@ build/
 *.egg-info/
 *.egg
 
-# SQLite databases
+# Databases & runtime artifacts
 *.db
+*.duckdb
+*.gpickle
+lancedb_data/
+data/
 
 # Logs
 logs/*.log

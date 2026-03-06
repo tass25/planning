@@ -211,3 +211,9 @@ python planning/week01_02viz.py
 ```
 
 **Output**: Text summary + matplotlib plots showing file registry metrics and dependency graphs.
+
+---
+
+## ⚠️ Post-Consolidation Update (Week 13)
+
+FileAnalysisAgent (#1) + CrossFileDependencyResolver (#2) + RegistryWriterAgent (#3) + DataLineageExtractor (#4) were consolidated into a single `FileProcessor` class. All L2-A functionality is preserved but exposed through one unified agent. See [week13Done.md](../planning/week13Done.md).

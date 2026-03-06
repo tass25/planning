@@ -5,6 +5,8 @@
 > **Layer**: Robustness + KB  
 > **Agents**: No new agents — hardening existing agents + KB generation tooling  
 > **Prerequisite**: Week 8 complete (full L2 pipeline runs end-to-end)  
+> **Status**: ✅ COMPLETE — see [week09Done.md](week09Done.md)  
+> **Post-consolidation (Week 13)**: Ollama dead code paths removed. Azure OpenAI is primary LLM, Groq is fallback. Circuit breaker / rate limiter still active.  
 
 ---
 

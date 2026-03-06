@@ -305,3 +305,9 @@ $env:AZURE_OPENAI_API_VERSION = "2024-10-21"        # optional
 $env:AZURE_OPENAI_DEPLOYMENT_MINI = "gpt-4o-mini"    # optional, default
 $env:AZURE_OPENAI_DEPLOYMENT_FULL = "gpt-4o"          # optional, for HIGH risk
 ```
+
+---
+
+## ⚠️ Post-Consolidation Update (Week 13)
+
+BoundaryDetectorAgent + PartitionBuilderAgent were consolidated into `ChunkingAgent` (single class handling boundary detection + partition IR construction). See [week13Done.md](week13Done.md).

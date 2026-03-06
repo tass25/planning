@@ -5,6 +5,8 @@
 > **Layer**: L2-E  
 > **Agents to build**: PersistenceAgent (#10), IndexAgent (#11)  
 > **Prerequisite**: Weeks 5–6 complete (RAPTOR tree built, PartitionIR with raptor_leaf_id set)  
+> **Status**: ✅ COMPLETE — see [week07Done.md](week07Done.md)  
+> **Post-consolidation (Week 13)**: PersistenceAgent + IndexAgent merged into a single `persist_index` orchestrator node. Both agents still exist as classes but are invoked sequentially in one graph node.  
 
 ---
 

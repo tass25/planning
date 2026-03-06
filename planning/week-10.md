@@ -5,6 +5,8 @@
 > **Layer**: L3 — Translation  
 > **Agents**: TranslationAgent (#12), ValidationAgent (#13)  
 > **Prerequisite**: Week 9 complete (250 KB pairs, retry wrappers, robustness)  
+> **Status**: ✅ COMPLETE — see [week10Done.md](week10Done.md)  
+> **Post-consolidation (Week 13)**: TranslationAgent + ValidationAgent consolidated into `TranslationPipeline` (single wrapper class). Azure OpenAI GPT-4o is primary, Groq is fallback (Ollama removed).  
 
 ---
 

@@ -39,6 +39,12 @@
 |---|-------|-------|--------|
 | 14 | ReportAgent | L4 | ✅ New |
 
+---
+
+## ⚠️ Post-Consolidation Update (Week 13)
+
+ImportConsolidator + DependencyInjector + ScriptMerger + ReportAgent were consolidated into `MergeAgent` (single class). FeedbackIngestionAgent, ConversionQualityMonitor, and RetrainTrigger remain as utility modules (not orchestrator nodes). See [week13Done.md](week13Done.md).
+
 ## Architecture
 ```
 ConversionResult[] → ImportConsolidator → DependencyInjector → ScriptMerger → .py file

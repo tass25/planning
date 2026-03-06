@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+from collections import OrderedDict
+
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import structlog
@@ -22,6 +24,7 @@ class NomicEmbedder:
 
     MODEL_NAME = "nomic-ai/nomic-embed-text-v1.5"
     DIM = 768
+    CACHE_MAXSIZE = 10_000
 
     def __init__(self, device: str = "cpu"):
         """
@@ -32,9 +35,13 @@ class NomicEmbedder:
         self.model = SentenceTransformer(
             self.MODEL_NAME,
             device=device,
-            trust_remote_code=True,   # required by nomic-embed-text-v1.5
+            # SECURITY: trust_remote_code is required by nomic-embed-text-v1.5
+            # because the model ships custom mean-pooling code on HuggingFace.
+            # The model is published by Nomic AI (verified org) and pinned by
+            # name. This flag is safe for this specific, trusted model.
+            trust_remote_code=True,
         )
-        self._cache: dict[str, np.ndarray] = {}
+        self._cache: OrderedDict[str, np.ndarray] = OrderedDict()
         logger.info("nomic_embedder_init", model=self.MODEL_NAME, device=device)
 
     # ------------------------------------------------------------------
@@ -45,11 +52,14 @@ class NomicEmbedder:
         """Embed a single text. SHA-256 cache avoids re-embedding duplicates."""
         text_hash = hashlib.sha256(text.encode()).hexdigest()
         if text_hash in self._cache:
+            self._cache.move_to_end(text_hash)
             return self._cache[text_hash].tolist()
 
         prefixed = f"search_document: {text}"
         embedding = self.model.encode(prefixed, normalize_embeddings=True)
         self._cache[text_hash] = embedding
+        if len(self._cache) > self.CACHE_MAXSIZE:
+            self._cache.popitem(last=False)
         return embedding.tolist()
 
     def embed_batch(
@@ -65,6 +75,7 @@ class NomicEmbedder:
         for i, text in enumerate(texts):
             text_hash = hashlib.sha256(text.encode()).hexdigest()
             if text_hash in self._cache:
+                self._cache.move_to_end(text_hash)
                 results.append((i, self._cache[text_hash].tolist()))
             else:
                 uncached_indices.append(i)
@@ -82,6 +93,8 @@ class NomicEmbedder:
             ):
                 text_hash = hashlib.sha256(raw_text.encode()).hexdigest()
                 self._cache[text_hash] = emb
+                if len(self._cache) > self.CACHE_MAXSIZE:
+                    self._cache.popitem(last=False)
                 results.append((idx, emb.tolist()))
 
         results.sort(key=lambda x: x[0])

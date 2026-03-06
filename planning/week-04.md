@@ -5,6 +5,8 @@
 > **Layer**: L2-D  
 > **Agents to build**: ComplexityAgent (#8), StrategyAgent (#9)  
 > **Prerequisite**: Week 3–4 complete (PartitionIR objects available with raw_code)  
+> **Status**: ✅ COMPLETE — see [week-04Done.md](week-04Done.md)  
+> **Post-consolidation (Week 13)**: ComplexityAgent + StrategyAgent consolidated into `RiskRouter`.  
 
 ---
 

@@ -5,6 +5,8 @@
 > **Layer**: Orchestration  
 > **Agent to build**: PartitionOrchestrator (#15)  
 > **Prerequisite**: Weeks 5–7 complete (all L2 agents functional, persistence + index layers ready)  
+> **Status**: ✅ COMPLETE — see [week08Done.md](week08Done.md)  
+> **Post-consolidation (Week 13)**: Orchestrator rewritten from 9-node → 7-node graph (v3.0.0). Original 16-agent architecture consolidated to 8 agents. Enterprise telemetry layer added.  
 
 ---
 

@@ -162,14 +162,14 @@
 
 <!-- HERO -->
 <div class="hero">
-  <div class="hero-tag">Partition Layer · Architecture v2.1 · Updated from Spec v4.2</div>
+  <div class="hero-tag">Partition Layer · Architecture v3.0 · Updated from Spec v4.2 · Pipeline v3.0.0</div>
   <h1>SAS → Python / PySpark <span>Partition Layer</span><br>System Architecture</h1>
-  <p class="hero-sub">RAPTOR-based semantic chunking · 16-agent lean pipeline · React frontend + Admin dashboard · Optimization suggestions with accept/reject · Continuous Learning</p>
+  <p class="hero-sub">RAPTOR-based semantic chunking · 8-agent consolidated pipeline (v3.0.0) · 7-node LangGraph orchestrator · Azure Monitor telemetry · GitHub Actions CI/CD · Docker containerization</p>
   <div class="hero-badges">
     <span class="hero-badge paper">RAPTOR · Sarthi et al., ICLR 2024</span>
-    <span class="hero-badge agents">16 Agents + API + Frontend</span>
+    <span class="hero-badge agents">8 Consolidated Agents · v3.0.0</span>
     <span class="hero-badge tier">Gold Standard · 50 files · 721 blocks · 3 tiers</span>
-    <span class="hero-badge v">End-to-End Pipeline · v2.1</span>
+    <span class="hero-badge v">Enterprise-Ready · Telemetry + CI/CD + Docker</span>
   </div>
 </div>
 
@@ -195,7 +195,7 @@
     <div class="metric-card"><div class="metric-val">&gt;90%</div><div class="metric-label">Boundary accuracy target</div></div>
     <div class="metric-card"><div class="metric-val">&gt;82%</div><div class="metric-label">RAPTOR hit-rate @5</div></div>
     <div class="metric-card warn"><div class="metric-val">&lt;0.08</div><div class="metric-label">ECE (calibration)</div></div>
-    <div class="metric-card purple"><div class="metric-val">16</div><div class="metric-label">Real agents (strict SRP)</div></div>
+    <div class="metric-card purple"><div class="metric-val">8</div><div class="metric-label">Consolidated agents (v3.0.0)</div></div>
     <div class="metric-card blue"><div class="metric-val">721</div><div class="metric-label">Gold standard blocks</div></div>
     <div class="metric-card warn"><div class="metric-val">9</div><div class="metric-label">Canonical partition types</div></div>
   </div>
@@ -225,40 +225,28 @@ flowchart TB
   end
 
   subgraph L2A["L2-A · Entry &amp; Scan &amp; Data Lineage"]
-    FAA["#1 FileAnalysisAgent\npathlib + chardet + regex pre-validate"]
-    CFR["#2 CrossFileDependencyResolver\n%INCLUDE + LIBNAME regex scan"]
-    DLE["#4 DataLineageExtractor\n7 regex patterns · SET/MERGE/FROM\nJOIN/DATA/CREATE TABLE/INSERT INTO"]
-    RWA["#3 RegistryWriterAgent\nSHA-256 dedup · INSERT OR IGNORE"]
+    FP["#1 FileProcessor\npathlib + chardet + cross-file deps\n+ data lineage + SHA-256 registry\n(consolidates 4 former agents)"]
     FR[("SQLite DB\nfile_registry\ncross_file_deps\ndata_lineage")]
-    FAA --> CFR --> RWA --> FR
-    FAA --> DLE --> FR
+    FP --> FR
   end
 
   subgraph L2B["L2-B · Streaming Core"]
-    SA["#5 StreamAgent\naiofiles async 8KB buffer"]
-    STA["#6 StateAgent\nFSM: block_type + nesting + macro_stack"]
+    SP["#2 StreamingParser\naiofiles async 8KB buffer\n+ FSM: block_type + nesting + macro_stack\n(consolidates StreamAgent + StateAgent)"]
     BPQ["asyncio.Queue(maxsize=200)\nBackpressure"]
-    SA --> STA --> BPQ
+    SP --> BPQ
   end
 
   subgraph L2C["L2-C · RAPTOR Chunking ☀"]
-    BDA["#7 BoundaryDetectorAgent\nLark LALR — 80% rule-based"]
-    LLM8["LLM Resolver Llama 3.1 8B\nOllama — 20% ambiguous + tiktoken guard"]
-    PBA["#8 PartitionBuilderAgent\n9 types + test_coverage_type"]
+    CA["#3 ChunkingAgent\nLark LALR — 80% rule-based\n+ LLM resolver 20%\n+ 9 types partition builder\n(consolidates BoundaryDetector + PartitionBuilder)"]
     EMB["Nomic Embed v1.5\n768-dim local"]
     GMM["GMM Clustering\nk ∈ [2, √N capped 20] + BIC + τ=0.72"]
     SUM["ClusterSummarizer\nLlama 70B Groq + hash cache + summary_tier"]
-    TREE["#9 RAPTORTreeBuilder\nleaf→L1→L2→root · BIC delta &lt; 0.01 stop"]
-    BDA --> PBA
-    BDA -->|ambiguous| LLM8 --> PBA
-    PBA --> EMB --> GMM --> SUM --> TREE
+    TREE["#4 RAPTORPartitionAgent\nleaf→L1→L2→root · BIC delta &lt; 0.01 stop"]
+    CA --> EMB --> GMM --> SUM --> TREE
   end
 
   subgraph L2D["L2-D · Complexity &amp; Strategy"]
-    CA["#10 ComplexityAgent\nradon CC + 5 features"]
-    LR["sklearn LR\nPlatt calibration · ECE &lt; 0.08"]
-    STRA["#11 StrategyAgent\nrisk_level + PartitionStrategy"]
-    CA --> LR --> STRA
+    RR["#5 RiskRouter\nradon CC + 5 features\n+ sklearn LR Platt calibration\n+ risk_level + PartitionStrategy\n(consolidates ComplexityAgent + StrategyAgent)"]
   end
 
   subgraph KB["📚 Knowledge Base\n330 pairs · 15 categories · Dual-LLM · Python + PySpark"]
@@ -270,72 +258,58 @@ flowchart TB
   end
 
   subgraph L2E["L2-E · Persistence &amp; Index"]
-    PA["#12 PersistenceAgent\nSQLite / Postgres / Parquet"]
-    RW["RAPTORWriter → LanceDB"]
-    IA["#13 IndexAgent\nNetworkX + SCC condensation\n+ dag_longest_path_length hop cap"]
+    PI["#8 PersistenceAgent + IndexAgent\nSQLite / Postgres / Parquet\n+ RAPTORWriter → LanceDB\n+ NetworkX SCC condensation\n+ RedisCheckpoint every 50 blocks\n(combined orchestrator node)"]
     NXG[("NetworkX Graph\nDEPENDS_ON + MACRO_CALLS + scc_id")]
-    RC["RedisCheckpoint\nevery 50 blocks · TTL 24h"]
-    PA & RW & IA & RC
-    IA --> NXG
+    PI --> NXG
   end
 
   subgraph L3["Layer 3 · Translation + Validation"]
-    TA["#14 TranslationAgent\n3 RAG paradigms: Static · GraphRAG · Agentic\n8B/70B routing + cross-verify\ntarget: Python | PySpark"]
-    VA["#15 ValidationAgent\nexec() on synthetic 100-row DataFrame\nsandboxed namespace · 5s timeout"]
+    TP["#6 TranslationPipeline\n3 RAG paradigms: Static · GraphRAG · Agentic\n8B/70B routing + cross-verify\n+ ValidationAgent exec() sandbox\n(consolidates TranslationAgent + ValidationAgent)"]
     CR[("conversion_results table")]
-    TA --> VA --> CR
+    TP --> CR
   end
 
   subgraph L4["Layer 4 · Merge + Report"]
-    IC["ImportConsolidator"]
-    DI["DependencyInjector\nvariable name registry"]
-    SM["ScriptMerger\nast.parse() gate + stubs"]
-    RA["#16 ReportAgent\nMarkdown/HTML conversion report\nCodeBLEU + validation results"]
-    OPT["OptimizationSuggester\nper-block line-range suggestions\naccept/reject per suggestion"]
-    OUT[("merged_scripts table\n+ output/*.py files\n+ conversion reports\n+ optimization_suggestions")]
-    IC &amp; DI --> SM --> RA --> OUT
-    SM --> OPT --> OUT
+    MA["#7 MergeAgent\nImportConsolidator + DependencyInjector\n+ ScriptMerger (ast.parse gate)\n+ ReportAgent (Markdown/HTML + CodeBLEU)\n(consolidates 4 former components)"]
+    OUT[("merged_scripts table\n+ output/*.py files\n+ conversion reports")]
+    MA --> OUT
   end
 
-  subgraph L5["Layer 5 · Frontend + API"]
-    API["FastAPI Gateway\nREST + WebSocket\nJWT auth · CORS"]
-    REACT["React Frontend (Lovable)\nUpload · Progress · Code Review\nOptimization Accept/Reject"]
-    ADMIN["Admin Dashboard\nPipeline Monitor · Agent Health\nAudit Logs · User Mgmt"]
-    REACT --> API
-    ADMIN --> API
+  subgraph ENT["🏢 Enterprise Features"]
+    TEL["Azure Monitor + OpenTelemetry\ntrack_event · track_metric · trace_span\n7 nodes instrumented"]
+    CICD["GitHub Actions CI/CD\nci.yml · codeql.yml · dependabot.yml"]
+    DOCK["Docker + docker-compose\nMulti-stage build · Redis + API\nNon-root · Port 8000"]
   end
 
   subgraph CL["Continuous Learning"]
-    FIA["FeedbackIngestionAgent\nCLI + automated corrections\n+ frontend accept/reject decisions"]
+    FIA["FeedbackIngestionAgent\nCLI + automated corrections"]
     CQM["ConversionQualityMonitor\nsuccess_rate + failure_mode_dist"]
     RT["RetrainingTrigger\nECE drift + quality_drop + KB gap"]
     FIA --> KB_STORE
-    CQM --> RT --> LR
+    CQM --> RT --> RR
   end
 
-  subgraph ORCH["⚙️ Orchestration"]
-    PO["PartitionOrchestrator\nLangGraph StateGraph\n+CROSS_FILE_RESOLVE +TRANSLATING +MERGING"]
+  subgraph ORCH["⚙️ Orchestration — LangGraph v3.0.0 · 7-Node Graph"]
+    PO["PartitionOrchestrator\nfile_process → streaming → chunking\n→ raptor → risk_routing → persist_index\n→ translation → END"]
     AUDIT[("DuckDB\nllm_audit + quality_metrics\n+ feedback_log + ablation\n+ kb_changelog + conversion_reports")]
   end
 
-  SAS --> FAA
+  SAS --> FP
   KB_RAW --> MATRIX
-  FR --> SA
-  BPQ --> BDA
-  PBA --> CA
-  STRA --> PO
-  TREE --> RW
-  PO --> PA &amp; RW &amp; IA &amp; RC
-  PO --> TA
-  CR --> IC
-  SM --> CQM
-  RA --> AUDIT
+  FR --> SP
+  BPQ --> CA
+  CA --> RR
+  RR --> PO
+  TREE --> PI
+  PO --> PI
+  PO --> TP
+  CR --> MA
+  MA --> CQM
   PO --> AUDIT
-  KB_STORE --> TA
-  API --> PO
-  OUT --> API
-  API --> FIA
-  AUDIT --> API
+  KB_STORE --> TP
+  TEL --> PO
+  CICD --> PO
+  OUT --> DOCK
 
   style INPUT fill:#1a1e2a,stroke:#4f9eff,color:#e2e8f0
   style L2A fill:#1a1e2a,stroke:#4f9eff,color:#e2e8f0
@@ -346,7 +320,7 @@ flowchart TB
   style L2E fill:#1a1e2a,stroke:#7c5cfc,color:#e2e8f0
   style L3 fill:#1a1e2a,stroke:#4f9eff,color:#e2e8f0
   style L4 fill:#1a1e2a,stroke:#7c5cfc,color:#e2e8f0
-  style L5 fill:#1a1e2a,stroke:#f97316,color:#e2e8f0
+  style ENT fill:#1a1e2a,stroke:#f97316,color:#e2e8f0
   style CL fill:#1a1e2a,stroke:#00d9a3,color:#e2e8f0
   style ORCH fill:#200f0f,stroke:#ef4444,color:#e2e8f0
       </div>
@@ -359,38 +333,30 @@ flowchart TB
 <!-- ══ 3. AGENT CATALOGUE ══ -->
 <div class="section">
   <div class="section-label">Section 03</div>
-  <h2><span class="num">3</span> Agent Catalogue — 16 Agents</h2>
-  <p>Every agent inherits from <code>BaseAgent(ABC)</code> with <code>trace_id</code>, bound <code>structlog</code> logger, abstract <code>process()</code>, and the <code>@with_retry</code> exponential-backoff decorator.</p>
+  <h2><span class="num">3</span> Agent Catalogue — 8 Consolidated Agents (v3.0.0)</h2>
+  <p>Consolidated from 16 fine-grained agents to 8 coarse-grained agents. Each agent encapsulates a coherent pipeline stage. Every agent inherits from <code>BaseAgent(ABC)</code> with <code>trace_id</code>, bound <code>structlog</code> logger, abstract <code>process()</code>, and the <code>@with_retry</code> exponential-backoff decorator.</p>
 
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>#</th><th>Agent</th><th>Layer</th><th>Inputs</th><th>Outputs</th><th>Key Tech</th><th>Status</th></tr>
+        <tr><th>#</th><th>Agent</th><th>Layer</th><th>Replaces</th><th>Key Tech</th><th>Status</th></tr>
       </thead>
       <tbody>
-        <tr><td>1</td><td><code>FileAnalysisAgent</code></td><td>L2-A</td><td>project_root</td><td>list[FileMetadata]</td><td>pathlib, chardet, regex pre-validate</td><td><span class="status done">Done</span></td></tr>
-        <tr><td>2</td><td><code>CrossFileDependencyResolver</code></td><td>L2-A</td><td>files, project_root, engine</td><td>cross_file_deps rows</td><td>3 regex patterns, path resolution</td><td><span class="status done">Done</span></td></tr>
-        <tr><td>3</td><td><code>RegistryWriterAgent</code></td><td>L2-A</td><td>files, engine</td><td>file_registry rows</td><td>SQLAlchemy, SHA-256 dedup</td><td><span class="status done">Done</span></td></tr>
-        <tr><td>4</td><td><code>DataLineageExtractor</code></td><td>L2-A</td><td>files, engine</td><td>data_lineage rows</td><td>7 regex patterns (SET/MERGE/FROM/JOIN/DATA/CREATE/INSERT)</td><td><span class="status done">Done</span></td></tr>
-        <tr><td>5</td><td><code>StreamAgent</code></td><td>L2-B</td><td>file_path</td><td>async token stream</td><td>aiofiles, 8KB buffer, backpressure</td><td><span class="status planned">Week 2-3</span></td></tr>
-        <tr><td>6</td><td><code>StateAgent</code></td><td>L2-B</td><td>token stream</td><td>FSM state updates</td><td>Finite state machine, nesting tracker</td><td><span class="status planned">Week 2-3</span></td></tr>
-        <tr><td>7</td><td><code>BoundaryDetectorAgent</code></td><td>L2-C</td><td>token stream + FSM</td><td>block boundaries</td><td>Lark LALR + LLM fallback (20%)</td><td><span class="status planned">Week 3-4</span></td></tr>
-        <tr><td>8</td><td><code>PartitionBuilderAgent</code></td><td>L2-C</td><td>boundaries</td><td>PartitionIR[]</td><td>9 partition types, test_coverage_type</td><td><span class="status planned">Week 3-4</span></td></tr>
-        <tr><td>9</td><td><code>RAPTORPartitionAgent</code></td><td>L2-C</td><td>PartitionIR[]</td><td>RAPTOR tree</td><td>Nomic Embed, GMM+BIC, Groq summaries</td><td><span class="status planned">Week 5-6</span></td></tr>
-        <tr><td>10</td><td><code>ComplexityAgent</code></td><td>L2-D</td><td>PartitionIR</td><td>risk scores</td><td>radon CC, 5 features, sklearn LR</td><td><span class="status planned">Week 4</span></td></tr>
-        <tr><td>11</td><td><code>StrategyAgent</code></td><td>L2-D</td><td>risk scores</td><td>PartitionStrategy</td><td>Threshold routing, Platt calibration</td><td><span class="status planned">Week 4</span></td></tr>
-        <tr><td>12</td><td><code>PersistenceAgent</code></td><td>L2-E</td><td>PartitionIR[]</td><td>DB rows</td><td>SQLite / Postgres / Parquet</td><td><span class="status planned">Week 7</span></td></tr>
-        <tr><td>13</td><td><code>IndexAgent</code></td><td>L2-E</td><td>deps graph</td><td>NetworkX graph</td><td>NetworkX SCC, dag_longest_path</td><td><span class="status planned">Week 7</span></td></tr>
-        <tr><td>14</td><td><code>TranslationAgent</code></td><td>L3</td><td>PartitionIR + KB + Graph</td><td>Python/PySpark code + rag_paradigm</td><td>3 RAG paradigms (Static / GraphRAG / Agentic), adaptive k, RAPTOR level escalation</td><td><span class="status planned">Week 10</span></td></tr>
-        <tr><td>15</td><td><code>ValidationAgent</code></td><td>L3</td><td>generated code</td><td>pass/fail</td><td>exec() sandbox, synthetic DataFrames</td><td><span class="status planned">Week 10</span></td></tr>
-        <tr><td>16</td><td><code>ReportAgent</code></td><td>L4</td><td>conversion results</td><td>reports</td><td>Markdown/HTML, CodeBLEU</td><td><span class="status planned">Week 11</span></td></tr>
+        <tr><td>1</td><td><code>FileProcessor</code></td><td>L2-A</td><td>FileAnalysisAgent + CrossFileDependencyResolver + RegistryWriterAgent + DataLineageExtractor</td><td>pathlib, chardet, regex, SQLAlchemy, SHA-256</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>2</td><td><code>StreamingParser</code></td><td>L2-B</td><td>StreamAgent + StateAgent</td><td>aiofiles, FSM, backpressure queue</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>3</td><td><code>ChunkingAgent</code></td><td>L2-C</td><td>BoundaryDetectorAgent + PartitionBuilderAgent</td><td>Lark LALR + LLM fallback, 9 types</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>4</td><td><code>RAPTORPartitionAgent</code></td><td>L2-C</td><td>(unchanged)</td><td>Nomic Embed, GMM+BIC, Groq summaries</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>5</td><td><code>RiskRouter</code></td><td>L2-D</td><td>ComplexityAgent + StrategyAgent</td><td>radon CC, 5 features, sklearn LR, Platt</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>6</td><td><code>TranslationPipeline</code></td><td>L3</td><td>TranslationAgent + ValidationAgent</td><td>3 RAG paradigms, exec() sandbox</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>7</td><td><code>MergeAgent</code></td><td>L4</td><td>ImportConsolidator + DependencyInjector + ScriptMerger + ReportAgent</td><td>ast.parse, PEP 8 imports, Markdown/HTML</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>8</td><td><code>PersistenceAgent + IndexAgent</code></td><td>L2-E</td><td>(combined into single node)</td><td>SQLite, LanceDB, NetworkX SCC, Redis</td><td><span class="status done">Done</span></td></tr>
       </tbody>
     </table>
   </div>
 
   <div class="progress-wrap">
-    <div class="progress-label"><span>Implementation Progress</span><span>4 / 16 agents (25%)</span></div>
-    <div class="progress-bar"><div class="progress-fill green" style="width:25%"></div></div>
+    <div class="progress-label"><span>Implementation Progress</span><span>8 / 8 agents (100%)</span></div>
+    <div class="progress-bar"><div class="progress-fill green" style="width:100%"></div></div>
   </div>
 </div>
 
@@ -743,7 +709,7 @@ flowchart TB
         <tr>
           <td>Agent count</td>
           <td class="bad">22 agents (inflated)</td>
-          <td class="good">16 real agents with strict SRP</td>
+          <td class="good">8 consolidated agents (v3.0.0)</td>
           <td>Dev velocity ↑2×</td>
         </tr>
         <tr>
@@ -1095,25 +1061,25 @@ flowchart LR
       <thead><tr><th>Weeks</th><th>Content</th><th>Priority</th><th>Key Deliverables</th><th>Status</th></tr></thead>
       <tbody>
         <tr><td>1–2</td><td>L2-A: Entry + CrossFileDeps + DataLineageExtractor + Gold Standard (50 files, 721 blocks, 3 tiers)</td><td class="good">P0</td><td>4 agents · 3 SQLite tables · 50 .sas + .gold.json · 20 tests passing · data_lineage populated</td><td><span class="status done">Done</span></td></tr>
-        <tr><td>2–3</td><td>L2-B: StreamAgent + StateAgent. 10K-line file in &lt;2s.</td><td class="good">P0</td><td>aiofiles streaming · FSM nesting tracker · backpressure queue</td><td><span class="status planned">Planned</span></td></tr>
-        <tr><td>3–4</td><td>L2-C: BoundaryDetector + LLM resolver. 721-block benchmark &gt;90%.</td><td class="good">P0</td><td>Lark LALR grammar · 80/20 rule/LLM split · 9 partition types · test_coverage_type</td><td><span class="status planned">Planned</span></td></tr>
-        <tr><td>4</td><td>L2-D: ComplexityAgent + StrategyAgent. ECE &lt;0.08. RAPTOR models.</td><td class="good">P0</td><td>radon CC features · sklearn LR · Platt calibration · RAPTORNode.summary_tier</td><td><span class="status planned">Planned</span></td></tr>
-        <tr><td>5–6</td><td>L2-C: Nomic Embed + GMM (k=√N, τ=0.72) + ClusterSummarizer + cache</td><td class="warn">P1</td><td>BIC convergence ε=0.01 · tiktoken guard · summary_tier · hash cache</td><td><span class="status planned">Planned</span></td></tr>
-        <tr><td>7</td><td>L2-E: Persistence + NetworkX graph + SCC condensation + dynamic hop cap</td><td class="warn">P1</td><td>SCC condensation · dag_longest_path_length · DuckDB schemas</td><td><span class="status planned">Planned</span></td></tr>
-        <tr><td>8</td><td>Orchestration + Redis + CROSS_FILE_RESOLVE state + LLM audit</td><td class="warn">P1</td><td>LangGraph StateGraph · DuckDB audit tables · Redis checkpoints</td><td><span class="status planned">Planned</span></td></tr>
-        <tr><td>9</td><td>Robustness + Large file (RAPTOR on HIGH only &gt;100MB) + KB gen start (250 pairs)</td><td class="muted">P2</td><td>PYTORCH_CUDA_ALLOC_CONF · RAPTOR 20% large files · 250 KB pairs</td><td><span class="status planned">Planned</span></td></tr>
-        <tr><td>10</td><td>Translation Layer (L3) + ValidationAgent + KB expand to 250 pairs</td><td class="muted">P2</td><td>TranslationAgent · ValidationAgent · failure_mode routing · cross-verify chain</td><td><span class="status planned">Planned</span></td></tr>
-        <tr><td>11</td><td>Merge Layer (L4) + ReportAgent + Continuous Learning + KB to 330 pairs</td><td class="muted">P2</td><td>ImportConsolidator · DependencyInjector · ScriptMerger · ReportAgent · FeedbackLoop</td><td><span class="status planned">Planned</span></td></tr>
-        <tr><td>12</td><td>Ablation study: RAPTOR vs flat · 721 blocks · 10 queries each</td><td class="muted">P2</td><td>test_raptor_hitrate &gt;0.82 · test_ece &lt;0.08 · test_boundary &gt;0.90</td><td><span class="status planned">Planned</span></td></tr>
-        <tr><td>13</td><td>Defense prep: slides + demo video (partition → translate → .py)</td><td class="muted">P3</td><td>20 slides · 3–5 min demo · KB query + SCC detection showcase</td><td><span class="status planned">Planned</span></td></tr>
-        <tr><td>14</td><td>Buffer: polish ablation plots, add 50 more KB pairs, README</td><td class="muted">P3</td><td>Final docs · all plots · README finalized</td><td><span class="status planned">Planned</span></td></tr>
+        <tr><td>2–3</td><td>L2-B: StreamAgent + StateAgent. 10K-line file in &lt;2s.</td><td class="good">P0</td><td>aiofiles streaming · FSM nesting tracker · backpressure queue</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>3–4</td><td>L2-C: BoundaryDetector + LLM resolver. 721-block benchmark &gt;90%.</td><td class="good">P0</td><td>Lark LALR grammar · 80/20 rule/LLM split · 9 partition types · test_coverage_type</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>4</td><td>L2-D: ComplexityAgent + StrategyAgent. ECE &lt;0.08. RAPTOR models.</td><td class="good">P0</td><td>radon CC features · sklearn LR · Platt calibration · RAPTORNode.summary_tier</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>5–6</td><td>L2-C: Nomic Embed + GMM (k=√N, τ=0.72) + ClusterSummarizer + cache</td><td class="warn">P1</td><td>BIC convergence ε=0.01 · tiktoken guard · summary_tier · hash cache</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>7</td><td>L2-E: Persistence + NetworkX graph + SCC condensation + dynamic hop cap</td><td class="warn">P1</td><td>SCC condensation · dag_longest_path_length · DuckDB schemas</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>8</td><td>Orchestration + Redis + CROSS_FILE_RESOLVE state + LLM audit</td><td class="warn">P1</td><td>LangGraph StateGraph · DuckDB audit tables · Redis checkpoints</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>9</td><td>Robustness + Large file (RAPTOR on HIGH only &gt;100MB) + KB gen start (250 pairs)</td><td class="muted">P2</td><td>PYTORCH_CUDA_ALLOC_CONF · RAPTOR 20% large files · 250 KB pairs</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>10</td><td>Translation Layer (L3) + ValidationAgent + KB expand to 250 pairs</td><td class="muted">P2</td><td>TranslationAgent · ValidationAgent · failure_mode routing · cross-verify chain</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>11</td><td>Merge Layer (L4) + ReportAgent + Continuous Learning + KB to 330 pairs</td><td class="muted">P2</td><td>ImportConsolidator · DependencyInjector · ScriptMerger · ReportAgent · FeedbackLoop</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>12</td><td>Ablation study: RAPTOR vs flat · 721 blocks · 10 queries each</td><td class="muted">P2</td><td>test_raptor_hitrate &gt;0.82 · test_ece &lt;0.08 · test_boundary &gt;0.90</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>13</td><td>Agent consolidation (21→8) + Enterprise features (telemetry, CI/CD, Docker, security). Audit grade A-.</td><td class="muted">P3</td><td>8 agents · 7-node graph · v3.0.0 · telemetry.py · ci.yml · codeql.yml · Dockerfile · 200 tests pass</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>14</td><td>Buffer: polish ablation plots, defense slides, additional KB pairs, README</td><td class="muted">P3</td><td>Final docs · all plots · README finalized · defense slides</td><td><span class="status planned">Planned</span></td></tr>
       </tbody>
     </table>
   </div>
 
   <div class="progress-wrap" style="margin-top:20px;">
-    <div class="progress-label"><span>Overall Timeline</span><span>Week 2 of 14 (14%)</span></div>
-    <div class="progress-bar"><div class="progress-fill blue" style="width:14%"></div></div>
+    <div class="progress-label"><span>Overall Timeline</span><span>Week 13 of 14 (93%)</span></div>
+    <div class="progress-bar"><div class="progress-fill blue" style="width:93%"></div></div>
   </div>
 </div>
 
@@ -1137,13 +1103,17 @@ flowchart LR
         <tr><td>Async I/O</td><td>aiofiles</td><td>≥ 23.0</td><td>Streaming file reads (Week 2–3)</td></tr>
         <tr><td>Testing</td><td>pytest + pytest-cov</td><td>≥ 7.0</td><td>Unit tests, coverage</td></tr>
         <tr><td>Embeddings</td><td>Nomic Embed v1.5</td><td>—</td><td>768-dim local embeddings for RAPTOR</td></tr>
-        <tr><td>LLM (local)</td><td>Ollama + Llama 3.1 8B</td><td>—</td><td>Ambiguous boundary resolution (20%)</td></tr>
-        <tr><td>LLM (cloud)</td><td>Groq + Llama 70B</td><td>—</td><td>Cluster summaries, KB generation</td></tr>
+        <tr><td>LLM (primary)</td><td>Azure OpenAI (GPT-4o / 4o-mini)</td><td>—</td><td>Translation, summaries, KB generation</td></tr>
+        <tr><td>LLM (fallback)</td><td>Groq (free tier)</td><td>—</td><td>Fallback for rate-limited calls</td></tr>
         <tr><td>Graph</td><td>NetworkX</td><td>≥ 3.0</td><td>Dependency graph (BSD, in-memory, SCC + topo sort)</td></tr>
         <tr><td>Vector DB</td><td>LanceDB</td><td>—</td><td>KB storage, RAPTOR node storage</td></tr>
         <tr><td>Analytics DB</td><td>DuckDB</td><td>—</td><td>Audit logs, ablation data, quality metrics</td></tr>
         <tr><td>Cache</td><td>Redis</td><td>—</td><td>Checkpoints every 50 blocks, TTL 24h</td></tr>
-        <tr><td>Orchestration</td><td>LangGraph</td><td>—</td><td>StateGraph pipeline orchestration</td></tr>
+        <tr><td>Orchestration</td><td>LangGraph</td><td>—</td><td>StateGraph v3.0.0 · 7-node graph</td></tr>
+        <tr><td>Telemetry</td><td>Azure Monitor + OpenTelemetry</td><td>—</td><td>Traces, metrics, live dashboards</td></tr>
+        <tr><td>CI/CD</td><td>GitHub Actions</td><td>—</td><td>Lint, test, coverage on every PR</td></tr>
+        <tr><td>Security</td><td>CodeQL + Dependabot</td><td>—</td><td>SAST scanning + auto dependency updates</td></tr>
+        <tr><td>Containerization</td><td>Docker + docker-compose</td><td>—</td><td>Multi-stage build, Redis + API services</td></tr>
         <tr><td>API Gateway</td><td>FastAPI</td><td>≥ 0.104</td><td>REST + WebSocket, JWT auth, CORS</td></tr>
         <tr><td>Frontend</td><td>React (Lovable)</td><td>18+</td><td>Upload, code review, optimization accept/reject</td></tr>
         <tr><td>UI Framework</td><td>shadcn/ui + Tailwind</td><td>—</td><td>Component library, responsive design</td></tr>
@@ -1183,7 +1153,7 @@ flowchart LR
     <table>
       <thead><tr><th>Feature</th><th>Description</th><th>Data Source</th></tr></thead>
       <tbody>
-        <tr><td>Pipeline Monitor</td><td>Live status of all 16 agents: idle/running/error. Queue depths, throughput (lines/s).</td><td>PartitionOrchestrator state + Redis</td></tr>
+        <tr><td>Pipeline Monitor</td><td>Live status of all 8 agents: idle/running/error. Queue depths, throughput (lines/s).</td><td>PartitionOrchestrator state + Redis</td></tr>
         <tr><td>Agent Health</td><td>Per-agent success rate, avg latency, error count (last 24h). Alert thresholds.</td><td>DuckDB quality_metrics</td></tr>
         <tr><td>Conversion Analytics</td><td>Success rate over time, failure mode distribution (pie chart), CodeBLEU histogram.</td><td>DuckDB conversion_reports</td></tr>
         <tr><td>LLM Audit Logs</td><td>Every LLM call: model, prompt hash, token count, latency, cache hit rate.</td><td>DuckDB llm_audit</td></tr>
@@ -1295,7 +1265,7 @@ flowchart TB
 
 <div style="padding:24px 0 8px; text-align:center;">
   <p style="color:var(--muted); font-size:13px; font-family:'JetBrains Mono',monospace;">
-    Architecture v2 · Spec v4.2 · v2.1 · Sarthi et al. ICLR 2024 · Updated Feb 2026
+    Architecture v3.0 · Spec v4.2 · Pipeline v3.0.0 · Sarthi et al. ICLR 2024 · 8 Consolidated Agents · Updated Feb 2026
   </p>
 </div>
 

@@ -21,6 +21,16 @@ from partition.db.sqlite_manager import (
 logger = structlog.get_logger()
 
 
+def _pid(p) -> str:
+    """Extract partition ID string from a PartitionIR-like object."""
+    return str(getattr(p, 'partition_id', None) or getattr(p, 'block_id', uuid4()))
+
+
+def _fid(p) -> str:
+    """Extract file ID string from a PartitionIR-like object."""
+    return str(getattr(p, 'source_file_id', None) or getattr(p, 'file_id', ''))
+
+
 class PersistenceAgent(BaseAgent):
     """Agent #10 — Persist PartitionIR objects to SQLite.
 
@@ -105,7 +115,7 @@ class PersistenceAgent(BaseAgent):
             # Auto-ensure file_registry entries exist (FK requirement)
             seen_file_ids: set[str] = set()
             for p in partitions:
-                fid = str(getattr(p, 'source_file_id', None) or getattr(p, 'file_id', ''))
+                fid = _fid(p)
                 if fid and fid not in seen_file_ids:
                     existing = session.query(FileRegistryRow).filter_by(file_id=fid).first()
                     if not existing:
@@ -126,8 +136,8 @@ class PersistenceAgent(BaseAgent):
                     continue
 
                 row = PartitionIRRow(
-                    partition_id=str(getattr(p, 'partition_id', None) or getattr(p, 'block_id', uuid4())),
-                    source_file_id=str(getattr(p, 'source_file_id', None) or getattr(p, 'file_id', '')),
+                    partition_id=_pid(p),
+                    source_file_id=_fid(p),
                     partition_type=getattr(p.partition_type, 'value', str(p.partition_type)),
                     risk_level=getattr(p.risk_level, 'value', str(getattr(p, 'risk_level', 'UNCERTAIN'))),
                     conversion_status=getattr(
@@ -146,9 +156,9 @@ class PersistenceAgent(BaseAgent):
                     has_macros=bool(getattr(p, 'has_macros', False)),
                     has_nested_sql=bool(getattr(p, 'has_nested_sql', False)),
                     raw_code=getattr(p, 'raw_code', getattr(p, 'source_code', '')),
-                    raptor_leaf_id=getattr(p, 'raptor_leaf_id', None),
-                    raptor_cluster_id=getattr(p, 'raptor_cluster_id', None),
-                    raptor_root_id=getattr(p, 'raptor_root_id', None),
+                    raptor_leaf_id=p.raptor_leaf_id if hasattr(p, 'raptor_leaf_id') else None,
+                    raptor_cluster_id=p.raptor_cluster_id if hasattr(p, 'raptor_cluster_id') else None,
+                    raptor_root_id=p.raptor_root_id if hasattr(p, 'raptor_root_id') else None,
                     scc_id=getattr(p, 'scc_id', None),
                     created_at=datetime.now(timezone.utc).isoformat(),
                 )
@@ -183,28 +193,52 @@ class PersistenceAgent(BaseAgent):
         return hashlib.sha256(code.encode()).hexdigest()
 
     def _write_parquet(self, partitions: list) -> int:
-        """Parquet fallback for batches ≥ PARQUET_THRESHOLD.
+        """Parquet fallback for batches >= PARQUET_THRESHOLD.
 
-        Writes to ``partition_ir_overflow.parquet`` and logs a warning.
-        This is a stub — full Parquet integration is deferred to Week 9.
+        Writes all PartitionIR fields to ``partition_ir_overflow.parquet``
+        with content-hash dedup matching the SQLite path.
         """
         import pyarrow as pa
         import pyarrow.parquet as pq
 
+        seen_hashes: set[str] = set()
         records = []
         for p in partitions:
+            content_hash = self._compute_hash(p)
+            if content_hash in seen_hashes:
+                continue
+            seen_hashes.add(content_hash)
             records.append({
-                "partition_id": str(getattr(p, 'partition_id', None) or getattr(p, 'block_id', '')),
-                "source_file_id": str(getattr(p, 'source_file_id', None) or getattr(p, 'file_id', '')),
+                "partition_id": _pid(p),
+                "source_file_id": _fid(p),
                 "partition_type": getattr(p.partition_type, 'value', ''),
-                "content_hash": self._compute_hash(p),
+                "risk_level": getattr(p.risk_level, 'value', str(getattr(p, 'risk_level', 'UNCERTAIN'))),
+                "conversion_status": getattr(
+                    getattr(p, 'conversion_status', None), 'value', 'HUMAN_REVIEW'
+                ),
+                "content_hash": content_hash,
+                "complexity_score": getattr(p, 'complexity_score', 0.0),
+                "calibration_confidence": getattr(p, 'calibration_confidence', 0.0),
+                "strategy": getattr(
+                    getattr(p, 'strategy', None), 'value',
+                    str(getattr(p, 'strategy', 'FLAT_PARTITION'))
+                ),
+                "line_start": getattr(p, 'line_start', 0),
+                "line_end": getattr(p, 'line_end', 0),
                 "raw_code": getattr(p, 'raw_code', getattr(p, 'source_code', '')),
+                "raptor_leaf_id": p.raptor_leaf_id if hasattr(p, 'raptor_leaf_id') else None,
+                "raptor_cluster_id": p.raptor_cluster_id if hasattr(p, 'raptor_cluster_id') else None,
+                "raptor_root_id": p.raptor_root_id if hasattr(p, 'raptor_root_id') else None,
+                "created_at": datetime.now(timezone.utc).isoformat(),
             })
+
+        out_path = "partition_ir_overflow.parquet"
         table = pa.table(records)
-        pq.write_table(table, "partition_ir_overflow.parquet")
+        pq.write_table(table, out_path)
         self.logger.warning(
             "parquet_fallback",
             n_records=len(records),
-            path="partition_ir_overflow.parquet",
+            deduped=len(partitions) - len(records),
+            path=out_path,
         )
         return len(records)

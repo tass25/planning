@@ -226,3 +226,9 @@ python planning/week02_03viz.py sas_converter/knowledge_base/gold_standard/gs_01
 ```
 
 **Output**: matplotlib timeline plot with blocks colored by partition type + line range annotations.
+
+---
+
+## ⚠️ Post-Consolidation Update (Week 13)
+
+StreamAgent + StateAgent were consolidated into `StreamingParser` (single wrapper class). The async streaming + FSM state-tracking behaviour is preserved internally. See [week13Done.md](week13Done.md).

@@ -16,10 +16,10 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-from typing import Optional
-
 import tiktoken
 import structlog
+
+from partition.utils.retry import azure_breaker, groq_breaker
 
 logger = structlog.get_logger()
 
@@ -83,47 +83,35 @@ class ClusterSummarizer:
     MAX_PROMPT_TOKENS = 4_000
     ENCODING_NAME = "cl100k_base"
 
-    def __init__(
-        self,
-        groq_api_key: Optional[str] = None,
-        groq_base_url: str = "https://api.groq.com/openai/v1",
-        ollama_base_url: str = "http://localhost:11434/v1",
-        azure_endpoint: Optional[str] = None,
-        azure_api_key: Optional[str] = None,
-        azure_api_version: str = "2024-10-21",
-        azure_deployment: Optional[str] = None,
-    ):
+    def __init__(self):
         self._summary_cache: dict[str, ClusterSummary] = {}
         self._enc = tiktoken.get_encoding(self.ENCODING_NAME)
         self.azure_client = None
         self.groq_client = None
-        self.ollama_client = None
-        self._azure_deployment = azure_deployment or os.getenv(
+        self._azure_deployment = os.getenv(
             "AZURE_OPENAI_DEPLOYMENT_FULL", "gpt-4o"
         )
 
         try:
             import instructor
-            from openai import OpenAI, AzureOpenAI
+            from partition.utils.llm_clients import (
+                get_azure_openai_client,
+                get_groq_openai_client,
+            )
 
             # Tier 1: Azure OpenAI (primary)
-            _az_endpoint = azure_endpoint or os.getenv("AZURE_OPENAI_ENDPOINT")
-            _az_key = azure_api_key or os.getenv("AZURE_OPENAI_API_KEY")
-            if _az_endpoint and _az_key:
+            try:
                 self.azure_client = instructor.from_openai(
-                    AzureOpenAI(
-                        azure_endpoint=_az_endpoint,
-                        api_key=_az_key,
-                        api_version=azure_api_version,
-                    )
+                    get_azure_openai_client(async_client=False)
                 )
                 logger.info("summarizer_tier1_ready", provider="azure_openai")
+            except RuntimeError:
+                pass  # env vars missing — skip Azure tier
 
             # Tier 2: Groq (fallback)
-            if groq_api_key:
-                self.groq_client = instructor.from_openai(
-                    OpenAI(api_key=groq_api_key, base_url=groq_base_url)
-                )
+            _groq = get_groq_openai_client(async_client=False)
+            if _groq:
+                self.groq_client = instructor.from_openai(_groq)
                 logger.info("summarizer_tier2_ready", provider="groq")
 
         except ImportError:
@@ -157,7 +145,7 @@ class ClusterSummarizer:
         prompt = self._build_prompt(truncated)
 
         # Tier 1: Azure OpenAI GPT-4o (primary)
-        if self.azure_client:
+        if self.azure_client and azure_breaker.allow_request():
             try:
                 result = self.azure_client.chat.completions.create(
                     model=self._azure_deployment,
@@ -165,13 +153,15 @@ class ClusterSummarizer:
                     response_model=ClusterSummary,
                     max_retries=2,
                 )
+                azure_breaker.record_success()
                 self._summary_cache[cache_key] = result
                 return result, "azure_openai"
             except Exception as exc:
+                azure_breaker.record_failure()
                 logger.warning("azure_summary_failed", error=str(exc))
 
         # Tier 2: Groq Llama-3.1-70B (fallback)
-        if self.groq_client:
+        if self.groq_client and groq_breaker.allow_request():
             try:
                 result = self.groq_client.chat.completions.create(
                     model="llama-3.1-70b-versatile",
@@ -179,9 +169,11 @@ class ClusterSummarizer:
                     response_model=ClusterSummary,
                     max_retries=2,
                 )
+                groq_breaker.record_success()
                 self._summary_cache[cache_key] = result
                 return result, "groq_fallback"
             except Exception as exc:
+                groq_breaker.record_failure()
                 logger.warning("groq_summary_failed", error=str(exc))
 
         # Tier 3: Heuristic

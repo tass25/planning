@@ -182,6 +182,15 @@ Rationale: The verifier **must** be a different provider to avoid confirming its
 | source | string |
 | failure_mode | string |
 | verification_method | string |
+
+---
+
+## ⚠️ Post-Consolidation Update (Week 13)
+
+- **Ollama dead code paths removed** — Azure OpenAI is now the primary LLM, Groq is fallback only.
+- Circuit breaker and rate limiter still active but configured for Azure OpenAI (10 concurrent) and Groq (3 concurrent).
+- `opencensus-ext-azure` dependency removed, replaced by `azure-monitor-opentelemetry`.
+- See [week13Done.md](week13Done.md) for full consolidation details.
 | verification_score | float32 |
 | category | string |
 | version | int32 |

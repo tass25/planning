@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import pickle
 from pathlib import Path
 from typing import Optional
@@ -28,12 +29,34 @@ class NetworkXGraphBuilder:
     # Lifecycle
     # ------------------------------------------------------------------
 
+    @property
+    def _hash_path(self) -> Path:
+        return self.persist_path.with_suffix(".sha256")
+
     def _load_or_create(self) -> nx.DiGraph:
-        """Load existing graph from pickle or create a new DiGraph."""
+        """Load existing graph from pickle or create a new DiGraph.
+
+        Verifies SHA-256 integrity before deserialising.
+        """
         if self.persist_path.exists():
             try:
-                with open(self.persist_path, "rb") as f:
-                    g = pickle.load(f)
+                raw = self.persist_path.read_bytes()
+                # Integrity check: verify SHA-256 before unpickling
+                if self._hash_path.exists():
+                    expected = self._hash_path.read_text().strip()
+                    actual = hashlib.sha256(raw).hexdigest()
+                    if actual != expected:
+                        logger.warning(
+                            "graph_integrity_fail",
+                            path=str(self.persist_path),
+                            expected=expected[:12],
+                            actual=actual[:12],
+                        )
+                        return nx.DiGraph()
+                else:
+                    logger.warning("graph_hash_missing", path=str(self._hash_path))
+
+                g = pickle.loads(raw)  # noqa: S301 — integrity verified above
                 logger.info("graph_loaded", path=str(self.persist_path), nodes=g.number_of_nodes())
                 return g
             except Exception as exc:
@@ -41,10 +64,11 @@ class NetworkXGraphBuilder:
         return nx.DiGraph()
 
     def save(self):
-        """Persist graph to pickle file."""
+        """Persist graph to pickle file with SHA-256 integrity hash."""
         self.persist_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.persist_path, "wb") as f:
-            pickle.dump(self.graph, f)
+        raw = pickle.dumps(self.graph)
+        self.persist_path.write_bytes(raw)
+        self._hash_path.write_text(hashlib.sha256(raw).hexdigest())
 
     # ------------------------------------------------------------------
     # Write

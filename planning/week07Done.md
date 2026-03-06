@@ -230,3 +230,9 @@ Visualization scripts require:
 - `structlog` (already present)
 
 Install missing packages: `pip install matplotlib`
+
+---
+
+## ⚠️ Post-Consolidation Update (Week 13)
+
+PersistenceAgent and IndexAgent were **merged into a single orchestrator node** (`persist_index`) in Week 13. Both classes still exist independently but are called sequentially within one graph node, reducing pipeline nodes from 9 → 7. See [week13Done.md](week13Done.md).

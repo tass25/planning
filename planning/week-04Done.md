@@ -358,3 +358,9 @@ python planning/week04viz.py
 ```
 
 **Output**: matplotlib 4-panel plot showing feature importance, calibration curves, and risk distribution.
+
+---
+
+## ⚠️ Post-Consolidation Update (Week 13)
+
+ComplexityAgent + StrategyAgent were consolidated into `RiskRouter` (single class handling feature extraction, ML prediction, Platt calibration, and strategy assignment). See [week13Done.md](week13Done.md).

@@ -85,8 +85,11 @@ class FileAnalysisAgent(BaseAgent):
         return "FileAnalysisAgent"
 
     async def process(self, project_root: Path) -> list[FileMetadata]:  # type: ignore[override]
-        project_root = Path(project_root)
-        sas_files = sorted(project_root.rglob("*.sas"))
+        project_root = Path(project_root).resolve()
+        sas_files = [
+            f for f in sorted(project_root.rglob("*.sas"))
+            if f.resolve().is_relative_to(project_root)
+        ]
 
         self.logger.info("discovery_start", project_root=str(project_root), file_count=len(sas_files))
 

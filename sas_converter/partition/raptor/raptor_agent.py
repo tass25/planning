@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from uuid import UUID
 
 from partition.base_agent import BaseAgent
@@ -31,9 +30,7 @@ class RAPTORPartitionAgent(BaseAgent):
 
         self.embedder = NomicEmbedder(device=device)
         self.clusterer = GMMClusterer()
-        self.summarizer = ClusterSummarizer(
-            groq_api_key=os.getenv("GROQ_API_KEY"),
-        )
+        self.summarizer = ClusterSummarizer()
         self.tree_builder = RAPTORTreeBuilder(
             embedder=self.embedder,
             clusterer=self.clusterer,

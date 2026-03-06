@@ -40,7 +40,14 @@ def configure_logging(log_file: str | None = None, json_output: bool = False):
 
     # Optionally set up stdlib file logging alongside structlog
     if log_file:
-        os.makedirs(os.path.dirname(log_file), exist_ok=True)
-        file_handler = logging.FileHandler(log_file, encoding="utf-8")
+        from logging.handlers import RotatingFileHandler
+
+        os.makedirs(os.path.dirname(log_file) or ".", exist_ok=True)
+        file_handler = RotatingFileHandler(
+            log_file,
+            maxBytes=10 * 1024 * 1024,  # 10 MB
+            backupCount=5,
+            encoding="utf-8",
+        )
         file_handler.setLevel(logging.INFO)
         logging.root.addHandler(file_handler)

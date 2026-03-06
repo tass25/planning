@@ -38,6 +38,12 @@ Planning specified Groq/Ollama routing. Implementation uses:
 ### Codebase Adaptations
 
 - Planning field `raw_code` → actual `source_code` (PartitionIR)
+
+---
+
+## ⚠️ Post-Consolidation Update (Week 13)
+
+TranslationAgent + ValidationAgent were consolidated into `TranslationPipeline` (single wrapper class). The translation→validate→retry loop remains unchanged internally. See [week13Done.md](week13Done.md).
 - Planning field `partition_id` → actual `block_id`
 - Planning field `source_file_id` → actual `file_id`
 - Planning import `partition.agents.base_agent` → actual `partition.base_agent`

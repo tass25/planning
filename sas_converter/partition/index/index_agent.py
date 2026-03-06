@@ -12,6 +12,16 @@ from partition.base_agent import BaseAgent
 logger = structlog.get_logger()
 
 
+def _pid(p) -> str:
+    """Extract partition ID string from a PartitionIR-like object."""
+    return str(getattr(p, 'partition_id', None) or getattr(p, 'block_id', ''))
+
+
+def _fid(p) -> str:
+    """Extract file ID string from a PartitionIR-like object."""
+    return str(getattr(p, 'source_file_id', None) or getattr(p, 'file_id', ''))
+
+
 class IndexAgent(BaseAgent):
     """Agent #11 — Build dependency DAG, detect SCCs, compute hop cap.
 
@@ -82,13 +92,13 @@ class IndexAgent(BaseAgent):
 
         # Add all partition nodes
         for p in partitions:
-            pid = str(getattr(p, 'partition_id', None) or getattr(p, 'block_id', ''))
+            pid = _pid(p)
             dag.add_node(
                 pid,
                 partition_type=getattr(p.partition_type, 'value', str(p.partition_type)),
                 risk_level=getattr(p.risk_level, 'value', str(getattr(p, 'risk_level', ''))),
                 complexity_score=getattr(p, 'complexity_score', 0.0),
-                file_id=str(getattr(p, 'source_file_id', None) or getattr(p, 'file_id', '')),
+                file_id=_fid(p),
             )
             partition_lookup[pid] = p
 
@@ -100,7 +110,7 @@ class IndexAgent(BaseAgent):
 
         # Add edges
         for p in partitions:
-            pid = str(getattr(p, 'partition_id', None) or getattr(p, 'block_id', ''))
+            pid = _pid(p)
             dep_refs = getattr(p, 'dependency_refs', [])
 
             for ref in dep_refs:
@@ -110,10 +120,7 @@ class IndexAgent(BaseAgent):
                 producer_key = f"dataset:{ref_upper}"
                 if producer_key in partition_lookup:
                     producer = partition_lookup[producer_key]
-                    producer_pid = str(
-                        getattr(producer, 'partition_id', None)
-                        or getattr(producer, 'block_id', '')
-                    )
+                    producer_pid = _pid(producer)
                     if producer_pid != pid:
                         dag.add_edge(pid, producer_pid, dep_type="dataset", ref_raw=ref)
 
@@ -121,16 +128,8 @@ class IndexAgent(BaseAgent):
                 if ref in cross_file_deps:
                     target_file = cross_file_deps[ref]
                     for op in partitions:
-                        op_fid = str(
-                            getattr(op, 'source_file_id', None)
-                            or getattr(op, 'file_id', '')
-                        )
-                        if op_fid == target_file:
-                            op_pid = str(
-                                getattr(op, 'partition_id', None)
-                                or getattr(op, 'block_id', '')
-                            )
-                            dag.add_edge(pid, op_pid, dep_type="cross_file", ref_raw=ref)
+                        if _fid(op) == target_file:
+                            dag.add_edge(pid, _pid(op), dep_type="cross_file", ref_raw=ref)
                             break
 
             # Macro call edges
@@ -143,12 +142,8 @@ class IndexAgent(BaseAgent):
                             isinstance(op_macro, dict)
                             and macro_name in op_macro.get('definitions', [])
                         ):
-                            op_pid = str(
-                                getattr(op, 'partition_id', None)
-                                or getattr(op, 'block_id', '')
-                            )
                             dag.add_edge(
-                                pid, op_pid,
+                                pid, _pid(op),
                                 dep_type="macro_call",
                                 macro_name=macro_name,
                             )
@@ -216,6 +211,5 @@ class IndexAgent(BaseAgent):
         for scc_idx, scc in enumerate(scc_groups):
             scc_id = f"scc_{scc_idx}"
             for p in partitions:
-                pid = str(getattr(p, 'partition_id', None) or getattr(p, 'block_id', ''))
-                if pid in scc:
+                if _pid(p) in scc:
                     p.scc_id = scc_id

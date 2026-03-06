@@ -1,4 +1,4 @@
-"""Shared LLM client factory — single source for Azure / Groq / Ollama clients."""
+"""Shared LLM client factory — single source for Azure / Groq clients."""
 
 from __future__ import annotations
 
@@ -55,7 +55,7 @@ def get_groq_client(*, async_client: bool = True):
 
 
 def get_llm_provider() -> str:
-    """Return the configured LLM provider name (azure|groq|ollama)."""
+    """Return the configured LLM provider name (azure|groq)."""
     return os.getenv("LLM_PROVIDER", "azure").lower()
 
 

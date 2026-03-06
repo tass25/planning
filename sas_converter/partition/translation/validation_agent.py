@@ -130,11 +130,24 @@ class ValidationAgent(BaseAgent):
         except SyntaxError as e:
             return False, str(e)
 
+    # Builtins blocked from the exec() sandbox to prevent escape.
+    _BLOCKED_BUILTINS = frozenset({
+        "open", "__import__", "exec", "eval", "compile",
+        "exit", "quit", "input", "breakpoint",
+        # Block attribute introspection to prevent getattr(__builtins__, ...) bypass
+        "getattr", "setattr", "delattr",
+        # Block reflection helpers that expose internals
+        "globals", "locals", "vars", "dir",
+        # Block type introspection that enables __subclasses__() escape
+        "type", "classmethod", "staticmethod", "super",
+        "memoryview",  # can leak raw memory
+    })
+
     def _build_sandbox_namespace(self) -> dict:
         """Build a restricted namespace for exec() sandboxing.
 
         Provides: pd, np, df (synthetic 100-row DataFrame).
-        Removes: open, __import__, exec, eval, compile from builtins.
+        Removes dangerous builtins (see ``_BLOCKED_BUILTINS``).
         """
         rng = np.random.default_rng(42)
         df = pd.DataFrame({
@@ -145,38 +158,19 @@ class ValidationAgent(BaseAgent):
             "flag": rng.choice([0, 1], 100),
         })
 
-        safe_builtins = {
-            k: v
-            for k, v in __builtins__.items()
-            if k
-            not in (
-                "open",
-                "__import__",
-                "exec",
-                "eval",
-                "compile",
-                "exit",
-                "quit",
-                "input",
-                "breakpoint",
-            )
-        } if isinstance(__builtins__, dict) else {
-            k: getattr(__builtins__, k)
-            for k in dir(__builtins__)
-            if k
-            not in (
-                "open",
-                "__import__",
-                "exec",
-                "eval",
-                "compile",
-                "exit",
-                "quit",
-                "input",
-                "breakpoint",
-            )
-            and not k.startswith("_")
-        }
+        blocked = self._BLOCKED_BUILTINS
+
+        if isinstance(__builtins__, dict):
+            safe_builtins = {
+                k: v for k, v in __builtins__.items()
+                if k not in blocked and not k.startswith("_")
+            }
+        else:
+            safe_builtins = {
+                k: getattr(__builtins__, k)
+                for k in dir(__builtins__)
+                if k not in blocked and not k.startswith("_")
+            }
 
         return {
             "__builtins__": safe_builtins,

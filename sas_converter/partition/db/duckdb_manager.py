@@ -140,6 +140,29 @@ def init_all_duckdb_tables(db_path: str = DB_PATH):
     logger.info("duckdb_all_tables_initialized", db_path=db_path)
 
 
+# ── Schema versioning ────────────────────────────────────────────────────────
+
+DUCKDB_SCHEMA_VERSION = 1
+
+
+def check_duckdb_schema(db_path: str = DB_PATH) -> int:
+    """Ensure schema_version table exists and return current version."""
+    con = duckdb.connect(db_path)
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS schema_version "
+        "(version INTEGER NOT NULL, applied_at TIMESTAMP DEFAULT NOW())"
+    )
+    row = con.execute("SELECT MAX(version) FROM schema_version").fetchone()
+    current = (row[0] or 0) if row else 0
+    if current < DUCKDB_SCHEMA_VERSION:
+        con.execute(
+            "INSERT INTO schema_version VALUES (?, NOW())",
+            [DUCKDB_SCHEMA_VERSION],
+        )
+    con.close()
+    return max(current, DUCKDB_SCHEMA_VERSION)
+
+
 def log_llm_call(
     db_path: str,
     call_id: str,

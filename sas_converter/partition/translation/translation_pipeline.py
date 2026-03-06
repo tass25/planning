@@ -8,12 +8,12 @@ from __future__ import annotations
 import asyncio
 from typing import Optional
 
-import duckdb
 import structlog
 
 from partition.models.partition_ir import PartitionIR
 from partition.models.conversion_result import ConversionResult
 from partition.models.enums import ConversionStatus
+from partition.orchestration.audit import _get_duckdb
 from partition.translation.translation_agent import TranslationAgent
 from partition.translation.validation_agent import ValidationAgent, ValidationResult
 
@@ -28,12 +28,10 @@ class TranslationPipeline:
     def __init__(
         self,
         target_runtime: str = "python",
-        groq_api_key: Optional[str] = None,
         duckdb_path: str = "analytics.duckdb",
     ):
         self.translator = TranslationAgent(
             target_runtime=target_runtime,
-            groq_api_key=groq_api_key,
         )
         self.validator = ValidationAgent()
         self.duckdb_path = duckdb_path
@@ -95,23 +93,7 @@ class TranslationPipeline:
     def _log_quality(self, conversion: ConversionResult):
         """Log translation result to DuckDB conversion_results table."""
         try:
-            con = duckdb.connect(self.duckdb_path)
-            con.execute("""
-                CREATE TABLE IF NOT EXISTS conversion_results (
-                    conversion_id VARCHAR,
-                    block_id VARCHAR,
-                    file_id VARCHAR,
-                    python_code VARCHAR,
-                    imports_detected VARCHAR,
-                    status VARCHAR,
-                    llm_confidence DOUBLE,
-                    failure_mode_flagged VARCHAR,
-                    model_used VARCHAR,
-                    kb_examples_used VARCHAR,
-                    retry_count INTEGER,
-                    trace_id VARCHAR
-                )
-            """)
+            con = _get_duckdb(self.duckdb_path)
             con.execute(
                 """
                 INSERT INTO conversion_results
@@ -132,6 +114,5 @@ class TranslationPipeline:
                     str(conversion.trace_id),
                 ],
             )
-            con.close()
         except Exception as e:
             logger.warning("quality_log_failed", error=str(e))

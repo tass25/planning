@@ -93,7 +93,7 @@ class TestClusterSummarizer:
 
     def test_heuristic_fallback_contains_block_info(self):
         """Heuristic summary text must mention 'SAS code block'."""
-        summarizer = ClusterSummarizer(groq_api_key=None)
+        summarizer = ClusterSummarizer()
         summary = summarizer._heuristic_summary(
             [
                 "DATA mydata; SET input; x = 1; RUN;",
@@ -105,7 +105,7 @@ class TestClusterSummarizer:
 
     def test_heuristic_detects_constructs(self):
         """Heuristic summary should detect DATA step and PROC MEANS."""
-        summarizer = ClusterSummarizer(groq_api_key=None)
+        summarizer = ClusterSummarizer()
         summary = summarizer._heuristic_summary(
             [
                 "DATA sales; SET raw; RUN;",
@@ -124,7 +124,7 @@ class TestClusterSummarizer:
 
     def test_heuristic_complexity_thresholds(self):
         """LOW < 50 lines, MODERATE < 200 lines, HIGH >= 200 lines."""
-        summarizer = ClusterSummarizer(groq_api_key=None)
+        summarizer = ClusterSummarizer()
 
         # tiny block → LOW
         small = summarizer._heuristic_summary(["DATA x; RUN;"])

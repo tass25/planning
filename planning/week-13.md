@@ -4,6 +4,8 @@
 > **Branch**: `week-13`  
 > **Layer**: Documentation & Presentation  
 > **Prerequisite**: Week 12 complete (ablation study done, all pipeline layers functional)  
+> **Status**: ⚠️ PLAN CHANGED — Actual delivery was **agent consolidation (21→8) + enterprise features** instead of defense slides. See [week13Done.md](week13Done.md)  
+> **What was actually delivered**: Architecture audit (B+ → A-), agent consolidation (21→8, 11→7 nodes, v3.0.0), dead code removal (opencensus, Ollama), enterprise features (telemetry, CI/CD, CodeQL, Dependabot, Docker, docker-compose). Defense slides moved to Week 14.  
 
 ---
 

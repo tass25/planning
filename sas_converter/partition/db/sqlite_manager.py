@@ -148,9 +148,35 @@ def get_engine(db_path: str = "file_registry.db"):
     return engine
 
 
+# Current schema version — bump when ORM models change.
+SCHEMA_VERSION = 1
+
+
 def init_db(engine) -> None:
-    """Create all tables that don't already exist."""
+    """Create all tables that don't already exist, then record schema version."""
     Base.metadata.create_all(engine)
+
+    with engine.connect() as conn:
+        conn.execute(
+            __import__("sqlalchemy").text(
+                "CREATE TABLE IF NOT EXISTS schema_version "
+                "(version INTEGER NOT NULL, applied_at TEXT NOT NULL)"
+            )
+        )
+        row = conn.execute(
+            __import__("sqlalchemy").text(
+                "SELECT MAX(version) FROM schema_version"
+            )
+        ).scalar()
+        current = row or 0
+        if current < SCHEMA_VERSION:
+            conn.execute(
+                __import__("sqlalchemy").text(
+                    "INSERT INTO schema_version VALUES (:v, datetime('now'))"
+                ),
+                {"v": SCHEMA_VERSION},
+            )
+            conn.commit()
 
 
 def get_session(engine) -> Session:

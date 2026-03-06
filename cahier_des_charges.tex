@@ -49,7 +49,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\small\textcolor{primary}{SAS-to-Python/PySpark Conversion Accelerator}}
-\fancyhead[R]{\small\textcolor{primary}{Cahier des Charges v1.2}}
+\fancyhead[R]{\small\textcolor{primary}{Cahier des Charges v2.0}}
 \fancyfoot[C]{\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 
@@ -105,7 +105,7 @@
 \textcolor{accent}{\rule{0.6\textwidth}{1.2pt}}\\[1.5cm]
 
 \begin{tabular}{rl}
-    \textbf{Document version:} & 1.2 — Updated \\[4pt]
+    \textbf{Document version:} & 2.0 — Post-consolidation \\[4pt]
     \textbf{Project type:} & Final-year engineering project (PFE) \\[4pt]
     \textbf{Classification:} & Technical specification \\[4pt]
     \textbf{Research anchor:} & RAPTOR — Sarthi et al., ICLR 2024 \\
@@ -353,14 +353,15 @@ The system is organized into six processing layers, a cross-cutting orchestratio
 \toprule
 \textbf{Layer} & \textbf{Name} & \textbf{Responsibility} & \textbf{Primary Agents} \\
 \midrule
-L2-A & Entry \& Scan & File discovery, encoding, registry, cross-file deps, data lineage & FileAnalysisAgent, CrossFileDependencyResolver, RegistryWriterAgent, DataLineageExtractor \\
-L2-B & Streaming Core & Async streaming, stateful SAS parsing & StreamAgent, StateAgent \\
-L2-C & RAPTOR Chunking & Boundary detection, embedding, GMM clustering, recursive tree & BoundaryDetectorAgent, RAPTORPartitionAgent, PartitionBuilderAgent \\
-L2-D & Complexity \& Strategy & Feature extraction, risk classification & ComplexityAgent, StrategyAgent \\
-L2-E & Persistence \& Index & IR storage, vector index, graph, checkpoints & PersistenceAgent, IndexAgent \\
-L3 & Translation & SAS$\to$Python/PySpark with KB augmentation + cross-verify + validation & TranslationAgent, ValidationAgent \\
-L4 & Merge & Import consolidation, variable injection, assembly, report & ImportConsolidator, DependencyInjector, ScriptMerger, ReportAgent \\
+L2-A & Entry \& Scan & File discovery, encoding, registry, cross-file deps, data lineage & FileProcessor \\
+L2-B & Streaming Core & Async streaming, stateful SAS parsing & StreamingParser \\
+L2-C & RAPTOR Chunking & Boundary detection, embedding, GMM clustering, recursive tree & ChunkingAgent, RAPTORPartitionAgent \\
+L2-D & Complexity \& Strategy & Feature extraction, risk classification & RiskRouter \\
+L2-E & Persistence \& Index & IR storage, vector index, graph, checkpoints & PersistenceAgent, IndexAgent (combined node) \\
+L3 & Translation & SAS$\to$Python/PySpark with KB augmentation + cross-verify + validation & TranslationPipeline \\
+L4 & Merge & Import consolidation, variable injection, assembly, report & MergeAgent \\
 CL & Continuous Learning & Feedback ingestion, quality monitoring & FeedbackIngestionAgent, ConversionQualityMonitor \\
+ENT & Enterprise & Telemetry, CI/CD, security scanning, containerization & Azure Monitor, GitHub Actions, Docker \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -826,13 +827,17 @@ Graph library & NetworkX & igraph, CuGraph & BSD, pure Python, in-memory, SCC + 
 Parser & Lark (LALR) & ANTLR4, regex, PLY & Handles nested structures; pure Python; no Java runtime \\
 Complexity & Radon & Manual AST walk & CC computation out of box; supplemented with 4 custom features \\
 ML model & sklearn LR + Platt & XGBoost, PyTorch & 500 examples / 5 features $\to$ LR optimal; interpretable; calibrated \\
-Orchestration & LangGraph & Custom FSM, Airflow & StateGraph with branching, checkpoints, fan-out built-in \\
+Orchestration & LangGraph & Custom FSM, Airflow & StateGraph v3.0.0 with 7-node graph, checkpoints built-in \\
 Checkpoints & Redis & SQLite, filesystem & Atomic SETEX, TTL auto-cleanup, no lock contention \\
 Analytics & DuckDB & Pandas, SQLite, PostgreSQL & Columnar OLAP, SQL-queryable, embedded, fast aggregations \\
 Async I/O & aiofiles & — & Only viable async file reader in Python \\
 Typed output & Instructor & LangChain parser, Outlines & Pydantic output enforcement, auto-retry, dual-endpoint compatible \\
 Validation & Pydantic v2 & — & 5–50$\times$ faster than v1, de-facto standard \\
 Logging & structlog & stdlib logging, Loguru & JSON structured output, trace\_id binding, DuckDB-queryable \\
+Telemetry & Azure Monitor + OpenTelemetry & Datadog, New Relic & Native Azure integration; graceful no-op without connection string \\
+CI/CD & GitHub Actions & Jenkins, GitLab CI & Native GitHub integration; CodeQL + Dependabot built-in \\
+Security & CodeQL + Dependabot & Snyk, SonarQube & Free for open-source; automated PRs for CVEs \\
+Containerization & Docker + docker-compose & Kubernetes, Podman & Multi-stage build; Redis + API in single compose \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -842,36 +847,46 @@ Logging & structlog & stdlib logging, Loguru & JSON structured output, trace\_id
 \section{Agent Architecture}
 % ══════════════════════════════════════════════════════════════
 
-\subsection{The 16 Agents}
+\subsection{Consolidated Architecture — 8 Agents (v3.0.0)}
+
+\begin{infobox}[Consolidation Rationale]
+The original 16-agent design was consolidated to 8 coarse-grained agents to reduce inter-agent communication overhead, simplify the orchestrator graph (11 nodes $\to$ 7 nodes), and improve maintainability. Each consolidated agent encapsulates a coherent pipeline stage. Pipeline version: \textbf{3.0.0}.
+\end{infobox}
 
 \begin{table}[H]
 \centering
-\caption{16 Agents — Strict Single Responsibility}
+\caption{8 Consolidated Agents — Pipeline v3.0.0}
 \renewcommand{\arraystretch}{1.25}
 \small
 \begin{tabularx}{\textwidth}{@{} c l c X @{}}
 \toprule
-\textbf{\#} & \textbf{Agent} & \textbf{Layer} & \textbf{Primary Responsibility} \\
+\textbf{\#} & \textbf{Agent} & \textbf{Layer} & \textbf{Responsibility (replaces)} \\
 \midrule
-1 & FileAnalysisAgent & L2-A & File discovery, encoding, Lark pre-validation \\
-2 & CrossFileDependencyResolver & L2-A & \texttt{\%INCLUDE} / \texttt{LIBNAME} resolution \\
-3 & RegistryWriterAgent & L2-A & Registry write, SHA-256 dedup \\
-4 & DataLineageExtractor & L2-A & Table-level data lineage (SET/MERGE/FROM/DATA/CREATE) \\
-5 & StreamAgent & L2-B & Async 8\,KB line streaming \\
-6 & StateAgent & L2-B & FSM: block\_type, nesting, macro\_stack \\
-7 & BoundaryDetectorAgent & L2-C & Lark boundary detection + LLM resolver routing \\
-8 & RAPTORPartitionAgent & L2-C & GMM clustering + recursive tree + summarization \\
-9 & ComplexityAgent & L2-D & 5-feature extraction, composite score \\
-10 & StrategyAgent & L2-D & sklearn LR prediction, risk\_level, strategy \\
-11 & PersistenceAgent & L2-E & IR write to SQLite / Postgres / Parquet \\
-12 & IndexAgent & L2-E & NetworkX DAG + SCC condensation + graph build \\
-13 & TranslationAgent & L3 & SAS$\to$Python/PySpark conversion + KB + cross-verify \\
-14 & ValidationAgent & L3 & Post-translation exec test on synthetic DataFrame \\
-15 & ReportAgent & L4 & Markdown/HTML conversion report generation \\
-16 & PartitionOrchestrator & Cross & LangGraph StateGraph, fan-out, Redis checkpoints \\
+1 & FileProcessor & L2-A & File discovery, encoding, cross-file deps, data lineage, registry write (replaces FileAnalysisAgent + CrossFileDependencyResolver + RegistryWriterAgent + DataLineageExtractor) \\
+2 & StreamingParser & L2-B & Async streaming + FSM parsing (replaces StreamAgent + StateAgent) \\
+3 & ChunkingAgent & L2-C & Lark boundary detection + partition building (replaces BoundaryDetectorAgent + PartitionBuilderAgent) \\
+4 & RAPTORPartitionAgent & L2-C & GMM clustering + recursive tree + summarization (unchanged) \\
+5 & RiskRouter & L2-D & 5-feature extraction + risk classification + strategy (replaces ComplexityAgent + StrategyAgent) \\
+6 & TranslationPipeline & L3 & SAS$\to$Python/PySpark + KB + cross-verify + validation (replaces TranslationAgent + ValidationAgent) \\
+7 & MergeAgent & L4 & Import consolidation + dependency injection + script assembly + report (replaces ImportConsolidator + DependencyInjector + ScriptMerger + ReportAgent) \\
+8 & PersistenceAgent + IndexAgent & L2-E & IR storage + NetworkX graph + SCC + checkpoints (combined orchestrator node) \\
 \bottomrule
 \end{tabularx}
 \end{table}
+
+\subsection{Orchestrator Graph (7 Nodes)}
+
+\begin{infobox}[LangGraph StateGraph v3.0.0]
+\small
+\texttt{file\_process} $\longrightarrow$
+\texttt{streaming} $\longrightarrow$
+\texttt{chunking} $\longrightarrow$
+\texttt{raptor} $\longrightarrow$
+\texttt{risk\_routing} $\longrightarrow$
+\texttt{persist\_index} $\longrightarrow$
+\texttt{translation} $\longrightarrow$
+\texttt{END}
+\end{infobox}
 
 \subsection{Retry Policy}
 
@@ -892,6 +907,66 @@ ValidationAgent & Exec timeout/OOM & 2 & reset+retry & Skip validation, log warn
 ReportAgent & Template render fail & 1 & immediate & Plain-text fallback report \\
 IndexAgent & Graph build fail & 2 & Error handling & Log + skip \\
 RedisCheckpoint & Connection refused & 1 & immediate & Degraded mode, continue \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{Enterprise Features}
+% ══════════════════════════════════════════════════════════════
+
+\subsection{Observability \& Telemetry}
+
+\begin{table}[H]
+\centering
+\caption{Telemetry Stack}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} l X @{}}
+\toprule
+\textbf{Component} & \textbf{Details} \\
+\midrule
+SDK & \texttt{azure-monitor-opentelemetry\textasciitilde=1.6.0} + \texttt{opentelemetry-api\textasciitilde=1.25.0} \\
+Wrapper & \texttt{partition/orchestration/telemetry.py} — \texttt{track\_event()}, \texttt{track\_metric()}, \texttt{trace\_span()} \\
+Instrumentation & All 7 orchestrator nodes + \texttt{run()} method \\
+LLM metrics & \texttt{LLM\_Call\_Latency\_ms} emitted from \texttt{audit.py} \\
+Graceful fallback & No-op when \texttt{APPLICATIONINSIGHTS\_CONNECTION\_STRING} is unset \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{CI/CD Pipeline}
+
+\begin{table}[H]
+\centering
+\caption{GitHub Actions Workflows}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} l l X @{}}
+\toprule
+\textbf{Workflow} & \textbf{Trigger} & \textbf{Purpose} \\
+\midrule
+\texttt{ci.yml} & Push/PR to \texttt{main} & Run full test suite (200 tests) + benchmark. Redis service container, Python 3.11 \\
+\texttt{codeql.yml} & Push/PR + weekly & CodeQL Python security scanning \\
+\texttt{dependabot.yml} & Weekly & Automated pip + GitHub Actions dependency updates \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Containerization}
+
+\begin{table}[H]
+\centering
+\caption{Docker Configuration}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} l X @{}}
+\toprule
+\textbf{File} & \textbf{Details} \\
+\midrule
+\texttt{Dockerfile} & Multi-stage build (builder + slim runtime). Python 3.11-slim, non-root user, port 8000 \\
+\texttt{docker-compose.yml} & Redis 7-alpine + API service, health checks, persistent volumes \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -1285,8 +1360,8 @@ Idempotency & Double-run comparison & Row count identical after two identical ru
 10 & Translation Layer (L3) + KB expand to 250 pairs & P2 \\
 11 & Merge Layer (L4) + Continuous Learning + KB to 330 pairs & P2 \\
 12 & Ablation study: RAPTOR vs flat on 50 files $\times$ 10 queries & P2 \\
-\rowcolor{codebg} 13 & Defense prep: slides + demo video & P3 \\
-\rowcolor{codebg} 14 & Buffer: polish ablation plots, additional KB pairs, README & P3 \\
+\rowcolor{codebg} 13 & Agent consolidation (21$\to$8) + Enterprise features (telemetry, CI/CD, Docker, security). Grade A-. & P3 \\
+\rowcolor{codebg} 14 & Buffer: polish ablation plots, defense slides, additional KB pairs, README & P3 \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -1379,9 +1454,13 @@ Fault tolerance & \cmark & Redis checkpoints + SHA-256 dedup + SCC \\
 Continuous learning & \cmark & Feedback ingestion + quality monitor + retrain \\
 Quantitative evaluation & \cmark & Boundary + RAPTOR + ECE + CodeBLEU + success rate \\
 Differential testing & \cmark & 45\% coverage, 6 edge case categories \\
-Agent count discipline & \cmark & 16 agents (4 L2-A + 2 L2-B + 3 L2-C + 2 L2-D + 2 L2-E + TranslationAgent + ValidationAgent + ReportAgent); helpers are functions \\
+Agent count discipline & \cmark & 8 consolidated agents (FileProcessor + StreamingParser + ChunkingAgent + RAPTORPartitionAgent + RiskRouter + TranslationPipeline + MergeAgent + PersistenceAgent+IndexAgent); Pipeline v3.0.0 \\
 Dependency graph (multi-file) & \cmark & NetworkX DiGraph + SCC + cross\_file\_deps \\
-LLM audit logging & \cmark & DuckDB \texttt{llm\_audit} with \texttt{trace\_id} \\
+LLM audit logging & \cmark & DuckDB \texttt{llm\_audit} with \texttt{trace\_id} + Azure Monitor telemetry \\
+Observability \& Telemetry & \cmark & Azure Monitor + OpenTelemetry; 7 nodes instrumented; graceful no-op \\
+CI/CD Pipeline & \cmark & GitHub Actions (tests + CodeQL + Dependabot) \\
+Security Scanning & \cmark & CodeQL + Dependabot + secret scanning \\
+Containerization & \cmark & Docker multi-stage build + docker-compose (Redis + API) \\
 Timeline feasibility & \cmark & 14 weeks, P0–P3 priorities, fallback cuts \\
 \bottomrule
 \end{tabularx}
@@ -1404,7 +1483,7 @@ Timeline feasibility & \cmark & 14 weeks, P0–P3 priorities, fallback cuts \\
 \textbf{Deliverable} & \textbf{Location} & \textbf{Verification} \\
 \midrule
 \texttt{partition/} package & \texttt{partition/} & \texttt{pytest --cov=partition} \\
-12 agents implemented & \texttt{partition/*/} & All \texttt{.py} files present \\
+8 consolidated agents & \texttt{partition/*/} & All \texttt{.py} files present \\
 Test suite & \texttt{tests/} & All pass, coverage in \texttt{htmlcov/} \\
 TranslationAgent & \texttt{partition/translation/} & \texttt{test\_translation.py} \\
 Merge pipeline & \texttt{partition/merge/} & \texttt{test\_merge.py} \\
@@ -1458,9 +1537,9 @@ Demo video (3–5 min) & \texttt{docs/demo\_video.mp4} & Duration 180–300s \\
 \vfill
 \begin{center}
 \textcolor{accent}{\rule{0.4\textwidth}{0.4pt}}\\[8pt]
-\textit{End of Cahier des Charges — v1.2 Updated}\\[4pt]
+\textit{End of Cahier des Charges — v2.0 Post-consolidation}\\[4pt]
 \small\textcolor{primary}{SAS-to-Python/PySpark Code Conversion Accelerator — Partition Layer + Full Pipeline}\\[4pt]
-\small\textcolor{primary}{Architecture v2 · Spec v4.1 · RAPTOR (Sarthi et al., ICLR 2024) · February 2026}
+\small\textcolor{primary}{Architecture v3.0 · Spec v4.1 · RAPTOR (Sarthi et al., ICLR 2024) · 8 Consolidated Agents · February 2026}
 \end{center}
 
 \end{document}

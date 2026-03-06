@@ -165,6 +165,8 @@ class CrossFileDependencyResolver(BaseAgent):
             (project_root / ref_path).resolve(),
         ]
         for candidate in candidates:
+            if not candidate.is_relative_to(project_root):
+                continue  # path traversal — skip
             norm = str(candidate)
             if norm in file_index:
                 return True, file_index[norm], norm

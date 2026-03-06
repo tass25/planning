@@ -1,10 +1,9 @@
 """LLMBoundaryResolver — resolves ambiguous SAS block boundaries via an LLM.
 
-Default provider: Azure OpenAI (GPT-4o-mini) — enterprise-grade, $100 student credit.
+Default provider: Azure OpenAI (GPT-4o-mini) — enterprise-grade.
 Fallback chain:
     LLM_PROVIDER=azure  → Azure OpenAI GPT-4o-mini  (default, primary)
     LLM_PROVIDER=groq   → Groq Llama-3.1-8b-instant (fallback, 30 RPM limit)
-    LLM_PROVIDER=ollama → local Ollama               (offline fallback)
 
 Required env vars per provider:
     azure : AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT
@@ -13,16 +12,6 @@ Required env vars per provider:
             AZURE_OPENAI_DEPLOYMENT_FULL (optional, default: gpt-4o)
     groq  : GROQ_API_KEY   (https://console.groq.com)
             GROQ_MODEL     (optional, default: llama-3.1-8b-instant)
-    ollama: OLLAMA_HOST    (optional, default: http://localhost:11434)
-            OLLAMA_MODEL   (optional, default: llama3.1:8b)
-
-Migration note (Week 9):
-    Previously used Groq (Llama-3.1-8b-instant) as default provider.
-    Migrated to Azure OpenAI because:
-    - Groq free tier limited to 30 RPM → pipeline bottleneck on large corpora
-    - Azure $100 student credit covers full project usage
-    - GPT-4o-mini provides better structured-output compliance
-    - Enterprise SLA (99.9%) for production reliability
 """
 
 from __future__ import annotations
@@ -50,7 +39,6 @@ class LLMBoundaryResolver:
     Provider selected via LLM_PROVIDER env var:
         ``"azure"``  (default) — Azure OpenAI GPT-4o-mini, requires AZURE_OPENAI_* vars
         ``"groq"``   — Groq API (fallback), requires GROQ_API_KEY
-        ``"ollama"`` — local Ollama (offline), requires OLLAMA_* vars
     """
 
     MAX_TOKENS = 6_000
@@ -76,8 +64,6 @@ class LLMBoundaryResolver:
         """
         if self._provider == "azure":
             return await self._resolve_azure(event)
-        if self._provider == "ollama":
-            return await self._resolve_ollama(event)
         # Default: Groq
         return await self._resolve_groq(event)
 
@@ -86,7 +72,6 @@ class LLMBoundaryResolver:
     async def _resolve_groq(self, event: BlockBoundaryEvent) -> BlockBoundaryEvent:
         try:
             import instructor
-            from groq import AsyncGroq
             import tiktoken
         except ImportError as exc:
             raise RuntimeError(
@@ -94,18 +79,13 @@ class LLMBoundaryResolver:
                 "Run: pip install groq instructor tiktoken"
             ) from exc
 
-        api_key = os.environ.get("GROQ_API_KEY")
-        if not api_key:
-            raise RuntimeError(
-                "GROQ_API_KEY environment variable not set. "
-                "Get a free key at https://console.groq.com"
-            )
+        from partition.utils.llm_clients import get_groq_client, get_groq_model
 
-        model = os.getenv("GROQ_MODEL", self.DEFAULT_GROQ_MODEL)
+        groq_client = get_groq_client(async_client=True)
+        model = get_groq_model()
         tokenizer = tiktoken.get_encoding("cl100k_base")
         raw_code  = _truncate(event.raw_code, tokenizer, self.MAX_TOKENS - 500)
 
-        groq_client = AsyncGroq(api_key=api_key)
         client = instructor.from_groq(groq_client, mode=instructor.Mode.JSON)
 
         resp: LLMBoundaryResponse = await client.chat.completions.create(
@@ -117,43 +97,10 @@ class LLMBoundaryResolver:
 
         return _apply_response(event, resp, method="groq")
 
-    # ── Ollama (future option — LLM_PROVIDER=ollama) ───────────────────────────
-
-    async def _resolve_ollama(self, event: BlockBoundaryEvent) -> BlockBoundaryEvent:
-        try:
-            import instructor
-            from ollama import AsyncClient
-            import tiktoken
-        except ImportError as exc:
-            raise RuntimeError(
-                "Ollama / instructor / tiktoken not installed. "
-                "Run: pip install ollama instructor tiktoken"
-            ) from exc
-
-        host  = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-        model = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
-        tokenizer = tiktoken.get_encoding("cl100k_base")
-        raw_code  = _truncate(event.raw_code, tokenizer, self.MAX_TOKENS - 500)
-
-        client = instructor.from_openai(
-            AsyncClient(host=host),
-            mode=instructor.Mode.JSON,
-        )
-
-        resp: LLMBoundaryResponse = await client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": _build_prompt(raw_code)}],
-            response_model=LLMBoundaryResponse,
-            max_retries=3,
-        )
-
-        return _apply_response(event, resp, method="llm_8b")
-
     # ── Azure OpenAI (default — GPT-4o-mini, enterprise SLA) ────────────────
 
     async def _resolve_azure(self, event: BlockBoundaryEvent) -> BlockBoundaryEvent:
         try:
-            from openai import AsyncAzureOpenAI
             import instructor
             import tiktoken
         except ImportError as exc:
@@ -162,20 +109,14 @@ class LLMBoundaryResolver:
                 "Run: pip install openai instructor tiktoken"
             ) from exc
 
-        endpoint    = os.environ["AZURE_OPENAI_ENDPOINT"]
-        api_key     = os.environ["AZURE_OPENAI_API_KEY"]
-        api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21")
-        # GPT-4o-mini for boundary resolution (fast, cost-efficient)
-        deploy = os.getenv("AZURE_OPENAI_DEPLOYMENT_MINI", "gpt-4o-mini")
+        from partition.utils.llm_clients import get_azure_openai_client, get_deployment_name
+
+        azure_client = get_azure_openai_client(async_client=True)
+        deploy = get_deployment_name("mini")
 
         tokenizer = tiktoken.get_encoding("cl100k_base")
         raw_code  = _truncate(event.raw_code, tokenizer, self.MAX_TOKENS - 500)
 
-        azure_client = AsyncAzureOpenAI(
-            azure_endpoint=endpoint,
-            api_key=api_key,
-            api_version=api_version,
-        )
         client = instructor.from_openai(azure_client)
 
         resp: LLMBoundaryResponse = await client.chat.completions.create(

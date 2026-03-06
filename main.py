@@ -20,7 +20,11 @@ import sys
 from pathlib import Path
 from uuid import uuid4
 
+from dotenv import load_dotenv
 import structlog
+
+# Load .env file from repo root (before any agent reads env vars)
+load_dotenv(Path(__file__).parent / ".env")
 
 # Ensure sas_converter/ is on the Python path when run from the repo root
 _REPO_ROOT = Path(__file__).parent.resolve()

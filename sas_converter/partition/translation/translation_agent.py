@@ -20,7 +20,6 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import instructor
-from openai import AzureOpenAI, OpenAI
 from pydantic import BaseModel, Field
 import structlog
 
@@ -35,6 +34,10 @@ from partition.translation.failure_mode_detector import (
 from partition.translation.kb_query import KBQueryClient
 from partition.raptor.embedder import NomicEmbedder
 from partition.utils.retry import azure_limiter, azure_breaker
+from partition.utils.llm_clients import (
+    get_azure_openai_client,
+    get_groq_openai_client,
+)
 
 logger = structlog.get_logger()
 
@@ -73,42 +76,23 @@ class TranslationAgent(BaseAgent):
     def __init__(
         self,
         target_runtime: str = "python",
-        groq_api_key: Optional[str] = None,
     ):
         super().__init__()
         self.target_runtime = target_runtime
         self.embedder = NomicEmbedder()
         self.kb_client = KBQueryClient()
 
-        # Azure OpenAI client (primary)
-        azure_key = os.getenv("AZURE_OPENAI_API_KEY", "")
-        azure_endpoint = os.getenv(
-            "AZURE_OPENAI_ENDPOINT", "https://models.inference.ai.azure.com"
-        )
-        if azure_key:
+        # Azure OpenAI client (primary) — via shared factory
+        try:
             self.azure_client = instructor.from_openai(
-                AzureOpenAI(
-                    api_key=azure_key,
-                    azure_endpoint=azure_endpoint,
-                    api_version=os.getenv(
-                        "AZURE_OPENAI_API_VERSION", "2024-12-01-preview"
-                    ),
-                )
+                get_azure_openai_client(async_client=False)
             )
-        else:
+        except RuntimeError:
             self.azure_client = None
 
-        # Groq client (fallback + cross-verifier)
-        gkey = groq_api_key or os.getenv("GROQ_API_KEY", "")
-        if gkey:
-            self.groq_client = instructor.from_openai(
-                OpenAI(
-                    api_key=gkey,
-                    base_url="https://api.groq.com/openai/v1",
-                )
-            )
-        else:
-            self.groq_client = None
+        # Groq client (fallback + cross-verifier) — via shared factory
+        _groq = get_groq_openai_client(async_client=False)
+        self.groq_client = instructor.from_openai(_groq) if _groq else None
 
     async def process(self, partition: PartitionIR) -> ConversionResult:
         """Translate a single partition."""
@@ -204,8 +188,12 @@ class TranslationAgent(BaseAgent):
                         translation.python_code,
                         failure_mode,
                     )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    self.logger.warning(
+                        "retry_translation_failed",
+                        error=str(exc),
+                        retry=retry_count,
+                    )
 
             if not verify or verify.confidence < self.CROSSVERIFY_THRESHOLD:
                 status = ConversionStatus.PARTIAL
@@ -268,6 +256,10 @@ Requirements:
 - Handle edge cases (empty DataFrames, null values)
 """
 
+    def _sync_create(self, client, **kwargs) -> TranslationOutput:
+        """Thin wrapper for sync instructor call (used by asyncio.to_thread)."""
+        return client.chat.completions.create(**kwargs)
+
     async def _translate_azure_4o(
         self, prompt: str
     ) -> tuple[TranslationOutput, str]:
@@ -275,10 +267,10 @@ Requirements:
         if self.azure_client and azure_breaker.allow_request():
             try:
                 async with azure_limiter:
-                    result = self.azure_client.chat.completions.create(
-                        model=os.getenv(
-                            "AZURE_OPENAI_DEPLOYMENT", "gpt-4o"
-                        ),
+                    result = await asyncio.to_thread(
+                        self._sync_create,
+                        self.azure_client,
+                        model=os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"),
                         messages=[{"role": "user", "content": prompt}],
                         response_model=TranslationOutput,
                         max_retries=2,
@@ -291,7 +283,9 @@ Requirements:
 
         # Fallback to Groq 70B
         if self.groq_client:
-            result = self.groq_client.chat.completions.create(
+            result = await asyncio.to_thread(
+                self._sync_create,
+                self.groq_client,
                 model="llama-3.1-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 response_model=TranslationOutput,
@@ -308,10 +302,10 @@ Requirements:
         if self.azure_client and azure_breaker.allow_request():
             try:
                 async with azure_limiter:
-                    result = self.azure_client.chat.completions.create(
-                        model=os.getenv(
-                            "AZURE_OPENAI_MINI_DEPLOYMENT", "gpt-4o-mini"
-                        ),
+                    result = await asyncio.to_thread(
+                        self._sync_create,
+                        self.azure_client,
+                        model=os.getenv("AZURE_OPENAI_MINI_DEPLOYMENT", "gpt-4o-mini"),
                         messages=[{"role": "user", "content": prompt}],
                         response_model=TranslationOutput,
                         max_retries=2,
@@ -324,7 +318,9 @@ Requirements:
 
         # Fallback to Groq 70B
         if self.groq_client:
-            result = self.groq_client.chat.completions.create(
+            result = await asyncio.to_thread(
+                self._sync_create,
+                self.groq_client,
                 model="llama-3.1-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 response_model=TranslationOutput,
@@ -367,7 +363,8 @@ FIRST./LAST. logic, missing value comparisons, PROC MEANS output structure.
         if not self.groq_client:
             return None
         try:
-            return self.groq_client.chat.completions.create(
+            return await asyncio.to_thread(
+                self.groq_client.chat.completions.create,
                 model="llama-3.1-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 response_model=CrossVerifyOutput,

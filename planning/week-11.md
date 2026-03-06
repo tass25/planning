@@ -5,6 +5,8 @@
 > **Layer**: L4 — Merge + Cross-cutting — Continuous Learning  
 > **Agents / Modules**: ImportConsolidator, DependencyInjector, ScriptMerger, ReportAgent (#14), FeedbackIngestionAgent, ConversionQualityMonitor  
 > **Prerequisite**: Week 10 complete (TranslationAgent + ValidationAgent working, 250 KB pairs)  
+> **Status**: ✅ COMPLETE — see [week11Done.md](week11Done.md)  
+> **Post-consolidation (Week 13)**: ImportConsolidator + DependencyInjector + ScriptMerger + ReportAgent consolidated into `MergeAgent`. FeedbackIngestionAgent, ConversionQualityMonitor, RetrainTrigger remain as utility modules (not orchestrator nodes).  
 
 ---
 

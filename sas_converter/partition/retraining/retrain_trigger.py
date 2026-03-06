@@ -9,7 +9,7 @@ Monitors 4 conditions that trigger retraining:
 
 from __future__ import annotations
 
-import ast as _ast
+import json
 from dataclasses import dataclass
 from typing import Optional
 
@@ -106,7 +106,8 @@ class RetrainTrigger:
                 """
             ).fetchone()
             return result[0] if result and result[0] else 0
-        except Exception:
+        except Exception as exc:
+            log.warning("check_kb_growth_failed", error=str(exc))
             return 0
 
     def _get_latest_ece(self) -> Optional[float]:
@@ -119,7 +120,8 @@ class RetrainTrigger:
                 """
             ).fetchone()
             return result[0] if result else None
-        except Exception:
+        except Exception as exc:
+            log.warning("get_latest_ece_failed", error=str(exc))
             return None
 
     def _check_consecutive_low_success(self) -> int:
@@ -138,7 +140,8 @@ class RetrainTrigger:
                 else:
                     break
             return streak
-        except Exception:
+        except Exception as exc:
+            log.warning("check_consecutive_low_success_failed", error=str(exc))
             return 0
 
     def _check_kb_gap(self) -> Optional[str]:
@@ -152,7 +155,7 @@ class RetrainTrigger:
             ).fetchone()
             if not result or not result[0]:
                 return None
-            dist = _ast.literal_eval(result[0])
+            dist = json.loads(result[0])
             total_partial = sum(dist.values())
             if total_partial == 0:
                 return None
@@ -160,5 +163,6 @@ class RetrainTrigger:
                 if count / total_partial > 0.40:
                     return mode
             return None
-        except Exception:
+        except Exception as exc:
+            log.warning("check_kb_gap_failed", error=str(exc))
             return None

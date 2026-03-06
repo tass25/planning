@@ -33,8 +33,8 @@
 | **10** | L3 | TranslationAgent + ValidationAgent (KB at 250 from Week 9) | P2 | TranslationAgent, ValidationAgent | Translation success ≥ 70%, validation gate works |
 | **11** | L4+CL | Merge + ReportAgent + Continuous Learning + KB to 330 | P2 | ReportAgent, FeedbackIngestionAgent, ConversionQualityMonitor | Merged scripts ≥ 95% syntax valid, reports generated |
 | **12** | Eval | Ablation study: RAPTOR vs flat | P2 | — | RAPTOR hit-rate@5 > 0.82, advantage ≥ 10% on MOD/HIGH |
-| **13** | Defense | Slides + demo video | P3 | — | 20 slides, 3–5 min video |
-| **14** | Buffer | Polish + extra KB pairs + README | P3 | — | All docs finalized |
+| **13** | Consolidation | Agent consolidation (21→8) + Enterprise features (telemetry, CI/CD, Docker, security). Audit grade A-. | P3 | — | 8 agents, 7 nodes, v3.0.0, 200 tests pass |
+| **14** | Buffer | Defense slides + polish plots + extra KB pairs + README | P3 | — | All docs finalized |
 
 ---
 
@@ -53,7 +53,7 @@
 | Cut # | What to cut | Impact |
 |-------|-------------|--------|
 | 1 | Workshop paper draft | No deliverable impact |
-| 2 | Docker compose setup | Demo runs locally anyway |
+| 2 | Docker compose setup | ~~No deliverable impact~~ **Delivered in Week 13** |
 | 3 | Ablation depth (Week 12) — reduce from 500 to 250 queries | Weaker statistical claim but still valid |
 | **NEVER CUT** | Translation Layer (L3) + Merge Layer (L4) | Core pipeline |
 
@@ -63,7 +63,7 @@
 
 | Risk | Prob | Impact | Mitigation |
 |------|------|--------|------------|
-| Groq API quota exceeded | MED | HIGH | 3-tier fallback (Groq → Ollama 70B → heuristic) |
+| Groq API quota exceeded | MED | HIGH | 3-tier fallback (Azure OpenAI → Groq free tier → heuristic) |
 | RAPTOR ablation null result | LOW | MED | Document as negative result + propose 1K+ pair threshold |
 | GMM diverges on large files | MED | HIGH | Fallback to flat_partition after 3 failed fits |
 | 14-week timeline slips | HIGH | MED | Sunday velocity tracking + cut order above |
@@ -91,8 +91,9 @@ Each file below contains everything you need for that specific week — tasks, c
 | [week-11.md](week-11.md) | Week 11: Merge + Report + CL |
 | [week-12.md](week-12.md) | Week 12: Ablation Study |
 | [week-13.md](week-13.md) | Week 13: Defense Prep |
+| [week13Done.md](week13Done.md) | Week 13 Done: Consolidation + Enterprise |
 | [week-14.md](week-14.md) | Week 14: Buffer & Polish |
 
 ---
 
-> *Master Plan v1.2 — SAS-to-Python/PySpark Conversion Accelerator — 16 Agents · 14 Weeks*
+> *Master Plan v2.0 — SAS-to-Python/PySpark Conversion Accelerator — 8 Consolidated Agents · 14 Weeks · Pipeline v3.0.0*

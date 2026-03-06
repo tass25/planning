@@ -18,7 +18,9 @@ class ProjectConfigManager:
     so they survive pipeline restarts.
     """
 
-    CONFIG_PATH = "config/project_config.yaml"
+    # Resolve relative to sas_converter/ regardless of CWD
+    _PKG_ROOT = Path(__file__).resolve().parent.parent.parent  # -> sas_converter/
+    CONFIG_PATH = str(_PKG_ROOT / "config" / "project_config.yaml")
 
     def __init__(self, config_path: Optional[str] = None):
         self.path = Path(config_path or self.CONFIG_PATH)

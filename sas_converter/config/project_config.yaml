@@ -14,6 +14,40 @@ logging:
   level: INFO
   format: console  # or 'json' for production
 
+# LLM provider defaults (overridden by env vars)
+llm:
+  provider: azure            # azure | groq
+  max_tokens: 6000
+  azure:
+    api_version: "2024-10-21"
+    deployment_mini: "gpt-4o-mini"
+    deployment_full: "gpt-4o"
+  groq:
+    model: "llama-3.1-8b-instant"
+
+# Partition pipeline defaults
+pipeline:
+  checkpoint_interval: 50
+  parquet_threshold: 10000
+
+# Complexity / calibration defaults
+complexity:
+  ece_threshold: 0.12
+  success_threshold: 0.70
+  kb_growth_threshold: 500
+  consecutive_failures: 2
+
+# RAPTOR semantic clustering
+raptor:
+  embedding_model: "nomic-ai/nomic-embed-text-v1.5"
+  embedding_dim: 768
+  min_cluster_size: 3
+  max_cluster_depth: 3
+
+# Index / graph defaults
+graph:
+  max_hop: 10
+
 agents:
   file_analysis:
     encoding_fallback: "utf-8"
@@ -24,6 +58,10 @@ agents:
   registry_writer:
     dedup_on_hash: true
   data_lineage_extractor:
-    phase: 1              # Phase 1: table-level regex; Phase 2: column-level via Lark (Week 3-4)
-    detect_reads: true    # SET, MERGE, FROM, JOIN
-    detect_writes: true   # DATA output, CREATE TABLE, INSERT INTO
+    phase: 1
+    detect_reads: true
+    detect_writes: true
+  translation:
+    crossverify_threshold: 0.85
+    max_retries: 2
+    target_runtime: "python"

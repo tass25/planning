@@ -6,12 +6,26 @@ and target_runtime.
 
 from __future__ import annotations
 
+import re
 from typing import Optional
 
 import lancedb
 import structlog
 
 logger = structlog.get_logger()
+
+# Only allow safe identifier characters in WHERE clause values.
+_SAFE_VALUE = re.compile(r"^[A-Za-z0-9_. -]+$")
+
+# Module-level singleton: one LanceDB connection per db_path.
+_db_connections: dict[str, lancedb.DBConnection] = {}
+
+
+def _get_db(db_path: str) -> lancedb.DBConnection:
+    """Return a shared LanceDB connection (singleton per path)."""
+    if db_path not in _db_connections:
+        _db_connections[db_path] = lancedb.connect(db_path)
+    return _db_connections[db_path]
 
 
 class KBQueryClient:
@@ -21,7 +35,7 @@ class KBQueryClient:
     MIN_RELEVANCE = 0.50
 
     def __init__(self, db_path: str = "lancedb_data"):
-        self.db = lancedb.connect(db_path)
+        self.db = _get_db(db_path)
 
     def retrieve_examples(
         self,
@@ -46,13 +60,19 @@ class KBQueryClient:
 
         table = self.db.open_table(self.TABLE_NAME)
 
+        def _safe(val: str) -> str:
+            """Validate value is safe for WHERE clause embedding."""
+            if not _SAFE_VALUE.match(val):
+                raise ValueError(f"Unsafe filter value: {val!r}")
+            return val
+
         where_parts = [
-            f"partition_type = '{partition_type}'",
-            f"target_runtime = '{target_runtime}'",
+            f"partition_type = '{_safe(partition_type)}'",
+            f"target_runtime = '{_safe(target_runtime)}'",
             "verified = true",
         ]
         if failure_mode:
-            where_parts.append(f"failure_mode = '{failure_mode}'")
+            where_parts.append(f"failure_mode = '{_safe(failure_mode)}'")
         where_clause = " AND ".join(where_parts)
 
         try:

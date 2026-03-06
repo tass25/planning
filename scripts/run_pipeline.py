@@ -14,7 +14,10 @@ import asyncio
 import sys
 from pathlib import Path
 
-import structlog
+from dotenv import load_dotenv
+
+# Load .env from repo root
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 # Ensure sas_converter/ is on the Python path
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -22,14 +25,9 @@ sys.path.insert(0, str(_REPO_ROOT / "sas_converter"))
 
 from partition.db.duckdb_manager import init_all_duckdb_tables  # noqa: E402
 from partition.orchestration.orchestrator import PartitionOrchestrator  # noqa: E402
+from partition.logging_config import configure_logging  # noqa: E402
 
-structlog.configure(
-    processors=[
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.dev.ConsoleRenderer(),
-    ],
-    wrapper_class=structlog.BoundLogger,
-)
+configure_logging()
 
 
 def main() -> None:

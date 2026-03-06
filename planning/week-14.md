@@ -9,7 +9,9 @@
 
 ## 🎯 Goal
 
-Use the buffer week to: finish incomplete items from earlier weeks, add 50 more KB pairs (330 → 380), polish ablation plots for the defense, finalize the README, and optionally set up Docker Compose. This week ensures the project is submission-ready with no loose ends.
+Use the buffer week to: finish incomplete items from earlier weeks, add 50 more KB pairs (330 → 380), polish ablation plots for the defense, finalize the README, and finalize defense slides. This week ensures the project is submission-ready with no loose ends.
+
+> **Note (Week 13 update):** Docker Compose, CI/CD, CodeQL, Dependabot, and telemetry are **already done** (delivered in Week 13 alongside agent consolidation). The Docker task below is removed from this week's scope. Focus is now on defense slides, ablation polish, KB expansion, and final documentation.
 
 ---
 

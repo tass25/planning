@@ -356,3 +356,9 @@ Groq was chosen initially because it was the fastest free option, and Ollama as 
 Azure OpenAI GPT-4o  →  Groq Llama-3.1-70B  →  Heuristic (keyword extraction)
      (primary)             (fallback)              (offline)
 ```
+
+---
+
+## ⚠️ Post-Consolidation Update (Week 13)
+
+RAPTORPartitionAgent was **not consolidated** — it remains as its own agent. However, the Ollama fallback path in the LLM summarization chain was removed. The current fallback chain is: Azure OpenAI GPT-4o → Groq → Heuristic. See [week13Done.md](week13Done.md).

@@ -274,6 +274,23 @@ venv\Scripts\python planning\week08viz.py
 | Checkpoint interval | 50 blocks |
 | Checkpoint TTL | 24h |
 | Redis degraded mode | Yes (safe no-ops) |
+
+---
+
+## ⚠️ Post-Consolidation Update (Week 13)
+
+The orchestrator described above was **rewritten in Week 13**:
+
+| Before (Week 8) | After (Week 13) |
+|-----------------|------------------|
+| 16 agents | 8 consolidated agents |
+| 9 pipeline nodes | 7 pipeline nodes |
+| `PIPELINE_VERSION` N/A | `PIPELINE_VERSION = "3.0.0"` |
+| No telemetry | Azure Monitor + OpenTelemetry instrumentation |
+| No CI/CD | GitHub Actions (ci.yml, codeql.yml, dependabot.yml) |
+| No containerization | Dockerfile + docker-compose.yml |
+
+See [week13Done.md](week13Done.md) for full details.
 | Error isolation | Yes (try/except per node) |
 | LLM audit logging | Yes (DuckDB context manager) |
 

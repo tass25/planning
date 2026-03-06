@@ -53,11 +53,13 @@ class TestPipelineState:
             assert field in PipelineState.__annotations__, f"Missing field: {field}"
 
     def test_pipeline_stage_enum_values(self):
-        """PipelineStage has 12 stages."""
+        """PipelineStage has 14 stages (L2 + L3 translation/validation)."""
         from partition.orchestration.state import PipelineStage
 
-        assert len(PipelineStage) == 12
+        assert len(PipelineStage) == 14
         assert PipelineStage.INIT.value == "INIT"
+        assert PipelineStage.TRANSLATION.value == "TRANSLATION"
+        assert PipelineStage.VALIDATION.value == "VALIDATION"
         assert PipelineStage.COMPLETE.value == "COMPLETE"
         assert PipelineStage.ERROR.value == "ERROR"
 

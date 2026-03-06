@@ -1,12 +1,14 @@
 """PartitionOrchestrator (#15) -- LangGraph StateGraph orchestrator.
 
-Ties **all** L2 agents into a single end-to-end pipeline:
+Consolidated 8-node pipeline (was 11):
 
-    L2-A  FileAnalysisAgent -> CrossFileDependencyResolver -> RegistryWriterAgent
-    L2-B  run_streaming_pipeline  (StreamAgent + StateAgent)
-    L2-C  BoundaryDetectorAgent -> PartitionBuilderAgent -> RAPTORPartitionAgent
-    L2-D  ComplexityAgent -> StrategyAgent
-    L2-E  PersistenceAgent -> IndexAgent
+    1. file_process    FileProcessor  (scan + registry + cross-file deps)
+    2. streaming       StreamingParser
+    3. chunking        ChunkingAgent  (boundary + partition builder)
+    4. raptor          RAPTORPartitionAgent
+    5. risk_routing    RiskRouter     (complexity + strategy)
+    6. persist_index   PersistenceAgent + IndexAgent  (utility step)
+    7. translation     TranslationPipeline (translate + validate + retry)
 
 Features:
     * Redis checkpointing every 50 blocks (degraded mode if Redis unavailable)
@@ -27,9 +29,13 @@ from langgraph.graph import END, StateGraph
 from partition.orchestration.audit import LLMAuditLogger
 from partition.orchestration.checkpoint import RedisCheckpointManager
 from partition.orchestration.state import PipelineStage, PipelineState
+from partition.orchestration.telemetry import track_event, track_metric, trace_span
 from partition.utils.large_file import configure_memory_guards, MemoryMonitor
 
 logger = structlog.get_logger()
+
+# Bump this whenever the pipeline graph topology or node semantics change.
+PIPELINE_VERSION = "3.0.0"
 
 
 class PartitionOrchestrator:
@@ -57,6 +63,9 @@ class PartitionOrchestrator:
         self.duckdb_path = duckdb_path
         self.memory_monitor = MemoryMonitor()
 
+        # Agent cache — avoid re-instantiation per node call
+        self._agents: dict[str, object] = {}
+
         # Configure memory guards at startup (OMP, CUDA)
         configure_memory_guards()
 
@@ -64,37 +73,43 @@ class PartitionOrchestrator:
         self.graph = self._build_graph()
 
     # ------------------------------------------------------------------
+    # Agent cache helper
+    # ------------------------------------------------------------------
+
+    def _get_agent(self, key: str, factory):
+        """Return a cached agent instance, creating it on first call."""
+        if key not in self._agents:
+            self._agents[key] = factory()
+        return self._agents[key]
+
+    # ------------------------------------------------------------------
     # Graph construction
     # ------------------------------------------------------------------
 
     def _build_graph(self):
-        """Construct and compile the LangGraph pipeline."""
+        """Construct and compile the consolidated 8-node LangGraph pipeline."""
         workflow = StateGraph(PipelineState)
 
-        # Add nodes for each stage
-        workflow.add_node("file_scan", self._node_file_scan)
-        workflow.add_node("cross_file_resolve", self._node_cross_file_resolve)
+        # Consolidated nodes (was 11, now 8)
+        workflow.add_node("file_process", self._node_file_process)
         workflow.add_node("streaming", self._node_streaming)
-        workflow.add_node("boundary_detection", self._node_boundary)
-        workflow.add_node("raptor_clustering", self._node_raptor)
-        workflow.add_node("complexity_analysis", self._node_complexity)
-        workflow.add_node("strategy_assignment", self._node_strategy)
-        workflow.add_node("persistence", self._node_persistence)
-        workflow.add_node("indexing", self._node_indexing)
+        workflow.add_node("chunking", self._node_chunking)
+        workflow.add_node("raptor", self._node_raptor)
+        workflow.add_node("risk_routing", self._node_risk_routing)
+        workflow.add_node("persist_index", self._node_persist_index)
+        workflow.add_node("translation", self._node_translation)
 
         # Set entry point
-        workflow.set_entry_point("file_scan")
+        workflow.set_entry_point("file_process")
 
         # Linear pipeline edges
-        workflow.add_edge("file_scan", "cross_file_resolve")
-        workflow.add_edge("cross_file_resolve", "streaming")
-        workflow.add_edge("streaming", "boundary_detection")
-        workflow.add_edge("boundary_detection", "raptor_clustering")
-        workflow.add_edge("raptor_clustering", "complexity_analysis")
-        workflow.add_edge("complexity_analysis", "strategy_assignment")
-        workflow.add_edge("strategy_assignment", "persistence")
-        workflow.add_edge("persistence", "indexing")
-        workflow.add_edge("indexing", END)
+        workflow.add_edge("file_process", "streaming")
+        workflow.add_edge("streaming", "chunking")
+        workflow.add_edge("chunking", "raptor")
+        workflow.add_edge("raptor", "risk_routing")
+        workflow.add_edge("risk_routing", "persist_index")
+        workflow.add_edge("persist_index", "translation")
+        workflow.add_edge("translation", END)
 
         return workflow.compile()
 
@@ -134,12 +149,15 @@ class PartitionOrchestrator:
             "persisted_count": 0,
             "scc_groups": [],
             "max_hop": 3,
+            "conversion_results": [],
+            "validation_passed": 0,
             "last_checkpoint_block": 0,
             "checkpoint_key": None,
             "errors": [],
             "warnings": [],
             "trace_id": trace_id,
             "run_id": run_id,
+            "pipeline_version": PIPELINE_VERSION,
         }
 
         # Check for existing checkpoints
@@ -158,16 +176,28 @@ class PartitionOrchestrator:
             run_id=run_id,
             n_files=len(input_paths),
             target=self.target_runtime,
+            pipeline_version=PIPELINE_VERSION,
         )
 
         # Execute the compiled graph
-        final_state = await self.graph.ainvoke(initial_state)
+        with trace_span("pipeline_run", {"run_id": run_id, "n_files": str(len(input_paths))}):
+            final_state = await self.graph.ainvoke(initial_state)
+
+        n_errors = len(final_state.get("errors", []))
+        n_parts = final_state.get("partition_count", 0)
+        track_event("pipeline_complete", {
+            "run_id": run_id,
+            "partitions": str(n_parts),
+            "errors": str(n_errors),
+            "pipeline_version": PIPELINE_VERSION,
+        })
+        track_metric("pipeline_partition_count", float(n_parts), {"run_id": run_id})
 
         logger.info(
             "orchestrator_complete",
             run_id=run_id,
-            partitions=final_state.get("partition_count", 0),
-            errors=len(final_state.get("errors", [])),
+            partitions=n_parts,
+            errors=n_errors,
         )
         return final_state
 
@@ -175,102 +205,44 @@ class PartitionOrchestrator:
     # Node implementations  (each returns a partial-state dict)
     # ------------------------------------------------------------------
 
-    async def _node_file_scan(self, state: PipelineState) -> dict:
-        """L2-A: Scan files and register them in SQLite."""
-        from partition.db.sqlite_manager import get_engine, init_db
-        from partition.entry.file_analysis_agent import FileAnalysisAgent
-        from partition.entry.registry_writer_agent import RegistryWriterAgent
+    async def _node_file_process(self, state: PipelineState) -> dict:
+        """Consolidated L2-A: Scan, register, and resolve cross-file deps."""
+        import time as _t
+        from partition.entry.file_processor import FileProcessor
+        _t0 = _t.perf_counter()
 
         trace_id = UUID(state["trace_id"])
-        agent = FileAnalysisAgent(trace_id=trace_id)
-        writer = RegistryWriterAgent(trace_id=trace_id)
-
-        engine = get_engine()
-        init_db(engine)
-
-        all_metas = []
-        file_ids = []
+        agent = self._get_agent("file_processor", lambda: FileProcessor(trace_id=trace_id))
         errors = list(state.get("errors", []))
-
-        for path_str in state["input_paths"]:
-            path = Path(path_str)
-            try:
-                if path.is_dir():
-                    metas = await agent.process(path)
-                elif path.is_file() and path.suffix.lower() == ".sas":
-                    # Scan the parent directory, filter to just this file
-                    metas = await agent.process(path.parent)
-                    metas = [m for m in metas if Path(m.file_path).resolve() == path.resolve()]
-                else:
-                    errors.append(f"Invalid path (not .sas or directory): {path}")
-                    continue
-
-                all_metas.extend(metas)
-            except Exception as exc:
-                errors.append(f"File scan failed for {path}: {exc}")
-                logger.error("file_scan_error", path=str(path), error=str(exc))
-
-        # Register in SQLite
-        if all_metas:
-            try:
-                result = await writer.process(all_metas, engine)
-                file_ids = [str(m.file_id) for m in all_metas]
-                logger.info(
-                    "registry_write_done",
-                    inserted=result.get("inserted", 0),
-                    skipped=result.get("skipped", 0),
-                )
-            except Exception as exc:
-                errors.append(f"Registry write failed: {exc}")
-                logger.error("registry_write_error", error=str(exc))
-
-        return {
-            "file_metas": all_metas,
-            "file_ids": file_ids,
-            "stage": PipelineStage.FILE_SCAN.value,
-            "errors": errors,
-        }
-
-    async def _node_cross_file_resolve(self, state: PipelineState) -> dict:
-        """L2-A: Resolve cross-file dependencies."""
-        from partition.db.sqlite_manager import get_engine
-        from partition.entry.cross_file_dep_resolver import CrossFileDependencyResolver
-
-        trace_id = UUID(state["trace_id"])
-        resolver = CrossFileDependencyResolver(trace_id=trace_id)
         warnings = list(state.get("warnings", []))
 
-        file_metas = state.get("file_metas", [])
-        if not file_metas:
-            return {
-                "cross_file_deps": {},
-                "stage": PipelineStage.CROSS_FILE_RESOLVE.value,
-            }
-
-        engine = get_engine()
-
-        # Determine project root as common parent of all files
-        all_paths = [Path(m.file_path) for m in file_metas]
-        project_root = _common_parent(all_paths)
-
         try:
-            deps = await resolver.process(file_metas, project_root, engine)
-            return {
-                "cross_file_deps": deps,
-                "stage": PipelineStage.CROSS_FILE_RESOLVE.value,
-            }
+            file_metas, cross_deps = await agent.process(
+                state["input_paths"],
+                engine=None,  # FileProcessor creates its own engine
+            )
+            file_ids = [str(m.file_id) for m in file_metas]
         except Exception as exc:
-            warnings.append(f"Cross-file resolve partial: {exc}")
-            logger.warning("cross_file_resolve_error", error=str(exc))
-            return {
-                "cross_file_deps": {},
-                "stage": PipelineStage.CROSS_FILE_RESOLVE.value,
-                "warnings": warnings,
-            }
+            errors.append(f"File processing failed: {exc}")
+            logger.error("file_process_error", error=str(exc))
+            file_metas, file_ids, cross_deps = [], [], {}
+
+        track_event("stage_complete", {"stage": "file_process", "files": str(len(file_metas))})
+        track_metric("stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "file_process"})
+        return {
+            "file_metas": file_metas,
+            "file_ids": file_ids,
+            "cross_file_deps": cross_deps,
+            "stage": PipelineStage.FILE_SCAN.value,
+            "errors": errors,
+            "warnings": warnings,
+        }
 
     async def _node_streaming(self, state: PipelineState) -> dict:
         """L2-B: Stream files through StreamAgent + StateAgent."""
+        import time as _t
         from partition.streaming.pipeline import run_streaming_pipeline
+        _t0 = _t.perf_counter()
 
         trace_id = UUID(state["trace_id"])
         file_metas = state.get("file_metas", [])
@@ -294,20 +266,22 @@ class PartitionOrchestrator:
                 errors.append(f"Streaming failed for {fm.file_path}: {exc}")
                 logger.error("streaming_error", file=fm.file_path, error=str(exc))
 
+        track_event("stage_complete", {"stage": "streaming", "files": str(len(chunks_by_file))})
+        track_metric("stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "streaming"})
         return {
             "chunks_by_file": chunks_by_file,
             "stage": PipelineStage.STREAMING.value,
             "errors": errors,
         }
 
-    async def _node_boundary(self, state: PipelineState) -> dict:
-        """L2-C: Detect block boundaries and build PartitionIR objects."""
-        from partition.chunking.boundary_detector import BoundaryDetectorAgent
-        from partition.chunking.partition_builder import PartitionBuilderAgent
+    async def _node_chunking(self, state: PipelineState) -> dict:
+        """Consolidated L2-C: Detect boundaries and build PartitionIR objects."""
+        import time as _t
+        from partition.chunking.chunking_agent import ChunkingAgent
+        _t0 = _t.perf_counter()
 
         trace_id = UUID(state["trace_id"])
-        bda = BoundaryDetectorAgent(trace_id=trace_id)
-        pba = PartitionBuilderAgent(trace_id=trace_id)
+        agent = self._get_agent("chunking", lambda: ChunkingAgent(trace_id=trace_id))
 
         all_partitions = []
         warnings = list(state.get("warnings", []))
@@ -315,13 +289,14 @@ class PartitionOrchestrator:
 
         for file_id, chunks_with_states in chunks_by_file.items():
             try:
-                events = await bda.process(chunks_with_states, UUID(file_id))
-                partitions = await pba.process(events)
+                partitions = await agent.process(chunks_with_states, UUID(file_id))
                 all_partitions.extend(partitions)
             except Exception as exc:
-                warnings.append(f"Boundary detection skipped for {file_id}: {exc}")
-                logger.warning("boundary_error", file_id=file_id, error=str(exc))
+                warnings.append(f"Chunking skipped for {file_id}: {exc}")
+                logger.warning("chunking_error", file_id=file_id, error=str(exc))
 
+        track_event("stage_complete", {"stage": "chunking", "partitions": str(len(all_partitions))})
+        track_metric("stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "chunking"})
         return {
             "partitions": all_partitions,
             "partition_count": len(all_partitions),
@@ -331,7 +306,9 @@ class PartitionOrchestrator:
 
     async def _node_raptor(self, state: PipelineState) -> dict:
         """L2-C: RAPTOR semantic clustering."""
+        import time as _t
         from partition.raptor.raptor_agent import RAPTORPartitionAgent
+        _t0 = _t.perf_counter()
 
         trace_id = UUID(state["trace_id"])
         agent = RAPTORPartitionAgent(trace_id=trace_id)
@@ -353,69 +330,62 @@ class PartitionOrchestrator:
                 warnings.append(f"RAPTOR failed for {file_id}: {exc}")
                 logger.warning("raptor_error", file_id=file_id, error=str(exc))
 
+        track_event("stage_complete", {"stage": "raptor", "nodes": str(len(all_raptor_nodes))})
+        track_metric("stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "raptor"})
         return {
             "raptor_nodes": all_raptor_nodes,
             "stage": PipelineStage.RAPTOR_CLUSTERING.value,
             "warnings": warnings,
         }
 
-    async def _node_complexity(self, state: PipelineState) -> dict:
-        """L2-D: Compute complexity scores."""
-        from partition.complexity.complexity_agent import ComplexityAgent
+    async def _node_risk_routing(self, state: PipelineState) -> dict:
+        """Consolidated L2-D: Compute complexity scores and assign strategies."""
+        import time as _t
+        from partition.complexity.risk_router import RiskRouter
+        _t0 = _t.perf_counter()
 
-        agent = ComplexityAgent()
+        agent = self._get_agent("risk_router", RiskRouter)
         partitions = state.get("partitions", [])
         warnings = list(state.get("warnings", []))
 
         try:
-            scored = await agent.process(partitions)
+            routed = await agent.process(partitions)
+            track_event("stage_complete", {"stage": "risk_routing", "partitions": str(len(routed))})
+            track_metric("stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "risk_routing"})
             return {
-                "partitions": scored,
+                "partitions": routed,
                 "complexity_computed": True,
                 "stage": PipelineStage.COMPLEXITY_ANALYSIS.value,
             }
         except Exception as exc:
-            warnings.append(f"Complexity scoring failed: {exc}")
-            logger.warning("complexity_error", error=str(exc))
+            warnings.append(f"Risk routing failed: {exc}")
+            logger.warning("risk_routing_error", error=str(exc))
             return {
                 "complexity_computed": False,
                 "stage": PipelineStage.COMPLEXITY_ANALYSIS.value,
                 "warnings": warnings,
             }
 
-    async def _node_strategy(self, state: PipelineState) -> dict:
-        """L2-D: Assign conversion strategies."""
-        from partition.complexity.strategy_agent import StrategyAgent
+    async def _node_persist_index(self, state: PipelineState) -> dict:
+        """Consolidated L2-E: Persist to SQLite + build dependency DAG."""
+        import time as _t
+        from partition.persistence.persistence_agent import PersistenceAgent
+        from partition.index.index_agent import IndexAgent
+        _t0 = _t.perf_counter()
 
         trace_id = UUID(state["trace_id"])
-        agent = StrategyAgent(trace_id=trace_id)
+        persist_agent = self._get_agent(
+            "persistence", lambda: PersistenceAgent(trace_id=trace_id)
+        )
+        index_agent = self._get_agent(
+            "index", lambda: IndexAgent(trace_id=trace_id)
+        )
         partitions = state.get("partitions", [])
+        cross_deps = state.get("cross_file_deps", {})
+        errors = list(state.get("errors", []))
         warnings = list(state.get("warnings", []))
 
-        try:
-            routed = await agent.process(partitions)
-            return {
-                "partitions": routed,
-                "stage": PipelineStage.STRATEGY_ASSIGNMENT.value,
-            }
-        except Exception as exc:
-            warnings.append(f"Strategy assignment failed: {exc}")
-            logger.warning("strategy_error", error=str(exc))
-            return {
-                "stage": PipelineStage.STRATEGY_ASSIGNMENT.value,
-                "warnings": warnings,
-            }
-
-    async def _node_persistence(self, state: PipelineState) -> dict:
-        """L2-E: Persist partitions to SQLite."""
-        from partition.persistence.persistence_agent import PersistenceAgent
-
-        trace_id = UUID(state["trace_id"])
-        agent = PersistenceAgent(trace_id=trace_id)
-        partitions = state.get("partitions", [])
-        errors = list(state.get("errors", []))
-
-        # Persist per-file groups
+        # --- Persist ---
         total_persisted = 0
         file_groups: dict[str, list] = {}
         for p in partitions:
@@ -424,30 +394,15 @@ class PartitionOrchestrator:
 
         for file_id, file_parts in file_groups.items():
             try:
-                count = await agent.process(file_parts, file_id)
+                count = await persist_agent.process(file_parts, file_id)
                 total_persisted += count
             except Exception as exc:
                 errors.append(f"Persistence failed for {file_id}: {exc}")
                 logger.error("persistence_error", file_id=file_id, error=str(exc))
 
-        return {
-            "persisted_count": total_persisted,
-            "stage": PipelineStage.PERSISTENCE.value,
-            "errors": errors,
-        }
-
-    async def _node_indexing(self, state: PipelineState) -> dict:
-        """L2-E: Build dependency graph + detect SCCs."""
-        from partition.index.index_agent import IndexAgent
-
-        trace_id = UUID(state["trace_id"])
-        agent = IndexAgent(trace_id=trace_id)
-        partitions = state.get("partitions", [])
-        cross_deps = state.get("cross_file_deps", {})
-        warnings = list(state.get("warnings", []))
-
+        # --- Index ---
         try:
-            result = await agent.process(partitions, cross_deps)
+            result = await index_agent.process(partitions, cross_deps)
             scc_groups = [list(s) for s in result.get("sccs", [])]
             max_hop = result.get("hop_cap", 3)
         except Exception as exc:
@@ -460,10 +415,56 @@ class PartitionOrchestrator:
         for fid in state.get("file_ids", []):
             self.checkpoint.clear_checkpoints(fid)
 
+        track_event("stage_complete", {"stage": "persist_index", "persisted": str(total_persisted), "sccs": str(len(scc_groups))})
+        track_metric("stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "persist_index"})
         return {
+            "persisted_count": total_persisted,
             "scc_groups": scc_groups,
             "max_hop": max_hop,
-            "stage": PipelineStage.COMPLETE.value,
+            "stage": PipelineStage.PERSISTENCE.value,
+            "errors": errors,
+            "warnings": warnings,
+        }
+
+    async def _node_translation(self, state: PipelineState) -> dict:
+        """Consolidated L3: Translate + validate via TranslationPipeline."""
+        import time as _t
+        from partition.translation.translation_pipeline import TranslationPipeline
+        _t0 = _t.perf_counter()
+
+        pipeline = self._get_agent(
+            "translation",
+            lambda: TranslationPipeline(
+                target_runtime=state.get("target_runtime", "python"),
+            ),
+        )
+        partitions = state.get("partitions", [])
+        warnings = list(state.get("warnings", []))
+        conversion_results = []
+        passed = 0
+
+        for p in partitions:
+            try:
+                result = await pipeline.translate_partition(p)
+                conversion_results.append(result)
+                if getattr(result, "validation_passed", False):
+                    passed += 1
+            except Exception as exc:
+                warnings.append(f"Translation failed for {p.block_id}: {exc}")
+                logger.warning("translation_error", block_id=str(p.block_id), error=str(exc))
+
+        logger.info(
+            "translation_complete",
+            total=len(partitions),
+            translated=len(conversion_results),
+            validated=passed,
+        )
+        track_event("stage_complete", {"stage": "translation", "translated": str(len(conversion_results)), "validated": str(passed)})
+        track_metric("stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "translation"})
+        return {
+            "conversion_results": conversion_results,
+            "validation_passed": passed,
+            "stage": PipelineStage.TRANSLATION.value,
             "warnings": warnings,
         }
 

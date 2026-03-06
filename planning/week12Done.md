@@ -26,6 +26,12 @@
 | `tests/test_evaluation.py` | 7 tests (query gen, flat index, ablation runner, schema init) |
 | `tests/regression/test_ablation.py` | 3 regression guards (skipped if ablation.db absent) |
 
+---
+
+## ⚠️ Post-Consolidation Update (Week 13)
+
+Evaluation modules unchanged by the Week 13 consolidation. The 3 regression guards in `test_ablation.py` still skip gracefully when ablation data is absent (counted as 3 of the 3 skipped tests in the final 200/3/0 test run).
+
 ## Metrics Tracked
 - RAPTOR hit-rate@5 (target > 0.82)
 - MRR (target > 0.60)

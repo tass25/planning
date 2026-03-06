@@ -4,6 +4,7 @@
 > **Branch**: `week-12`  
 > **Layer**: Evaluation  
 > **Prerequisite**: Week 11 complete (full pipeline running end-to-end, KB ≥ 330 pairs)  
+> **Status**: ✅ COMPLETE — see [week12Done.md](week12Done.md)  
 
 ---
 
