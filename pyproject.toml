@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "sas-converter"
+version = "0.1.0"
+description = "SAS-to-Python partition-based conversion pipeline"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["sas_converter/tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.pytest-asyncio]
+mode = "auto"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

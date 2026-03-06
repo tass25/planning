@@ -1,0 +1,1466 @@
+\documentclass[11pt,a4paper]{article}
+
+% ── Packages ──
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{multirow}
+\usepackage{makecell}
+\usepackage{pdflscape}
+\usepackage{tcolorbox}
+\usepackage{pifont}
+
+% ── Colors ──
+\definecolor{primary}{HTML}{1A5276}
+\definecolor{accent}{HTML}{2E86C1}
+\definecolor{lightbg}{HTML}{EBF5FB}
+\definecolor{successgreen}{HTML}{27AE60}
+\definecolor{warncolor}{HTML}{F39C12}
+\definecolor{dangerred}{HTML}{E74C3C}
+\definecolor{codebg}{HTML}{F4F6F7}
+\definecolor{darktext}{HTML}{2C3E50}
+
+% ── Hyperref ──
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primary,
+    urlcolor=accent,
+    citecolor=primary,
+    pdftitle={Cahier des Charges — SAS-to-Python/PySpark Conversion Accelerator},
+    pdfauthor={},
+}
+
+% ── Header/Footer ──
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{primary}{SAS-to-Python/PySpark Conversion Accelerator}}
+\fancyhead[R]{\small\textcolor{primary}{Cahier des Charges v1.2}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ── Section Formatting ──
+\titleformat{\section}{\Large\bfseries\color{primary}}{\thesection}{1em}{}[\vspace{-0.3em}\textcolor{accent}{\rule{\textwidth}{0.8pt}}]
+\titleformat{\subsection}{\large\bfseries\color{darktext}}{\thesubsection}{0.8em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{accent}}{\thesubsubsection}{0.6em}{}
+
+% ── Listings ──
+\lstset{
+    backgroundcolor=\color{codebg},
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    rulecolor=\color{accent!30},
+    keywordstyle=\color{primary}\bfseries,
+    commentstyle=\color{successgreen!70!black},
+    stringstyle=\color{warncolor!80!black},
+    showstringspaces=false,
+    tabsize=2,
+}
+
+% ── Custom Commands ──
+\newcommand{\cmark}{\textcolor{successgreen}{\ding{51}}}
+\newcommand{\xmark}{\textcolor{dangerred}{\ding{55}}}
+\newcommand{\wmark}{\textcolor{warncolor}{\ding{115}}}
+
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+
+% ── tcolorbox Styles ──
+\tcbuselibrary{skins,breakable}
+\newtcolorbox{infobox}[1][]{
+    colback=lightbg, colframe=accent, fonttitle=\bfseries,
+    title=#1, boxrule=0.5pt, arc=3pt, left=6pt, right=6pt, top=4pt, bottom=4pt
+}
+\newtcolorbox{warnbox}[1][]{
+    colback=warncolor!5, colframe=warncolor, fonttitle=\bfseries,
+    title=#1, boxrule=0.5pt, arc=3pt, left=6pt, right=6pt, top=4pt, bottom=4pt
+}
+
+% ══════════════════════════════════════════════════════════════
+\begin{document}
+
+% ── TITLE PAGE ──
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+
+{\Huge\bfseries\textcolor{primary}{Cahier des Charges}\\[0.5cm]}
+{\LARGE\textcolor{accent}{SAS-to-Python/PySpark Code Conversion Accelerator}\\[1.5cm]}
+
+\textcolor{accent}{\rule{0.6\textwidth}{1.2pt}}\\[1.5cm]
+
+\begin{tabular}{rl}
+    \textbf{Document version:} & 1.2 — Updated \\[4pt]
+    \textbf{Project type:} & Final-year engineering project (PFE) \\[4pt]
+    \textbf{Classification:} & Technical specification \\[4pt]
+    \textbf{Research anchor:} & RAPTOR — Sarthi et al., ICLR 2024 \\
+    & arXiv:2401.18059 \\[4pt]
+    \textbf{Date:} & February 2026 \\
+\end{tabular}
+
+\vfill
+\textcolor{accent}{\rule{0.6\textwidth}{0.4pt}}
+\end{titlepage}
+
+% ── TABLE OF CONTENTS ──
+\tableofcontents
+\newpage
+
+% ══════════════════════════════════════════════════════════════
+\section{Context and Problem Statement}
+% ══════════════════════════════════════════════════════════════
+
+\subsection{Industrial Context}
+
+Organizations operating on SAS face mounting pressure to migrate to modern, open-source Python stacks. The primary drivers are:
+
+\begin{table}[H]
+\centering
+\caption{Migration Drivers}
+\begin{tabularx}{\textwidth}{@{} l X @{}}
+\toprule
+\textbf{Driver} & \textbf{Detail} \\
+\midrule
+Licensing cost & SAS enterprise licenses: \$8,000–\$100,000+ per seat/year. Python is free. \\
+Ecosystem velocity & Python's ecosystem (pandas, scikit-learn, PyTorch, statsmodels) advances faster. \\
+Talent availability & New graduates enter with Python skills, not SAS. \\
+Infrastructure & Cloud-native architectures (AWS, GCP, Azure) are built around Python. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{infobox}[Scale of the Problem]
+Manual translation costs 3–8 hours per 100 lines of SAS. For a 500,000-line codebase, this means \textbf{15,000–40,000 hours} of developer time — effectively years of effort.
+\end{infobox}
+
+\subsection{Problem Statement — The Six Failure Modes}
+
+The challenge is not syntactic translation — it is \textbf{semantic equivalence under complexity}. Six documented failure modes cause silent errors:
+
+\begin{table}[H]
+\centering
+\caption{Six Critical Failure Modes in SAS$\to$Python Translation}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{} l X @{}}
+\toprule
+\textbf{Failure Mode} & \textbf{Why It Breaks} \\
+\midrule
+\texttt{DATE\_ARITHMETIC} & SAS epoch: Jan 1, 1960 vs Python's 1970. Silent numerical errors in every date calculation. \\
+\texttt{MERGE\_SEMANTICS} & SAS \texttt{MERGE} has sorted-join semantics fundamentally different from \texttt{pd.merge()}. \\
+\texttt{RETAIN} & Creates persistent row-to-row state in DATA steps — no direct Python equivalent. \\
+\texttt{FIRST./LAST.} & Automatic variables depend on BY-group processing absent in pandas. \\
+\texttt{MISSING\_VALUE} & SAS numeric missing (\texttt{.}) behaves as $-\infty$ in comparisons; Python's \texttt{NaN} returns \texttt{False}. \\
+\texttt{PROC\_MEANS\_OUTPUT} & \texttt{OUTPUT OUT=} produces a specific column structure that must be replicated exactly. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Solution Approach}
+
+An AI-powered, agentic SAS-to-Python conversion accelerator combining:
+
+\begin{table}[H]
+\centering
+\caption{Core Approach Components}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{} l X @{}}
+\toprule
+\textbf{Component} & \textbf{Description} \\
+\midrule
+Semantic partitioning & RAPTOR-inspired hierarchical clustering (Sarthi et al., ICLR 2024) instead of flat keyword splitting. \\
+KB-augmented translation & Three RAG paradigms: Static RAG (simple blocks, fixed $k$), GraphRAG (dependency-aware, NetworkX context), Agentic RAG (autonomous retrieval: adaptive $k$, query reformulation, level escalation, retrieval retry). \\
+Calibrated QA & Cross-verification by second LLM call; quality metrics tracked to detect drift. \\
+Structured reconstruction & Merged in execution order with consolidated imports, resolved variables, syntax validation. \\
+Continuous learning & Corrections feed back into the KB automatically. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Three RAG Paradigms}
+
+The system uses three distinct retrieval-augmented generation strategies, each triggered by different conditions. This is not a single RAG pattern — each paradigm has its own retrieval policy, context construction, and escalation behavior.
+
+\subsubsection{Static RAG — Simple Blocks}
+
+\begin{infobox}[When: LOW risk, simple partition types (DATA\_STEP, PROC\_SQL, assignment)]
+Fixed retrieval: \texttt{KBQueryClient.query\_similar(k=3)}. No failure mode filtering, no graph context. Retrieved pairs injected as few-shot context. LLM: Ollama 8B. No cross-verification, no retry. Fastest path.
+\end{infobox}
+
+\begin{table}[H]
+\centering
+\caption{Static RAG Pipeline}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} c l X @{}}
+\toprule
+\textbf{Step} & \textbf{Action} & \textbf{Details} \\
+\midrule
+1 & Fixed retrieval & \texttt{query\_similar(k=3, level="leaf")}. No query reformulation. \\
+2 & Inject & 3 SAS$\to$Python pairs as few-shot context. \\
+3 & Generate & Ollama 8B, single pass. \\
+4 & Accept & Output directly to L4 merge (no cross-verify). \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{GraphRAG — Dependency-Aware Blocks}
+
+\begin{infobox}[When: Partition has cross-file dependencies, is part of an SCC group, or uses macros defined elsewhere]
+Before querying the KB, the agent traverses the NetworkX dependency graph to collect \emph{structural context}: upstream partition translations (already converted), downstream consumers, and SCC siblings. This graph context is injected alongside KB pairs, giving the LLM visibility into the dependency chain.
+\end{infobox}
+
+\begin{table}[H]
+\centering
+\caption{GraphRAG Pipeline}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} c l X @{}}
+\toprule
+\textbf{Step} & \textbf{Action} & \textbf{Details} \\
+\midrule
+1 & Graph traversal & \texttt{nx.ancestors(G, partition\_id)} bounded by hop cap $\to$ collect upstream translations. \\
+2 & SCC context & If \texttt{scc\_id} set: gather all sibling partitions in the same cycle. \\
+3 & KB retrieval & \texttt{query\_similar(k=5, level="cluster", failure\_mode=...)}. Cluster level for macro families. \\
+4 & Context merge & Graph context (upstream translations) $+$ KB pairs $+$ failure mode tags $\to$ combined prompt. \\
+5 & Generate & Groq 70B (complexity warrants stronger model). \\
+6 & Cross-verify & Second LLM call checks equivalence. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Agentic RAG — Complex / High-Risk Blocks}
+
+\begin{infobox}[When: MOD/HIGH risk, or any failure mode detected, or cross-verify fails on first attempt]
+The agent \emph{autonomously controls the retrieval strategy}. It decides: (1) whether to retrieve at all, (2) how many results ($k$ adaptive), (3) which RAPTOR level to query, (4) whether to reformulate the query on failure, and (5) whether to escalate to graph-augmented context. Retrieval is retried — not just generation.
+\end{infobox}
+
+\begin{table}[H]
+\centering
+\caption{Agentic RAG Pipeline — Autonomous Retrieval Loop}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} c l X @{}}
+\toprule
+\textbf{Step} & \textbf{Action} & \textbf{Details} \\
+\midrule
+1 & Decide whether to retrieve & UNCERTAIN $\to$ skip KB, emit stub. Otherwise proceed. \\
+2 & Adaptive $k$ & Risk-driven: MOD $\to$ $k{=}5$, HIGH $\to$ $k{=}8$. \\
+3 & Initial retrieval & \texttt{query\_similar(k, level="leaf", failure\_mode=detected\_mode)}. \\
+4 & Generate & Groq 70B with failure mode tags $+$ KB pairs. \\
+5 & Cross-verify & Second LLM checks equivalence. \\
+6 & \textbf{Retrieval retry} (if cross-verify fails) & Reformulate query: append failure mode $+$ error description. \\
+7 & Escalate $k$ and level & $k \mathrel{+}= 3$, switch \texttt{level="cluster"}. Re-retrieve. \\
+8 & Re-generate & New context from escalated retrieval. \\
+9 & Final escalation & If still failing: \texttt{level="root"} $+$ \texttt{nx.ancestors()} graph context (becomes GraphRAG+Agentic). \\
+10 & Accept or PARTIAL & Pass $\to$ L4. All retries exhausted $\to$ mark PARTIAL, log for human review. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{RAG Paradigm Selection Summary}
+
+\begin{table}[H]
+\centering
+\caption{When Each RAG Paradigm Is Used}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} l l l l l @{}}
+\toprule
+\textbf{Paradigm} & \textbf{Trigger} & \textbf{Retrieval $k$} & \textbf{RAPTOR Level} & \textbf{Retry Strategy} \\
+\midrule
+Static RAG & LOW risk, no deps & 3 (fixed) & Leaf & None \\
+GraphRAG & Cross-file deps / SCC & 5 (fixed) & Cluster & Generation only \\
+Agentic RAG & MOD/HIGH risk or failure & 5$\to$8$\to$11 (adaptive) & Leaf$\to$Cluster$\to$Root & Retrieval + generation \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{infobox}[Key Distinction]
+\textbf{Static RAG}: fixed retrieve $+$ generate. \textbf{GraphRAG}: graph-structured context injected before generation. \textbf{Agentic RAG}: the agent autonomously controls retrieval decisions — adaptive $k$, query reformulation, RAPTOR level escalation, and retrieval retry (not just generation retry). The three paradigms are complementary, selected per partition by StrategyAgent based on risk level and dependency structure.
+\end{infobox}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{Objectives}
+% ══════════════════════════════════════════════════════════════
+
+\subsection{Primary Objectives}
+
+\begin{table}[H]
+\centering
+\caption{Primary Objectives}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{} c L{3cm} X @{}}
+\toprule
+\textbf{ID} & \textbf{Objective} & \textbf{Description} \\
+\midrule
+O1 & End-to-end pipeline & Accept any valid SAS file $\to$ produce equivalent, syntactically valid Python or PySpark script, without manual intervention for standard constructs. \\
+O2 & Semantic correctness & Functionally equivalent Python with explicit handling of the 6 documented failure modes. \\
+O3 & Coverage breadth & Handle all major SAS categories: ETL, statistics, SQL, reporting, macros, file I/O. \\
+O4 & Measurable quality & Every component has a quantitative target with automated evaluation. \\
+O5 & Research contribution & RAPTOR adaptation validated by ablation study (RAPTOR vs flat retrieval). \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Secondary Objectives}
+
+\begin{table}[H]
+\centering
+\caption{Secondary Objectives}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{} c L{3.5cm} X @{}}
+\toprule
+\textbf{ID} & \textbf{Objective} & \textbf{Description} \\
+\midrule
+O6 & Fault tolerance & Checkpoint-and-resume: crash during large project $\neq$ restart from zero. \\
+O7 & Continuous learning & Corrections (human or automated) ingested back into the KB. \\
+O8 & 100\% open-source & No proprietary dependencies. Deployable on a student machine at zero cost. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{System Architecture}
+% ══════════════════════════════════════════════════════════════
+
+The system is organized into six processing layers, a cross-cutting orchestration layer, and a knowledge base serving all translation operations.
+
+\subsection{Layer Overview}
+
+\begin{table}[H]
+\centering
+\caption{System Layers}
+\renewcommand{\arraystretch}{1.35}
+\small
+\begin{tabularx}{\textwidth}{@{} c l L{4.5cm} X @{}}
+\toprule
+\textbf{Layer} & \textbf{Name} & \textbf{Responsibility} & \textbf{Primary Agents} \\
+\midrule
+L2-A & Entry \& Scan & File discovery, encoding, registry, cross-file deps, data lineage & FileAnalysisAgent, CrossFileDependencyResolver, RegistryWriterAgent, DataLineageExtractor \\
+L2-B & Streaming Core & Async streaming, stateful SAS parsing & StreamAgent, StateAgent \\
+L2-C & RAPTOR Chunking & Boundary detection, embedding, GMM clustering, recursive tree & BoundaryDetectorAgent, RAPTORPartitionAgent, PartitionBuilderAgent \\
+L2-D & Complexity \& Strategy & Feature extraction, risk classification & ComplexityAgent, StrategyAgent \\
+L2-E & Persistence \& Index & IR storage, vector index, graph, checkpoints & PersistenceAgent, IndexAgent \\
+L3 & Translation & SAS$\to$Python/PySpark with KB augmentation + cross-verify + validation & TranslationAgent, ValidationAgent \\
+L4 & Merge & Import consolidation, variable injection, assembly, report & ImportConsolidator, DependencyInjector, ScriptMerger, ReportAgent \\
+CL & Continuous Learning & Feedback ingestion, quality monitoring & FeedbackIngestionAgent, ConversionQualityMonitor \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Processing Flow}
+
+\begin{infobox}[End-to-End Pipeline]
+\small
+\texttt{.sas file(s)} $\longrightarrow$
+\textbf{L2-A} (scan + registry) $\longrightarrow$
+\textbf{L2-B} (async stream + FSM parse) $\longrightarrow$
+\textbf{L2-C} (boundary detect + RAPTOR tree) $\longrightarrow$
+\textbf{L2-D} (complexity + strategy) $\longrightarrow$
+\textbf{L2-E} (persist + graph + checkpoint) $\longrightarrow$
+\textbf{L3} (translate with KB + validate) $\longrightarrow$
+\textbf{L4} (merge + report) $\longrightarrow$
+\texttt{\{name\}\_converted.py} (or \texttt{\_converted\_spark.py})
+\end{infobox}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{Component Specifications}
+% ══════════════════════════════════════════════════════════════
+
+\subsection{L2-A — Entry \& Scan}
+
+\begin{table}[H]
+\centering
+\caption{L2-A Components}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} l L{3.5cm} X @{}}
+\toprule
+\textbf{Agent} & \textbf{Function} & \textbf{Key Details} \\
+\midrule
+FileAnalysisAgent & File discovery + pre-validation & \texttt{pathlib.rglob("*.sas")}, \texttt{chardet} encoding, SHA-256 hash, Lark LALR pre-validation (unclosed macros, truncated PROCs). Output: \texttt{FileMetadata}. \\
+\addlinespace
+CrossFileDependencyResolver & Cross-file reference resolution & Regex scan for \texttt{\%INCLUDE}, \texttt{LIBNAME}, \texttt{\%INCLUDE \&var}. Resolves paths relative to project root. Stores in \texttt{cross\_file\_deps} SQLite table. \\
+\addlinespace
+RegistryWriterAgent & Idempotent registry write & SHA-256 dedup (\texttt{INSERT OR IGNORE}). SQLAlchemy to SQLite~(dev) / PostgreSQL~(prod). \\
+\addlinespace
+DataLineageExtractor & Table-level data lineage & Regex scan for \texttt{SET}, \texttt{MERGE}, \texttt{FROM}, \texttt{JOIN} (reads) and \texttt{DATA}, \texttt{CREATE TABLE}, \texttt{INSERT INTO} (writes). Stores edges in \texttt{data\_lineage} table. Phase~1: table-level; Phase~2 (Week 3--4): column-level via Lark. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{L2-B — Streaming Core}
+
+\begin{table}[H]
+\centering
+\caption{L2-B Components}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} l L{3cm} X @{}}
+\toprule
+\textbf{Agent} & \textbf{Function} & \textbf{Key Details} \\
+\midrule
+StreamAgent & Async file reader & \texttt{aiofiles}, 8\,KB buffer, yields \texttt{LineChunk} objects. Tested up to 500\,MB (2M+ lines). \\
+\addlinespace
+StateAgent & FSM parser & Tracks: \texttt{block\_type}, \texttt{nesting\_depth}, \texttt{macro\_stack}, \texttt{variable\_scope}, \texttt{active\_dependencies}. $<0.5$\,ms/line. \\
+\addlinespace
+BackpressureQueue & Flow control & \texttt{asyncio.Queue(maxsize=200)}. Files $>100$\,MB: maxsize=50. Files $>500$\,MB: sequential 5,000-line segments. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{L2-C — RAPTOR Chunking (Primary Research Contribution)}
+
+\begin{warnbox}[Research Innovation]
+Adapts RAPTOR (Sarthi et al., ICLR 2024) from long-document QA to SAS code block grouping, enabling multi-level retrieval: \textbf{leaf} (simple blocks), \textbf{cluster} (related procedure families), \textbf{root} (file-level planning).
+\end{warnbox}
+
+\subsubsection{9 Canonical Partition Types}
+
+\begin{table}[H]
+\centering
+\caption{Partition Types Detected by BoundaryDetectorAgent}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabularx}{\textwidth}{@{} l L{4.5cm} c c @{}}
+\toprule
+\textbf{Type} & \textbf{Detection Trigger} & \textbf{Coverage} & \textbf{RAPTOR Level} \\
+\midrule
+\texttt{DATA\_STEP} & Line starts with \texttt{DATA} & \cmark~full & Leaf \\
+\texttt{PROC\_BLOCK} & Line starts with \texttt{PROC} & \cmark~full & Leaf/L1 \\
+\texttt{MACRO\_DEFINITION} & Line starts with \texttt{\%MACRO} & \cmark~full & L1 cluster \\
+\texttt{MACRO\_INVOCATION} & \texttt{\%macroname()} call pattern & \cmark~full & Leaf \\
+\texttt{SQL\_BLOCK} & \texttt{PROC SQL} specifically & \cmark~full & Leaf/L1 \\
+\texttt{CONDITIONAL\_BLOCK} & \texttt{\%IF/\%THEN/\%ELSE} outside PROC & \wmark~structural & Leaf \\
+\texttt{LOOP\_BLOCK} & \texttt{\%DO/\%END} iterative & \wmark~structural & Leaf \\
+\texttt{GLOBAL\_STATEMENT} & \texttt{OPTIONS}, \texttt{LIBNAME}, \texttt{FILENAME}, \texttt{TITLE} & \wmark~structural & L2 cluster \\
+\texttt{INCLUDE\_REFERENCE} & \texttt{\%INCLUDE} statement & \wmark~structural & L1 cluster \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{RAPTOR Algorithm Pipeline}
+
+\begin{table}[H]
+\centering
+\caption{RAPTOR Algorithm Stages}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} c l X @{}}
+\toprule
+\textbf{Stage} & \textbf{Component} & \textbf{Details} \\
+\midrule
+1 & BoundaryDetectorAgent & Lark LALR grammar handles $\sim$80\% of blocks. Remaining $\sim$20\% ambiguous $\to$ LLM resolver (Llama 8B, Ollama). \\
+2 & PartitionBuilderAgent & Assembles flat \texttt{PartitionIR[]} with 9 types + \texttt{test\_coverage\_type}. \\
+3 & NomicEmbedder & Nomic Embed v1.5 (768-dim, local). Batch=32. CUDA cap 512\,MB. \\
+4 & GMMClusterer & $k \in [2, \min(\lfloor\sqrt{N}\rfloor, 20)]$, BIC minimization, $\tau=0.72$. Fallback: flat partition after 3 failures. \\
+5 & ClusterSummarizer & Llama 70B via Groq. Hash-cached. Fallback: Ollama 70B $\to$ heuristic. Token budget: 6,000. \\
+6 & RAPTORTreeBuilder & Recursive: re-embed summaries, re-cluster. Stop: $k{=}1$ OR $\text{depth}{\geq}\text{max}$ OR $|\Delta\text{BIC}|<0.01$. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{RAPTOR Configuration}
+
+\begin{table}[H]
+\centering
+\caption{RAPTOR Configuration (\texttt{raptor.yaml})}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\textwidth}{@{} l c X @{}}
+\toprule
+\textbf{Parameter} & \textbf{Value} & \textbf{Rationale} \\
+\midrule
+\texttt{default\_max\_depth} & 3 & Standard SAS files \\
+\texttt{macro\_heavy\_max\_depth} & 5 & When \texttt{macro\_density} $> 0.40$ \\
+\texttt{bic\_convergence\_epsilon} & 0.01 & Stop recursion if $|\text{BIC}_t - \text{BIC}_{t-1}| <$ this \\
+\texttt{min\_cluster\_size} & 2 & Prevent singleton clusters \\
+\texttt{similarity\_threshold\_leaf} ($\tau$) & 0.72 & Min cosine prob to assign leaf to cluster \\
+\texttt{similarity\_threshold\_cluster} & 0.65 & Min cosine sim for cluster$\to$cluster grouping \\
+\texttt{k\_min} & 2 & Never $k{=}1$ at cluster level \\
+\texttt{k\_max\_formula} & $\min(\sqrt{n}, 20)$ & Sarthi et al. \S3.1 \\
+\texttt{summary\_cache\_enabled} & true & Skip re-summarizing identical macro families \\
+\texttt{token\_budget\_groq} & 6,000 & tiktoken guard before every Groq call \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{L2-D — Complexity \& Strategy}
+
+\subsubsection{Complexity Features}
+
+\begin{table}[H]
+\centering
+\caption{5 ComplexityAgent Features}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} l c L{4cm} X @{}}
+\toprule
+\textbf{Feature} & \textbf{Weight} & \textbf{Computation} & \textbf{Edge Case} \\
+\midrule
+Cyclomatic Complexity & 0.30 & \texttt{radon.cc\_visit()}, $\div 20$, clip at 1.0 & Cap at 20 for outliers \\
+Nesting Depth & 0.25 & Max \texttt{\%IF/\%DO} nesting, $\div 10$ & Macro-injected nesting counts +2 \\
+Macro Density & 0.20 & Macro calls $\div$ total lines, log-scaled & Log prevents extreme outliers \\
+Cross-file Deps & 0.15 & Count of \texttt{LIBNAME/\%INCLUDE} refs & Circular deps $\to$ \texttt{HIGH} auto-override \\
+SQL Complexity & 0.10 & JOIN count + nested SELECT depth & \texttt{PROC SQL} only; else 0 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+$$\text{Composite score} = 0.30 f_1 + 0.25 f_2 + 0.20 f_3 + 0.15 f_4 + 0.10 f_5 \;\in\; [0, 1]$$
+
+\subsubsection{Risk-Level Routing}
+
+\begin{table}[H]
+\centering
+\caption{StrategyAgent Risk Routing}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{} l c c X @{}}
+\toprule
+\textbf{Risk Level} & \textbf{Score Range} & \textbf{Confidence} & \textbf{Action} \\
+\midrule
+\rowcolor{successgreen!8} LOW & 0.00–0.35 & $>0.70$ & Ollama Llama 8B \\
+\rowcolor{warncolor!8} MODERATE & 0.35–0.68 & $>0.65$ & Groq Llama 70B \\
+\rowcolor{dangerred!8} HIGH & 0.68–1.00 & $>0.60$ & Groq Llama 70B, temp=0.1, +2 KB examples \\
+\rowcolor{codebg} UNCERTAIN & Any & $<0.65$ & \texttt{HUMAN\_REVIEW} flag, skip LLM \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Partition Strategies}
+
+\begin{table}[H]
+\centering
+\caption{Partition Strategy Mapping}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabularx}{\textwidth}{@{} l X @{}}
+\toprule
+\textbf{Strategy} & \textbf{Condition} \\
+\midrule
+\texttt{FLAT\_PARTITION} & Score $< 0.35$, no macros, cross\_file\_deps $< 3$ \\
+\texttt{MACRO\_AWARE} & \texttt{has\_macros=True} OR score $\in [0.35, 0.68]$ \\
+\texttt{DEPENDENCY\_PRESERVING} & cross\_file\_deps $> 3$ OR score $\in [0.50, 0.68]$ \\
+\texttt{STRUCTURAL\_GROUPING} & Score $> 0.68$ OR \texttt{has\_nested\_sql=True} \\
+\texttt{HUMAN\_REVIEW} & Override when \texttt{calibration\_confidence} $< 0.65$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{L2-E — Persistence \& Index}
+
+\begin{table}[H]
+\centering
+\caption{L2-E Components}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} l L{2.8cm} X @{}}
+\toprule
+\textbf{Component} & \textbf{Function} & \textbf{Details} \\
+\midrule
+PersistenceAgent & IR storage & SQLite (dev, $<10$K blocks), PostgreSQL (prod), Parquet ($\geq 10$K blocks). \\
+RAPTORWriter & Vector index & All \texttt{RAPTORNode} objects $\to$ LanceDB (cosine IVF, 32 partitions). \\
+IndexAgent & Dependency graph & NetworkX DAG $\to$ SCC condensation $\to$ NetworkX DiGraph. Dynamic hop cap: $\min(\text{longest\_path}, 10)$. \\
+RedisCheckpoint & Fault tolerance & Every 50 blocks, TTL 24h. Resume from highest checkpoint on restart. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{infobox}[SCC Condensation]
+\texttt{nx.strongly\_connected\_components()} detects circular \texttt{\%INCLUDE} chains. Cycles are collapsed into super-nodes via \texttt{nx.condensation()}, guaranteeing an acyclic graph. Partitions sharing an \texttt{scc\_id} must be translated together in Layer~3.
+\end{infobox}
+
+\subsection{Layer 3 — Translation}
+
+\begin{table}[H]
+\centering
+\caption{TranslationAgent Pipeline (Unified --- Paradigm Selected Per Partition)}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} c L{3cm} X @{}}
+\toprule
+\textbf{Step} & \textbf{Action} & \textbf{Details} \\
+\midrule
+1 & SCC batching & Group partitions with same \texttt{scc\_id}, translate together. \\
+2 & Failure mode detection & Rule-based scan for 6 failure modes (no LLM). \\
+3 & RAG paradigm selection & StrategyAgent risk + dependency structure $\to$ Static / GraphRAG / Agentic RAG. \\
+4 & Retrieval & Paradigm-dependent: fixed $k{=}3$ (Static), graph context $+$ $k{=}5$ (GraphRAG), or adaptive $k$ with level escalation (Agentic). \\
+5 & LLM routing & LOW $\to$ Ollama 8B; MOD/HIGH $\to$ Groq 70B; UNCERTAIN $\to$ stub. \\
+6 & Cross-verification & Second LLM call checks equivalence (GraphRAG and Agentic only). \\
+7 & Retry loop & Agentic: retrieval retry (reformulate + escalate $k$ + switch RAPTOR level). Others: generation retry only. \\
+8 & Output & \texttt{ConversionResult} with status, confidence, RAG paradigm used, model, failure mode. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{ValidationAgent --- Post-Translation Quality Gate (NEW)}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} c L{3cm} X @{}}
+\toprule
+\textbf{Step} & \textbf{Action} & \textbf{Details} \\
+\midrule
+1 & Build synthetic DataFrame & 100 rows, columns inferred from SAS \texttt{variable\_scope}. \\
+2 & Execute generated code & \texttt{exec()} in sandboxed namespace, 5s timeout, no I/O. For PySpark: local SparkSession (10s timeout). \\
+3 & Validate output & No exceptions; expected columns present; date range plausible; merge row count $\in [0.8\times, 1.5\times]$ input. \\
+4 & Route result & Pass $\to$ L4 merge. Fail + retries $< 2$ $\to$ re-translate. Fail + retries $\geq 2$ $\to$ PARTIAL. Structural-only blocks $\to$ auto-pass. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Layer 4 — Merge}
+
+\begin{table}[H]
+\centering
+\caption{Merge Pipeline}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} l L{3cm} X @{}}
+\toprule
+\textbf{Component} & \textbf{Function} & \textbf{Details} \\
+\midrule
+ImportConsolidator & Import dedup & Dedup + PEP\,8 order (stdlib $\to$ third-party $\to$ local). Canonical aliases: \texttt{pd}, \texttt{np}, \texttt{sm}. PySpark: adds \texttt{pyspark.sql}. \\
+DependencyInjector & Variable names & SAS dataset $\to$ snake\_case Python variable. Cross-file: \texttt{\# NOTE:} stub. \\
+ScriptMerger & Assembly + validation & Sort by \texttt{line\_start}. \texttt{HUMAN\_REVIEW} $\to$ TODO stub. \texttt{ast.parse()} gate. \\
+ReportAgent & Conversion report & Generates Markdown + HTML report: block counts, failure modes, CodeBLEU scores, validation results, KB stats. Output: \texttt{\{name\}\_report.md/.html}. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Continuous Learning}
+
+\begin{table}[H]
+\centering
+\caption{Continuous Learning Components}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} l L{3.5cm} X @{}}
+\toprule
+\textbf{Component} & \textbf{Function} & \textbf{Details} \\
+\midrule
+FeedbackIngestionAgent & Correction ingestion & CLI + automated sources. Cross-verify (confidence $\geq 0.85$) $\to$ KB upsert. \\
+ConversionQualityMonitor & Quality tracking & Last 100 results: success\_rate, partial\_rate, failure\_mode\_dist. Alert if any mode $> 40\%$. \\
+RetrainingTrigger & Model update & Triggers on: KB $+500$, ECE $> 0.12$, success\_rate $< 0.70$, KB gap flagged. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{Knowledge Base}
+% ══════════════════════════════════════════════════════════════
+
+\subsection{Design Rationale}
+
+The KB is the primary quality driver. Every LLM call is augmented with retrieved SAS$\to$Python/PySpark pairs. Built \textbf{without any human SAS expertise}: a 3-prompt dual-LLM chain (Prompt A $\to$ B $\to$ C cross-verify). Pairs with confidence $\geq 0.85$ are accepted as verified.
+
+\begin{infobox}[KB Versioning]
+Every KB example carries a \texttt{version} integer. Corrections create a new version; the old pair is retained with \texttt{superseded\_by} pointing to the replacement. A \texttt{kb\_changelog} DuckDB table logs every mutation (insert, update, supersede, rollback) with timestamp and author. Rollback: \texttt{python scripts/kb\_rollback.py --example\_id \{uuid\} --to\_version \{n\}}.
+\end{infobox}
+
+\subsection{Coverage Matrix}
+
+\begin{table}[H]
+\centering
+\caption{Knowledge Base Coverage — 15 Categories, $\sim$330 Pairs}
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{@{} l X c l @{}}
+\toprule
+\textbf{Category} & \textbf{Constructs Covered} & \textbf{Pairs} & \textbf{Failure Mode} \\
+\midrule
+DATA\_STEP\_BASIC & assignment, if/else, keep/drop, length, format & 30 & — \\
+DATA\_STEP\_MERGE & MERGE BY, one-to-one, one-to-many, UPDATE & 25 & MERGE\_SEMANTICS \\
+DATA\_STEP\_RETAIN & RETAIN, running totals, lag patterns & 20 & RETAIN \\
+DATA\_STEP\_ARRAY & ARRAY, DO over array, multi-dim arrays & 20 & — \\
+DATA\_STEP\_FIRST\_LAST & BY group processing, FIRST.var, LAST.var & 25 & FIRST\_LAST \\
+DATE\_ARITHMETIC & MDY, TODAY, INTNX, INTCK, DATEPART & 30 & DATE\_ARITHMETIC \\
+PROC\_SQL & SELECT, JOIN, subquery, GROUP BY, HAVING & 30 & — \\
+PROC\_MEANS & CLASS, VAR, OUTPUT OUT=, NWAY & 20 & PROC\_MEANS\_OUTPUT \\
+PROC\_FREQ & TABLES, cross-tab, chi-square, WEIGHT & 15 & — \\
+MACRO\_BASIC & \%MACRO/\%MEND, \%LET, parameters & 25 & — \\
+MACRO\_CONDITIONAL & \%IF/\%THEN/\%ELSE, \%DO/\%END, nested & 20 & — \\
+PROC\_SORT & BY asc/desc, NODUPKEY, NODUP & 15 & — \\
+PROC\_REG\_LOGISTIC & MODEL, output stats, selection & 20 & — \\
+PROC\_IMPORT\_EXPORT & DBMS=CSV, DBMS=XLSX, INFILE/INPUT & 15 & — \\
+MISSING\_VALUE & NMISS, CMISS, comparisons with missing & 20 & MISSING\_VALUE \\
+\midrule
+\multicolumn{2}{r}{\textbf{+ 60 targeted failure-mode injection pairs}} & \textbf{60} & 6 types $\times$ 10 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{Data Models}
+% ══════════════════════════════════════════════════════════════
+
+\subsection{PartitionIR — Core Intermediate Representation}
+
+\begin{table}[H]
+\centering
+\caption{PartitionIR Fields}
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{@{} l l X @{}}
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Description} \\
+\midrule
+\multicolumn{3}{l}{\textit{Identity}} \\
+\texttt{partition\_id} & UUID & Auto-generated \\
+\texttt{source\_file\_id} & UUID & FK $\to$ FileRegistry \\
+\texttt{content\_hash} & str & SHA-256 of \texttt{raw\_code}, dedup key \\
+\midrule
+\multicolumn{3}{l}{\textit{Classification}} \\
+\texttt{partition\_type} & Enum (9) & One of 9 canonical types \\
+\texttt{risk\_level} & Enum (4) & LOW | MODERATE | HIGH | UNCERTAIN \\
+\texttt{complexity\_score} & float & $[0.0, 1.0]$ \\
+\texttt{calibration\_confidence} & float & Platt scaling output \\
+\texttt{strategy} & Enum (5) & Partition strategy \\
+\midrule
+\multicolumn{3}{l}{\textit{Structure}} \\
+\texttt{line\_start}, \texttt{line\_end} & int & Position in source file \\
+\texttt{control\_depth} & int & Max nesting depth within block \\
+\texttt{has\_macros}, \texttt{has\_nested\_sql} & bool & Feature flags \\
+\midrule
+\multicolumn{3}{l}{\textit{RAPTOR}} \\
+\texttt{raptor\_leaf\_id} & str & LanceDB node ID \\
+\texttt{raptor\_cluster\_id} & str? & L1 cluster node ID \\
+\texttt{raptor\_root\_id} & str? & Root summary node ID \\
+\midrule
+\multicolumn{3}{l}{\textit{Graph}} \\
+\texttt{scc\_id} & str? & SCC group ID (circular dependency) \\
+\midrule
+\multicolumn{3}{l}{\textit{Quality \& Content}} \\
+\texttt{test\_coverage\_type} & str & ``full'' | ``structural\_only'' \\
+\texttt{raw\_code} & str & Original SAS source code \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Other Data Models}
+
+\begin{table}[H]
+\centering
+\caption{Supporting Data Models Summary}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} l X @{}}
+\toprule
+\textbf{Model} & \textbf{Key Fields} \\
+\midrule
+\texttt{RAPTORNode} & \texttt{node\_id}, \texttt{level} (0=leaf...3=root), \texttt{summary}, \texttt{summary\_tier}, \texttt{embedding} (768-dim), \texttt{child\_ids}, \texttt{partition\_ids} \\
+\addlinespace
+\texttt{ConversionResult} & \texttt{conversion\_id}, \texttt{partition\_id}, \texttt{python\_code}, \texttt{status} (SUCCESS | PARTIAL | FAILED | HUMAN\_REVIEW), \texttt{llm\_confidence}, \texttt{failure\_mode\_flagged}, \texttt{model\_used}, \texttt{retry\_count} \\
+\addlinespace
+\texttt{MergedScript} & \texttt{script\_id}, \texttt{python\_script}, \texttt{import\_block}, \texttt{block\_count}, \texttt{partial\_count}, \texttt{syntax\_valid}, \texttt{output\_path}, \texttt{status} (SUCCESS | HAS\_GAPS | FAILED) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{Database Schemas}
+% ══════════════════════════════════════════════════════════════
+
+\begin{table}[H]
+\centering
+\caption{Database Layer Summary}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} l l X @{}}
+\toprule
+\textbf{Database} & \textbf{Tables} & \textbf{Purpose} \\
+\midrule
+SQLite / PostgreSQL & \texttt{file\_registry}, \texttt{cross\_file\_deps}, \texttt{data\_lineage}, \texttt{partition\_ir}, \texttt{conversion\_results}, \texttt{merged\_scripts} & Core transactional storage. Dedup via \texttt{content\_hash}. \texttt{data\_lineage}: TABLE\_READ / TABLE\_WRITE edges with dataset names and line positions. \\
+\addlinespace
+DuckDB & \texttt{llm\_audit}, \texttt{calibration\_log}, \texttt{ablation\_results}, \texttt{quality\_metrics}, \texttt{feedback\_log} & Append-only analytics \& audit. Columnar for fast OLAP queries. \\
+\addlinespace
+LanceDB & \texttt{raptor\_nodes}, \texttt{sas\_python\_examples} & Vector tables with cosine IVF indexes (32 and 64 partitions). \\
+\addlinespace
+NetworkX & \texttt{Partition} nodes, \texttt{DEPENDS\_ON} edges, \texttt{MACRO\_CALLS} edges & In-memory DiGraph. Multi-hop traversal with dynamic hop cap. \\
+\addlinespace
+Redis & Checkpoint keys & TTL 24h. \texttt{partition:\{file\_id\}:checkpoint:\{block\}}. Fault tolerance only. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{Technology Stack}
+% ══════════════════════════════════════════════════════════════
+
+\begin{table}[H]
+\centering
+\caption{Technology Stack — Selection \& Justification}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabularx}{\textwidth}{@{} l l l X @{}}
+\toprule
+\textbf{Role} & \textbf{Chosen} & \textbf{Rejected} & \textbf{Key Reason} \\
+\midrule
+LLM (light) & Llama 3.1 8B / Ollama & GPT-4o, Mistral 7B & \$0 cost; better code perf than Mistral; 128K context \\
+LLM (heavy) & Llama 3.1 70B / Groq & Claude API, local 70B & Free tier; 40+\,GB VRAM not available on student machine \\
+Embedding & Nomic Embed v1.5 & ada-002, MiniLM, bge-large & 768-dim, MTEB 62.39, Apache 2.0, fully local \\
+Vector store & LanceDB & FAISS, Pinecone, ChromaDB & Persistent, filtered search, embedded, Apache 2.0 \\
+Graph library & NetworkX & igraph, CuGraph & BSD, pure Python, in-memory, SCC + topo sort + traversal; fast enough ($<100$\,ms on 10K nodes) \\
+Parser & Lark (LALR) & ANTLR4, regex, PLY & Handles nested structures; pure Python; no Java runtime \\
+Complexity & Radon & Manual AST walk & CC computation out of box; supplemented with 4 custom features \\
+ML model & sklearn LR + Platt & XGBoost, PyTorch & 500 examples / 5 features $\to$ LR optimal; interpretable; calibrated \\
+Orchestration & LangGraph & Custom FSM, Airflow & StateGraph with branching, checkpoints, fan-out built-in \\
+Checkpoints & Redis & SQLite, filesystem & Atomic SETEX, TTL auto-cleanup, no lock contention \\
+Analytics & DuckDB & Pandas, SQLite, PostgreSQL & Columnar OLAP, SQL-queryable, embedded, fast aggregations \\
+Async I/O & aiofiles & — & Only viable async file reader in Python \\
+Typed output & Instructor & LangChain parser, Outlines & Pydantic output enforcement, auto-retry, dual-endpoint compatible \\
+Validation & Pydantic v2 & — & 5–50$\times$ faster than v1, de-facto standard \\
+Logging & structlog & stdlib logging, Loguru & JSON structured output, trace\_id binding, DuckDB-queryable \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{Agent Architecture}
+% ══════════════════════════════════════════════════════════════
+
+\subsection{The 16 Agents}
+
+\begin{table}[H]
+\centering
+\caption{16 Agents — Strict Single Responsibility}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabularx}{\textwidth}{@{} c l c X @{}}
+\toprule
+\textbf{\#} & \textbf{Agent} & \textbf{Layer} & \textbf{Primary Responsibility} \\
+\midrule
+1 & FileAnalysisAgent & L2-A & File discovery, encoding, Lark pre-validation \\
+2 & CrossFileDependencyResolver & L2-A & \texttt{\%INCLUDE} / \texttt{LIBNAME} resolution \\
+3 & RegistryWriterAgent & L2-A & Registry write, SHA-256 dedup \\
+4 & DataLineageExtractor & L2-A & Table-level data lineage (SET/MERGE/FROM/DATA/CREATE) \\
+5 & StreamAgent & L2-B & Async 8\,KB line streaming \\
+6 & StateAgent & L2-B & FSM: block\_type, nesting, macro\_stack \\
+7 & BoundaryDetectorAgent & L2-C & Lark boundary detection + LLM resolver routing \\
+8 & RAPTORPartitionAgent & L2-C & GMM clustering + recursive tree + summarization \\
+9 & ComplexityAgent & L2-D & 5-feature extraction, composite score \\
+10 & StrategyAgent & L2-D & sklearn LR prediction, risk\_level, strategy \\
+11 & PersistenceAgent & L2-E & IR write to SQLite / Postgres / Parquet \\
+12 & IndexAgent & L2-E & NetworkX DAG + SCC condensation + graph build \\
+13 & TranslationAgent & L3 & SAS$\to$Python/PySpark conversion + KB + cross-verify \\
+14 & ValidationAgent & L3 & Post-translation exec test on synthetic DataFrame \\
+15 & ReportAgent & L4 & Markdown/HTML conversion report generation \\
+16 & PartitionOrchestrator & Cross & LangGraph StateGraph, fan-out, Redis checkpoints \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Retry Policy}
+
+\begin{table}[H]
+\centering
+\caption{Agent Retry and Fallback Policy}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabularx}{\textwidth}{@{} l L{2.5cm} c l L{3.5cm} @{}}
+\toprule
+\textbf{Agent} & \textbf{Failure Mode} & \textbf{Retries} & \textbf{Backoff} & \textbf{Fallback} \\
+\midrule
+BoundaryDetector (LLM) & Ollama timeout/OOM & 3 & exp, 1s & Rule-based boundary only \\
+RAPTOR (summarize) & Groq 429/timeout & 3 & exp, 2s & Ollama 70B $\to$ heuristic \\
+RAPTOR (embed) & CUDA OOM & 2 & clear+retry & flat\_partition fallback \\
+TranslationAgent & Groq 429/timeout & 3 & exp, 2s & Ollama 70B $\to$ PARTIAL \\
+ValidationAgent & Exec timeout/OOM & 2 & reset+retry & Skip validation, log warning \\
+ReportAgent & Template render fail & 1 & immediate & Plain-text fallback report \\
+IndexAgent & Graph build fail & 2 & Error handling & Log + skip \\
+RedisCheckpoint & Connection refused & 1 & immediate & Degraded mode, continue \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{Evaluation Strategy}
+% ══════════════════════════════════════════════════════════════
+
+\subsection{Why CodeBLEU, Not BLEU}
+
+\begin{infobox}[CodeBLEU (Ren et al., 2020)]
+BLEU was designed for natural language. For code, it fails because: (1) variable names don't need to match exactly, (2) it treats all tokens equally, (3) it ignores syntax structure. CodeBLEU fixes this with 4 weighted sub-scores:
+\end{infobox}
+
+\begin{table}[H]
+\centering
+\caption{CodeBLEU Sub-scores}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\textwidth}{@{} l c X @{}}
+\toprule
+\textbf{Sub-score} & \textbf{Weight} & \textbf{What It Measures} \\
+\midrule
+n-gram BLEU & 0.25 & Token-level overlap (surface similarity) \\
+Weighted n-gram & 0.25 & Keyword-aware overlap (Python keywords weighted higher) \\
+AST Match & 0.25 & Syntactic structure similarity (tree edit distance on ASTs) \\
+Data-flow Match & 0.25 & Semantic equivalence via data-flow graph comparison \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Per-Layer Evaluation Metrics}
+
+\subsubsection{L2-A — Entry \& Scan}
+
+\begin{table}[H]
+\centering
+\caption{L2-A Evaluation Metrics}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabularx}{\textwidth}{@{} L{3.5cm} l X @{}}
+\toprule
+\textbf{Metric} & \textbf{Target} & \textbf{Why} \\
+\midrule
+File discovery recall & $= 1.00$ & A missed file is a missed block that silently doesn't get converted. \\
+Encoding accuracy & $\geq 0.98$ & Wrong encoding $\to$ garbage characters propagate through all layers. \\
+Cross-file resolution rate & $\geq 0.85$ & Unresolved deps $\to$ missing graph edges. \\
+Pre-validation TPR & $\geq 0.95$ & Must catch broken files before streaming. \\
+Pre-validation FPR & $\leq 0.02$ & False positive rejects a valid file entirely. \\
+Registry idempotency & $= 1.00$ & SHA-256 dedup must prevent double-counting on resume. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{L2-B — Streaming Core}
+
+\begin{table}[H]
+\centering
+\caption{L2-B Evaluation Metrics}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabularx}{\textwidth}{@{} L{3.5cm} l X @{}}
+\toprule
+\textbf{Metric} & \textbf{Target} & \textbf{Why} \\
+\midrule
+Streaming throughput & $\geq 50$K lines/s & 500K-line file must stream in $< 10$s. \\
+Peak memory (streaming) & $\leq 100$ MB & Validates backpressure design. \\
+\texttt{block\_type} accuracy & $\geq 0.95$ & Primary input to BoundaryDetector. \\
+Nesting depth accuracy & $\geq 0.90$ & Feature in ComplexityAgent. \\
+Macro stack accuracy & $\geq 0.90$ & Drives MACRO\_CALLS edges in NetworkX graph. \\
+StateAgent latency (p99) & $\leq 1$ ms & Hot path — cannot block streaming. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{L2-C — RAPTOR Chunking}
+
+\begin{table}[H]
+\centering
+\caption{L2-C Evaluation Metrics — Boundary Detection}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabularx}{\textwidth}{@{} L{4cm} l X @{}}
+\toprule
+\textbf{Metric} & \textbf{Target} & \textbf{Why} \\
+\midrule
+Boundary accuracy (overall) & $\geq 0.90$ & Core correctness metric. 721-block gold standard. \\
+Boundary accuracy (complex) & $\geq 0.85$ & Isolates LLM resolver value on hard cases. \\
+LLM resolver rate & $\leq 0.25$ & System targets $\sim$20\%; $> 25\%$ = grammar gaps. \\
+Partition type precision & $\geq 0.92$ & Wrong type $\to$ wrong few-shot examples from KB. \\
+Per-type recall & $\geq 0.85$ each & Reveals which SAS constructs the grammar is weak on. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{L2-C Evaluation Metrics — RAPTOR Tree Quality}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabularx}{\textwidth}{@{} L{4cm} l X @{}}
+\toprule
+\textbf{Metric} & \textbf{Target} & \textbf{Why} \\
+\midrule
+RAPTOR hit-rate@5 (overall) & $\geq 0.82$ & Primary RAPTOR metric. 50 files $\times$ 10 queries. \\
+RAPTOR vs flat advantage & $\geq 0.10$ (10pp) & Ablation claim: justify complexity overhead on MOD/HIGH blocks. \\
+MRR (Mean Reciprocal Rank) & $\geq 0.55$ & Rewards ranking correct result first, not just top-5. \\
+Cluster cohesion & $\geq 0.65$ & Low cohesion = unrelated blocks poison few-shot context. \\
+Summary cache hit rate & $\geq 0.20$ & Validates cache on repeated macro families. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{L2-D — Complexity \& Strategy}
+
+\begin{table}[H]
+\centering
+\caption{L2-D Evaluation Metrics}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabularx}{\textwidth}{@{} L{4cm} l X @{}}
+\toprule
+\textbf{Metric} & \textbf{Target} & \textbf{Why} \\
+\midrule
+ECE (Expected Calibration Error) & $\leq 0.08$ & Confidence values must be meaningful for HUMAN\_REVIEW threshold. \\
+Classification accuracy & $\geq 0.80$ & 3-class (LOW/MOD/HIGH) on held-out 20\%. \\
+Macro F1 & $\geq 0.75$ & Prevents model from gaming accuracy by always predicting LOW. \\
+HUMAN\_REVIEW precision & $\geq 0.70$ & Flag has real cost; must not flag easy blocks. \\
+Strategy accuracy & $\geq 0.80$ & Wrong strategy $\to$ wrong retrieval mode in L3. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{L2-E — Persistence \& Index}
+
+\begin{table}[H]
+\centering
+\caption{L2-E Evaluation Metrics}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabularx}{\textwidth}{@{} L{4cm} l X @{}}
+\toprule
+\textbf{Metric} & \textbf{Target} & \textbf{Why} \\
+\midrule
+Dedup correctness & $= 1.00$ & Duplicates corrupt the index. \\
+Index completeness & $= 1.00$ & Every SQLite partition must exist in NetworkX graph. \\
+SCC detection accuracy & $\geq 0.90$ & Undetected cycle $\to$ wrong translation context. \\
+SCC false positive rate & $\leq 0.02$ & Groups unrelated partitions. \\
+NetworkX multi-hop correctness & $\geq 0.95$ & DEPENDS\_ON traversal must be accurate. \\
+Checkpoint resume correctness & $= 1.00$ & No double-counting after crash. \\
+Redis degraded mode & Boolean & Pipeline must complete without Redis. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Layer 3 — Translation (CodeBLEU)}
+
+\begin{table}[H]
+\centering
+\caption{Layer 3 — Primary Code Quality Metrics}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabularx}{\textwidth}{@{} L{3.5cm} l X @{}}
+\toprule
+\textbf{Metric} & \textbf{Target} & \textbf{Why} \\
+\midrule
+CodeBLEU & $\geq 0.55$ & Headline code generation quality metric (Ren et al., 2020). \\
+BLEU-4 & $\geq 0.40$ & Reported for baseline comparison with prior works. \\
+AST Match (sub-score) & $\geq 0.60$ & Catches structural errors BLEU misses. \\
+Exact Match (EM) & Report only & Lower bound; expected $\leq 0.10$ (variable names differ). \\
+Differential test pass rate & $\geq 0.60$ & Gold standard: run Python on synthetic data, compare output. \\
+Translation success rate & $\geq 0.70$ & Operational metric; triggers retraining if breached. \\
+HUMAN\_REVIEW rate & $\leq 0.10$ & Manual fallback must stay low. \\
+Retry rate & $\leq 0.25$ & High retry = systematic prompt issue. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Expected CodeBLEU by Partition Type (Defense Report)}
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{@{} l c X @{}}
+\toprule
+\textbf{Partition Type} & \textbf{Expected CodeBLEU} & \textbf{Key Challenge} \\
+\midrule
+DATA\_STEP\_BASIC & $\geq 0.65$ & Good baseline reference \\
+PROC\_SQL & $\geq 0.60$ & SQL$\to$pandas idioms well-represented in KB \\
+PROC\_MEANS & $\geq 0.55$ & OUTPUT OUT= structure is tricky \\
+DATA\_STEP\_MERGE & $\geq 0.50$ & MERGE semantics differ from \texttt{pd.merge()} \\
+DATA\_STEP\_RETAIN & $\geq 0.48$ & No direct pandas equivalent \\
+MACRO\_DEFINITION & $\geq 0.50$ & Macro$\to$function translation varies widely \\
+DATA\_STEP\_FIRST\_LAST & $\geq 0.48$ & groupby + diff/cumcount patterns \\
+DATE\_ARITHMETIC & $\geq 0.45$ & 1960 epoch is systematic LLM failure \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Layer 4 — Merge}
+
+\begin{table}[H]
+\centering
+\caption{Layer 4 Evaluation Metrics}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabularx}{\textwidth}{@{} L{4cm} l X @{}}
+\toprule
+\textbf{Metric} & \textbf{Target} & \textbf{Why} \\
+\midrule
+Syntax validity rate & $\geq 0.95$ & \texttt{ast.parse()} must pass — minimum bar for useful output. \\
+Import dedup & $= 1.00$ & Each library appears exactly once. \\
+Block order preservation & $= 1.00$ & Wrong order $\to$ \texttt{NameError} at runtime. \\
+Variable name consistency & $= 1.00$ & Same SAS dataset must map to same Python variable everywhere. \\
+Cross-file stub rate & $= 1.00$ & Every unresolvable ref $\to$ \texttt{\# NOTE:} comment. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Ablation Study Design}
+
+\begin{table}[H]
+\centering
+\caption{Three-Configuration Ablation for Defense}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{} l c c X @{}}
+\toprule
+\textbf{Configuration} & \textbf{CodeBLEU} & \textbf{Diff Pass Rate} & \textbf{Purpose} \\
+\midrule
+No KB, no failure-mode detection & (baseline) & (baseline) & Lower bound — vanilla LLM \\
+KB only, no failure-mode detection & $\Delta$ vs base & $\Delta$ vs base & KB contribution \\
+KB + failure-mode detection (full) & $\geq 0.55$ & $\geq 0.60$ & Full system \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{Performance Targets Summary}
+% ══════════════════════════════════════════════════════════════
+
+\begin{table}[H]
+\centering
+\caption{Overall System Evaluation — Defense Slide Summary}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabularx}{\textwidth}{@{} l L{4cm} c c @{}}
+\toprule
+\textbf{Layer} & \textbf{Primary Metric} & \textbf{Target} & \textbf{Achieved} \\
+\midrule
+L2-A & File discovery recall & $1.00$ & — \\
+L2-A & Cross-file resolution rate & $\geq 0.85$ & — \\
+L2-B & Throughput & $\geq 50$K lines/s & — \\
+L2-B & \texttt{block\_type} accuracy & $\geq 0.95$ & — \\
+L2-C & Boundary accuracy (overall) & $\geq 0.90$ & — \\
+L2-C & RAPTOR hit-rate@5 & $\geq 0.82$ & — \\
+L2-C & RAPTOR vs flat advantage & $\geq 0.10$ & — \\
+L2-D & ECE & $\leq 0.08$ & — \\
+L2-D & Macro F1 & $\geq 0.75$ & — \\
+L2-E & NetworkX completeness & $1.00$ & — \\
+L2-E & SCC detection accuracy & $\geq 0.90$ & — \\
+L3 & CodeBLEU & $\geq 0.55$ & — \\
+L3 & Differential test pass rate & $\geq 0.60$ & — \\
+L3 & Translation success rate & $\geq 0.70$ & — \\
+L4 & Syntax validity rate & $\geq 0.95$ & — \\
+L4 & Block order preservation & $1.00$ & — \\
+KB & Verification rate & $\geq 0.85$ & — \\
+KB & Human spot-check score & $\geq 3.5/5$ & — \\
+CL & KB growth after correction & $\geq 0.70$ & — \\
+CL & CodeBLEU improvement & $\geq 0.02$ & — \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{infobox}[For the Defense]
+Fill in the \textbf{Achieved} column at Week 13. This table provides a single-page view of the entire evaluation evidence, with every claim backed by a number.
+\end{infobox}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{Formal Correctness Contract}
+% ══════════════════════════════════════════════════════════════
+
+The system defines correctness through three mechanisms: \textbf{layer-level invariants} (properties that must always hold), \textbf{per-agent pre/post-conditions} (input/output contracts), and \textbf{composition guarantees} (if layer $n$ satisfies its postcondition, layer $n{+}1$'s precondition is met).
+
+\subsection{System-Level Invariants}
+
+\begin{table}[H]
+\centering
+\caption{System-Level Invariants — Properties That Must Always Hold}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} c L{3.2cm} X l @{}}
+\toprule
+\textbf{ID} & \textbf{Invariant} & \textbf{Formal Statement} & \textbf{Verified By} \\
+\midrule
+I1 & No data loss & $|\text{partitions in SQLite}| = |\text{blocks emitted by StreamAgent}|$ (modulo dedup) & Dedup correctness $= 1.00$ \\
+I2 & Graph completeness & $\forall p \in \text{SQLite}: p \in \text{NetworkX graph}$ & Index completeness $= 1.00$ \\
+I3 & Cycle safety & The condensed DAG is acyclic: \texttt{nx.is\_directed\_acyclic\_graph(condensed) = True} & SCC detection $\geq 0.90$ \\
+I4 & Idempotency & Running the pipeline twice on the same input produces the same row count & SHA-256 dedup + \texttt{INSERT OR IGNORE} \\
+I5 & Crash recovery & $|\text{blocks after resume}| = |\text{expected blocks}|$, no double-counting & Checkpoint resume $= 1.00$ \\
+I6 & Trace linkage & Every LLM call has a \texttt{trace\_id} linking it back to the originating partition & DuckDB \texttt{llm\_audit} table \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Per-Layer Pre/Post-Conditions}
+
+\begin{table}[H]
+\centering
+\caption{Agent Pre/Post-Conditions — Input/Output Contracts}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} l L{4.5cm} L{4.5cm} @{}}
+\toprule
+\textbf{Layer / Agent} & \textbf{Precondition (Input Contract)} & \textbf{Postcondition (Output Contract)} \\
+\midrule
+L2-A FileAnalysis & Path exists, file is readable, encoding detectable & \texttt{file\_registry} row with SHA-256 hash, encoding, line count \\
+L2-A CrossFileDeps & \texttt{file\_registry} populated for all project files & \texttt{cross\_file\_deps} table with resolved $\geq 85\%$ of references \\
+L2-B StreamAgent & Valid file path in registry, encoding known & Ordered stream of \texttt{(line\_number, raw\_line)} tuples, $\leq 100$ MB peak memory \\
+L2-B StateAgent & Receives lines in order & Per-line FSM state: \texttt{block\_type} ($\geq 0.95$ accuracy), \texttt{nesting\_depth}, \texttt{macro\_stack} \\
+L2-C Boundary & Stream of lines with state annotations & \texttt{PartitionIR[]} with correct boundaries ($\geq 0.90$ accuracy on 721-block benchmark) \\
+L2-C RAPTOR & \texttt{PartitionIR[]} with $\geq 1$ partition & RAPTOR tree in LanceDB: leaf, cluster, and root levels. Hit-rate@5 $\geq 0.82$ \\
+L2-D Complexity & \texttt{PartitionIR} with \texttt{raw\_code} & 5 features extracted, \texttt{complexity\_score}, \texttt{risk\_level}, \texttt{strategy}. ECE $\leq 0.08$ \\
+L2-E Persistence & \texttt{PartitionIR[]} with all fields populated & Rows in SQLite (deduped). \texttt{content\_hash} unique constraint holds \\
+L2-E IndexAgent & \texttt{PartitionIR[]} $+$ \texttt{cross\_file\_deps} & NetworkX DiGraph with all partitions as nodes, dependency edges. SCC groups labeled \\
+L3 Translation & \texttt{PartitionIR} $+$ KB (330+ pairs) $+$ risk level & \texttt{ConversionResult}: Python/PySpark code, status, confidence. CodeBLEU $\geq 0.55$ \\
+L3 Validation & Generated Python/PySpark code & Execution test: no exceptions, expected columns present, row count plausible \\
+L4 Merge & Ordered \texttt{ConversionResult[]} per file & Single syntactically valid Python/PySpark script. Syntax validity $\geq 0.95$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Composition Guarantee}
+
+\begin{infobox}[Formal Composition Rule]
+For any two consecutive agents $A_i$ and $A_{i+1}$: if $A_i$'s postcondition is satisfied, then $A_{i+1}$'s precondition is guaranteed to hold. This is enforced by:
+\begin{enumerate}[nosep]
+    \item \textbf{Typed intermediate representations}: \texttt{PartitionIR}, \texttt{ConversionResult}, \texttt{RAPTORNode} are dataclasses with required fields — missing fields raise \texttt{ValidationError} before the next agent runs.
+    \item \textbf{Schema enforcement}: SQLite tables have \texttt{NOT NULL} constraints; LanceDB vectors are dimension-checked ($= 768$); NetworkX nodes require \texttt{partition\_id}.
+    \item \textbf{Quality gates}: Each agent's postcondition includes a quantitative target. If the target is not met, the retry policy activates (up to $n$ retries with fallback). If all retries fail, the block is marked \texttt{PARTIAL} or \texttt{FAILED} — it is \emph{never silently dropped}.
+    \item \textbf{Monotonic progress}: Redis checkpoints guarantee that on crash recovery, no block is processed twice and no block is skipped. The invariant $|\text{output}| = |\text{input}|$ holds across restarts.
+\end{enumerate}
+\end{infobox}
+
+\subsection{Correctness Evidence at Defense}
+
+At defense, the following artifacts collectively prove the correctness contract:
+
+\begin{table}[H]
+\centering
+\caption{Correctness Evidence Mapping}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} L{3.5cm} L{4cm} X @{}}
+\toprule
+\textbf{Contract Element} & \textbf{Evidence} & \textbf{How Shown} \\
+\midrule
+Invariants I1--I6 & Automated test suite & \texttt{pytest} output: all 6 invariant tests pass \\
+Preconditions & Type-checked dataclasses & \texttt{PartitionIR} with Pydantic-style validation \\
+Postconditions & Per-layer metric targets & Evaluation Summary Table (filled at Week 13) \\
+Composition & End-to-end smoke test & 10 benchmark files through full pipeline, no block lost \\
+RAG paradigm loop & LLM audit log + retry trace & DuckDB query showing paradigm selection $\to$ retrieve $\to$ generate $\to$ cross-verify $\to$ retrieval retry chain \\
+Idempotency & Double-run comparison & Row count identical after two identical runs \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{Timeline — 14 Weeks}
+% ══════════════════════════════════════════════════════════════
+
+\begin{table}[H]
+\centering
+\caption{14-Week Project Timeline}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} c X c @{}}
+\toprule
+\textbf{Weeks} & \textbf{Deliverable} & \textbf{Priority} \\
+\midrule
+\rowcolor{successgreen!8} 1–2 & L2-A: Entry + CrossFileDeps + DataLineageExtractor + Gold Standard (50 files, 3 tiers, 721 blocks) & P0 \\
+\rowcolor{successgreen!8} 2–3 & L2-B: StreamAgent + StateAgent. 10K-line file $< 2$s, $< 100$ MB. & P0 \\
+\rowcolor{successgreen!8} 3–4 & L2-C: BoundaryDetector + LLM resolver. 721-block benchmark $> 90\%$. & P0 \\
+\rowcolor{successgreen!8} 4 & L2-D: ComplexityAgent + StrategyAgent. ECE $< 0.08$. RAPTOR models. & P0 \\
+\rowcolor{warncolor!8} 5–6 & L2-C: Nomic Embed + GMM + ClusterSummarizer + RAPTORTreeBuilder & P1 \\
+\rowcolor{warncolor!8} 7 & L2-E: Persistence + IndexAgent + SCC condensation + DuckDB schemas & P1 \\
+\rowcolor{warncolor!8} 8 & Orchestration + Redis + CROSS\_FILE\_RESOLVE state + audit logging & P1 \\
+9 & Robustness (retry, large file strategy) + KB generation start (250 pairs) & P2 \\
+10 & Translation Layer (L3) + KB expand to 250 pairs & P2 \\
+11 & Merge Layer (L4) + Continuous Learning + KB to 330 pairs & P2 \\
+12 & Ablation study: RAPTOR vs flat on 50 files $\times$ 10 queries & P2 \\
+\rowcolor{codebg} 13 & Defense prep: slides + demo video & P3 \\
+\rowcolor{codebg} 14 & Buffer: polish ablation plots, additional KB pairs, README & P3 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Priority Legend}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{@{} l X @{}}
+\toprule
+\textbf{Priority} & \textbf{Scope} \\
+\midrule
+\rowcolor{successgreen!8} \textbf{P0} & Core infrastructure — must be completed first (weeks 1–4). \\
+\rowcolor{warncolor!8} \textbf{P1} & RAPTOR semantic layer + persistence — builds on P0 (weeks 5–8). \\
+\textbf{P2} & Translation, merge, learning, and evaluation (weeks 9–12). \\
+\rowcolor{codebg} \textbf{P3} & Defense preparation and polish (weeks 13–14). \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{Risk Register}
+% ══════════════════════════════════════════════════════════════
+
+\begin{table}[H]
+\centering
+\caption{Risk Register}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabularx}{\textwidth}{@{} L{3.2cm} c c X @{}}
+\toprule
+\textbf{Risk} & \textbf{Prob.} & \textbf{Impact} & \textbf{Mitigation} \\
+\midrule
+Groq API quota exceeded & MED & HIGH & 3-tier fallback (Groq $\to$ Ollama 70B $\to$ heuristic). Rate-limit semaphore. \\
+RAPTOR ablation null result & LOW & MED & Document honestly as negative result. Still publishable. \\
+GMM diverges on large files & MED & HIGH & Fallback to flat\_partition after 3 failures. \\
+14-week timeline slips & HIGH & MED & Sunday velocity tracking. Cut: ablation depth $\to$ paper draft $\to$ Docker. Never cut translation \& merge. \\
+ECE remains $> 0.08$ & MED & LOW & Relabel 100 more examples. Fallback: threshold-based routing. \\
+No longer applicable (NetworkX is pure Python) & — & — & NetworkX has no install issues; pure Python, pip-installable. \\
+KB pair quality too low & MED & HIGH & Increase cross-verifier retries to 3. Human review queue for categories $< 0.80$ avg confidence. \\
+SCC false positives & LOW & LOW & Review \texttt{scc\_id} distribution. Threshold: only warn if SCC size $> 3$. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{Methodology}
+% ══════════════════════════════════════════════════════════════
+
+\begin{table}[H]
+\centering
+\caption{Development Methodology}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{} l X @{}}
+\toprule
+\textbf{Aspect} & \textbf{Approach} \\
+\midrule
+Process & Hybrid Kanban + Weekly Sprints. WIP limit: 2 concurrent tasks. Weekly velocity review. \\
+Version control & Git with semantic commits (\texttt{feat:}, \texttt{fix:}, \texttt{test:}, \texttt{docs:}). One branch per week. \\
+Unit tests & Every agent: \texttt{tests/test\_\{agent\}.py}, $\geq 5$ assertions. \\
+Integration tests & \texttt{test\_e2e\_smoke.py}: full pipeline on 10 benchmark files. \\
+Regression guards & 3 CI metrics: boundary accuracy, ECE, RAPTOR hit-rate. $< 60$s. \\
+Load tests & Full pipeline on 100 files. Log throughput, peak memory, slowest layer. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{Compliance Checklist}
+% ══════════════════════════════════════════════════════════════
+
+\begin{table}[H]
+\centering
+\caption{Compliance Checklist}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{} X c l @{}}
+\toprule
+\textbf{Requirement} & \textbf{Status} & \textbf{Evidence} \\
+\midrule
+End-to-end pipeline (SAS $\to$ Python/PySpark) & \cmark & Layers L2-A through L4 + CL \\
+Research paper adaptation (RAPTOR) & \cmark & Sarthi et al. ICLR 2024; ablation study \\
+100\% free and open-source stack & \cmark & Apache 2.0 / MIT / BSD / LGPL; Groq free tier \\
+Knowledge base construction & \cmark & 330 pairs, dual-LLM gen, no SAS runtime \\
+All SAS usage categories covered & \cmark & 15 categories in coverage matrix \\
+Calibrated confidence system & \cmark & Platt scaling + ECE + retraining trigger \\
+Fault tolerance & \cmark & Redis checkpoints + SHA-256 dedup + SCC \\
+Continuous learning & \cmark & Feedback ingestion + quality monitor + retrain \\
+Quantitative evaluation & \cmark & Boundary + RAPTOR + ECE + CodeBLEU + success rate \\
+Differential testing & \cmark & 45\% coverage, 6 edge case categories \\
+Agent count discipline & \cmark & 16 agents (4 L2-A + 2 L2-B + 3 L2-C + 2 L2-D + 2 L2-E + TranslationAgent + ValidationAgent + ReportAgent); helpers are functions \\
+Dependency graph (multi-file) & \cmark & NetworkX DiGraph + SCC + cross\_file\_deps \\
+LLM audit logging & \cmark & DuckDB \texttt{llm\_audit} with \texttt{trace\_id} \\
+Timeline feasibility & \cmark & 14 weeks, P0–P3 priorities, fallback cuts \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+% ══════════════════════════════════════════════════════════════
+\section{Deliverables}
+% ══════════════════════════════════════════════════════════════
+
+\subsection{Code Deliverables}
+
+\begin{table}[H]
+\centering
+\caption{Code Deliverables}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabularx}{\textwidth}{@{} L{4cm} l X @{}}
+\toprule
+\textbf{Deliverable} & \textbf{Location} & \textbf{Verification} \\
+\midrule
+\texttt{partition/} package & \texttt{partition/} & \texttt{pytest --cov=partition} \\
+12 agents implemented & \texttt{partition/*/} & All \texttt{.py} files present \\
+Test suite & \texttt{tests/} & All pass, coverage in \texttt{htmlcov/} \\
+TranslationAgent & \texttt{partition/translation/} & \texttt{test\_translation.py} \\
+Merge pipeline & \texttt{partition/merge/} & \texttt{test\_merge.py} \\
+Continuous learning & \texttt{partition/retraining/} & \texttt{test\_continuous\_learning.py} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Data Deliverables}
+
+\begin{table}[H]
+\centering
+\caption{Data Deliverables}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabularx}{\textwidth}{@{} L{4cm} l X @{}}
+\toprule
+\textbf{Deliverable} & \textbf{Location} & \textbf{Verification} \\
+\midrule
+330+ verified KB pairs & \texttt{lancedb\_data/} & LanceDB table count \\
+50-file gold corpus & \texttt{knowledge\_base/gold\_standard/} & \texttt{ls *.gold.json} \\
+500 labeled training examples & \texttt{benchmark/} & \texttt{wc -l $\geq$ 500} \\
+RAPTOR tree (50+ files) & \texttt{lancedb\_data/raptor\_nodes} & LanceDB table count \\
+NetworkX dependency graph & \texttt{partition\_graph.gpickle} & \texttt{ls -la > 0} \\
+Ablation results & \texttt{ablation.db} & $\geq 500$ rows \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Documentation Deliverables}
+
+\begin{table}[H]
+\centering
+\caption{Documentation Deliverables}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabularx}{\textwidth}{@{} L{4cm} l X @{}}
+\toprule
+\textbf{Deliverable} & \textbf{Location} & \textbf{Verification} \\
+\midrule
+README.md & \texttt{README.md} & $\geq 100$ lines \\
+Architecture diagram HTML & \texttt{docs/architecture\_v2.html} & Renders in browser \\
+RAPTOR paper notes & \texttt{docs/raptor\_paper\_notes.md} & $\geq 500$ words \\
+Ablation results (1-page) & \texttt{docs/ablation\_results.md} & Includes defense narrative \\
+Defense slides (20 slides) & \texttt{docs/defense\_slides.pptx} & Slide count $\geq 20$ \\
+Demo video (3–5 min) & \texttt{docs/demo\_video.mp4} & Duration 180–300s \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\vfill
+\begin{center}
+\textcolor{accent}{\rule{0.4\textwidth}{0.4pt}}\\[8pt]
+\textit{End of Cahier des Charges — v1.2 Updated}\\[4pt]
+\small\textcolor{primary}{SAS-to-Python/PySpark Code Conversion Accelerator — Partition Layer + Full Pipeline}\\[4pt]
+\small\textcolor{primary}{Architecture v2 · Spec v4.1 · RAPTOR (Sarthi et al., ICLR 2024) · February 2026}
+\end{center}
+
+\end{document}
