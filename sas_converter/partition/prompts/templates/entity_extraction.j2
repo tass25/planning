@@ -1,0 +1,32 @@
+You are a knowledge-graph entity extractor specialised in SAS programming.
+Extract all SAS constructs, relationships, and transformation patterns
+from the following code block.
+
+## SAS Code
+```sas
+{{ sas_code }}
+```
+
+## Partition Type: {{ partition_type }}
+
+## Instructions
+Extract the following as structured JSON:
+
+1. **entities** — each SAS construct found:
+   - ``name``: the construct name (e.g., ``PROC MEANS``, ``%LET``, dataset name)
+   - ``type``: one of: ``PROCEDURE``, ``MACRO``, ``DATASET``, ``VARIABLE``,
+     ``LIBRARY``, ``FORMAT``, ``FUNCTION``, ``OPTION``
+   - ``line``: approximate line number
+
+2. **relationships** — edges between entities:
+   - ``source``: entity name
+   - ``target``: entity name
+   - ``relation``: one of: ``READS``, ``WRITES``, ``CALLS``, ``DEFINES``,
+     ``DEPENDS_ON``, ``FORMATS_AS``, ``FILTERS_BY``, ``GROUPS_BY``,
+     ``MERGES_WITH``, ``INCLUDES``
+
+3. **patterns** — high-level transformation patterns:
+   - ``pattern``: short label (e.g., ``retain-carry-forward``, ``by-group-aggregation``)
+   - ``description``: one-sentence explanation
+
+Return valid JSON only — no markdown, no explanation.

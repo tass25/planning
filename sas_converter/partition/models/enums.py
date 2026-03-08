@@ -6,7 +6,7 @@ from enum import Enum
 
 
 class PartitionType(str, Enum):
-    """The nine SAS block types recognised by the partitioner."""
+    """SAS block types recognised by the partitioner."""
     DATA_STEP = "DATA_STEP"
     PROC_BLOCK = "PROC_BLOCK"
     MACRO_DEFINITION = "MACRO_DEFINITION"
@@ -16,6 +16,7 @@ class PartitionType(str, Enum):
     LOOP_BLOCK = "LOOP_BLOCK"
     GLOBAL_STATEMENT = "GLOBAL_STATEMENT"
     INCLUDE_REFERENCE = "INCLUDE_REFERENCE"
+    UNCLASSIFIED = "UNCLASSIFIED"
 
 
 class RiskLevel(str, Enum):

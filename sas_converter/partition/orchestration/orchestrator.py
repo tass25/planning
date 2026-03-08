@@ -9,6 +9,7 @@ Consolidated 8-node pipeline (was 11):
     5. risk_routing    RiskRouter     (complexity + strategy)
     6. persist_index   PersistenceAgent + IndexAgent  (utility step)
     7. translation     TranslationPipeline (translate + validate + retry)
+    8. merge           MergeAgent     (assemble final scripts + reports)
 
 Features:
     * Redis checkpointing every 50 blocks (degraded mode if Redis unavailable)
@@ -98,6 +99,7 @@ class PartitionOrchestrator:
         workflow.add_node("risk_routing", self._node_risk_routing)
         workflow.add_node("persist_index", self._node_persist_index)
         workflow.add_node("translation", self._node_translation)
+        workflow.add_node("merge", self._node_merge)
 
         # Set entry point
         workflow.set_entry_point("file_process")
@@ -109,7 +111,8 @@ class PartitionOrchestrator:
         workflow.add_edge("raptor", "risk_routing")
         workflow.add_edge("risk_routing", "persist_index")
         workflow.add_edge("persist_index", "translation")
-        workflow.add_edge("translation", END)
+        workflow.add_edge("translation", "merge")
+        workflow.add_edge("merge", END)
 
         return workflow.compile()
 
@@ -151,6 +154,7 @@ class PartitionOrchestrator:
             "max_hop": 3,
             "conversion_results": [],
             "validation_passed": 0,
+            "merge_results": [],
             "last_checkpoint_block": 0,
             "checkpoint_key": None,
             "errors": [],
@@ -223,9 +227,9 @@ class PartitionOrchestrator:
             )
             file_ids = [str(m.file_id) for m in file_metas]
         except Exception as exc:
-            errors.append(f"File processing failed: {exc}")
-            logger.error("file_process_error", error=str(exc))
-            file_metas, file_ids, cross_deps = [], [], {}
+            # L2-A failure is fatal — downstream stages need file metadata
+            logger.error("file_process_fatal", error=str(exc))
+            raise RuntimeError(f"L2-A file processing failed (fatal): {exc}") from exc
 
         track_event("stage_complete", {"stage": "file_process", "files": str(len(file_metas))})
         track_metric("stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "file_process"})
@@ -447,7 +451,7 @@ class PartitionOrchestrator:
             try:
                 result = await pipeline.translate_partition(p)
                 conversion_results.append(result)
-                if getattr(result, "validation_passed", False):
+                if result.validation_passed:
                     passed += 1
             except Exception as exc:
                 warnings.append(f"Translation failed for {p.block_id}: {exc}")
@@ -465,6 +469,78 @@ class PartitionOrchestrator:
             "conversion_results": conversion_results,
             "validation_passed": passed,
             "stage": PipelineStage.TRANSLATION.value,
+            "warnings": warnings,
+        }
+
+    async def _node_merge(self, state: PipelineState) -> dict:
+        """Consolidated L4: Merge translated partitions into final scripts."""
+        import time as _t
+        from partition.merge.merge_agent import MergeAgent
+        _t0 = _t.perf_counter()
+
+        agent = self._get_agent("merge", MergeAgent)
+        conversion_results = state.get("conversion_results", [])
+        partitions = state.get("partitions", [])
+        target_runtime = state.get("target_runtime", "python")
+        cross_deps = state.get("cross_file_deps", {})
+        warnings = list(state.get("warnings", []))
+
+        # Group partitions and conversions by file_id
+        partitions_by_file: dict[str, list] = {}
+        for p in partitions:
+            fid = str(p.file_id)
+            partitions_by_file.setdefault(fid, []).append(p)
+
+        conversions_by_file: dict[str, list] = {}
+        for cr in conversion_results:
+            fid = str(cr.file_id)
+            conversions_by_file.setdefault(fid, []).append(cr)
+
+        merge_results = []
+        for file_id, file_parts in partitions_by_file.items():
+            file_conversions = conversions_by_file.get(file_id, [])
+            if not file_conversions:
+                continue
+
+            # Find source path from file_metas
+            source_path = file_id
+            for fm in state.get("file_metas", []):
+                if str(fm.file_id) == file_id:
+                    source_path = fm.file_path
+                    break
+
+            try:
+                result = await agent.process(
+                    conversion_results=[cr.model_dump() for cr in file_conversions],
+                    partitions=[
+                        {
+                            "partition_type": getattr(p.partition_type, "value", str(p.partition_type)),
+                            "line_start": getattr(p, "line_start", 0),
+                            "line_end": getattr(p, "line_end", 0),
+                            "raw_code": getattr(p, "raw_code", ""),
+                            "source_code": getattr(p, "source_code", ""),
+                        }
+                        for p in file_parts
+                    ],
+                    source_file_id=file_id,
+                    source_path=source_path,
+                    target_runtime=target_runtime,
+                )
+                merge_results.append(result)
+            except Exception as exc:
+                warnings.append(f"Merge failed for {file_id}: {exc}")
+                logger.warning("merge_error", file_id=file_id, error=str(exc))
+
+        logger.info(
+            "merge_complete",
+            files_merged=len(merge_results),
+            total_files=len(partitions_by_file),
+        )
+        track_event("stage_complete", {"stage": "merge", "files_merged": str(len(merge_results))})
+        track_metric("stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "merge"})
+        return {
+            "merge_results": merge_results,
+            "stage": PipelineStage.COMPLETE.value,
             "warnings": warnings,
         }
 

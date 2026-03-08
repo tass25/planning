@@ -76,6 +76,9 @@ class PipelineState(TypedDict):
     conversion_results: list         # ConversionResult objects
     validation_passed: int           # Number of conversions passing validation
 
+    # ---- L4 outputs ----
+    merge_results: list              # Per-file merge outputs from MergeAgent
+
     # ---- Checkpointing ----
     last_checkpoint_block: int       # Last checkpointed block number
     checkpoint_key: Optional[str]

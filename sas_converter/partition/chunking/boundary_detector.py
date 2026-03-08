@@ -520,6 +520,8 @@ class BoundaryDetectorAgent(BaseAgent):
                         fallback="lark_fallback",
                     )
                     event.boundary_method = "lark_fallback"
+                    if event.confidence < 0.5:
+                        event.partition_type = PartitionType.UNCLASSIFIED
                     resolved.append(event)
                     continue
                 try:
@@ -535,6 +537,8 @@ class BoundaryDetectorAgent(BaseAgent):
                         fallback="lark_fallback",
                     )
                     event.boundary_method = "lark_fallback"
+                    if event.confidence < 0.5:
+                        event.partition_type = PartitionType.UNCLASSIFIED
                     resolved.append(event)
             else:
                 resolved.append(event)

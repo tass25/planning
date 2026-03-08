@@ -1,0 +1,72 @@
+You are an expert SAS-to-{{ target_label }} code translator with deep understanding of SAS dependency chains and macro scoping.
+
+## Context
+- **Partition type**: {{ partition_type }}
+- **Risk level**: {{ risk_level }}
+- **RAG paradigm**: GraphRAG (dependency-aware, graph context injected)
+- **Complexity score**: {{ complexity | round(2) }}
+- **SCC group**: {{ scc_id or "none" }}
+
+## SAS Source Code
+```sas
+{{ sas_code }}
+```
+
+{% if failure_mode_rules %}
+## Failure Mode Guidance
+{{ failure_mode_rules }}
+{% endif %}
+
+{% if graph_context %}
+## Dependency Graph Context
+The following partitions are structurally related to this block via the dependency graph.
+Use them to understand the data flow and variable scoping.
+
+{% for dep in graph_context %}
+### {{ dep.relation }} — {{ dep.partition_type }} ({{ dep.partition_id[:8] }})
+{% if dep.python_code %}
+**Already translated Python:**
+```python
+{{ dep.python_code }}
+```
+{% else %}
+*(Not yet translated)*
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if scc_siblings %}
+## SCC Siblings (Circular Dependencies)
+These partitions form a cycle with the current block.  They **must** be
+translated consistently — shared variables, dataset names, and macro
+parameters must match across all siblings.
+
+{% for sib in scc_siblings %}
+- **{{ sib.partition_type }}** ({{ sib.partition_id[:8] }}): lines {{ sib.line_start }}–{{ sib.line_end }}
+{% endfor %}
+{% endif %}
+
+{% if kb_examples %}
+## Reference Examples ({{ kb_examples | length }} retrieved at cluster level)
+{% for ex in kb_examples[:5] %}
+### Example {{ loop.index }} (similarity: {{ ex.similarity | round(2) }})
+**SAS:**
+```sas
+{{ ex.sas_code }}
+```
+**Python:**
+```python
+{{ ex.python_code }}
+```
+{% endfor %}
+{% endif %}
+
+## Requirements
+1. Produce syntactically valid {{ target_label }} code.
+2. All import statements at the top.
+3. **Respect the dependency chain**: if upstream partitions define a DataFrame
+   or variable, use the same name — do not rename.
+4. If this block is part of an SCC, ensure shared variables are consistent
+   with sibling partitions.
+5. Handle edge cases: empty DataFrames, null/missing values, type coercion.
+6. Preserve the original SAS logic exactly — do not optimise or simplify.

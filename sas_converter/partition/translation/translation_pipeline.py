@@ -74,6 +74,8 @@ class TranslationPipeline:
                 f"# PARTIAL: Validation failed ({validation.error_msg})\n"
                 + conversion.python_code
             )
+        else:
+            conversion.validation_passed = True
 
         conversion.retry_count = retry_count
         self._log_quality(conversion)

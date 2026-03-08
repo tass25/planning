@@ -5,13 +5,13 @@ Post-translation validation:
 2. exec() sandbox on synthetic 100-row DataFrame (5s timeout)
 3. Routing: pass → L4, fail + retry < 2 → retranslate, fail + retry >= 2 → PARTIAL
 
-Windows-compatible: uses threading-based timeout (no signal.alarm).
+Uses subprocess-based isolation to kill runaway code on timeout.
 """
 
 from __future__ import annotations
 
 import ast
-import threading
+import multiprocessing
 from typing import Optional
 
 import numpy as np
@@ -45,12 +45,65 @@ class ValidationResult:
         self.output = output
 
 
+def _sandbox_exec(code: str, result_dict: dict) -> None:
+    """Run code in a sandboxed subprocess (target for multiprocessing).
+
+    Provides: pd, np, df (synthetic 100-row DataFrame).
+    Blocks dangerous builtins.
+    """
+    import numpy as _np
+    import pandas as _pd
+
+    blocked = frozenset({
+        "open", "__import__", "exec", "eval", "compile",
+        "exit", "quit", "input", "breakpoint",
+        "getattr", "setattr", "delattr",
+        "globals", "locals", "vars", "dir",
+        "type", "classmethod", "staticmethod", "super",
+        "memoryview",
+    })
+
+    rng = _np.random.default_rng(42)
+    df = _pd.DataFrame({
+        "id": range(1, 101),
+        "amount": rng.uniform(10, 1000, 100).round(2),
+        "category": rng.choice(["A", "B", "C", "D"], 100),
+        "date": _pd.date_range("2023-01-01", periods=100, freq="D"),
+        "flag": rng.choice([0, 1], 100),
+    })
+
+    if isinstance(__builtins__, dict):
+        safe_builtins = {
+            k: v for k, v in __builtins__.items()
+            if k not in blocked and not k.startswith("_")
+        }
+    else:
+        safe_builtins = {
+            k: getattr(__builtins__, k)
+            for k in dir(__builtins__)
+            if k not in blocked and not k.startswith("_")
+        }
+
+    namespace = {
+        "__builtins__": safe_builtins,
+        "pd": _pd,
+        "np": _np,
+        "df": df,
+    }
+
+    try:
+        exec(code, namespace)  # noqa: S102 — sandboxed in subprocess
+        result_dict["ok"] = True
+    except Exception as e:
+        result_dict["error"] = str(e)
+
+
 class ValidationAgent(BaseAgent):
     """Agent #13: Post-translation validation.
 
     For test_coverage_type='full':
       - ast.parse() syntax check
-      - exec() on synthetic 100-row DataFrame
+      - exec() in a subprocess sandbox (killed on timeout)
 
     For test_coverage_type='structural_only':
       - ast.parse() only (no execution)
@@ -130,83 +183,32 @@ class ValidationAgent(BaseAgent):
         except SyntaxError as e:
             return False, str(e)
 
-    # Builtins blocked from the exec() sandbox to prevent escape.
-    _BLOCKED_BUILTINS = frozenset({
-        "open", "__import__", "exec", "eval", "compile",
-        "exit", "quit", "input", "breakpoint",
-        # Block attribute introspection to prevent getattr(__builtins__, ...) bypass
-        "getattr", "setattr", "delattr",
-        # Block reflection helpers that expose internals
-        "globals", "locals", "vars", "dir",
-        # Block type introspection that enables __subclasses__() escape
-        "type", "classmethod", "staticmethod", "super",
-        "memoryview",  # can leak raw memory
-    })
-
-    def _build_sandbox_namespace(self) -> dict:
-        """Build a restricted namespace for exec() sandboxing.
-
-        Provides: pd, np, df (synthetic 100-row DataFrame).
-        Removes dangerous builtins (see ``_BLOCKED_BUILTINS``).
-        """
-        rng = np.random.default_rng(42)
-        df = pd.DataFrame({
-            "id": range(1, 101),
-            "amount": rng.uniform(10, 1000, 100).round(2),
-            "category": rng.choice(["A", "B", "C", "D"], 100),
-            "date": pd.date_range("2023-01-01", periods=100, freq="D"),
-            "flag": rng.choice([0, 1], 100),
-        })
-
-        blocked = self._BLOCKED_BUILTINS
-
-        if isinstance(__builtins__, dict):
-            safe_builtins = {
-                k: v for k, v in __builtins__.items()
-                if k not in blocked and not k.startswith("_")
-            }
-        else:
-            safe_builtins = {
-                k: getattr(__builtins__, k)
-                for k in dir(__builtins__)
-                if k not in blocked and not k.startswith("_")
-            }
-
-        return {
-            "__builtins__": safe_builtins,
-            "pd": pd,
-            "np": np,
-            "df": df,
-        }
-
     def _execute_with_timeout(
         self, code: str, timeout: int = VALIDATION_TIMEOUT
     ) -> tuple[bool, str, Optional[object]]:
-        """Execute code in sandbox with threading-based timeout (Windows-safe)."""
-        namespace = self._build_sandbox_namespace()
-        result_container: dict = {"ok": False, "error": "", "output": None}
+        """Execute code in a subprocess sandbox. Kills the process on timeout.
 
-        def _run():
-            try:
-                exec(code, namespace)  # noqa: S102 — sandboxed
-                result_container["ok"] = True
-                result_container["output"] = {
-                    k: v
-                    for k, v in namespace.items()
-                    if not k.startswith("_") and k not in ("pd", "np", "df")
-                }
-            except Exception as e:
-                result_container["error"] = str(e)
+        Uses multiprocessing instead of threading so runaway code is truly
+        terminated via process kill rather than leaked as a daemon thread.
+        """
+        manager = multiprocessing.Manager()
+        result_dict = manager.dict({"ok": False, "error": "", "output": None})
 
-        thread = threading.Thread(target=_run, daemon=True)
-        thread.start()
-        thread.join(timeout=timeout)
+        proc = multiprocessing.Process(
+            target=_sandbox_exec,
+            args=(code, result_dict),
+            daemon=True,
+        )
+        proc.start()
+        proc.join(timeout=timeout)
 
-        if thread.is_alive():
-            return False, f"Timeout after {timeout}s", None
+        if proc.is_alive():
+            proc.kill()
+            proc.join(timeout=2)
+            return False, f"Timeout after {timeout}s (process killed)", None
 
         return (
-            result_container["ok"],
-            result_container["error"],
-            result_container["output"],
+            bool(result_dict.get("ok", False)),
+            str(result_dict.get("error", "")),
+            result_dict.get("output"),
         )

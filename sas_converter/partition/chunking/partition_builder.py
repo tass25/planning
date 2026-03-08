@@ -8,9 +8,13 @@ Risk / complexity fields are populated by ComplexityAgent + StrategyAgent in Wee
 from __future__ import annotations
 
 import hashlib
+import re
 from uuid import UUID
 
 from partition.base_agent import BaseAgent
+
+# Regex to extract PROC subtype, e.g. PROC MEANS → "MEANS"
+_PROC_SUBTYPE_RE = re.compile(r"^\s*PROC\s+(\w+)", re.IGNORECASE | re.MULTILINE)
 from partition.models.enums import PartitionType, RiskLevel, ConversionStatus
 from partition.models.partition_ir import PartitionIR
 
@@ -81,6 +85,8 @@ class PartitionBuilderAgent(BaseAgent):
                     "raptor_cluster_id":   None,
                     "raptor_root_id":      None,
                     "raptor_summary_tier": None,
+                    # ── PROC sub-classification ──────────────────────────────
+                    "proc_subtype":        self._extract_proc_subtype(event),
                     # ── SCC / Graph placeholders (Week 7) ────────────────────
                     "scc_id":              None,
                 },
@@ -89,3 +95,14 @@ class PartitionBuilderAgent(BaseAgent):
 
         self.logger.info("partitions_built", count=len(partitions))
         return partitions
+
+    @staticmethod
+    def _extract_proc_subtype(event: BlockBoundaryEvent) -> str | None:
+        """Extract PROC subtype (SORT, MEANS, REG, etc.) from source.
+
+        Returns None if the block is not a PROC_BLOCK or no subtype found.
+        """
+        if event.partition_type not in (PartitionType.PROC_BLOCK, PartitionType.SQL_BLOCK):
+            return None
+        m = _PROC_SUBTYPE_RE.search(event.raw_code)
+        return m.group(1).upper() if m else None

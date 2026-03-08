@@ -29,6 +29,7 @@ build/
 *.duckdb
 *.gpickle
 lancedb_data/
+artifacts/
 data/
 
 # Logs

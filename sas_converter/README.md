@@ -12,17 +12,21 @@ Input: SAS file(s) / directory
          v
 +-------------------------------+
 |   PartitionOrchestrator #15   |   LangGraph StateGraph
-|   (9 nodes, linear pipeline)  |
+|   (8 nodes, linear pipeline)  |
 |                               |
-|   L2-A  Entry Layer           |   FileAnalysis + CrossFileDeps + Registry
+|   L2-A  Entry Layer           |   FileProcessor (scan + deps + registry)
 |     |                         |
-|   L2-B  Streaming Layer       |   Async StreamAgent + StateAgent
+|   L2-B  Streaming Layer       |   StreamingParser (async stream + FSM)
 |     |                         |
-|   L2-C  Chunking Layer        |   BoundaryDetector + PartitionBuilder + RAPTOR
+|   L2-C  Chunking Layer        |   ChunkingAgent + RAPTORPartitionAgent
 |     |                         |
-|   L2-D  Complexity Layer      |   ComplexityAgent (LogReg+Platt) + Strategy
+|   L2-D  Complexity Layer      |   RiskRouter (LogReg+Platt + Strategy)
 |     |                         |
-|   L2-E  Persistence Layer     |   SQLite + NetworkX graph + SCC detection
+|   L2-E  Persistence Layer     |   PersistenceAgent + IndexAgent (SQLite + DAG)
+|     |                         |
+|   L3   Translation Layer      |   TranslationPipeline (translate + validate)
+|     |                         |
+|   L4   Merge Layer            |   MergeAgent (assemble scripts + reports)
 |                               |
 +-------------------------------+
          |
@@ -85,25 +89,27 @@ $env:PYTHONPATH = "$PWD"
 
 ```
 Stage/
-|-- main.py                          # Legacy single-file entry point
+|-- main.py                          # DEPRECATED — use run_pipeline.py
 |-- scripts/
-|   +-- run_pipeline.py              # E2E orchestrator CLI
+|   +-- run_pipeline.py              # ★ Primary CLI entry point
 +-- sas_converter/
     |-- partition/
     |   |-- base_agent.py            # BaseAgent ABC (retry, tracing)
     |   |-- logging_config.py        # structlog JSON configuration
     |   |-- models/                  # Pydantic models (PartitionIR, FileMetadata, enums)
-    |   |-- entry/                   # L2-A: file scan, cross-file deps, registry
-    |   |-- streaming/               # L2-B: async streaming with backpressure
-    |   |-- chunking/                # L2-C: boundary detection + partition building
+    |   |-- entry/                   # L2-A: FileProcessor (scan + deps + registry)
+    |   |-- streaming/               # L2-B: StreamingParser (async stream + FSM)
+    |   |-- chunking/                # L2-C: ChunkingAgent (boundary + partition)
     |   |-- raptor/                  # L2-C: RAPTOR semantic clustering (NomicEmbed + GMM)
-    |   |-- complexity/              # L2-D: risk scoring (LogReg+Platt) + strategy routing
+    |   |-- complexity/              # L2-D: RiskRouter (LogReg+Platt + strategy)
     |   |-- persistence/             # L2-E: SQLite persistence (content-hash dedup)
     |   |-- index/                   # L2-E: NetworkX DAG + SCC detection + hop cap
+    |   |-- translation/             # L3: TranslationPipeline (LLM + validation)
+    |   |-- merge/                   # L4: MergeAgent (script assembly + reports)
     |   |-- orchestration/           # Orchestrator: LangGraph + Redis + DuckDB audit
     |   |-- db/                      # SQLite + DuckDB managers
     |   +-- config/                  # Project configuration
-    |-- tests/                       # 221 pytest tests
+    |-- tests/                       # 200+ pytest tests
     |-- benchmark/                   # 721-block accuracy benchmark (79.3%)
     |-- knowledge_base/
     |   +-- gold_standard/           # 50 .sas + 50 .gold.json (3 tiers)
@@ -120,31 +126,18 @@ Stage/
 | Hard (gsh_) | 15 | ~151 | Enterprise ETL, nested macros, cross-file |
 | **Total** | **50** | **721** | |
 
-## Agents
+## Agents (Consolidated — 8 Agents, 8 Pipeline Nodes)
 
 | # | Agent | Layer | Purpose |
 |---|-------|-------|---------|
-| 1 | FileAnalysisAgent | L2-A | Scan .sas files, detect encoding, compute hashes |
-| 2 | CrossFileDependencyResolver | L2-A | Resolve %INCLUDE, LIBNAME, &macro refs |
-| 3 | RegistryWriterAgent | L2-A | Persist FileMetadata to SQLite |
-| 4 | DataLineageExtractor | L2-A | Track dataset-level read/write lineage |
-| 5 | StreamAgent | L2-B | Async line-by-line streaming producer |
-| 6 | StateAgent | L2-B | FSM-based parsing state tracker |
-| 7 | BoundaryDetectorAgent | L2-C | Rule-based + LLM boundary detection |
-| 8 | PartitionBuilderAgent | L2-C | Build PartitionIR from boundary events |
-| 9 | RAPTORPartitionAgent | L2-C | Semantic clustering (NomicEmbed + GMM) |
-| 10 | ComplexityAgent | L2-D | LogReg + Platt scaling (ECE = 0.06) |
-| 11 | StrategyAgent | L2-D | Risk × Type routing table |
-| 12 | PersistenceAgent | L2-E | SQLite upsert with content-hash dedup |
-| 13 | IndexAgent | L2-E | NetworkX DAG, SCC detection, dynamic hop cap |
-| 14 | TranslationAgent | L3 | SAS → Python/PySpark via LLM (6 failure modes) |
-| 15 | ValidationAgent | L3 | Syntax + sandboxed exec validation |
-| 16 | PartitionOrchestrator | Orch | LangGraph StateGraph (11 nodes) |
-| 17 | LLMAuditLogger | Orch | DuckDB audit for every LLM call |
-| 18 | ReportAgent | Util | Per-file conversion report (MD + HTML) |
-| 19 | FeedbackIngestionAgent | Util | Human correction → KB update loop |
-| 20 | ConversionQualityMonitor | Util | Batch quality metrics aggregation |
-| 21 | RetrainTrigger | Util | Auto-retrain on drift detection |
+| 1 | FileProcessor | L2-A | Scan .sas files, resolve cross-file deps, write to SQLite registry |
+| 2 | StreamingParser | L2-B | Async line-by-line streaming + FSM state tracking |
+| 3 | ChunkingAgent | L2-C | Rule-based + LLM boundary detection, partition building |
+| 4 | RAPTORPartitionAgent | L2-C | Semantic clustering (NomicEmbed + GMM) |
+| 5 | RiskRouter | L2-D | LogReg + Platt scaling (ECE = 0.06) + strategy routing |
+| 6 | PersistenceAgent + IndexAgent | L2-E | SQLite upsert + NetworkX DAG + SCC detection |
+| 7 | TranslationPipeline | L3 | SAS → Python/PySpark via LLM (6 failure modes) + validation |
+| 8 | MergeAgent | L4 | Import consolidation + script assembly + conversion reports |
 
 ## Metrics
 
@@ -152,10 +145,10 @@ Stage/
 |--------|-------|
 | Boundary accuracy | 79.3% (572/721 blocks) |
 | ECE (calibration) | 0.06 (target < 0.08) |
-| Tests passing | 221 |
+| Tests passing | 200+ |
 | Gold standard files | 50 |
 | KB pairs (target) | 330 (`scripts/expand_kb.py --target 330`) |
-| Pipeline stages | 12 (INIT through COMPLETE) |
+| Pipeline nodes | 8 (file_process → merge → END) |
 
 > **Boundary accuracy gap note:** The cahier des charges targets 90% boundary
 > accuracy. The current 79.3% reflects a 50-file gold corpus; accuracy improves

@@ -1,0 +1,71 @@
+You are an expert SAS-to-{{ target_label }} code translator operating in **Agentic RAG** mode.
+You have autonomous control over retrieval strategy and must produce the highest-quality translation possible.
+
+## Context
+- **Partition type**: {{ partition_type }}
+- **Risk level**: {{ risk_level }}
+- **RAG paradigm**: Agentic RAG (adaptive retrieval, escalation, retry)
+- **Complexity score**: {{ complexity | round(2) }}
+- **Retrieval level**: {{ raptor_level }} ({{ retrieval_k }} examples retrieved)
+- **Attempt**: {{ attempt_number }} of {{ max_attempts }}
+
+## SAS Source Code
+```sas
+{{ sas_code }}
+```
+
+{% if failure_mode_rules %}
+## Failure Mode Guidance
+{{ failure_mode_rules }}
+{% endif %}
+
+{% if previous_issues %}
+## Previous Attempt Issues
+The following problems were identified in the previous translation attempt.
+You **must** address every one of them in this attempt.
+
+{% for issue in previous_issues %}
+{{ loop.index }}. {{ issue }}
+{% endfor %}
+{% endif %}
+
+{% if reflection %}
+## Agent Reflection
+{{ reflection }}
+{% endif %}
+
+{% if graph_context %}
+## Dependency Graph Context (escalated from GraphRAG)
+{% for dep in graph_context %}
+### {{ dep.relation }} — {{ dep.partition_type }} ({{ dep.partition_id[:8] }})
+{% if dep.python_code %}
+```python
+{{ dep.python_code }}
+```
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if kb_examples %}
+## Reference Examples ({{ kb_examples | length }} retrieved, adaptive k={{ retrieval_k }})
+{% for ex in kb_examples %}
+### Example {{ loop.index }} (similarity: {{ ex.similarity | round(2) }}{% if ex.failure_mode %}, mode: {{ ex.failure_mode }}{% endif %})
+**SAS:**
+```sas
+{{ ex.sas_code }}
+```
+**Python:**
+```python
+{{ ex.python_code }}
+```
+{% endfor %}
+{% endif %}
+
+## Requirements
+1. Produce syntactically valid {{ target_label }} code.
+2. All import statements at the top.
+3. Use idiomatic {{ target_label }} patterns.
+4. **Address all previous issues** if this is a retry attempt.
+5. Handle edge cases: empty DataFrames, null/missing values, type coercion.
+6. Preserve the original SAS logic exactly.
+7. Add comments explaining any non-trivial translation decisions.

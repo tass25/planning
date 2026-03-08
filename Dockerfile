@@ -12,9 +12,7 @@ RUN apt-get update && \
 
 COPY sas_converter/requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install \
-    -r requirements.txt \
-    langgraph redis markdown2 \
-    azure-monitor-opentelemetry opentelemetry-api
+    -r requirements.txt
 
 # ============================================================
 # Stage 2: Runtime image (slim)
@@ -29,7 +27,7 @@ COPY --from=builder /install /usr/local
 # Copy application code
 COPY sas_converter/ ./sas_converter/
 COPY main.py conftest.py pyproject.toml ./
-COPY config/ ./config/
+COPY sas_converter/config/ ./sas_converter/config/
 COPY scripts/ ./scripts/
 
 # Create output / data directories
@@ -41,5 +39,5 @@ USER appuser
 
 EXPOSE 8000
 
-# Default: run the pipeline API (override with docker run ... CMD)
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Default: run the orchestrator pipeline CLI
+CMD ["python", "scripts/run_pipeline.py", "--help"]

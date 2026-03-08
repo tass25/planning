@@ -28,7 +28,9 @@ class ConversionResult(BaseModel):
     model_used: str = ""
     kb_examples_used: list[str] = Field(default_factory=list)
     retry_count: int = 0
+    validation_passed: bool = False
     trace_id: UUID = Field(default_factory=uuid4)
+    rag_paradigm: str = ""
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )

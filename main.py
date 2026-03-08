@@ -1,15 +1,16 @@
-"""main.py — RAPTOR v2 SAS→Python Partition Pipeline entry point.
+"""main.py — DEPRECATED legacy entry point.
 
-Usage:
-    cd C:\\Users\\labou\\Desktop\\Stage
+Use ``scripts/run_pipeline.py`` instead for the full 8-node orchestrated pipeline.
+This file is retained only for isolated L2-A/B/C debugging.
+
+Usage (DEPRECATED):
     venv\\Scripts\\python main.py --file path/to/file.sas
     venv\\Scripts\\python main.py --dir  path/to/sas/corpus/
 
-Layers executed:
+Layers executed (L2-A/B/C only — no translation, validation, or merge):
     L2-A : FileAnalysisAgent → CrossFileDependencyResolver → RegistryWriterAgent
     L2-B : StreamAgent → StateAgent
     L2-C : BoundaryDetectorAgent → PartitionBuilderAgent
-    (L2-D, L3, L4 — Week 4+ : ComplexityAgent, TranslationAgent, etc.)
 """
 
 from __future__ import annotations

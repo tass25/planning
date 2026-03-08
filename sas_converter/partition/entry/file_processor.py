@@ -10,6 +10,7 @@ from pathlib import Path
 from uuid import UUID
 
 from partition.base_agent import BaseAgent
+from partition.db.sqlite_manager import get_engine, init_db
 from partition.models.file_metadata import FileMetadata
 
 from .file_analysis_agent import FileAnalysisAgent
@@ -34,17 +35,22 @@ class FileProcessor(BaseAgent):
     async def process(  # type: ignore[override]
         self,
         input_paths: list[str],
-        engine,
+        engine=None,
     ) -> tuple[list[FileMetadata], dict]:
         """Scan files, resolve cross-file deps, write to registry.
 
         Args:
             input_paths: SAS file/directory paths to process.
             engine: SQLAlchemy engine for persistence.
+                    If None, creates a default engine internally.
 
         Returns:
             (file_metas, cross_file_deps) tuple.
         """
+        # Create engine if not provided — fixes silent persistence failure
+        if engine is None:
+            engine = get_engine()
+            init_db(engine)
         all_metas: list[FileMetadata] = []
         errors: list[str] = []
 

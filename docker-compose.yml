@@ -13,18 +13,16 @@ services:
       timeout: 3s
       retries: 5
 
-  api:
+  pipeline:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
     env_file:
       - .env
     environment:
       - REDIS_URL=redis://redis:6379/0
     volumes:
-      - ./config:/app/config
+      - ./sas_converter/config:/app/sas_converter/config
       - ./output:/app/output
       - ./lancedb_data:/app/lancedb_data
     depends_on:

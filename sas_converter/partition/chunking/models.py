@@ -22,6 +22,7 @@ COVERAGE_MAP: dict[PartitionType, str] = {
     PartitionType.LOOP_BLOCK:         "structural_only",
     PartitionType.GLOBAL_STATEMENT:   "structural_only",
     PartitionType.INCLUDE_REFERENCE:  "structural_only",
+    PartitionType.UNCLASSIFIED:       "structural_only",
 }
 
 
