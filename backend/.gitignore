@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Databases & runtime artifacts
+*.db
+*.duckdb
+*.gpickle
+lancedb_data/
+
+# Logs
+logs/*.log
+
+# Uploads (user data)
+uploads/
+
+# pytest
+.pytest_cache/
+htmlcov/
+.coverage
+
+# mypy
+.mypy_cache/

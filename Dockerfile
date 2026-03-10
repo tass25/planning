@@ -10,7 +10,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc g++ && \
     rm -rf /var/lib/apt/lists/*
 
-COPY sas_converter/requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install \
     -r requirements.txt
 
@@ -24,20 +24,20 @@ WORKDIR /app
 # Copy pre-built packages from builder
 COPY --from=builder /install /usr/local
 
-# Copy application code
-COPY sas_converter/ ./sas_converter/
-COPY main.py conftest.py pyproject.toml ./
-COPY sas_converter/config/ ./sas_converter/config/
-COPY scripts/ ./scripts/
+# Copy backend code
+COPY backend/ ./backend/
+COPY pyproject.toml ./
 
 # Create output / data directories
-RUN mkdir -p output logs lancedb_data
+RUN mkdir -p output logs lancedb_data backend/uploads
 
 # Non-root user for security
 RUN useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser
 
+ENV PYTHONPATH=/app/backend
+
 EXPOSE 8000
 
-# Default: run the orchestrator pipeline CLI
-CMD ["python", "scripts/run_pipeline.py", "--help"]
+# Default: run the API server
+CMD ["python", "-m", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

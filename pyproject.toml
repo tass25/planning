@@ -9,7 +9,7 @@ description = "SAS-to-Python partition-based conversion pipeline"
 requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
-testpaths = ["sas_converter/tests"]
+testpaths = ["backend/tests"]
 filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.pytest-asyncio]

@@ -47,6 +47,13 @@ htmlcov/
 # mypy
 .mypy_cache/
 
-# Debug artefacts — transient outputs from scripts/debug/ sessions
-sas_converter/scripts/debug/output/*.txt
-# (existing .txt captures in the folder are tracked intentionally as audit trail)
+# Node modules
+node_modules/
+.vite/
+
+# Legacy folder (to be deleted manually)
+sas_converter/
+codara-ui-temp/
+
+# Debug artefacts
+backend/scripts/debug/output/*.txt
