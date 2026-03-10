@@ -37,7 +37,7 @@ opentelemetry-api~=1.25.0
 # Orchestration / Infrastructure
 langgraph~=0.2.0
 redis~=5.2.0
-markdown2~=2.5.0
+markdown2~=2.5.5
 # API server
 fastapi~=0.115.0
 uvicorn[standard]~=0.34.0
