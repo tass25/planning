@@ -827,7 +827,7 @@ Graph library & NetworkX & igraph, CuGraph & BSD, pure Python, in-memory, SCC + 
 Parser & Lark (LALR) & ANTLR4, regex, PLY & Handles nested structures; pure Python; no Java runtime \\
 Complexity & Radon & Manual AST walk & CC computation out of box; supplemented with 4 custom features \\
 ML model & sklearn LR + Platt & XGBoost, PyTorch & 500 examples / 5 features $\to$ LR optimal; interpretable; calibrated \\
-Orchestration & LangGraph & Custom FSM, Airflow & StateGraph v3.0.0 with 7-node graph, checkpoints built-in \\
+Orchestration & LangGraph & Custom FSM, Airflow & StateGraph v3.0.0 with 8-node graph, checkpoints built-in \\
 Checkpoints & Redis & SQLite, filesystem & Atomic SETEX, TTL auto-cleanup, no lock contention \\
 Analytics & DuckDB & Pandas, SQLite, PostgreSQL & Columnar OLAP, SQL-queryable, embedded, fast aggregations \\
 Async I/O & aiofiles & — & Only viable async file reader in Python \\
@@ -850,7 +850,7 @@ Containerization & Docker + docker-compose & Kubernetes, Podman & Multi-stage bu
 \subsection{Consolidated Architecture — 8 Agents (v3.0.0)}
 
 \begin{infobox}[Consolidation Rationale]
-The original 16-agent design was consolidated to 8 coarse-grained agents to reduce inter-agent communication overhead, simplify the orchestrator graph (11 nodes $\to$ 7 nodes), and improve maintainability. Each consolidated agent encapsulates a coherent pipeline stage. Pipeline version: \textbf{3.0.0}.
+The original 16-agent design was consolidated to 8 coarse-grained agents to reduce inter-agent communication overhead, simplify the orchestrator graph (11 nodes $\to$ 8 nodes), and improve maintainability. Each consolidated agent encapsulates a coherent pipeline stage. Pipeline version: \textbf{3.0.0}.
 \end{infobox}
 
 \begin{table}[H]
@@ -874,7 +874,7 @@ The original 16-agent design was consolidated to 8 coarse-grained agents to redu
 \end{tabularx}
 \end{table}
 
-\subsection{Orchestrator Graph (7 Nodes)}
+\subsection{Orchestrator Graph (8 Nodes)}
 
 \begin{infobox}[LangGraph StateGraph v3.0.0]
 \small
@@ -885,6 +885,7 @@ The original 16-agent design was consolidated to 8 coarse-grained agents to redu
 \texttt{risk\_routing} $\longrightarrow$
 \texttt{persist\_index} $\longrightarrow$
 \texttt{translation} $\longrightarrow$
+\texttt{merge} $\longrightarrow$
 \texttt{END}
 \end{infobox}
 
@@ -1457,7 +1458,7 @@ Differential testing & \cmark & 45\% coverage, 6 edge case categories \\
 Agent count discipline & \cmark & 8 consolidated agents (FileProcessor + StreamingParser + ChunkingAgent + RAPTORPartitionAgent + RiskRouter + TranslationPipeline + MergeAgent + PersistenceAgent+IndexAgent); Pipeline v3.0.0 \\
 Dependency graph (multi-file) & \cmark & NetworkX DiGraph + SCC + cross\_file\_deps \\
 LLM audit logging & \cmark & DuckDB \texttt{llm\_audit} with \texttt{trace\_id} + Azure Monitor telemetry \\
-Observability \& Telemetry & \cmark & Azure Monitor + OpenTelemetry; 7 nodes instrumented; graceful no-op \\
+Observability \& Telemetry & \cmark & Azure Monitor + OpenTelemetry; 8 nodes instrumented; graceful no-op \\
 CI/CD Pipeline & \cmark & GitHub Actions (tests + CodeQL + Dependabot) \\
 Security Scanning & \cmark & CodeQL + Dependabot + secret scanning \\
 Containerization & \cmark & Docker multi-stage build + docker-compose (Redis + API) \\

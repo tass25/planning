@@ -195,3 +195,55 @@ RUN;
         assert "work.invalid" in write_datasets
         assert "work.valid" in write_datasets
         assert len(writes) >= 2
+
+    def test_proc_data_read(self, tmp_path):
+        """PROC SORT DATA=ds → detects TABLE_READ for the input dataset."""
+        sas = _write_sas(tmp_path, "t6.sas", """\
+PROC SORT DATA=loan_applications;
+BY applicant_id;
+RUN;
+PROC MEANS DATA=loan_decisions NOPRINT;
+CLASS decision;
+VAR loan_amount;
+OUTPUT OUT=decision_summary
+N=application_count;
+RUN;
+""")
+        fm = _make_metadata(sas)
+        engine = get_engine(str(tmp_path / "test.db"))
+        init_db(engine)
+        _insert_registry(engine, fm)
+
+        _run_extractor([fm], engine)
+        rows = _query_rows(engine)
+
+        reads = [r for r in rows if r.lineage_type == "TABLE_READ"]
+        read_datasets = [r.source_dataset for r in reads]
+
+        assert "loan_applications" in read_datasets
+        assert "loan_decisions" in read_datasets
+        assert len(reads) >= 2
+
+    def test_output_out_write(self, tmp_path):
+        """OUTPUT OUT=ds → detects TABLE_WRITE for the output dataset."""
+        sas = _write_sas(tmp_path, "t7.sas", """\
+PROC MEANS DATA=sales NOPRINT;
+CLASS region;
+VAR revenue;
+OUTPUT OUT=region_summary
+MEAN=avg_revenue
+SUM=total_revenue;
+RUN;
+""")
+        fm = _make_metadata(sas)
+        engine = get_engine(str(tmp_path / "test.db"))
+        init_db(engine)
+        _insert_registry(engine, fm)
+
+        _run_extractor([fm], engine)
+        rows = _query_rows(engine)
+
+        writes = [r for r in rows if r.lineage_type == "TABLE_WRITE"]
+        write_datasets = [r.target_dataset for r in writes]
+
+        assert "region_summary" in write_datasets

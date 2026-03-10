@@ -33,7 +33,7 @@
 | **10** | L3 | TranslationAgent + ValidationAgent (KB at 250 from Week 9) | P2 | TranslationAgent, ValidationAgent | Translation success ≥ 70%, validation gate works |
 | **11** | L4+CL | Merge + ReportAgent + Continuous Learning + KB to 330 | P2 | ReportAgent, FeedbackIngestionAgent, ConversionQualityMonitor | Merged scripts ≥ 95% syntax valid, reports generated |
 | **12** | Eval | Ablation study: RAPTOR vs flat | P2 | — | RAPTOR hit-rate@5 > 0.82, advantage ≥ 10% on MOD/HIGH |
-| **13** | Consolidation | Agent consolidation (21→8) + Enterprise features (telemetry, CI/CD, Docker, security). Audit grade A-. | P3 | — | 8 agents, 7 nodes, v3.0.0, 200 tests pass |
+| **13** | Consolidation | Agent consolidation (21→8) + Enterprise features (telemetry, CI/CD, Docker, security). Audit grade A-. | P3 | — | 8 agents, 8 nodes, v3.0.0, 200 tests pass |
 | **14** | Buffer | Defense slides + polish plots + extra KB pairs + README | P3 | — | All docs finalized |
 
 ---

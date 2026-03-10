@@ -1,7 +1,7 @@
 """DataLineageExtractor — Extract table-level data lineage from SAS code.
 
-Detects dataset reads (SET, MERGE, FROM) and dataset writes
-(DATA output, CREATE TABLE, INSERT INTO) and stores edges in the
+Detects dataset reads (SET, MERGE, FROM, JOIN, PROC DATA=) and dataset writes
+(DATA output, CREATE TABLE, INSERT INTO, OUTPUT OUT=) and stores edges in the
 ``data_lineage`` SQLite table.
 
 Phase 1 (Week 1–2): table-level lineage via regex.
@@ -39,6 +39,12 @@ JOIN_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# PROC ... DATA=dataset — input dataset for PROC SORT, PROC MEANS, PROC EXPORT, etc.
+PROC_DATA_PATTERN = re.compile(
+    r"\bPROC\s+\w+\b[^;]*\bDATA\s*=\s*([\w.]+)",
+    re.IGNORECASE,
+)
+
 # ── Regex patterns — Table-level writes ───────────────────────────────────────
 
 DATA_OUTPUT_PATTERN = re.compile(
@@ -52,6 +58,12 @@ CREATE_TABLE_PATTERN = re.compile(
 
 INSERT_INTO_PATTERN = re.compile(
     r"\bINSERT\s+INTO\s+([\w.]+)", re.IGNORECASE,
+)
+
+# OUTPUT OUT=dataset — output dataset in PROC steps (PROC MEANS, PROC FREQ, etc.)
+OUTPUT_OUT_PATTERN = re.compile(
+    r"\bOUTPUT\s+OUT\s*=\s*([\w.]+)",
+    re.IGNORECASE,
 )
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -89,8 +101,8 @@ class DataLineageExtractor(BaseAgent):
     """Scan SAS content for table-level data lineage and persist to DB.
 
     Detects:
-      - **TABLE_READ**: SET, MERGE, FROM, JOIN
-      - **TABLE_WRITE**: DATA output, CREATE TABLE, INSERT INTO
+      - **TABLE_READ**: SET, MERGE, FROM, JOIN, PROC DATA=
+      - **TABLE_WRITE**: DATA output, CREATE TABLE, INSERT INTO, OUTPUT OUT=
 
     Inputs:
         files  – list of FileMetadata (with file_path, file_id, encoding).
@@ -235,6 +247,34 @@ class DataLineageExtractor(BaseAgent):
 
         # --- TABLE_WRITE: INSERT INTO ---
         for m in INSERT_INTO_PATTERN.finditer(content):
+            ds = m.group(1)
+            line = _line_of(content, m.start())
+            rows.append(DataLineageRow(
+                source_file_id=source_file_id,
+                lineage_type="TABLE_WRITE",
+                source_dataset=None,
+                target_dataset=ds,
+                block_line_start=line,
+                block_line_end=line,
+            ))
+
+        # --- TABLE_READ: PROC ... DATA=dataset ---
+        for m in PROC_DATA_PATTERN.finditer(content):
+            ds = m.group(1)
+            if ds.lower() in _IGNORE_TOKENS:
+                continue
+            line = _line_of(content, m.start())
+            rows.append(DataLineageRow(
+                source_file_id=source_file_id,
+                lineage_type="TABLE_READ",
+                source_dataset=ds,
+                target_dataset=None,
+                block_line_start=line,
+                block_line_end=line,
+            ))
+
+        # --- TABLE_WRITE: OUTPUT OUT=dataset ---
+        for m in OUTPUT_OUT_PATTERN.finditer(content):
             ds = m.group(1)
             line = _line_of(content, m.start())
             rows.append(DataLineageRow(

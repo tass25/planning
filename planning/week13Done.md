@@ -22,7 +22,7 @@ Full 12-step audit of the codebase (v1 → v2):
 
 ### 2. Agent Consolidation — 21 → 8 Agents
 
-Consolidated 21 fine-grained agents into 8 coarse-grained agents. Orchestrator graph reduced from 11 nodes to 7 nodes. Pipeline version bumped to **3.0.0**.
+Consolidated 21 fine-grained agents into 8 coarse-grained agents. Orchestrator graph reduced from 11 nodes to 8 nodes. Pipeline version bumped to **3.0.0**.
 
 | New Agent | Replaces | Layer |
 |-----------|----------|-------|
@@ -35,10 +35,10 @@ Consolidated 21 fine-grained agents into 8 coarse-grained agents. Orchestrator g
 | `MergeAgent` | ImportConsolidator + DependencyInjector + ScriptMerger + ReportAgent | L4 |
 | `PersistenceAgent + IndexAgent` | Combined into single orchestrator node | L2-E |
 
-#### Orchestrator Graph (7 nodes)
+#### Orchestrator Graph (8 nodes)
 
 ```
-file_process → streaming → chunking → raptor → risk_routing → persist_index → translation → END
+file_process → streaming → chunking → raptor → risk_routing → persist_index → translation → merge → END
 ```
 
 #### Files Created/Modified
@@ -49,7 +49,7 @@ file_process → streaming → chunking → raptor → risk_routing → persist_
 | `partition/chunking/chunking_agent.py` | ✅ New — consolidated ChunkingAgent |
 | `partition/complexity/risk_router.py` | ✅ New — consolidated RiskRouter |
 | `partition/merge/merge_agent.py` | ✅ New — consolidated MergeAgent |
-| `partition/orchestration/orchestrator.py` | ✅ Modified — 7-node graph, PIPELINE_VERSION 3.0.0 |
+| `partition/orchestration/orchestrator.py` | ✅ Modified — 8-node graph, PIPELINE_VERSION 3.0.0 |
 | `partition/orchestration/state.py` | ✅ Modified — updated state schema |
 
 ### 3. Dead Code Removal
@@ -64,7 +64,7 @@ file_process → streaming → chunking → raptor → risk_routing → persist_
 | File | Description |
 |------|-------------|
 | `partition/orchestration/telemetry.py` | ✅ App Insights SDK wrapper — `track_event()`, `track_metric()`, `trace_span()` |
-| `partition/orchestration/orchestrator.py` | ✅ All 7 nodes instrumented with telemetry |
+| `partition/orchestration/orchestrator.py` | ✅ All 8 nodes instrumented with telemetry |
 | `partition/orchestration/audit.py` | ✅ `LLM_Call_Latency_ms` metric emitted |
 
 **Design**: Graceful no-op when `APPLICATIONINSIGHTS_CONNECTION_STRING` is not set. Zero impact on tests.

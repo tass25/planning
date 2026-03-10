@@ -4,6 +4,7 @@
 > **Layer**: L2-B (Streaming Core)
 > **Branch**: `main`
 > **Commits**: `dfd640a` → `46a4e50` → `020c3b7` → `617e9c3` → `7665486` → `b2b2dd4` → `aabf873` → `1e53f61` → `4112993` → `bb2e30f`
+> **Post-consolidation note (Week 13):** Agent counts in this document (16 agents) reflect the state at Week 2–3. Week 13 consolidated to 8 agents with 8 pipeline nodes (v3.0.0).
 
 ---
 

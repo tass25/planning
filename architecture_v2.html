@@ -164,7 +164,7 @@
 <div class="hero">
   <div class="hero-tag">Partition Layer · Architecture v3.0 · Updated from Spec v4.2 · Pipeline v3.0.0</div>
   <h1>SAS → Python / PySpark <span>Partition Layer</span><br>System Architecture</h1>
-  <p class="hero-sub">RAPTOR-based semantic chunking · 8-agent consolidated pipeline (v3.0.0) · 7-node LangGraph orchestrator · Azure Monitor telemetry · GitHub Actions CI/CD · Docker containerization</p>
+  <p class="hero-sub">RAPTOR-based semantic chunking · 8-agent consolidated pipeline (v3.0.0) · 8-node LangGraph orchestrator · Azure Monitor telemetry · GitHub Actions CI/CD · Docker containerization</p>
   <div class="hero-badges">
     <span class="hero-badge paper">RAPTOR · Sarthi et al., ICLR 2024</span>
     <span class="hero-badge agents">8 Consolidated Agents · v3.0.0</span>
@@ -276,7 +276,7 @@ flowchart TB
   end
 
   subgraph ENT["🏢 Enterprise Features"]
-    TEL["Azure Monitor + OpenTelemetry\ntrack_event · track_metric · trace_span\n7 nodes instrumented"]
+    TEL["Azure Monitor + OpenTelemetry\ntrack_event · track_metric · trace_span\n8 nodes instrumented"]
     CICD["GitHub Actions CI/CD\nci.yml · codeql.yml · dependabot.yml"]
     DOCK["Docker + docker-compose\nMulti-stage build · Redis + API\nNon-root · Port 8000"]
   end
@@ -289,8 +289,8 @@ flowchart TB
     CQM --> RT --> RR
   end
 
-  subgraph ORCH["⚙️ Orchestration — LangGraph v3.0.0 · 7-Node Graph"]
-    PO["PartitionOrchestrator\nfile_process → streaming → chunking\n→ raptor → risk_routing → persist_index\n→ translation → END"]
+  subgraph ORCH["⚙️ Orchestration — LangGraph v3.0.0 · 8-Node Graph"]
+    PO["PartitionOrchestrator\nfile_process → streaming → chunking\n→ raptor → risk_routing → persist_index\n→ translation → merge → END"]
     AUDIT[("DuckDB\nllm_audit + quality_metrics\n+ feedback_log + ablation\n+ kb_changelog + conversion_reports")]
   end
 
@@ -1071,7 +1071,7 @@ flowchart LR
         <tr><td>10</td><td>Translation Layer (L3) + ValidationAgent + KB expand to 250 pairs</td><td class="muted">P2</td><td>TranslationAgent · ValidationAgent · failure_mode routing · cross-verify chain</td><td><span class="status done">Done</span></td></tr>
         <tr><td>11</td><td>Merge Layer (L4) + ReportAgent + Continuous Learning + KB to 330 pairs</td><td class="muted">P2</td><td>ImportConsolidator · DependencyInjector · ScriptMerger · ReportAgent · FeedbackLoop</td><td><span class="status done">Done</span></td></tr>
         <tr><td>12</td><td>Ablation study: RAPTOR vs flat · 721 blocks · 10 queries each</td><td class="muted">P2</td><td>test_raptor_hitrate &gt;0.82 · test_ece &lt;0.08 · test_boundary &gt;0.90</td><td><span class="status done">Done</span></td></tr>
-        <tr><td>13</td><td>Agent consolidation (21→8) + Enterprise features (telemetry, CI/CD, Docker, security). Audit grade A-.</td><td class="muted">P3</td><td>8 agents · 7-node graph · v3.0.0 · telemetry.py · ci.yml · codeql.yml · Dockerfile · 200 tests pass</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>13</td><td>Agent consolidation (21→8) + Enterprise features (telemetry, CI/CD, Docker, security). Audit grade A-.</td><td class="muted">P3</td><td>8 agents · 8-node graph · v3.0.0 · telemetry.py · ci.yml · codeql.yml · Dockerfile · 200 tests pass</td><td><span class="status done">Done</span></td></tr>
         <tr><td>14</td><td>Buffer: polish ablation plots, defense slides, additional KB pairs, README</td><td class="muted">P3</td><td>Final docs · all plots · README finalized · defense slides</td><td><span class="status planned">Planned</span></td></tr>
       </tbody>
     </table>
@@ -1109,7 +1109,7 @@ flowchart LR
         <tr><td>Vector DB</td><td>LanceDB</td><td>—</td><td>KB storage, RAPTOR node storage</td></tr>
         <tr><td>Analytics DB</td><td>DuckDB</td><td>—</td><td>Audit logs, ablation data, quality metrics</td></tr>
         <tr><td>Cache</td><td>Redis</td><td>—</td><td>Checkpoints every 50 blocks, TTL 24h</td></tr>
-        <tr><td>Orchestration</td><td>LangGraph</td><td>—</td><td>StateGraph v3.0.0 · 7-node graph</td></tr>
+        <tr><td>Orchestration</td><td>LangGraph</td><td>—</td><td>StateGraph v3.0.0 · 8-node graph</td></tr>
         <tr><td>Telemetry</td><td>Azure Monitor + OpenTelemetry</td><td>—</td><td>Traces, metrics, live dashboards</td></tr>
         <tr><td>CI/CD</td><td>GitHub Actions</td><td>—</td><td>Lint, test, coverage on every PR</td></tr>
         <tr><td>Security</td><td>CodeQL + Dependabot</td><td>—</td><td>SAST scanning + auto dependency updates</td></tr>

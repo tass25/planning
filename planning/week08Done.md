@@ -5,6 +5,7 @@
 > **Status**: COMPLETE  
 > **Tests**: 126 passing (11 new orchestration + 115 existing)  
 > **Dependencies added**: langgraph >= 0.1, redis >= 5.0  
+> **Post-consolidation note (Week 13):** The agent and node counts referenced in this document (9 nodes, 16 agents) reflect the state at Week 8. Week 13 consolidated 16 agents → 8 agents and 9 nodes → 8 nodes (v3.0.0).
 
 ---
 

@@ -10,7 +10,9 @@
 
 ## Executive Summary
 
-The SAS-to-Python Conversion Accelerator is a well-architected 14-week internship project that demonstrates strong engineering rigor. The 6-layer agent pipeline (21 agents, LangGraph orchestration, RAPTOR semantic clustering, 3-tier LLM fallback) is coherent and modular. Security posture is solid post-remediation. Key findings center on one broken constructor call, missing `pytest-asyncio` runtime, tracked database artifacts, and a boundary-accuracy gap vs specification.
+The SAS-to-Python Conversion Accelerator is a well-architected 14-week internship project that demonstrates strong engineering rigor. The 6-layer agent pipeline (8 consolidated agents post-Week 13, LangGraph orchestration with 8 pipeline nodes, RAPTOR semantic clustering, 3-tier LLM fallback) is coherent and modular. Security posture is solid post-remediation. Key findings center on one broken constructor call, missing `pytest-asyncio` runtime, tracked database artifacts, and a boundary-accuracy gap vs specification.
+
+> **Post-consolidation note (Week 13):** This audit was conducted on the pre-consolidation codebase (21 fine-grained agents, 11 pipeline nodes). Week 13 consolidated 21 agents → 8 agents and 11 nodes → 8 nodes (v3.0.0). All findings remain valid; agent/node counts throughout this document reflect the pre-consolidation snapshot.
 
 **Overall Grade: A-** (weighted across 12 dimensions)
 
@@ -161,7 +163,7 @@ ignore_missing_imports = true  # Pragmatic for a prototype
 
 ### Code Organization
 
-- **ABC pattern**: `BaseAgent` defines `agent_name` property + `process()` coroutine + `with_retry` decorator — all 16 agents inherit from it
+- **ABC pattern**: `BaseAgent` defines `agent_name` property + `process()` coroutine + `with_retry` decorator — all 8 consolidated agents (post-Week 13; was 16 pre-consolidation) inherit from it
 - **Pydantic models**: 5 strongly-typed models (`PartitionIR`, `FileMetadata`, `ConversionResult`, `RAPTORNode`, enums) with field validators
 - **Type hints**: Comprehensive throughout — TypedDict for LangGraph state, Pydantic for models, standard hints for functions
 - **Async/await**: Properly used for I/O-bound agents; `asyncio.to_thread()` for sync instructor calls
@@ -191,7 +193,7 @@ ignore_missing_imports = true  # Pragmatic for a prototype
 **Expert:** ML Systems Engineer  
 **Grade: A**
 
-### LangGraph Pipeline (11 nodes, linear)
+### LangGraph Pipeline (8 nodes post-consolidation; was 11 pre-consolidation)
 
 ```
 file_scan → cross_file_resolve → streaming → boundary_detection →
@@ -435,7 +437,7 @@ persistence → indexing → translation → validation → END
 
 | Document | Location | Quality |
 |----------|----------|---------|
-| **README.md** | `sas_converter/README.md` | Comprehensive: arch diagram, tech stack, setup, agents table (21 agents), metrics, gold corpus. |
+| **README.md** | `sas_converter/README.md` | Comprehensive: arch diagram, tech stack, setup, agents table (8 consolidated agents, v3.0.0), metrics, gold corpus. |
 | **AUDIT_REPORT.md** | `sas_converter/docs/AUDIT_REPORT.md` | Previous audit with fix log. |
 | **Module READMEs** | Every `partition/**/README.md` | Present in all 12+ subpackages. |
 | **.env.example** | `sas_converter/.env.example` | Documents all env vars needed. |
@@ -447,8 +449,8 @@ persistence → indexing → translation → validation → END
 
 | ID | Severity | Issue | Recommendation |
 |----|----------|-------|----------------|
-| DOC-01 | LOW | README says "9 nodes" in architecture diagram but orchestrator has 11 nodes (translation + validation added in Week 10). | Update diagram comment to "11 nodes". |
-| DOC-02 | LOW | Agent table lists 21 agents (#1-#21) but some numbering is inconsistent with the original planning (planning says 16 agents, README lists 21). | The agent count grew over weeks; document the evolution. |
+| DOC-01 | LOW | ~~README says "9 nodes" in architecture diagram but orchestrator has 11 nodes (translation + validation added in Week 10).~~ **RESOLVED** — Post-consolidation: 8 nodes (v3.0.0). | Fixed in Week 13 consolidation. |
+| DOC-02 | LOW | ~~Agent table lists 21 agents (#1-#21) but some numbering is inconsistent with the original planning (planning says 16 agents, README lists 21).~~ **RESOLVED** — Consolidated to 8 agents in Week 13. | Fixed in Week 13 consolidation. |
 | DOC-03 | INFO | Boundary accuracy gap note is present in README — good transparency about 79.3% vs 90% target. | No action needed. |
 | DOC-04 | INFO | `conftest.py` and `pyproject.toml` are untracked in git but critical for tests. If someone clones without them, tests won't find imports. | Track these files (see TREE-01). |
 
@@ -477,7 +479,7 @@ persistence → indexing → translation → validation → END
 | 4 | ComplexityAgent + StrategyAgent | ✅ Implemented | ECE = 0.06 < 0.08 target ✅ |
 | 5-6 | RAPTOR clustering | ✅ Fully implemented | GMM τ=0.72, Nomic Embed, 3-tier summarizer |
 | 7 | Persistence + Graph + DuckDB | ✅ Fully implemented | SQLite + NetworkX + DuckDB schemas |
-| 8 | Orchestration + Redis + Audit | ✅ Fully implemented | LangGraph 11 nodes, Redis checkpointing |
+| 8 | Orchestration + Redis + Audit | ✅ Fully implemented | LangGraph 8 nodes (post-consolidation), Redis checkpointing |
 | 9 | Robustness + KB gen + Azure migration | ✅ Implemented | KB pairs target 330 via expand_kb.py |
 | 10 | TranslationAgent + ValidationAgent | ✅ Implemented | 3-LLM routing, sandbox exec, 6 failure modes |
 | 11 | Merge + Report + CL | ✅ Implemented | 4 merge agents, 3 CL modules, weekDone confirms |
@@ -490,7 +492,7 @@ persistence → indexing → translation → validation → END
 |----|----------|-------|---------|
 | XCHECK-01 | **MEDIUM** | `TranslationPipeline` broken constructor — `groq_api_key` parameter passed to `TranslationAgent` which no longer accepts it. This was introduced during Week 9 Azure migration fixes but `TranslationPipeline` was not updated. | Functional bug — will crash if `TranslationPipeline` is used directly. The orchestrator uses `TranslationAgent` directly and works fine. |
 | XCHECK-02 | LOW | PLANNING.md mentions "3-tier fallback (Groq → Ollama 70B → heuristic)" but Ollama was removed in Week 9 Azure migration. The current chain is Azure → Groq → heuristic. | Planning doc is outdated; implementation is correct. |
-| XCHECK-03 | LOW | README architecture box says "9 nodes" but implementation has 11 (translation + validation added). | Update README. |
+| XCHECK-03 | LOW | ~~README architecture box says "9 nodes" but implementation has 11 (translation + validation added).~~ **RESOLVED** — Post-consolidation: 8 nodes (v3.0.0). | Fixed in Week 13. |
 | XCHECK-04 | INFO | weekDone files reference test counts that have accumulated: Week 12 says "198 total passing" but current count is 216+. Tests were added in fix rounds. | Normal evolution. |
 | XCHECK-05 | LOW | Planning says "250 KB pairs" for Week 9, "330" for Week 11. The `expand_kb.py --target 330` CLI exists but the actual KB pair count depends on execution. | Script is present; exact count depends on runtime. |
 | XCHECK-06 | INFO | `pyproject.toml` lists `asyncio_mode = "auto"` but pytest-asyncio is not installed in the venv (warning during test run). | Install pytest-asyncio to fix 2 failing tests. |
@@ -587,13 +589,13 @@ The 2 failures are **configuration-only** (pytest-asyncio not installed). Once i
 - Inline docstrings throughout
 - Planning branch provides complete weekly audit trail
 - Boundary accuracy gap transparently documented
-- Minor updates needed: "9 nodes" → "11 nodes"
+- Minor updates needed: ~~"9 nodes" → "11 nodes"~~ **RESOLVED** — Post-consolidation: 8 nodes (v3.0.0)
 
 ### Section J: Docs vs Implementation Alignment
 
 | Aspect | Planning Says | Implementation Does | Aligned? |
 |--------|--------------|--------------------|---------
-| Agent count | 16 | 21 (expanded over weeks) | ⚠️ Evolved |
+| Agent count | 16 | 8 consolidated (post-Week 13; was 21 pre-consolidation) | ✅ Resolved |
 | LLM provider | Groq primary | Azure primary, Groq fallback | ⚠️ Migrated W9 |
 | Boundary accuracy | > 90% | 79.3% | ❌ Gap documented |
 | ECE | < 0.08 | 0.06 | ✅ |
@@ -627,7 +629,7 @@ The 2 failures are **configuration-only** (pytest-asyncio not installed). Once i
 3. **[P1]** `git add conftest.py pyproject.toml sas_converter/partition/utils/llm_clients.py` (1 min)
 4. **[P2]** Add `.env` to `.gitignore` (1 min)
 5. **[P2]** Refactor `translation_pipeline._log_quality()` to use DuckDB singleton (10 min)
-6. **[P2]** Update README "9 nodes" → "11 nodes" (1 min)
+6. **[P2]** ~~Update README "9 nodes" → "11 nodes"~~ **RESOLVED** — Post-consolidation: 8 nodes (v3.0.0) (1 min)
 7. **[P3]** Update LanceDB `table_names()` → property access (5 min)
 8. **[P3]** Fix `raptor_node.py` "ollama_fallback" docstring (1 min)
 9. **[P3]** Commit all 27 modified files (1 min)

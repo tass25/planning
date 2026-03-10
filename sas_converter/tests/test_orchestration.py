@@ -192,7 +192,7 @@ class TestOrchestratorGraph:
             assert graph is not None
 
     def test_graph_has_all_nodes(self):
-        """Graph contains all 9 pipeline nodes."""
+        """Graph contains all 8 pipeline nodes."""
         from partition.orchestration.orchestrator import PartitionOrchestrator
 
         with patch("partition.orchestration.checkpoint.RedisCheckpointManager"):
