@@ -116,7 +116,7 @@ export default function LandingPage() {
               </span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto leading-relaxed">
-              Codara's 8-stage AI pipeline converts entire SAS codebases to production-ready Python and PySpark — with 97.3% accuracy, full audit trails, and zero guesswork.
+              Codara's 8-stage AI pipeline converts entire SAS codebases to production-ready Python — with 97.3% accuracy, full audit trails, and zero guesswork.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">

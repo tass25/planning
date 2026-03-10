@@ -34,7 +34,7 @@ export default function HistoryPage() {
           ))}
         </div>
         <div className="flex items-center gap-1 bg-muted/30 rounded-lg p-1">
-          {["all", "python", "pyspark"].map((r) => (
+          {["all", "python"].map((r) => (
             <button key={r} onClick={() => setRuntimeFilter(r)} className={cn(
               "px-3 py-1 rounded-md text-xs font-medium transition-colors capitalize",
               runtimeFilter === r ? "bg-card text-foreground" : "text-muted-foreground hover:text-foreground"

@@ -24,7 +24,7 @@ interface ConversionState {
 export const useConversionStore = create<ConversionState>((set, get) => ({
   conversions: [],
   uploadedFiles: [],
-  config: { targetRuntime: "python", testCoverage: "full" },
+  config: { targetRuntime: "python" as const, testCoverage: "full" as const },
   activeConversionId: null,
   pollingId: null,
 

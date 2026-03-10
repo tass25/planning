@@ -40,7 +40,6 @@ class ConversionStatus(str, Enum):
 
 class TargetRuntime(str, Enum):
     PYTHON = "python"
-    PYSPARK = "pyspark"
 
 
 class TestCoverage(str, Enum):

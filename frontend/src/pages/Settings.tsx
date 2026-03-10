@@ -53,12 +53,9 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-foreground">Default Runtime</p>
-            <p className="text-xs text-muted-foreground">Python or PySpark</p>
+            <p className="text-xs text-muted-foreground">Target language</p>
           </div>
-          <select value={runtime} onChange={(e) => { setRuntime(e.target.value); handleSavePreferences(e.target.value); }} className="bg-muted/30 border border-border rounded-lg px-3 py-1.5 text-sm text-foreground focus:outline-none focus:border-accent transition-colors">
-            <option value="python">Python</option>
-            <option value="pyspark">PySpark</option>
-          </select>
+          <span className="bg-muted/30 border border-border rounded-lg px-3 py-1.5 text-sm text-foreground">Python (pandas)</span>
         </div>
         <div className="flex items-center justify-between">
           <div>

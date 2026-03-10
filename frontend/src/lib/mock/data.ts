@@ -97,13 +97,13 @@ function makeStages(status: "completed" | "running" | "failed") {
 
 export const mockConversions: Conversion[] = [
   { id: "conv-001", fileName: "customer_segmentation.sas", status: "completed", runtime: "python", duration: 45.2, accuracy: 97.3, createdAt: "2026-03-07T14:23:00Z", stages: makeStages("completed"), sasCode: SAS_SAMPLE, pythonCode: PYTHON_SAMPLE, validationReport: "All 24 test cases passed.\nCode coverage: 94%\nNo runtime errors detected.\n\nStructural validation: PASS\nSemantic validation: PASS\nOutput comparison: PASS", mergeReport: "3 modules merged successfully.\nNo conflicts detected.\nDependency graph resolved." },
-  { id: "conv-002", fileName: "risk_model_v3.sas", status: "completed", runtime: "pyspark", duration: 128.7, accuracy: 94.1, createdAt: "2026-03-07T10:15:00Z", stages: makeStages("completed"), sasCode: SAS_SAMPLE, pythonCode: PYTHON_SAMPLE },
+  { id: "conv-002", fileName: "risk_model_v3.sas", status: "completed", runtime: "python", duration: 128.7, accuracy: 94.1, createdAt: "2026-03-07T10:15:00Z", stages: makeStages("completed"), sasCode: SAS_SAMPLE, pythonCode: PYTHON_SAMPLE },
   { id: "conv-003", fileName: "etl_pipeline_main.sas", status: "running", runtime: "python", duration: 0, accuracy: 0, createdAt: "2026-03-08T08:00:00Z", stages: makeStages("running") },
   { id: "conv-004", fileName: "quarterly_report.sas", status: "completed", runtime: "python", duration: 22.1, accuracy: 99.1, createdAt: "2026-03-06T16:45:00Z", stages: makeStages("completed"), sasCode: SAS_SAMPLE, pythonCode: PYTHON_SAMPLE },
-  { id: "conv-005", fileName: "data_validation_checks.sas", status: "failed", runtime: "pyspark", duration: 67.8, accuracy: 0, createdAt: "2026-03-06T09:30:00Z", stages: makeStages("failed") },
+  { id: "conv-005", fileName: "data_validation_checks.sas", status: "failed", runtime: "python", duration: 67.8, accuracy: 0, createdAt: "2026-03-06T09:30:00Z", stages: makeStages("failed") },
   { id: "conv-006", fileName: "macro_library.sas", status: "completed", runtime: "python", duration: 89.3, accuracy: 91.5, createdAt: "2026-03-05T11:20:00Z", stages: makeStages("completed"), sasCode: SAS_SAMPLE, pythonCode: PYTHON_SAMPLE },
   { id: "conv-007", fileName: "statistical_analysis.sas", status: "partial", runtime: "python", duration: 55.0, accuracy: 78.2, createdAt: "2026-03-05T08:10:00Z", stages: makeStages("completed") },
-  { id: "conv-008", fileName: "format_catalog.sas", status: "completed", runtime: "pyspark", duration: 15.4, accuracy: 98.7, createdAt: "2026-03-04T14:00:00Z", stages: makeStages("completed"), sasCode: SAS_SAMPLE, pythonCode: PYTHON_SAMPLE },
+  { id: "conv-008", fileName: "format_catalog.sas", status: "completed", runtime: "python", duration: 15.4, accuracy: 98.7, createdAt: "2026-03-04T14:00:00Z", stages: makeStages("completed"), sasCode: SAS_SAMPLE, pythonCode: PYTHON_SAMPLE },
   { id: "conv-009", fileName: "ods_output_gen.sas", status: "completed", runtime: "python", duration: 33.2, accuracy: 95.8, createdAt: "2026-03-04T09:45:00Z", stages: makeStages("completed") },
   { id: "conv-010", fileName: "proc_mixed_model.sas", status: "completed", runtime: "python", duration: 71.6, accuracy: 92.4, createdAt: "2026-03-03T15:30:00Z", stages: makeStages("completed") },
 ];

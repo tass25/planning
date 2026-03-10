@@ -14,11 +14,11 @@ import type { Partition } from "@/types";
 const stageLabels: Record<string, string> = {
   file_process: "File Processing",
   sas_partition: "SAS Partitioning",
-  strategy_select: "Strategy Selection",
-  translate: "Translation",
-  validate: "Validation",
-  repair: "Repair",
-  merge: "Merge",
+  strategy_select: "Dependency Resolution",
+  translate: "Data Lineage",
+  validate: "LLM Translation",
+  repair: "Syntax Validation",
+  merge: "Module Assembly",
   finalize: "Finalization",
 };
 

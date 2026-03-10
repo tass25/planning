@@ -41,7 +41,7 @@ class ConversionRow(ApiBase):
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     file_name = Column(String, nullable=False)
     status = Column(String, default="queued")     # queued | running | completed | partial | failed
-    runtime = Column(String, default="python")    # python | pyspark
+    runtime = Column(String, default="python")    # python
     duration = Column(Float, default=0.0)
     accuracy = Column(Float, default=0.0)
     sas_code = Column(Text, nullable=True)

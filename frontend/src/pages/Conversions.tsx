@@ -13,9 +13,9 @@ const STAGE_LABELS: Record<PipelineStage, string> = {
   sas_partition: "Code Chunking",
   strategy_select: "Dependency Resolution",
   translate: "Data Lineage",
-  validate: "Validation",
-  repair: "Auto-Repair",
-  merge: "Merge Output",
+  validate: "LLM Translation",
+  repair: "Syntax Validation",
+  merge: "Module Assembly",
   finalize: "Finalization",
 };
 
@@ -24,9 +24,9 @@ const STAGE_DEFAULTS: Record<PipelineStage, string> = {
   sas_partition: "Waiting to chunk code...",
   strategy_select: "Waiting to resolve dependencies...",
   translate: "Waiting to trace data lineage...",
-  validate: "Waiting to validate output...",
-  repair: "Waiting to check for issues...",
-  merge: "Waiting to merge partitions...",
+  validate: "Waiting to translate SAS → Python...",
+  repair: "Waiting to validate syntax...",
+  merge: "Waiting to assemble final module...",
   finalize: "Waiting to package results...",
 };
 
@@ -277,14 +277,9 @@ export default function ConversionsPage() {
               <div>
                 <label className="text-xs font-medium text-muted-foreground block mb-2">Target Runtime</label>
                 <div className="flex gap-2">
-                  {(["python", "pyspark"] as const).map((r) => (
-                    <button key={r} onClick={() => setConfig({ targetRuntime: r })} className={cn(
-                      "flex-1 py-2 px-3 rounded-lg text-sm font-medium border transition-all",
-                      config.targetRuntime === r ? "border-accent bg-accent/10 text-accent" : "border-border text-muted-foreground hover:border-muted-foreground"
-                    )}>
-                      {r === "python" ? "Python" : "PySpark"}
-                    </button>
-                  ))}
+                  <div className="flex-1 py-2 px-3 rounded-lg text-sm font-medium border transition-all border-accent bg-accent/10 text-accent">
+                    Python (pandas)
+                  </div>
                 </div>
               </div>
               <div>
