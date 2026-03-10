@@ -1,11 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useConversionStore } from "@/store/conversion-store";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Upload, FileCode, X, Play, Settings2, CheckCircle2, Loader2, Circle, AlertCircle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { RiskLevel, PipelineStage } from "@/types";
 
 const STAGE_LABELS: Record<PipelineStage, string> = {
@@ -34,9 +34,25 @@ export default function ConversionsPage() {
   const { uploadedFiles, removeFile, config, setConfig, startConversion, uploadFiles, conversions, activeConversionId } = useConversionStore();
   const [isDragging, setIsDragging] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+  const navigate = useNavigate();
+  const hasNavigated = useRef(false);
 
   const activeConversion = conversions.find((c) => c.id === activeConversionId);
   const showProgress = isRunning || (activeConversion && (activeConversion.status === "running" || activeConversion.status === "queued"));
+
+  // Auto-navigate to workspace diff view when conversion completes
+  useEffect(() => {
+    if (activeConversion?.status === "completed" && !hasNavigated.current) {
+      hasNavigated.current = true;
+      const timer = setTimeout(() => {
+        navigate(`/workspace/${activeConversion.id}`);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+    if (!activeConversion || activeConversion.status === "queued" || activeConversion.status === "running") {
+      hasNavigated.current = false;
+    }
+  }, [activeConversion?.status, activeConversion?.id, navigate]);
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
@@ -183,6 +199,7 @@ export default function ConversionsPage() {
             {/* Completed actions */}
             {isComplete && (
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 pt-2">
+                <span className="text-xs text-muted-foreground animate-pulse">Opening diff view...</span>
                 <Link to={`/workspace/${activeConversion.id}`}>
                   <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90">
                     View in Workspace <ArrowRight className="w-3 h-3 ml-1" />

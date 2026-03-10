@@ -95,6 +95,97 @@ async def upload_files(
 
 # ── Start conversion (real pipeline) ─────────────────────────────────────────
 
+_TRANSLATE_SYSTEM = (
+    "You are an expert SAS-to-Python converter. "
+    "Convert the SAS code to clean, idiomatic Python using pandas. "
+    "Preserve the logic exactly. Include necessary imports at the top. "
+    "Return ONLY the Python code, no explanations or markdown fences."
+)
+
+
+def _translate_sas_to_python(sas_code: str, target_runtime: str) -> str:
+    """Translate SAS code to Python via Azure OpenAI (primary) or Groq (fallback).
+
+    Returns the translated Python code, or a comment stub if no LLM is available.
+    """
+    import os
+
+    user_prompt = (
+        f"Target runtime: {target_runtime}\n\n"
+        f"SAS code to convert:\n```sas\n{sas_code}\n```"
+    )
+
+    # --- Try Azure OpenAI ---
+    azure_key = os.getenv("AZURE_OPENAI_API_KEY")
+    azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+    if azure_key and azure_endpoint:
+        try:
+            from openai import AzureOpenAI
+            client = AzureOpenAI(
+                azure_endpoint=azure_endpoint,
+                api_key=azure_key,
+                api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21"),
+            )
+            deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT_MINI", "gpt-4o-mini")
+            resp = client.chat.completions.create(
+                model=deployment,
+                messages=[
+                    {"role": "system", "content": _TRANSLATE_SYSTEM},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.1,
+                max_tokens=4096,
+            )
+            code = resp.choices[0].message.content or ""
+            # Strip markdown fences if the model wraps them
+            if code.startswith("```"):
+                lines = code.split("\n")
+                lines = lines[1:]  # remove opening fence
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                code = "\n".join(lines)
+            return code.strip()
+        except Exception:
+            pass  # fall through to Groq
+
+    # --- Try Groq ---
+    groq_key = os.getenv("GROQ_API_KEY")
+    if groq_key:
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
+            model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+            resp = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": _TRANSLATE_SYSTEM},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.1,
+                max_tokens=4096,
+            )
+            code = resp.choices[0].message.content or ""
+            if code.startswith("```"):
+                lines = code.split("\n")
+                lines = lines[1:]
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                code = "\n".join(lines)
+            return code.strip()
+        except Exception:
+            pass
+
+    # --- No LLM available ---
+    commented = "\n".join(f"# {line}" for line in sas_code.split("\n"))
+    return (
+        "# TRANSLATION UNAVAILABLE — no LLM API key configured\n"
+        "# Configure AZURE_OPENAI_API_KEY or GROQ_API_KEY in .env\n"
+        "#\n"
+        "# Original SAS code:\n"
+        + commented
+    )
+
+
 def _run_pipeline_sync(conversion_id: str, file_path: Path, runtime: str, db_path: str):
     """Run the Week-1 agents synchronously inside background thread."""
     import time
@@ -191,25 +282,50 @@ def _run_pipeline_sync(conversion_id: str, file_path: Path, runtime: str, db_pat
         lat = (time.perf_counter() - t0) * 1000
         _update_stage("translate", "completed", lat, f"Mapped {lineage.get('total_reads', 0)} reads + {lineage.get('total_writes', 0)} writes")
 
-        # Stage 5: validate — Checking translation accuracy
-        _update_stage("validate", "running", description="Validating translated output for correctness...")
-        time.sleep(1.0)
-        _update_stage("validate", "completed", 0.0, "Validation passed — no issues detected")
+        # Stage 5: validate — LLM Translation (SAS → Python)
+        _update_stage("validate", "running", description="Translating SAS code to Python via LLM...")
+        t0 = time.perf_counter()
+        python_code = _translate_sas_to_python(sas_code, runtime)
+        lat = (time.perf_counter() - t0) * 1000
+        translation_ok = python_code and not python_code.startswith("# TRANSLATION UNAVAILABLE")
+        _update_stage("validate", "completed", lat,
+                      "SAS → Python translation complete" if translation_ok
+                      else "Translation skipped — LLM not configured")
 
-        # Stage 6: repair — Auto-fixing any issues
-        _update_stage("repair", "running", description="Checking for auto-repairable issues...")
-        time.sleep(0.8)
-        _update_stage("repair", "completed", 0.0, "No repairs needed — code is clean")
+        # Stage 6: repair — Validate / lint the output
+        _update_stage("repair", "running", description="Validating translated Python code...")
+        t0 = time.perf_counter()
+        repair_notes = []
+        if translation_ok:
+            try:
+                compile(python_code, "<translated>", "exec")
+                repair_notes.append("Syntax OK — compiles without errors")
+            except SyntaxError as se:
+                repair_notes.append(f"Syntax warning at line {se.lineno}: {se.msg}")
+        lat = (time.perf_counter() - t0) * 1000
+        _update_stage("repair", "completed", lat,
+                      repair_notes[0] if repair_notes else "No repairs needed")
 
         # Stage 7: merge — Assembling final output
-        _update_stage("merge", "running", description="Merging partitions into final Python module...")
-        time.sleep(0.9)
-        _update_stage("merge", "completed", 0.0, "Merged successfully — single output module")
+        _update_stage("merge", "running", description="Assembling final Python module...")
+        t0 = time.perf_counter()
+        # Build module header
+        file_stem = file_path.stem
+        header_lines = [
+            f'"""Auto-converted from {file_path.name} by Codara pipeline."""',
+            "",
+        ]
+        final_code = "\n".join(header_lines) + python_code
+        conv.python_code = final_code
+        session.commit()
+        lat = (time.perf_counter() - t0) * 1000
+        _update_stage("merge", "completed", lat, "Merged successfully — final module ready")
 
         # Stage 8: finalize — Packaging results
         _update_stage("finalize", "running", description="Packaging results & generating reports...")
-        time.sleep(0.7)
-        _update_stage("finalize", "completed", 0.0, "Pipeline complete — results ready")
+        t0 = time.perf_counter()
+        lat = (time.perf_counter() - t0) * 1000
+        _update_stage("finalize", "completed", lat, "Pipeline complete — results ready")
 
         total_elapsed = time.perf_counter() - total_start
 

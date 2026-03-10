@@ -3,10 +3,10 @@ import { useConversionStore } from "@/store/conversion-store";
 import { StatusBadge, RiskBadge } from "@/components/ui/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Download, ArrowLeft, GitCompare, FileText, AlertTriangle, CheckCircle } from "lucide-react";
+import { Download, ArrowLeft, GitCompare, FileText, AlertTriangle, CheckCircle, Code2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { api } from "@/lib/api";
 import { getToken } from "@/lib/api";
 import type { Partition } from "@/types";
@@ -22,11 +22,83 @@ const stageLabels: Record<string, string> = {
   finalize: "Finalization",
 };
 
+// ── GitHub-style side-by-side diff view ──────────────────────────────────────
+
+function DiffView({ sasCode, pythonCode, fileName }: { sasCode: string; pythonCode: string; fileName: string }) {
+  const sasLines = sasCode.split("\n");
+  const pyLines = pythonCode.split("\n");
+  const maxLines = Math.max(sasLines.length, pyLines.length);
+
+  return (
+    <div className="border border-border rounded-lg overflow-hidden bg-card">
+      {/* Header bar */}
+      <div className="grid grid-cols-2 border-b border-border text-xs font-medium">
+        <div className="flex items-center gap-2 px-3 py-2 bg-red-500/5 border-r border-border text-red-400">
+          <Code2 className="w-3.5 h-3.5" />
+          <span>{fileName}</span>
+          <span className="ml-auto text-muted-foreground font-mono">{sasLines.length} lines</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-2 bg-green-500/5 text-green-400">
+          <Code2 className="w-3.5 h-3.5" />
+          <span>{fileName.replace(".sas", ".py")}</span>
+          <span className="ml-auto text-muted-foreground font-mono">{pyLines.length} lines</span>
+        </div>
+      </div>
+
+      {/* Code panes */}
+      <div className="grid grid-cols-2 max-h-[600px] overflow-auto">
+        {/* SAS side */}
+        <div className="border-r border-border font-mono text-xs leading-5">
+          {Array.from({ length: maxLines }, (_, i) => {
+            const line = sasLines[i] ?? "";
+            return (
+              <div key={`sas-${i}`} className="flex hover:bg-muted/30 transition-colors group">
+                <span className="w-10 flex-shrink-0 text-right pr-2 py-px text-muted-foreground/40 select-none border-r border-border bg-muted/20 group-hover:text-muted-foreground/60">
+                  {i < sasLines.length ? i + 1 : ""}
+                </span>
+                <span className={cn(
+                  "flex-1 px-3 py-px whitespace-pre",
+                  i < sasLines.length ? "text-foreground/80 bg-red-500/[0.03]" : ""
+                )}>
+                  {line}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Python side */}
+        <div className="font-mono text-xs leading-5">
+          {Array.from({ length: maxLines }, (_, i) => {
+            const line = pyLines[i] ?? "";
+            return (
+              <div key={`py-${i}`} className="flex hover:bg-muted/30 transition-colors group">
+                <span className="w-10 flex-shrink-0 text-right pr-2 py-px text-muted-foreground/40 select-none border-r border-border bg-muted/20 group-hover:text-muted-foreground/60">
+                  {i < pyLines.length ? i + 1 : ""}
+                </span>
+                <span className={cn(
+                  "flex-1 px-3 py-px whitespace-pre",
+                  i < pyLines.length ? "text-foreground/80 bg-green-500/[0.03]" : ""
+                )}>
+                  {line}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Workspace Page ───────────────────────────────────────────────────────────
+
 export default function WorkspacePage() {
   const { conversionId } = useParams();
   const conversions = useConversionStore((s) => s.conversions);
   const conversion = conversions.find((c) => c.id === conversionId) || conversions[0];
-  const [diffMode, setDiffMode] = useState(false);
+  const hasBothCodes = !!(conversion?.sasCode && conversion?.pythonCode);
+  const [diffMode, setDiffMode] = useState(true);
   const [partitions, setPartitions] = useState<Partition[]>([]);
   useEffect(() => { if (conversion) api.get<Partition[]>(`/conversions/${conversion.id}/partitions`).then(setPartitions).catch(() => {}); }, [conversion]);
 
@@ -77,9 +149,9 @@ export default function WorkspacePage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setDiffMode(!diffMode)} className="border-border text-muted-foreground hover:text-foreground">
+          <Button variant="outline" size="sm" onClick={() => setDiffMode(!diffMode)} className={cn("border-border text-muted-foreground hover:text-foreground", diffMode && "border-accent text-accent")}>
             <GitCompare className="w-3.5 h-3.5 mr-1.5" />
-            {diffMode ? "Code View" : "Diff View"}
+            {diffMode ? "Diff View" : "Code View"}
           </Button>
           <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => downloadFile("py")}>
             <Download className="w-3.5 h-3.5 mr-1.5" />
@@ -119,20 +191,11 @@ export default function WorkspacePage() {
         </TabsList>
 
         <TabsContent value="code">
-          {diffMode ? (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="glass-panel p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xs font-medium text-destructive bg-destructive/10 px-2 py-0.5 rounded">SAS (Original)</span>
-                </div>
-                <pre className="text-xs font-mono text-foreground/80 whitespace-pre-wrap overflow-auto max-h-[500px] leading-relaxed">{conversion.sasCode || "Source code not available — upload the SAS file to see it here"}</pre>
-              </div>
-              <div className="glass-panel p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xs font-medium text-success bg-success/10 px-2 py-0.5 rounded">Python (Converted)</span>
-                </div>
-                <pre className="text-xs font-mono text-foreground/80 whitespace-pre-wrap overflow-auto max-h-[500px] leading-relaxed">{conversion.pythonCode || "Converted code not yet available"}</pre>
-              </div>
+          {diffMode && hasBothCodes ? (
+            <DiffView sasCode={conversion.sasCode!} pythonCode={conversion.pythonCode!} fileName={conversion.fileName} />
+          ) : diffMode && !hasBothCodes ? (
+            <div className="glass-panel p-6 text-center text-muted-foreground text-sm">
+              Diff view requires both SAS and Python code to be available.
             </div>
           ) : (
             <div className="glass-panel p-4">
