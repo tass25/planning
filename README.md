@@ -135,4 +135,4 @@ See `.env` for the full list. Key variables:
 | Branch | Purpose |
 |--------|---------|
 | `main` | Production code (backend + frontend) |
-| `planning` | Planning docs and weekly progress reports |
+| `Planning` | Planning docs and weekly progress reports |

@@ -3,10 +3,9 @@ version: 2
 updates:
   # Python pip dependencies
   - package-ecosystem: pip
-    directory: /sas_converter
+    directory: /backend
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     open-pull-requests-limit: 5
     labels:
       - dependencies
@@ -16,8 +15,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     open-pull-requests-limit: 3
     labels:
       - dependencies
