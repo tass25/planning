@@ -40,7 +40,7 @@ export const useConversionStore = create<ConversionState>((set, get) => ({
     const formData = new FormData();
     files.forEach((f) => formData.append("files", f));
     const uploaded = await api.post<SasFile[]>("/conversions/upload", formData);
-    set((s) => ({ uploadedFiles: [...s.uploadedFiles, ...uploaded] }));
+    set((s) => ({ uploadedFiles: [...s.uploadedFiles, ...(uploaded ?? [])] }));
   },
 
   startConversion: async (fileIds) => {
@@ -56,15 +56,25 @@ export const useConversionStore = create<ConversionState>((set, get) => ({
   },
 
   fetchConversions: async () => {
-    const convs = await api.get<Conversion[]>("/conversions");
-    set({ conversions: convs });
+    try {
+      const convs = await api.get<Conversion[]>("/conversions");
+      set({ conversions: convs ?? [] });
+    } catch (err) {
+      console.error("[codara] fetchConversions failed", err);
+    }
   },
 
   refreshConversion: async (id: string) => {
-    const conv = await api.get<Conversion>(`/conversions/${id}`);
-    set((s) => ({
-      conversions: s.conversions.map((c) => (c.id === id ? conv : c)),
-    }));
+    try {
+      const conv = await api.get<Conversion>(`/conversions/${id}`);
+      if (conv) {
+        set((s) => ({
+          conversions: s.conversions.map((c) => (c.id === id ? conv : c)),
+        }));
+      }
+    } catch (err) {
+      console.error("[codara] refreshConversion failed", id, err);
+    }
   },
 
   updateStage: (conversionId, stageIndex, update) =>
@@ -87,8 +97,14 @@ export const useConversionStore = create<ConversionState>((set, get) => ({
         if (conv.status === "completed" || conv.status === "failed" || conv.status === "partial") {
           get().stopPolling();
         }
-      } catch {
-        get().stopPolling();
+      } catch (err) {
+        console.error("[codara] poll failed", err);
+        // Only stop polling on auth errors; retry on transient network issues
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("401") || msg.includes("403") || msg.includes("404")) {
+          get().stopPolling();
+        }
+        // Otherwise keep polling — transient network hiccups should not stop progress
       }
     }, 1200);
     set({ pollingId: intervalId });

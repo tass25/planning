@@ -46,19 +46,38 @@ async def run_streaming_pipeline(
     state = StateAgent(trace_id=trace_id)
 
     results: list[tuple[LineChunk, ParsingState]] = []
+    producer_failed = False
 
     async def producer() -> None:
-        await stream.process(file_meta)
+        nonlocal producer_failed
+        try:
+            await stream.process(file_meta)
+        except Exception:
+            producer_failed = True
+            # Put a sentinel so consumer doesn't hang
+            await queue.put(None)
+            raise
 
     async def consumer() -> None:
         while True:
-            chunk = await queue.get()
+            try:
+                chunk = await queue.get()
+            except Exception:
+                break
             if chunk is None:  # EOF sentinel
                 queue.task_done()
                 break
-            parsing_state = await state.process(chunk)
-            results.append((chunk, parsing_state.model_copy(deep=True)))
-            queue.task_done()
+            try:
+                parsing_state = await state.process(chunk)
+                results.append((chunk, parsing_state.model_copy(deep=True)))
+            except Exception:
+                pass  # skip malformed chunk, don't crash consumer
+            finally:
+                queue.task_done()
 
-    await asyncio.gather(producer(), consumer())
+    gathered = await asyncio.gather(producer(), consumer(), return_exceptions=True)
+    # Re-raise producer errors (index 0) but not consumer errors after we have partial results
+    for exc in gathered:
+        if isinstance(exc, BaseException) and not isinstance(exc, Exception):
+            raise exc  # propagate KeyboardInterrupt, SystemExit etc.
     return results

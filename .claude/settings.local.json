@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(data[0][''''text''''][:20000]\\)\")",
+      "Bash(python \"C:\\\\Users\\\\labou\\\\.claude\\\\projects\\\\c--Users-labou-Desktop-Stage\\\\aefeba47-c945-4327-972a-9fe594efdd71\\\\tool-results\\\\toolu_01KSzaYEN1kSXtwLVDmvCBDv.json\")",
+      "Bash(python3.11 -c \":*)",
+      "Read(//c/Users/labou/Desktop/Stage/backend/**)",
+      "Bash(python -c \":*)",
+      "Bash(python -m benchmark.boundary_benchmark --gold knowledge_base/gold_standard)"
+    ]
+  }
+}

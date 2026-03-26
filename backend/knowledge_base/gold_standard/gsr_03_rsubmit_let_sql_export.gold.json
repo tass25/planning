@@ -1,0 +1,81 @@
+{
+  "file_path": "gsr_03_rsubmit_let_sql_export.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 1,
+      "line_end": 5,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L1-5"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 9,
+      "line_end": 9,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L9-9"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 37,
+      "line_end": 39,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L37-39"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 47,
+      "line_end": 47,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L47-47"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 51,
+      "line_end": 51,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L51-51"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 61,
+      "line_end": 63,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L61-63"
+    },
+    {
+      "block_id": 7,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 70,
+      "line_end": 70,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L70-70"
+    },
+    {
+      "block_id": 8,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 77,
+      "line_end": 82,
+      "test_coverage_type": "full",
+      "description": "PROC_BLOCK block at L77-82"
+    },
+    {
+      "block_id": 9,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 84,
+      "line_end": 89,
+      "test_coverage_type": "full",
+      "description": "PROC_BLOCK block at L84-89"
+    }
+  ],
+  "total_blocks": 9,
+  "annotator": "auto",
+  "annotation_date": "2026-03-26",
+  "tier": "real"
+}

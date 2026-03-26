@@ -1,0 +1,65 @@
+{
+  "file_path": "gsr_07_rsubmit_data_proc.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 1,
+      "line_end": 5,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L1-5"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 9,
+      "line_end": 9,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L9-9"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 19,
+      "line_end": 21,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L19-21"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "DATA_STEP",
+      "line_start": 22,
+      "line_end": 26,
+      "test_coverage_type": "full",
+      "description": "DATA_STEP block at L22-26"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 28,
+      "line_end": 28,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L28-28"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 34,
+      "line_end": 34,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L34-34"
+    },
+    {
+      "block_id": 7,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 38,
+      "line_end": 44,
+      "test_coverage_type": "full",
+      "description": "PROC_BLOCK block at L38-44"
+    }
+  ],
+  "total_blocks": 7,
+  "annotator": "auto",
+  "annotation_date": "2026-03-26",
+  "tier": "real"
+}

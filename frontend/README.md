@@ -56,16 +56,42 @@ npm run test
 
 In development, Vite proxies `/api/*` requests to `http://localhost:8000`.
 Make sure the backend is running on port 8000 before starting the frontend.
-- Tailwind CSS
 
-## How can I deploy this project?
+## Exception Handling
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+The frontend is crash-proofed so that **no error ever results in a white screen**.
 
-## Can I connect a custom domain to my Lovable project?
+### React Error Boundary (`components/ErrorBoundary.tsx`)
 
-Yes, you can!
+A class-based `ErrorBoundary` component wraps the entire application tree in `App.tsx`. It uses React's `getDerivedStateFromError` and `componentDidCatch` lifecycle methods to:
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+1. **Catch** any unhandled error thrown during rendering of any child component
+2. **Log** the full error + component stack to `console.error`
+3. **Display** a styled "Something went wrong" recovery page with:
+   - The error message in a code block
+   - A **"Try Again"** button that resets the error state and re-renders the tree
+   - Dark theme styling consistent with the app's design
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Without this, a single failing component (e.g., a bad API response parsed into JSX) would crash the entire React tree and show a blank white page.
+
+### Guarded Initial Fetch (`App.tsx`)
+
+```tsx
+useEffect(() => {
+  useUserStore.getState().restoreSession();
+  if (getToken()) {
+    useConversionStore.getState().fetchConversions();
+  }
+}, []);
+```
+
+`fetchConversions()` only fires if a JWT token exists in `localStorage`. Previously it fired unconditionally on every page load, causing a `401 Unauthorized` error in the console for unauthenticated users visiting the landing page, login, or signup pages.
+
+### Store-Level Protections (pre-existing)
+
+Both Zustand stores already wrap all API calls in `try/catch`:
+
+- **`user-store.ts`** — `login()`, `signup()`, `loginWithGitHub()`, `verifyEmail()`, `restoreSession()`, `fetchNotifications()`, `markNotificationRead()`, `markAllNotificationsRead()` all catch errors and return graceful defaults (`false`, `{ success: false }`).
+- **`conversion-store.ts`** — `pollConversion()` catches errors and calls `stopPolling()` instead of crashing. `uploadFiles()`, `startConversion()`, `fetchConversions()` propagate errors to the calling component where toast notifications display them.
+- **`api.ts`** — The base `request()` function catches `res.json()` parse failures and falls back to `{ detail: res.statusText }`.
+

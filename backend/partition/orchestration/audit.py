@@ -31,9 +31,31 @@ _duckdb_connections: dict[str, duckdb.DuckDBPyConnection] = {}
 
 
 def _get_duckdb(db_path: str) -> duckdb.DuckDBPyConnection:
-    """Return a cached DuckDB connection (singleton per path)."""
+    """Return a cached DuckDB connection (singleton per path).
+
+    Auto-creates the ``llm_audit`` table if it does not exist.
+    """
     if db_path not in _duckdb_connections:
-        _duckdb_connections[db_path] = duckdb.connect(db_path)
+        try:
+            conn = duckdb.connect(db_path)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS llm_audit (
+                    call_id     VARCHAR,
+                    agent_name  VARCHAR,
+                    model_name  VARCHAR,
+                    prompt_hash VARCHAR,
+                    response_hash VARCHAR,
+                    latency_ms  DOUBLE,
+                    success     BOOLEAN,
+                    error_msg   VARCHAR,
+                    tier        VARCHAR,
+                    created_at  TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            _duckdb_connections[db_path] = conn
+        except Exception as exc:
+            logger.warning("duckdb_init_failed", db_path=db_path, error=str(exc))
+            raise
     return _duckdb_connections[db_path]
 
 
@@ -103,12 +125,14 @@ class _LLMCallTracker:
 
     def succeed(self) -> None:
         self.success = True
-        self.latency_ms = (time.perf_counter() - self._start_time) * 1000
+        if self._start_time is not None:
+            self.latency_ms = (time.perf_counter() - self._start_time) * 1000
 
     def fail(self, error: str) -> None:
         self.success = False
         self.error_msg = error
-        self.latency_ms = (time.perf_counter() - self._start_time) * 1000
+        if self._start_time is not None:
+            self.latency_ms = (time.perf_counter() - self._start_time) * 1000
 
     def persist(self) -> None:
         # Emit LLM latency metric to App Insights

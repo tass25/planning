@@ -52,7 +52,11 @@ def mark_read(notif_id: str, current_user: dict = Depends(get_current_user)):
         if not row:
             raise HTTPException(status_code=404, detail="Notification not found")
         row.read = True
-        session.commit()
+        try:
+            session.commit()
+        except Exception as exc:
+            session.rollback()
+            raise HTTPException(status_code=500, detail="Failed to mark notification as read")
         return {"ok": True}
     finally:
         session.close()
@@ -65,9 +69,13 @@ def mark_all_read(current_user: dict = Depends(get_current_user)):
     try:
         session.query(NotificationRow).filter(
             NotificationRow.user_id == current_user["sub"],
-            NotificationRow.read == False,
+            NotificationRow.read.is_(False),
         ).update({"read": True})
-        session.commit()
+        try:
+            session.commit()
+        except Exception as exc:
+            session.rollback()
+            raise HTTPException(status_code=500, detail="Failed to mark notifications as read")
         return {"ok": True}
     finally:
         session.close()

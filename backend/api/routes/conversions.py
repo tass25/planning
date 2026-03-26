@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import html as html_mod
 import io
 import json
 import shutil
@@ -11,8 +12,11 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+import structlog
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, BackgroundTasks
 from fastapi.responses import PlainTextResponse, StreamingResponse, HTMLResponse
+
+_log = structlog.get_logger("codara.conversions")
 
 from api.auth import get_current_user
 from api.database import get_api_session, ConversionRow, ConversionStageRow, UserRow, NotificationRow
@@ -34,35 +38,47 @@ STAGES = [
 
 
 def _conv_to_out(row: ConversionRow) -> ConversionOut:
-    stages_sorted = sorted(row.stages, key=lambda s: STAGES.index(s.stage) if s.stage in STAGES else 99)
+    try:
+        stages_sorted = sorted(row.stages, key=lambda s: STAGES.index(s.stage) if s.stage in STAGES else 99)
+    except Exception:
+        stages_sorted = list(row.stages) if row.stages else []
     completed_count = sum(1 for s in stages_sorted if s.status == "completed")
     total = len(stages_sorted) or 8
+    stage_infos = []
+    for s in stages_sorted:
+        try:
+            warnings_list = json.loads(s.warnings) if s.warnings else []
+        except (json.JSONDecodeError, TypeError):
+            warnings_list = []
+        try:
+            stage_infos.append(
+                PipelineStageInfo(
+                    stage=s.stage,
+                    status=s.status,
+                    latency=s.latency,
+                    retryCount=s.retry_count or 0,
+                    warnings=warnings_list,
+                    description=s.description,
+                    startedAt=s.started_at,
+                    completedAt=s.completed_at,
+                )
+            )
+        except Exception:
+            pass  # skip malformed stage row rather than crash
     return ConversionOut(
         id=row.id,
-        fileName=row.file_name,
-        status=row.status,
-        runtime=row.runtime,
-        duration=row.duration,
-        accuracy=row.accuracy,
-        createdAt=row.created_at,
+        fileName=row.file_name or "unknown",
+        status=row.status or "queued",
+        runtime=row.runtime or "python",
+        duration=row.duration or 0.0,
+        accuracy=row.accuracy or 0.0,
+        createdAt=row.created_at or "",
         sasCode=row.sas_code,
         pythonCode=row.python_code,
         validationReport=row.validation_report,
         mergeReport=row.merge_report,
         progress=int(completed_count / total * 100),
-        stages=[
-            PipelineStageInfo(
-                stage=s.stage,
-                status=s.status,
-                latency=s.latency,
-                retryCount=s.retry_count,
-                warnings=json.loads(s.warnings) if s.warnings else [],
-                description=s.description,
-                startedAt=s.started_at,
-                completedAt=s.completed_at,
-            )
-            for s in stages_sorted
-        ],
+        stages=stage_infos,
     )
 
 
@@ -290,7 +306,7 @@ def _translate_sas_to_python(sas_code: str) -> str:
                 api_key=azure_key,
                 api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21"),
             )
-            deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT_MINI", "gpt-5-mini")
+            deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT_MINI", "gpt-4o-mini")
             resp = client.chat.completions.create(
                 model=deployment,
                 messages=[
@@ -357,26 +373,37 @@ def _run_pipeline_sync(conversion_id: str, file_path: Path, db_path: str):
     import time
     from api.database import get_api_engine, get_api_session
 
-    engine = get_api_engine(db_path)
-    session = get_api_session(engine)
+    try:
+        engine = get_api_engine(db_path)
+        session = get_api_session(engine)
+    except Exception as exc:
+        _log.error("pipeline_db_init_failed", conversion_id=conversion_id, error=str(exc))
+        return
 
     def _update_stage(stage_name: str, status: str, latency: float | None = None, description: str | None = None):
-        st = session.query(ConversionStageRow).filter(
-            ConversionStageRow.conversion_id == conversion_id,
-            ConversionStageRow.stage == stage_name,
-        ).first()
-        if st:
-            st.status = status
-            now = datetime.now(timezone.utc).isoformat()
-            if status == "running":
-                st.started_at = now
-            elif status in ("completed", "failed"):
-                st.completed_at = now
-            if latency is not None:
-                st.latency = latency
-            if description is not None:
-                st.description = description
-            session.commit()
+        try:
+            st = session.query(ConversionStageRow).filter(
+                ConversionStageRow.conversion_id == conversion_id,
+                ConversionStageRow.stage == stage_name,
+            ).first()
+            if st:
+                st.status = status
+                now = datetime.now(timezone.utc).isoformat()
+                if status == "running":
+                    st.started_at = now
+                elif status in ("completed", "failed"):
+                    st.completed_at = now
+                if latency is not None:
+                    st.latency = latency
+                if description is not None:
+                    st.description = description
+                session.commit()
+        except Exception as exc:
+            _log.warning("stage_update_failed", stage=stage_name, status=status, error=str(exc))
+            try:
+                session.rollback()
+            except Exception:
+                pass
 
     conv = session.query(ConversionRow).get(conversion_id)
     if not conv:
@@ -386,7 +413,11 @@ def _run_pipeline_sync(conversion_id: str, file_path: Path, db_path: str):
     conv.status = "running"
     session.commit()
 
-    sas_code = file_path.read_text(encoding="utf-8", errors="replace")
+    try:
+        sas_code = file_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        sas_code = file_path.read_text(encoding="utf-8", errors="replace")
+        _log.warning("encoding_replace_used", file=str(file_path), conversion_id=conversion_id)
     conv.sas_code = sas_code
     session.commit()
 
@@ -404,8 +435,23 @@ def _run_pipeline_sync(conversion_id: str, file_path: Path, db_path: str):
 
     # Pipeline DB for agent artifacts
     pipeline_db_path = str(UPLOAD_DIR / f"{conversion_id}_pipeline.db")
-    pipeline_engine = get_engine(pipeline_db_path)
-    init_db(pipeline_engine)
+    pipeline_engine = None
+    try:
+        pipeline_engine = get_engine(pipeline_db_path)
+        init_db(pipeline_engine)
+    except Exception as exc:
+        _log.error("pipeline_engine_init_failed", conversion_id=conversion_id, error=str(exc))
+        conv.status = "failed"
+        conv.validation_report = f"Pipeline DB init error: {exc}"
+        try:
+            session.commit()
+        except Exception:
+            pass
+        try:
+            session.close()
+        except Exception:
+            pass
+        return
 
     project_root = file_path.parent
     total_start = time.perf_counter()
@@ -416,7 +462,7 @@ def _run_pipeline_sync(conversion_id: str, file_path: Path, db_path: str):
         time.sleep(1.2)
         t0 = time.perf_counter()
         agent1 = FileAnalysisAgent()
-        files = asyncio.run(agent1.process(project_root))
+        files = asyncio.run(agent1.process(project_root)) or []
         lat = (time.perf_counter() - t0) * 1000
         _update_stage("file_process", "completed", lat, f"Discovered {len(files)} file(s) — structure mapped")
 
@@ -425,7 +471,7 @@ def _run_pipeline_sync(conversion_id: str, file_path: Path, db_path: str):
         time.sleep(1.5)
         t0 = time.perf_counter()
         agent2 = RegistryWriterAgent()
-        reg_result = asyncio.run(agent2.process(files, pipeline_engine))
+        reg_result = asyncio.run(agent2.process(files, pipeline_engine)) or {}
         lat = (time.perf_counter() - t0) * 1000
         inserted = reg_result.get('inserted', 0)
         _update_stage("sas_partition", "completed", lat, f"Partitioned into {inserted} block(s) — registry built")
@@ -435,7 +481,7 @@ def _run_pipeline_sync(conversion_id: str, file_path: Path, db_path: str):
         time.sleep(1.3)
         t0 = time.perf_counter()
         agent3 = CrossFileDependencyResolver()
-        deps = asyncio.run(agent3.process(files, project_root, pipeline_engine))
+        deps = asyncio.run(agent3.process(files, project_root, pipeline_engine)) or {}
         lat = (time.perf_counter() - t0) * 1000
         _update_stage("strategy_select", "completed", lat, f"Resolved {deps.get('resolved', 0)}/{deps.get('total', 0)} dependencies")
 
@@ -444,7 +490,7 @@ def _run_pipeline_sync(conversion_id: str, file_path: Path, db_path: str):
         time.sleep(1.4)
         t0 = time.perf_counter()
         agent4 = DataLineageExtractor()
-        lineage = asyncio.run(agent4.process(files, pipeline_engine))
+        lineage = asyncio.run(agent4.process(files, pipeline_engine)) or {}
         lat = (time.perf_counter() - t0) * 1000
         _update_stage("translate", "completed", lat, f"Mapped {lineage.get('total_reads', 0)} reads + {lineage.get('total_writes', 0)} writes")
 
@@ -521,32 +567,43 @@ def _run_pipeline_sync(conversion_id: str, file_path: Path, db_path: str):
 
     session.commit()
 
-    # Increment user conversion count
-    user = session.query(UserRow).get(conv.user_id)
-    if user:
-        user.conversion_count = (user.conversion_count or 0) + 1
+    # Post-pipeline bookkeeping — wrapped so a failure here never kills the task
+    try:
+        # Increment user conversion count
+        user = session.query(UserRow).get(conv.user_id)
+        if user:
+            user.conversion_count = (user.conversion_count or 0) + 1
+            session.commit()
+
+        # Create notification
+        notif_title = "Conversion Complete" if conv.status == "completed" else "Conversion Failed"
+        notif_msg = (
+            f"Your file '{conv.file_name}' has been converted successfully with {conv.accuracy}% accuracy."
+            if conv.status == "completed"
+            else f"Conversion of '{conv.file_name}' failed. Please try again."
+        )
+        notif_type = "success" if conv.status == "completed" else "error"
+        session.add(NotificationRow(
+            id=f"notif-{uuid.uuid4().hex[:8]}",
+            user_id=conv.user_id,
+            title=notif_title,
+            message=notif_msg,
+            type=notif_type,
+            created_at=datetime.now(timezone.utc).isoformat(),
+        ))
         session.commit()
+    except Exception as exc:
+        _log.warning("post_pipeline_bookkeeping_failed", conversion_id=conversion_id, error=str(exc))
 
-    # Create notification
-    notif_title = "Conversion Complete" if conv.status == "completed" else "Conversion Failed"
-    notif_msg = (
-        f"Your file '{conv.file_name}' has been converted successfully with {conv.accuracy}% accuracy."
-        if conv.status == "completed"
-        else f"Conversion of '{conv.file_name}' failed. Please try again."
-    )
-    notif_type = "success" if conv.status == "completed" else "error"
-    session.add(NotificationRow(
-        id=f"notif-{uuid.uuid4().hex[:8]}",
-        user_id=conv.user_id,
-        title=notif_title,
-        message=notif_msg,
-        type=notif_type,
-        created_at=datetime.now(timezone.utc).isoformat(),
-    ))
-    session.commit()
-
-    session.close()
-    pipeline_engine.dispose()
+    try:
+        session.close()
+    except Exception:
+        pass
+    if pipeline_engine is not None:
+        try:
+            pipeline_engine.dispose()
+        except Exception:
+            pass
 
 
 @router.post("/start", response_model=ConversionOut)
@@ -652,10 +709,15 @@ def get_partitions(conversion_id: str, current_user: dict = Depends(get_current_
     if not pipeline_db.exists():
         return []
 
-    from partition.db.sqlite_manager import get_engine, PartitionIRRow
-    pe = get_engine(str(pipeline_db))
-    from sqlalchemy.orm import sessionmaker
-    ps = sessionmaker(bind=pe)()
+    try:
+        from partition.db.sqlite_manager import get_engine, PartitionIRRow
+        pe = get_engine(str(pipeline_db))
+        from sqlalchemy.orm import sessionmaker
+        ps = sessionmaker(bind=pe)()
+    except Exception as exc:
+        _log.warning("partition_db_open_failed", conversion_id=conversion_id, error=str(exc))
+        return []
+
     try:
         rows = ps.query(PartitionIRRow).all()
         return [
@@ -663,15 +725,24 @@ def get_partitions(conversion_id: str, current_user: dict = Depends(get_current_
                 id=r.partition_id,
                 conversionId=conversion_id,
                 sasBlock=r.raw_code or "",
-                riskLevel=r.risk_level.lower() if r.risk_level else "low",
+                riskLevel=(r.risk_level or "low").lower(),
                 strategy=r.strategy or "unknown",
                 translatedCode="",
             )
             for r in rows
         ]
+    except Exception as exc:
+        _log.warning("partition_query_failed", conversion_id=conversion_id, error=str(exc))
+        return []
     finally:
-        ps.close()
-        pe.dispose()
+        try:
+            ps.close()
+        except Exception:
+            pass
+        try:
+            pe.dispose()
+        except Exception:
+            pass
 
 
 # ── Corrections ───────────────────────────────────────────────────────────────
@@ -685,6 +756,10 @@ def submit_correction(
     from api.main import engine
     session = get_api_session(engine)
     try:
+        # Verify conversion exists
+        conv = session.query(ConversionRow).get(conversion_id)
+        if not conv:
+            raise HTTPException(status_code=404, detail="Conversion not found")
         corr = CorrectionRow(
             id=f"corr-{uuid.uuid4().hex[:8]}",
             conversion_id=conversion_id,
@@ -694,7 +769,11 @@ def submit_correction(
             submitted_at=datetime.now(timezone.utc).isoformat(),
         )
         session.add(corr)
-        session.commit()
+        try:
+            session.commit()
+        except Exception as exc:
+            session.rollback()
+            raise HTTPException(status_code=500, detail="Failed to save correction")
         return CorrectionOut(
             id=corr.id,
             conversionId=corr.conversion_id,
@@ -745,8 +824,8 @@ def download_md(conversion_id: str, current_user: dict = Depends(get_current_use
             "",
             f"- **Status**: {conv.status}",
             f"- **Runtime**: {conv.runtime}",
-            f"- **Duration**: {conv.duration:.2f}s",
-            f"- **Accuracy**: {conv.accuracy}%",
+            f"- **Duration**: {(conv.duration or 0.0):.2f}s",
+            f"- **Accuracy**: {conv.accuracy or 0}%",
             f"- **Created**: {conv.created_at}",
             "",
             "## Pipeline Stages",
@@ -791,30 +870,39 @@ def download_html(conversion_id: str, current_user: dict = Depends(get_current_u
 
         stages_sorted = sorted(conv.stages, key=lambda s: STAGES.index(s.stage) if s.stage in STAGES else 99)
         stage_rows = "".join(
-            f"<tr><td>{s.stage}</td><td>{s.status}</td><td>{f'{s.latency:.0f}ms' if s.latency else '—'}</td></tr>"
+            f"<tr><td>{html_mod.escape(s.stage)}</td><td>{html_mod.escape(s.status)}</td><td>{f'{s.latency:.0f}ms' if s.latency else '—'}</td></tr>"
             for s in stages_sorted
         )
 
+        # HTML-escape all user-supplied content to prevent XSS
+        safe_file_name = html_mod.escape(conv.file_name or "unknown")
+        safe_status = html_mod.escape(conv.status or "")
+        safe_runtime = html_mod.escape(conv.runtime or "")
+        safe_val_report = html_mod.escape(conv.validation_report) if conv.validation_report else ""
+        safe_merge_report = html_mod.escape(conv.merge_report) if conv.merge_report else ""
+        safe_sas = html_mod.escape(conv.sas_code) if conv.sas_code else ""
+        safe_python = html_mod.escape(conv.python_code) if conv.python_code else ""
+
         html = f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Conversion Report — {conv.file_name}</title>
+<html><head><meta charset="utf-8"><title>Conversion Report — {safe_file_name}</title>
 <style>body{{font-family:system-ui;max-width:900px;margin:2rem auto;padding:0 1rem;color:#1a1a1a}}
 h1{{color:#7c3aed}}table{{border-collapse:collapse;width:100%}}th,td{{border:1px solid #ddd;padding:8px;text-align:left}}
 th{{background:#f5f3ff}}pre{{background:#f5f5f5;padding:1rem;border-radius:8px;overflow-x:auto}}
 .meta{{display:grid;grid-template-columns:repeat(2,1fr);gap:0.5rem;margin:1rem 0}}
 .meta span{{font-size:0.9rem}}.label{{font-weight:600;color:#555}}</style></head>
-<body><h1>Conversion Report: {conv.file_name}</h1>
+<body><h1>Conversion Report: {safe_file_name}</h1>
 <div class="meta">
-<span><span class="label">Status:</span> {conv.status}</span>
-<span><span class="label">Runtime:</span> {conv.runtime}</span>
-<span><span class="label">Duration:</span> {conv.duration:.2f}s</span>
-<span><span class="label">Accuracy:</span> {conv.accuracy}%</span>
+<span><span class="label">Status:</span> {safe_status}</span>
+<span><span class="label">Runtime:</span> {safe_runtime}</span>
+<span><span class="label">Duration:</span> {(conv.duration or 0.0):.2f}s</span>
+<span><span class="label">Accuracy:</span> {conv.accuracy or 0}%</span>
 </div>
 <h2>Pipeline Stages</h2>
 <table><tr><th>Stage</th><th>Status</th><th>Latency</th></tr>{stage_rows}</table>
-{"<h2>Validation Report</h2><pre>" + conv.validation_report + "</pre>" if conv.validation_report else ""}
-{"<h2>Merge Report</h2><pre>" + conv.merge_report + "</pre>" if conv.merge_report else ""}
-{"<h2>Original SAS Code</h2><pre>" + conv.sas_code + "</pre>" if conv.sas_code else ""}
-{"<h2>Converted Python Code</h2><pre>" + conv.python_code + "</pre>" if conv.python_code else ""}
+{"<h2>Validation Report</h2><pre>" + safe_val_report + "</pre>" if safe_val_report else ""}
+{"<h2>Merge Report</h2><pre>" + safe_merge_report + "</pre>" if safe_merge_report else ""}
+{"<h2>Original SAS Code</h2><pre>" + safe_sas + "</pre>" if safe_sas else ""}
+{"<h2>Converted Python Code</h2><pre>" + safe_python + "</pre>" if safe_python else ""}
 </body></html>"""
 
         filename = conv.file_name.replace(".sas", "_report.html") if conv.file_name else "report.html"

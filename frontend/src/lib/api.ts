@@ -38,12 +38,20 @@ async function request<T>(
   const res = await fetch(`/api${path}`, { ...options, headers });
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    const body = await res.json().catch((parseErr) => {
+      console.error("[codara] failed to parse error response", parseErr);
+      return { detail: res.statusText };
+    });
     throw new Error(body.detail || `HTTP ${res.status}`);
   }
 
   if (res.status === 204) return undefined as T;
-  return res.json();
+  try {
+    return await res.json();
+  } catch (parseErr) {
+    console.error("[codara] failed to parse response JSON", parseErr);
+    throw new Error("Invalid JSON response from server");
+  }
 }
 
 export const api = {

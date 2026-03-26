@@ -46,12 +46,18 @@ def get_groq_client(*, async_client: bool = True):
             "Get a free key at https://console.groq.com"
         )
 
-    if async_client:
-        from groq import AsyncGroq
-        return AsyncGroq(api_key=api_key)
-    else:
-        from groq import Groq
-        return Groq(api_key=api_key)
+    try:
+        if async_client:
+            from groq import AsyncGroq
+            return AsyncGroq(api_key=api_key)
+        else:
+            from groq import Groq
+            return Groq(api_key=api_key)
+    except ImportError:
+        raise RuntimeError(
+            "The 'groq' package is not installed. "
+            "Install it with: pip install groq"
+        )
 
 
 def get_llm_provider() -> str:

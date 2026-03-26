@@ -97,9 +97,13 @@ def create_entry(body: KBEntryCreate, current_user: dict = Depends(get_current_u
             updated_at=now,
         )
         session.add(entry)
-        _log_change(session, entry.id, "add", current_user["email"], f"Added {body.category} entry")
-        session.commit()
-        session.refresh(entry)
+        _log_change(session, entry.id, "add", current_user.get("email", "unknown"), f"Added {body.category} entry")
+        try:
+            session.commit()
+            session.refresh(entry)
+        except Exception as exc:
+            session.rollback()
+            raise HTTPException(status_code=500, detail="Failed to create KB entry")
         return _kb_to_out(entry)
     finally:
         session.close()
@@ -127,9 +131,13 @@ def update_entry(entry_id: str, body: KBEntryUpdate, current_user: dict = Depend
             row.confidence = body.confidence
             changes.append("confidence")
         row.updated_at = datetime.now(timezone.utc).isoformat()
-        _log_change(session, entry_id, "edit", current_user["email"], f"Updated: {', '.join(changes)}")
-        session.commit()
-        session.refresh(row)
+        _log_change(session, entry_id, "edit", current_user.get("email", "unknown"), f"Updated: {', '.join(changes)}")
+        try:
+            session.commit()
+            session.refresh(row)
+        except Exception as exc:
+            session.rollback()
+            raise HTTPException(status_code=500, detail="Failed to update KB entry")
         return _kb_to_out(row)
     finally:
         session.close()
@@ -143,9 +151,13 @@ def delete_entry(entry_id: str, current_user: dict = Depends(get_current_user)):
         row = session.query(KBEntryRow).get(entry_id)
         if not row:
             raise HTTPException(status_code=404, detail="KB entry not found")
-        _log_change(session, entry_id, "delete", current_user["email"], f"Deleted entry {entry_id}")
+        _log_change(session, entry_id, "delete", current_user.get("email", "unknown"), f"Deleted entry {entry_id}")
         session.delete(row)
-        session.commit()
+        try:
+            session.commit()
+        except Exception as exc:
+            session.rollback()
+            raise HTTPException(status_code=500, detail="Failed to delete KB entry")
         return {"deleted": entry_id}
     finally:
         session.close()

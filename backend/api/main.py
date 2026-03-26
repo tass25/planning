@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import traceback
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -15,8 +16,10 @@ _pkg_root = str(Path(__file__).resolve().parent.parent)
 if _pkg_root not in sys.path:
     sys.path.insert(0, _pkg_root)
 
-from fastapi import FastAPI
+import structlog
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from api.database import get_api_engine, init_api_db, get_api_session, UserRow, KBEntryRow
 from api.auth import hash_password
@@ -33,6 +36,8 @@ init_api_db(engine)
 
 app = FastAPI(title="Codara API", version="3.0.0", description="SAS→Python conversion accelerator")
 
+_log = structlog.get_logger("codara.api")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:8080", "http://localhost:5173", "http://127.0.0.1:8080"],
@@ -40,6 +45,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── Global exception handler — system should NEVER return a raw traceback ─────
+
+@app.exception_handler(Exception)
+async def _global_exception_handler(request: Request, exc: Exception):
+    _log.error(
+        "unhandled_exception",
+        path=str(request.url),
+        method=request.method,
+        error=str(exc),
+        traceback=traceback.format_exc(),
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
 
 # ── Include routers ──────────────────────────────────────────────────────────
 
@@ -116,7 +138,10 @@ def _seed():
         session.close()
 
 
-_seed()
+try:
+    _seed()
+except Exception as exc:
+    _log.warning("seed_failed", error=str(exc))
 
 
 # ── Health endpoint ───────────────────────────────────────────────────────────

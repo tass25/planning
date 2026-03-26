@@ -107,8 +107,9 @@ export const useUserStore = create<UserState>((set, get) => ({
   fetchNotifications: async () => {
     try {
       const notifs = await api.get<Notification[]>("/notifications");
-      const unread = notifs.filter((n) => !n.read).length;
-      set({ notifications: notifs, unreadCount: unread });
+      const safeNotifs = Array.isArray(notifs) ? notifs : [];
+      const unread = safeNotifs.filter((n) => !n.read).length;
+      set({ notifications: safeNotifs, unreadCount: unread });
     } catch {
       // Notifications may fail on first load — that's ok
     }

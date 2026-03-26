@@ -54,39 +54,52 @@ class StreamAgent(BaseAgent):
         byte_offset = 0
         buffer = ""
 
-        async with aiofiles.open(
-            file_meta.file_path,
-            mode="r",
-            encoding=file_meta.encoding,
-        ) as fh:
-            async for raw_line in fh:
-                line_num += 1
-                byte_offset += len(raw_line.encode(file_meta.encoding))
-                buffer += raw_line
+        try:
+            # Try the declared encoding first; fall back to utf-8 with replacement
+            encoding = file_meta.encoding or "utf-8"
+            try:
+                fh_open = aiofiles.open(file_meta.file_path, mode="r", encoding=encoding)
+            except (LookupError, ValueError):
+                self.logger.warning("invalid_encoding_fallback", encoding=encoding)
+                encoding = "utf-8"
+                fh_open = aiofiles.open(file_meta.file_path, mode="r", encoding=encoding, errors="replace")
 
-                # A SAS statement ends when the line contains a semicolon
-                if ";" in raw_line:
-                    chunk = LineChunk(
-                        file_id=file_meta.file_id,
-                        line_number=line_num,
-                        content=buffer.strip(),
-                        byte_offset=byte_offset,
-                        is_continuation=False,
-                    )
-                    await self.queue.put(chunk)
-                    buffer = ""
+            async with fh_open as fh:
+                async for raw_line in fh:
+                    line_num += 1
+                    try:
+                        byte_offset += len(raw_line.encode(encoding, errors="replace"))
+                    except Exception:
+                        byte_offset += len(raw_line)
+                    buffer += raw_line
 
-        # Flush anything left in the buffer (unterminated statement)
-        if buffer.strip():
-            chunk = LineChunk(
-                file_id=file_meta.file_id,
-                line_number=line_num,
-                content=buffer.strip(),
-                byte_offset=byte_offset,
-                is_continuation=True,
-            )
-            await self.queue.put(chunk)
+                    # A SAS statement ends when the line contains a semicolon
+                    if ";" in raw_line:
+                        chunk = LineChunk(
+                            file_id=file_meta.file_id,
+                            line_number=line_num,
+                            content=buffer.strip(),
+                            byte_offset=byte_offset,
+                            is_continuation=False,
+                        )
+                        await self.queue.put(chunk)
+                        buffer = ""
 
-        # EOF sentinel
-        await self.queue.put(None)
-        self.logger.info("streaming_complete", lines=line_num, bytes=byte_offset)
+            # Flush anything left in the buffer (unterminated statement)
+            if buffer.strip():
+                chunk = LineChunk(
+                    file_id=file_meta.file_id,
+                    line_number=line_num,
+                    content=buffer.strip(),
+                    byte_offset=byte_offset,
+                    is_continuation=True,
+                )
+                await self.queue.put(chunk)
+
+        except Exception as exc:
+            self.logger.error("streaming_error", file=file_meta.file_path, error=str(exc))
+            raise
+        finally:
+            # Always emit EOF sentinel so consumer is never left hanging
+            await self.queue.put(None)
+            self.logger.info("streaming_complete", lines=line_num, bytes=byte_offset)

@@ -1,0 +1,121 @@
+{
+  "file_path": "gsr_01_rsubmit_basic_etl.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 1,
+      "line_end": 1,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L1-1"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "DATA_STEP",
+      "line_start": 2,
+      "line_end": 6,
+      "test_coverage_type": "full",
+      "description": "DATA_STEP block at L2-6"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 7,
+      "line_end": 7,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L7-7"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "DATA_STEP",
+      "line_start": 8,
+      "line_end": 11,
+      "test_coverage_type": "full",
+      "description": "DATA_STEP block at L8-11"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 12,
+      "line_end": 12,
+      "test_coverage_type": "full",
+      "description": "PROC_BLOCK block at L12-12"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "DATA_STEP",
+      "line_start": 13,
+      "line_end": 17,
+      "test_coverage_type": "full",
+      "description": "DATA_STEP block at L13-17"
+    },
+    {
+      "block_id": 7,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 18,
+      "line_end": 18,
+      "test_coverage_type": "full",
+      "description": "PROC_BLOCK block at L18-18"
+    },
+    {
+      "block_id": 8,
+      "partition_type": "DATA_STEP",
+      "line_start": 19,
+      "line_end": 23,
+      "test_coverage_type": "full",
+      "description": "DATA_STEP block at L19-23"
+    },
+    {
+      "block_id": 9,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 24,
+      "line_end": 24,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L24-24"
+    },
+    {
+      "block_id": 10,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 25,
+      "line_end": 29,
+      "test_coverage_type": "full",
+      "description": "PROC_BLOCK block at L25-29"
+    },
+    {
+      "block_id": 11,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 30,
+      "line_end": 34,
+      "test_coverage_type": "full",
+      "description": "PROC_BLOCK block at L30-34"
+    },
+    {
+      "block_id": 12,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 35,
+      "line_end": 35,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L35-35"
+    },
+    {
+      "block_id": 13,
+      "partition_type": "SQL_BLOCK",
+      "line_start": 36,
+      "line_end": 40,
+      "test_coverage_type": "full",
+      "description": "SQL_BLOCK block at L36-40"
+    },
+    {
+      "block_id": 14,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 41,
+      "line_end": 41,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L41-41"
+    }
+  ],
+  "total_blocks": 14,
+  "annotator": "auto",
+  "annotation_date": "2026-03-26",
+  "tier": "real"
+}

@@ -62,13 +62,22 @@ class PartitionOrchestrator:
         self.audit = LLMAuditLogger(duckdb_path)
         self.target_runtime = target_runtime
         self.duckdb_path = duckdb_path
-        self.memory_monitor = MemoryMonitor()
+
+        # Memory monitoring (best-effort — system deps may be unavailable)
+        try:
+            self.memory_monitor = MemoryMonitor()
+        except Exception as exc:
+            logger.warning("memory_monitor_init_failed", error=str(exc))
+            self.memory_monitor = None
 
         # Agent cache — avoid re-instantiation per node call
         self._agents: dict[str, object] = {}
 
-        # Configure memory guards at startup (OMP, CUDA)
-        configure_memory_guards()
+        # Configure memory guards at startup (OMP, CUDA) — best-effort
+        try:
+            configure_memory_guards()
+        except Exception as exc:
+            logger.warning("memory_guards_failed", error=str(exc))
 
         # Build the LangGraph StateGraph
         self.graph = self._build_graph()
@@ -450,8 +459,11 @@ class PartitionOrchestrator:
         for p in partitions:
             try:
                 result = await pipeline.translate_partition(p)
+                if result is None:
+                    warnings.append(f"Translation returned None for {p.block_id}")
+                    continue
                 conversion_results.append(result)
-                if result.validation_passed:
+                if getattr(result, "validation_passed", False):
                     passed += 1
             except Exception as exc:
                 warnings.append(f"Translation failed for {p.block_id}: {exc}")
@@ -493,8 +505,12 @@ class PartitionOrchestrator:
 
         conversions_by_file: dict[str, list] = {}
         for cr in conversion_results:
-            fid = str(cr.file_id)
-            conversions_by_file.setdefault(fid, []).append(cr)
+            try:
+                fid = str(cr.file_id) if hasattr(cr, "file_id") else str(cr.get("file_id", ""))
+            except Exception:
+                fid = ""
+            if fid:
+                conversions_by_file.setdefault(fid, []).append(cr)
 
         merge_results = []
         for file_id, file_parts in partitions_by_file.items():
@@ -511,7 +527,10 @@ class PartitionOrchestrator:
 
             try:
                 result = await agent.process(
-                    conversion_results=[cr.model_dump() for cr in file_conversions],
+                    conversion_results=[
+                        cr.model_dump() if hasattr(cr, "model_dump") else dict(cr)
+                        for cr in file_conversions
+                    ],
                     partitions=[
                         {
                             "partition_type": getattr(p.partition_type, "value", str(p.partition_type)),

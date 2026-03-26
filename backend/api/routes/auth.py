@@ -172,22 +172,34 @@ async def github_callback(body: GitHubCallbackRequest):
             "https://api.github.com/user",
             headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"},
         )
-        gh_user = user_resp.json()
+        if user_resp.status_code != 200:
+            raise HTTPException(status_code=400, detail="Failed to fetch GitHub user info")
+        try:
+            gh_user = user_resp.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid response from GitHub user API")
+        if not isinstance(gh_user, dict) or "id" not in gh_user:
+            raise HTTPException(status_code=400, detail="GitHub user info missing required fields")
 
         # Get email
         email_resp = await client.get(
             "https://api.github.com/user/emails",
             headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"},
         )
-        emails = email_resp.json()
-        primary_email = next((e["email"] for e in emails if e.get("primary")), None)
+        try:
+            emails = email_resp.json() if email_resp.status_code == 200 else []
+        except Exception:
+            emails = []
+        if not isinstance(emails, list):
+            emails = []
+        primary_email = next((e["email"] for e in emails if isinstance(e, dict) and e.get("primary") and e.get("email")), None)
         if not primary_email:
-            primary_email = gh_user.get("email") or f"{gh_user['login']}@github.local"
+            primary_email = gh_user.get("email") or f"{gh_user.get('login', 'unknown')}@github.local"
 
     from api.main import engine
     session = get_api_session(engine)
     try:
-        gh_id = str(gh_user["id"])
+        gh_id = str(gh_user.get("id", ""))
         user = session.query(UserRow).filter(UserRow.github_id == gh_id).first()
 
         if not user:
@@ -200,7 +212,7 @@ async def github_callback(body: GitHubCallbackRequest):
                 user = UserRow(
                     id=f"u-{uuid.uuid4().hex[:8]}",
                     email=primary_email,
-                    name=gh_user.get("name") or gh_user["login"],
+                    name=gh_user.get("name") or gh_user.get("login", "github-user"),
                     hashed_password=None,
                     role="user",
                     status="active",

@@ -22,12 +22,21 @@ def update_profile(body: ProfileUpdate, current_user: dict = Depends(get_current
         if body.name is not None:
             user.name = body.name
         if body.email is not None:
+            if body.email != user.email:
+                existing = session.query(UserRow).filter(UserRow.email == body.email).first()
+                if existing:
+                    raise HTTPException(status_code=409, detail="Email already taken")
             user.email = body.email
-        session.commit()
+        try:
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise HTTPException(status_code=500, detail="Failed to update profile")
         session.refresh(user)
         return UserOut(
             id=user.id, email=user.email, name=user.name, role=user.role,
-            conversionCount=user.conversion_count, status=user.status, createdAt=user.created_at,
+            conversionCount=user.conversion_count, status=user.status,
+            emailVerified=user.email_verified or False, createdAt=user.created_at,
         )
     finally:
         session.close()
@@ -45,7 +54,11 @@ def update_preferences(body: PreferencesUpdate, current_user: dict = Depends(get
             user.default_runtime = body.defaultRuntime.value
         if body.emailNotifications is not None:
             user.email_notifications = body.emailNotifications
-        session.commit()
+        try:
+            session.commit()
+        except Exception as exc:
+            session.rollback()
+            raise HTTPException(status_code=500, detail="Failed to update preferences")
         return {"status": "ok"}
     finally:
         session.close()

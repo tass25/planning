@@ -1,0 +1,57 @@
+{
+  "file_path": "gsr_09_rsubmit_sql_export.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 1,
+      "line_end": 8,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L1-8"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "SQL_BLOCK",
+      "line_start": 10,
+      "line_end": 60,
+      "test_coverage_type": "full",
+      "description": "SQL_BLOCK block at L10-60"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 61,
+      "line_end": 63,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L61-63"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "SQL_BLOCK",
+      "line_start": 64,
+      "line_end": 69,
+      "test_coverage_type": "full",
+      "description": "SQL_BLOCK block at L64-69"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 70,
+      "line_end": 70,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L70-70"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 74,
+      "line_end": 78,
+      "test_coverage_type": "full",
+      "description": "PROC_BLOCK block at L74-78"
+    }
+  ],
+  "total_blocks": 6,
+  "annotator": "auto",
+  "annotation_date": "2026-03-26",
+  "tier": "real"
+}

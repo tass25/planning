@@ -1,0 +1,33 @@
+{
+  "file_path": "gsr_08_rsubmit_let_sql.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 6,
+      "line_end": 7,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L6-7"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "SQL_BLOCK",
+      "line_start": 13,
+      "line_end": 32,
+      "test_coverage_type": "full",
+      "description": "SQL_BLOCK block at L13-32"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 33,
+      "line_end": 33,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L33-33"
+    }
+  ],
+  "total_blocks": 3,
+  "annotator": "auto",
+  "annotation_date": "2026-03-26",
+  "tier": "real"
+}

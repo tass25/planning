@@ -1,0 +1,145 @@
+{
+  "file_path": "gsr_11_dm_include_libname.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 1,
+      "line_end": 1,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L1-1"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 5,
+      "line_end": 5,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L5-5"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "INCLUDE_REFERENCE",
+      "line_start": 6,
+      "line_end": 6,
+      "test_coverage_type": "structural_only",
+      "description": "INCLUDE_REFERENCE block at L6-6"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 9,
+      "line_end": 9,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L9-9"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "INCLUDE_REFERENCE",
+      "line_start": 13,
+      "line_end": 13,
+      "test_coverage_type": "structural_only",
+      "description": "INCLUDE_REFERENCE block at L13-13"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 17,
+      "line_end": 17,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L17-17"
+    },
+    {
+      "block_id": 7,
+      "partition_type": "INCLUDE_REFERENCE",
+      "line_start": 18,
+      "line_end": 18,
+      "test_coverage_type": "structural_only",
+      "description": "INCLUDE_REFERENCE block at L18-18"
+    },
+    {
+      "block_id": 8,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 19,
+      "line_end": 19,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L19-19"
+    },
+    {
+      "block_id": 9,
+      "partition_type": "INCLUDE_REFERENCE",
+      "line_start": 21,
+      "line_end": 21,
+      "test_coverage_type": "structural_only",
+      "description": "INCLUDE_REFERENCE block at L21-21"
+    },
+    {
+      "block_id": 10,
+      "partition_type": "INCLUDE_REFERENCE",
+      "line_start": 25,
+      "line_end": 25,
+      "test_coverage_type": "structural_only",
+      "description": "INCLUDE_REFERENCE block at L25-25"
+    },
+    {
+      "block_id": 11,
+      "partition_type": "INCLUDE_REFERENCE",
+      "line_start": 29,
+      "line_end": 29,
+      "test_coverage_type": "structural_only",
+      "description": "INCLUDE_REFERENCE block at L29-29"
+    },
+    {
+      "block_id": 12,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 33,
+      "line_end": 36,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L33-36"
+    },
+    {
+      "block_id": 13,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 42,
+      "line_end": 42,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L42-42"
+    },
+    {
+      "block_id": 14,
+      "partition_type": "INCLUDE_REFERENCE",
+      "line_start": 47,
+      "line_end": 47,
+      "test_coverage_type": "structural_only",
+      "description": "INCLUDE_REFERENCE block at L47-47"
+    },
+    {
+      "block_id": 15,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 55,
+      "line_end": 55,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L55-55"
+    },
+    {
+      "block_id": 16,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 87,
+      "line_end": 87,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L87-87"
+    },
+    {
+      "block_id": 17,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 90,
+      "line_end": 94,
+      "test_coverage_type": "full",
+      "description": "PROC_BLOCK block at L90-94"
+    }
+  ],
+  "total_blocks": 17,
+  "annotator": "auto",
+  "annotation_date": "2026-03-26",
+  "tier": "real"
+}

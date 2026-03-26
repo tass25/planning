@@ -5,8 +5,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useUserStore } from "@/store/user-store";
 import { useConversionStore } from "@/store/conversion-store";
+import { getToken } from "@/lib/api";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/Login";
@@ -31,11 +33,19 @@ const queryClient = new QueryClient();
 
 const App = () => {
   useEffect(() => {
-    useUserStore.getState().restoreSession();
-    useConversionStore.getState().fetchConversions();
+    useUserStore.getState().restoreSession().catch((err) => {
+      console.error("[codara] restoreSession failed", err);
+    });
+    // Only fetch conversions if user has a token — prevents 401 on cold load
+    if (getToken()) {
+      useConversionStore.getState().fetchConversions().catch((err) => {
+        console.error("[codara] initial fetchConversions failed", err);
+      });
+    }
   }, []);
 
   return (
+  <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -71,6 +81,7 @@ const App = () => {
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
   );
 };
 

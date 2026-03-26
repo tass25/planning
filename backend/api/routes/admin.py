@@ -139,6 +139,30 @@ def update_user(user_id: str, body: UserUpdate, current_user: dict = Depends(get
         session.close()
 
 
+@router.delete("/users/{user_id}")
+def delete_user(user_id: str, current_user: dict = Depends(get_current_user)):
+    _require_admin(current_user)
+    if user_id == current_user.get("sub"):
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+    from api.main import engine
+    session = get_api_session(engine)
+    try:
+        user = session.query(UserRow).get(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        try:
+            session.delete(user)
+            session.commit()
+        except Exception as exc:
+            session.rollback()
+            import structlog as _sl
+            _sl.get_logger("codara.admin").error("delete_user_failed", user_id=user_id, error=str(exc))
+            raise HTTPException(status_code=500, detail="Failed to delete user — may have related records")
+        return {"deleted": user_id}
+    finally:
+        session.close()
+
+
 # ── Pipeline config ───────────────────────────────────────────────────────────
 
 # In-memory config (could persist to DB later)

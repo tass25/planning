@@ -51,7 +51,7 @@ class StateAgent(BaseAgent):
     MACRO_DEF   = re.compile(r"^\s*%MACRO\s+(\w+)", re.IGNORECASE)
     MACRO_END   = re.compile(r"^\s*%MEND\b", re.IGNORECASE)
     MACRO_CALL  = re.compile(
-        r"%(?!MACRO\b|MEND\b|DO\b|END\b|IF\b|ELSE\b|LET\b|PUT\b|INCLUDE\b)(\w+)\s*[\(;]",
+        r"%(?!MACRO\b|MEND\b|DO\b|END\b|IF\b|ELSE\b|LET\b|PUT\b|INCLUDE\b|GLOBAL\b|LOCAL\b)(\w+)\s*[\(;]",
         re.IGNORECASE,
     )
     DO_START    = re.compile(r"%DO\b", re.IGNORECASE)
@@ -60,10 +60,27 @@ class StateAgent(BaseAgent):
     RUN_STMT    = re.compile(r"^\s*RUN\s*;", re.IGNORECASE)
     QUIT_STMT   = re.compile(r"^\s*QUIT\s*;", re.IGNORECASE)
     INCLUDE     = re.compile(r"%INCLUDE\s+", re.IGNORECASE)
-    GLOBAL      = re.compile(r"^\s*(?:OPTIONS|LIBNAME|FILENAME|TITLE|%LET\b|%PUT\s+(?:NOTE|WARNING|ERROR)\s*:)", re.IGNORECASE)
+    GLOBAL      = re.compile(
+        r"^\s*(?:"
+        r"OPTIONS|LIBNAME|FILENAME|TITLE\d*|FOOTNOTE\d*"
+        r"|%LET\b|%GLOBAL\b|%LOCAL\b"
+        r"|DM\b|ODS\b"
+        r"|RSUBMIT\b|ENDRSUBMIT\b"
+        r"|%PUT\b"
+        r")",
+        re.IGNORECASE,
+    )
     # Core GLOBAL triggers (OPTIONS/LIBNAME/etc.) — excludes %PUT NOTE/WARNING
     # Used to distinguish "real" GLOBAL_STATEMENTs from PUT-banner lines.
-    GLOBAL_CORE = re.compile(r"^\s*(?:OPTIONS|LIBNAME|FILENAME|TITLE|%LET\b)", re.IGNORECASE)
+    GLOBAL_CORE = re.compile(
+        r"^\s*(?:"
+        r"OPTIONS|LIBNAME|FILENAME|TITLE\d*|FOOTNOTE\d*"
+        r"|%LET\b|%GLOBAL\b|%LOCAL\b"
+        r"|DM\b|ODS\b"
+        r"|RSUBMIT\b|ENDRSUBMIT\b"
+        r")",
+        re.IGNORECASE,
+    )
     # %PUT NOTE/WARNING/ERROR: banner lines — trigger GLOBAL but are dropped post-merge
     # unless merged with a GLOBAL_CORE event.
     PUT_LOG     = re.compile(r"^\s*%PUT\s+(?:NOTE|WARNING|ERROR)\s*:", re.IGNORECASE)

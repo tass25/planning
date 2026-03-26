@@ -1,0 +1,73 @@
+{
+  "file_path": "gsr_05_dm_rsubmit_sql.sas",
+  "blocks": [
+    {
+      "block_id": 1,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 2,
+      "line_end": 16,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L2-16"
+    },
+    {
+      "block_id": 2,
+      "partition_type": "SQL_BLOCK",
+      "line_start": 17,
+      "line_end": 37,
+      "test_coverage_type": "full",
+      "description": "SQL_BLOCK block at L17-37"
+    },
+    {
+      "block_id": 3,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 38,
+      "line_end": 40,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L38-40"
+    },
+    {
+      "block_id": 4,
+      "partition_type": "SQL_BLOCK",
+      "line_start": 41,
+      "line_end": 46,
+      "test_coverage_type": "full",
+      "description": "SQL_BLOCK block at L41-46"
+    },
+    {
+      "block_id": 5,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 47,
+      "line_end": 49,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L47-49"
+    },
+    {
+      "block_id": 6,
+      "partition_type": "DATA_STEP",
+      "line_start": 50,
+      "line_end": 54,
+      "test_coverage_type": "full",
+      "description": "DATA_STEP block at L50-54"
+    },
+    {
+      "block_id": 7,
+      "partition_type": "GLOBAL_STATEMENT",
+      "line_start": 55,
+      "line_end": 55,
+      "test_coverage_type": "structural_only",
+      "description": "GLOBAL_STATEMENT block at L55-55"
+    },
+    {
+      "block_id": 8,
+      "partition_type": "PROC_BLOCK",
+      "line_start": 57,
+      "line_end": 62,
+      "test_coverage_type": "full",
+      "description": "PROC_BLOCK block at L57-62"
+    }
+  ],
+  "total_blocks": 8,
+  "annotator": "auto",
+  "annotation_date": "2026-03-26",
+  "tier": "real"
+}

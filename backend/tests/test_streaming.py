@@ -8,6 +8,7 @@ Tests:
     5. test_block_type_accuracy — correct block_type assignments
     6. test_nesting_depth — %IF/%DO nesting depth tracking
     7. test_macro_stack — nested %MACRO push/pop
+    8. test_real_file — real advanced_code.sas (skipped if not present)
 """
 
 from __future__ import annotations
@@ -298,3 +299,84 @@ def test_macro_stack():
         assert len(final_stack) == 0, f"Final macro stack should be empty, got {final_stack}"
     finally:
         os.unlink(path)
+
+
+# ── Test 8: Real file ────────────────────────────────────────────────
+# Skipped automatically if the file doesn't exist on the current machine.
+# On Windows run pytest from the project root; on CI the skip is silent.
+
+_REAL_FILE = r"C:\Users\labou\Desktop\stagePfe\advanced_code.sas"
+
+# Also accept an env-var override so CI / Linux can point to the file:
+#   SAS_REAL_FILE=/path/to/advanced_code.sas pytest
+_REAL_FILE = os.environ.get("SAS_REAL_FILE", _REAL_FILE)
+
+
+@pytest.mark.skipif(
+    not Path(_REAL_FILE).exists(),
+    reason=f"Real file not found: {_REAL_FILE}  (set SAS_REAL_FILE env var to override)",
+)
+def test_real_file_pipeline():
+    """Run the full pipeline on the real advanced_code.sas and assert sanity."""
+    p = Path(_REAL_FILE)
+    raw = p.read_bytes()
+    text = raw.decode("utf-8", errors="replace")
+    meta = FileMetadata(
+        file_id=uuid4(),
+        file_path=str(p),
+        encoding="utf-8",
+        content_hash="real",
+        file_size_bytes=len(raw),
+        line_count=text.count("\n") + 1,
+        lark_valid=True,
+    )
+
+    tracemalloc.start()
+    start = time.perf_counter()
+    results = asyncio.run(run_streaming_pipeline(meta))
+    elapsed = time.perf_counter() - start
+    _cur, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    peak_mb = peak / 1024 / 1024
+
+    # ── collect metrics ──────────────────────────────────────────────
+    seen_types: set[str] = set()
+    max_depth = 0
+    max_stack = 0
+    for _, state in results:
+        bt = state.current_block_type
+        if bt and bt != "IDLE":
+            seen_types.add(bt)
+        if state.last_closed_block:
+            seen_types.add(state.last_closed_block[0])
+        max_depth = max(max_depth, state.nesting_depth)
+        max_stack = max(max_stack, len(state.macro_stack))
+
+    final = results[-1][1] if results else None
+
+    # ── print a brief summary (visible with pytest -s) ───────────────
+    print(f"\n{'─'*60}")
+    print(f"  Real file : {p.name}  ({len(raw)/1024:.1f} KB, {meta.line_count} lines)")
+    print(f"  Chunks    : {len(results)}")
+    print(f"  Elapsed   : {elapsed:.3f}s")
+    print(f"  Peak mem  : {peak_mb:.1f} MB")
+    print(f"  Block types seen : {sorted(seen_types)}")
+    print(f"  Max nesting depth: {max_depth}")
+    print(f"  Max macro stack  : {max_stack}")
+    print(f"  Final nesting    : {final.nesting_depth if final else '?'}")
+    print(f"  Final macro stack: {list(final.macro_stack) if final else '?'}")
+    print(f"{'─'*60}")
+
+    # ── sanity assertions ────────────────────────────────────────────
+    assert len(results) > 0, "Pipeline returned no results for real file"
+    assert elapsed < 30.0, f"Real file took {elapsed:.2f}s (limit 30s)"
+    assert peak_mb < 200.0, f"Real file peak memory {peak_mb:.1f} MB (limit 200 MB)"
+    assert len(seen_types) > 0, "No block types detected in real file"
+    # Final state must have balanced nesting
+    if final:
+        assert final.nesting_depth == 0, (
+            f"Unbalanced nesting at EOF: depth={final.nesting_depth}"
+        )
+        assert len(final.macro_stack) == 0, (
+            f"Unclosed macros at EOF: {list(final.macro_stack)}"
+        )
