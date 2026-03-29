@@ -20,15 +20,6 @@ CANONICAL_ALIASES: dict[str, str] = {
     "scipy.stats": "from scipy import stats",
 }
 
-# PySpark-specific imports
-PYSPARK_IMPORTS: dict[str, str] = {
-    "pyspark": "from pyspark.sql import SparkSession",
-    "pyspark.sql": "from pyspark.sql import SparkSession",
-    "pyspark.sql.functions": "from pyspark.sql import functions as F",
-    "pyspark.sql.types": "from pyspark.sql.types import *",
-    "pyspark.sql.window": "from pyspark.sql.window import Window",
-}
-
 # Known stdlib modules (subset used by generated code)
 STDLIB_MODULES = {
     "os", "sys", "re", "json", "csv", "datetime", "pathlib",
@@ -50,12 +41,8 @@ def _classify_import(module_name: str) -> str:
     return "third_party"
 
 
-def _to_import_statement(
-    module_name: str, target_runtime: str = "python"
-) -> str:
+def _to_import_statement(module_name: str) -> str:
     """Convert a module name to a canonical import statement."""
-    if target_runtime == "pyspark" and module_name in PYSPARK_IMPORTS:
-        return PYSPARK_IMPORTS[module_name]
     if module_name in CANONICAL_ALIASES:
         return CANONICAL_ALIASES[module_name]
     root = module_name.split(".")[0]
@@ -64,10 +51,7 @@ def _to_import_statement(
     return f"import {module_name}"
 
 
-def consolidate_imports(
-    all_imports: list[list[str]],
-    target_runtime: str = "python",
-) -> str:
+def consolidate_imports(all_imports: list[list[str]]) -> str:
     """Consolidate imports from multiple ConversionResult.imports_detected lists.
 
     Returns formatted import block with PEP 8 ordering:
@@ -76,14 +60,9 @@ def consolidate_imports(
     seen_statements: set[str] = set()
     sections: dict[str, list[str]] = defaultdict(list)
 
-    if target_runtime == "pyspark":
-        stmt = PYSPARK_IMPORTS["pyspark"]
-        seen_statements.add(stmt)
-        sections["third_party"].append(stmt)
-
     for imports_list in all_imports:
         for module_name in imports_list:
-            stmt = _to_import_statement(module_name, target_runtime)
+            stmt = _to_import_statement(module_name)
             if stmt not in seen_statements:
                 seen_statements.add(stmt)
                 section = _classify_import(module_name)

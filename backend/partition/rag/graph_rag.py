@@ -129,7 +129,7 @@ class GraphRAG:
             k=self.K,
         )
 
-        target_label = "PySpark" if target_runtime == "pyspark" else "Python (pandas)"
+        target_label = "Python (pandas)"
 
         # 3. Render prompt with graph context + KB examples
         prompt = self.pm.render(

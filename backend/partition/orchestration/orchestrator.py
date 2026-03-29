@@ -49,7 +49,7 @@ class PartitionOrchestrator:
     duckdb_path : str
         Path to DuckDB file for LLM audit logs.
     target_runtime : str
-        ``"python"`` or ``"pyspark"``.
+        ``"python"``.
     """
 
     def __init__(

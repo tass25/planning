@@ -3,7 +3,6 @@
 Usage::
 
     python scripts/run_pipeline.py data/sas_files/*.sas --target python
-    python scripts/run_pipeline.py data/sas_files/ --target pyspark
     python scripts/run_pipeline.py file1.sas file2.sas --redis redis://localhost:6379/1
 """
 
@@ -32,12 +31,12 @@ configure_logging()
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="SAS -> Python/PySpark Partition Pipeline (Week 8 Orchestrator)"
+        description="SAS -> Python Partition Pipeline (Week 8 Orchestrator)"
     )
     parser.add_argument("files", nargs="+", help="SAS file paths or directories")
     parser.add_argument(
         "--target",
-        choices=["python", "pyspark"],
+        choices=["python"],
         default="python",
         help="Target runtime (default: python)",
     )

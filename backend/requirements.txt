@@ -19,6 +19,7 @@ openai~=1.82.0
 groq~=0.25.0
 # RAPTOR semantic clustering (week 5)
 sentence-transformers~=4.1.0
+tf-keras>=2.16.0  # required by sentence-transformers 4+ / transformers keras backend
 torch~=2.7.0
 lancedb~=0.22.0
 pyarrow~=20.0.0

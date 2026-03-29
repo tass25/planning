@@ -16,9 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Ensure sas_converter/ is on sys.path
 _ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(_ROOT / "sas_converter"))
 
 
 # ======================================================================

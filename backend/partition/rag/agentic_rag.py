@@ -139,7 +139,7 @@ class AgenticRAG:
         # Skip retrieval for UNCERTAIN risk
         if risk_level == "UNCERTAIN":
             logger.info("agentic_rag_skip", reason="UNCERTAIN risk")
-            target_label = "PySpark" if target_runtime == "pyspark" else "Python (pandas)"
+            target_label = "Python (pandas)"
             prompt = self.pm.render(
                 "translation_agentic",
                 sas_code=source_code,
@@ -190,7 +190,7 @@ class AgenticRAG:
                 partition_id, translations=translations,
             )
 
-        target_label = "PySpark" if target_runtime == "pyspark" else "Python (pandas)"
+        target_label = "Python (pandas)"
 
         prompt = self.pm.render(
             "translation_agentic",

@@ -48,6 +48,41 @@ class StateAgent(BaseAgent):
     DATA_START  = re.compile(r"^\s*DATA\s+", re.IGNORECASE)
     PROC_START  = re.compile(r"^\s*PROC\s+", re.IGNORECASE)
     PROC_SQL    = re.compile(r"^\s*PROC\s+SQL\b", re.IGNORECASE)
+    # Extracts the specific PROC name (e.g. "SORT", "MEANS", "REPORT") for metadata
+    PROC_NAME   = re.compile(r"^\s*PROC\s+(\w+)", re.IGNORECASE)
+
+    # All known SAS PROC types — used for metadata enrichment in PartitionIR.
+    # Any PROC not in this set is still parsed as PROC_BLOCK; the set is purely
+    # informational (used by boundary_detector + complexity_agent).
+    KNOWN_PROC_TYPES: frozenset[str] = frozenset({
+        # Base SAS
+        "SORT", "MEANS", "FREQ", "PRINT", "CONTENTS", "DATASETS",
+        "APPEND", "COPY", "COMPARE", "TRANSPOSE", "FORMAT", "CATALOG",
+        "PRINTTO", "REPORT", "TABULATE", "UNIVARIATE", "CHART", "PLOT",
+        "TEMPLATE", "DELETE", "DISPLAY",
+        # SAS/STAT
+        "ANOVA", "GLM", "GLMSELECT", "MIXED", "GENMOD", "LOGISTIC",
+        "LIFETEST", "PHREG", "REG", "ARIMA", "AUTOREG", "FORECAST",
+        "ESM", "EXPAND", "FACTOR", "CANDISC", "DISCRIM", "CLUSTER",
+        "FASTCLUS", "ACECLUS", "DISTANCE", "CORRESP", "CATMOD",
+        "TTEST", "NPAR1WAY", "CORR", "STEPWISE", "GLIMMIX", "GEE",
+        "HPLOGISTIC", "HPSPLIT", "HPBIN", "LASSO", "PLS", "RIDGE",
+        "POWER", "SEVERITY", "COUNTREG", "LOESS", "DMINE", "DMREG",
+        # SAS/ACCESS
+        "SQL", "FEDSQL", "SDSQL", "DBLOAD", "DBF",
+        # SAS/CONNECT
+        "UPLOAD", "DOWNLOAD",
+        # SAS/GRAPH
+        "GCHART", "GPLOT", "G3D", "GANNO", "GINSIDE", "BOXPLOT",
+        # Import / Export
+        "IMPORT", "EXPORT", "CIMPORT", "CPORT",
+        # Analytics / Data Mining
+        "SURVEYSELECT", "CAPABILITY", "CHISQ", "INTERACT",
+        "OUTLIER", "KMEANS", "GRIDDED",
+        # Misc
+        "PRINTTO", "MACROS", "FCMP", "GEOCODE", "X11",
+        "CAS", "CASUTIL", "DATAMETRICS", "DATASET",
+    })
     MACRO_DEF   = re.compile(r"^\s*%MACRO\s+(\w+)", re.IGNORECASE)
     MACRO_END   = re.compile(r"^\s*%MEND\b", re.IGNORECASE)
     MACRO_CALL  = re.compile(

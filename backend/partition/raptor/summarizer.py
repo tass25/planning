@@ -16,8 +16,14 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-import tiktoken
 import structlog
+
+try:
+    import tiktoken as _tiktoken
+    _TIKTOKEN_AVAILABLE = True
+except ImportError:
+    _tiktoken = None  # type: ignore[assignment]
+    _TIKTOKEN_AVAILABLE = False
 
 from partition.utils.retry import azure_breaker, groq_breaker
 
@@ -85,7 +91,7 @@ class ClusterSummarizer:
 
     def __init__(self):
         self._summary_cache: dict[str, ClusterSummary] = {}
-        self._enc = tiktoken.get_encoding(self.ENCODING_NAME)
+        self._enc = _tiktoken.get_encoding(self.ENCODING_NAME) if _TIKTOKEN_AVAILABLE else None
         self.azure_client = None
         self.groq_client = None
         self._azure_deployment = os.getenv(
@@ -212,12 +218,18 @@ class ClusterSummarizer:
         result: list[str] = []
 
         for block in code_blocks:
-            block_tokens = len(self._enc.encode(block))
+            if self._enc is not None:
+                block_tokens = len(self._enc.encode(block))
+            else:
+                block_tokens = len(block) // 4  # rough char-based fallback
             remaining = self.MAX_PROMPT_TOKENS - total_tokens - overhead
             if block_tokens > remaining:
                 if remaining > 50:
-                    tokens = self._enc.encode(block)[:remaining]
-                    result.append(self._enc.decode(tokens) + "\n/* ... truncated ... */")
+                    if self._enc is not None:
+                        tokens = self._enc.encode(block)[:remaining]
+                        result.append(self._enc.decode(tokens) + "\n/* ... truncated ... */")
+                    else:
+                        result.append(block[: remaining * 4] + "\n/* ... truncated ... */")
                 break
             result.append(block)
             total_tokens += block_tokens

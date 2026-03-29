@@ -5,11 +5,21 @@ from __future__ import annotations
 import hashlib
 from collections import OrderedDict
 
-from sentence_transformers import SentenceTransformer
 import numpy as np
 import structlog
 
 logger = structlog.get_logger()
+
+try:
+    from sentence_transformers import SentenceTransformer as _SentenceTransformer
+    _ST_AVAILABLE = True
+except Exception:  # ImportError or missing tf_keras / tensorflow cascade
+    _SentenceTransformer = None  # type: ignore[assignment]
+    _ST_AVAILABLE = False
+    logger.warning(
+        "sentence_transformers_unavailable",
+        hint="pip install sentence-transformers tf-keras",
+    )
 
 
 class NomicEmbedder:
@@ -32,7 +42,12 @@ class NomicEmbedder:
             device: 'cpu' or 'cuda'. Pass ``torch.cuda.is_available()``
                     result at call-site when GPU is available.
         """
-        self.model = SentenceTransformer(
+        if not _ST_AVAILABLE:
+            raise RuntimeError(
+                "sentence-transformers is not importable. "
+                "Install missing dependency: pip install tf-keras"
+            )
+        self.model = _SentenceTransformer(
             self.MODEL_NAME,
             device=device,
             # SECURITY: trust_remote_code is required by nomic-embed-text-v1.5

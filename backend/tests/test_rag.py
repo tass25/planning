@@ -311,10 +311,6 @@ class TestStaticRAG:
         )
         emb.embed.assert_called_once_with(SAS_CODE)
 
-    def test_pyspark_runtime_label(self):
-        ctx = self._build(target_runtime="pyspark")
-        assert "PySpark" in ctx["prompt"]
-
 
 # ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║  GraphRAG tests                                                          ║

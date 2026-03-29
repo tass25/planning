@@ -45,7 +45,7 @@ class PipelineState(TypedDict):
 
     # ---- Input ----
     input_paths: list[str]           # SAS file paths to process
-    target_runtime: str              # "python" | "pyspark"
+    target_runtime: str              # always "python"
 
     # ---- Current stage ----
     stage: str                       # PipelineStage value
@@ -114,8 +114,8 @@ class PipelineStateValidator(BaseModel):
     @field_validator("target_runtime")
     @classmethod
     def _valid_runtime(cls, v: str) -> str:
-        if v not in ("python", "pyspark"):
-            raise ValueError(f"target_runtime must be 'python' or 'pyspark', got '{v}'")
+        if v != "python":
+            raise ValueError(f"target_runtime must be 'python', got '{v}'")
         return v
 
     @field_validator("stage")

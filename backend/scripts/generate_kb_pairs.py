@@ -2,7 +2,7 @@
 
 3-prompt chain:
     Prompt A → Generate realistic SAS code (Azure OpenAI GPT-4o)
-    Prompt B → Convert to Python/PySpark with failure-mode rules (Azure OpenAI GPT-4o)
+    Prompt B → Convert to Python with failure-mode rules (Azure OpenAI GPT-4o)
     Prompt C → Cross-verify equivalence (Groq LLaMA 70B, separate context)
 
 Pairs with cross-verify confidence >= 0.85 → verified=True.
@@ -49,10 +49,10 @@ class GeneratedSAS(BaseModel):
 
 
 class ConvertedPython(BaseModel):
-    """Output of Prompt B: Python/PySpark equivalent."""
+    """Output of Prompt B: Python equivalent."""
 
-    python_code: str = Field(..., description="Python/PySpark equivalent")
-    target_runtime: str = Field(default="python", description="python | pyspark")
+    python_code: str = Field(..., description="Python equivalent")
+    target_runtime: str = Field(default="python", description="python")
     imports_needed: list[str] = Field(default_factory=list)
     notes: str = Field(default="", description="Translation notes")
 
@@ -347,9 +347,7 @@ class KBGenerator:
         self, sas: GeneratedSAS, failure_mode: str
     ) -> Optional[ConvertedPython]:
         fm_rules = _FM_RULES.get(failure_mode, "")
-        runtime_label = (
-            "PySpark" if self.target_runtime == "pyspark" else "Python (pandas)"
-        )
+        runtime_label = "Python (pandas)"
 
         prompt = (
             f"Convert this SAS code to {runtime_label}.\n\n"
@@ -360,7 +358,7 @@ class KBGenerator:
             "Requirements:\n"
             "- Produce syntactically valid Python code\n"
             "- Include all necessary imports\n"
-            "- Use idiomatic pandas/PySpark patterns\n"
+            "- Use idiomatic pandas patterns\n"
             "- Add brief inline comments for non-obvious translations\n"
         )
         try:
@@ -490,7 +488,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate KB pairs")
     parser.add_argument("--target-pairs", type=int, default=250)
     parser.add_argument(
-        "--runtime", choices=["python", "pyspark"], default="python"
+        "--runtime", choices=["python"], default="python"
     )
     parser.add_argument(
         "--output", default="knowledge_base/generated_pairs.json"

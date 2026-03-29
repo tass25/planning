@@ -84,7 +84,7 @@ def merge_script(
 
     # 2. Consolidate imports
     all_imports = [cr.get("imports_detected", []) for cr in conversion_results]
-    import_block = consolidate_imports(all_imports, target_runtime)
+    import_block = consolidate_imports(all_imports)
 
     # 3. Build name registry
     registry = build_name_registry(partitions, source_file_id)
@@ -141,9 +141,7 @@ def merge_script(
         merge_status = "SUCCESS"
 
     # 9. Write output
-    suffix = (
-        "_converted_spark.py" if target_runtime == "pyspark" else "_converted.py"
-    )
+    suffix = "_converted.py"
     stem = Path(source_path).stem
     output_path = Path(output_dir) / f"{stem}{suffix}"
     output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -1,6 +1,6 @@
 """TranslationAgent (#12) — L3
 
-Converts SAS partitions to Python/PySpark using:
+Converts SAS partitions to Python using:
 1. Failure-mode detection (6 rules)
 2. Three RAG paradigms: Static (LOW), GraphRAG (deps/SCC), Agentic (MOD/HIGH)
 3. LLM routing: LOW → Azure GPT-4o-mini, MODERATE/HIGH → Azure GPT-4o
@@ -47,7 +47,7 @@ logger = structlog.get_logger()
 
 
 class TranslationOutput(BaseModel):
-    python_code: str = Field(..., description="Translated Python/PySpark code")
+    python_code: str = Field(..., description="Translated Python code")
     imports_detected: list[str] = Field(default_factory=list)
     confidence: float = Field(..., ge=0.0, le=1.0)
     notes: str = Field(default="")
@@ -60,7 +60,7 @@ class CrossVerifyOutput(BaseModel):
 
 
 class TranslationAgent(BaseAgent):
-    """Agent #12: SAS → Python/PySpark translation.
+    """Agent #12: SAS → Python translation.
 
     Routing (Azure-first):
       - LOW risk → Azure GPT-4o-mini (fast, cheap)

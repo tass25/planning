@@ -8,6 +8,7 @@ LLM pass:           Azure OpenAI GPT-4o-mini for ambiguous blocks (~20%).
 from __future__ import annotations
 
 import asyncio
+import re as _re
 from uuid import UUID
 
 import structlog
@@ -16,6 +17,9 @@ from partition.base_agent import BaseAgent, with_retry
 from partition.models.enums import PartitionType
 from partition.streaming.models import LineChunk, ParsingState
 from partition.utils.retry import azure_breaker, azure_limiter
+
+# Extracts the PROC name from the first line of a PROC block for metadata.
+_PROC_NAME_RE = _re.compile(r"^\s*PROC\s+(\w+)", _re.IGNORECASE)
 
 from .models import COVERAGE_MAP, BlockBoundaryEvent
 from .llm_boundary_resolver import LLMBoundaryResolver
@@ -366,6 +370,12 @@ class BoundaryDetector:
             scope      = dict(ref.variable_scope)      if ref else {}
             deps       = list(ref.active_dependencies) if ref else []
             depth      = ref.nesting_depth             if ref else 0
+            # Extract specific PROC name (e.g. "SORT", "MEANS") for metadata
+            extra: dict = {}
+            if pt == PartitionType.PROC_BLOCK and lines:
+                m = _PROC_NAME_RE.match(lines[0])
+                if m:
+                    extra["proc_type"] = m.group(1).upper()
             events.append(BlockBoundaryEvent(
                 file_id=file_id,
                 partition_type=pt,
@@ -381,6 +391,7 @@ class BoundaryDetector:
                 dependency_refs=deps,
                 test_coverage_type=COVERAGE_MAP.get(pt, "full"),
                 trace_id=trace_id,
+                extra_metadata=extra,
             ))
 
         for chunk, state in chunks_with_states:

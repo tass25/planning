@@ -86,7 +86,11 @@ class PartitionBuilderAgent(BaseAgent):
                     "raptor_root_id":      None,
                     "raptor_summary_tier": None,
                     # ── PROC sub-classification ──────────────────────────────
-                    "proc_subtype":        self._extract_proc_subtype(event),
+                    # Prefer boundary_detector's direct extraction; fall back to regex.
+                    "proc_subtype": (
+                        event.extra_metadata.get("proc_type")
+                        or self._extract_proc_subtype(event)
+                    ),
                     # ── SCC / Graph placeholders (Week 7) ────────────────────
                     "scc_id":              None,
                 },

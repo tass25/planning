@@ -26,11 +26,6 @@ class TestImportConsolidator:
         # pandas appears exactly once
         assert result.count("import pandas as pd") == 1
 
-    def test_pyspark_adds_spark_session(self):
-        imports = [["pandas"]]
-        result = consolidate_imports(imports, target_runtime="pyspark")
-        assert "SparkSession" in result
-
     def test_canonical_aliases(self):
         imports = [["statsmodels.api"]]
         result = consolidate_imports(imports)

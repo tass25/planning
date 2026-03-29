@@ -6,7 +6,15 @@
       "Bash(python3.11 -c \":*)",
       "Read(//c/Users/labou/Desktop/Stage/backend/**)",
       "Bash(python -c \":*)",
-      "Bash(python -m benchmark.boundary_benchmark --gold knowledge_base/gold_standard)"
+      "Bash(python -m benchmark.boundary_benchmark --gold knowledge_base/gold_standard)",
+      "Bash(git stash:*)",
+      "Bash(git checkout:*)",
+      "Bash(xargs wc:*)",
+      "Bash(python -m pytest tests/ --collect-only -q)",
+      "Bash(find C:/Users/labou/Desktop/Stage/backend/knowledge_base/gold_standard -name *.sas -o -name *.gold.json)",
+      "Read(//c/Users/labou/Desktop/Stage/frontend/src/**)",
+      "Bash(python -c \"import sentence_transformers; print\\(sentence_transformers.__version__\\)\")",
+      "Bash(pip show:*)"
     ]
   }
 }

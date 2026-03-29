@@ -69,7 +69,7 @@ class StaticRAG:
             k=self.K,
         )
 
-        target_label = "PySpark" if target_runtime == "pyspark" else "Python (pandas)"
+        target_label = "Python (pandas)"
 
         prompt = self.pm.render(
             "translation_static",

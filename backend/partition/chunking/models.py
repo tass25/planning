@@ -65,3 +65,4 @@ class BlockBoundaryEvent(BaseModel):
     dependency_refs: list[str] = Field(default_factory=list)
     test_coverage_type: str = "full"
     trace_id: Optional[UUID] = None
+    extra_metadata: dict = Field(default_factory=dict)  # e.g. {"proc_type": "SORT"}

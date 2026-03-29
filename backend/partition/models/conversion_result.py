@@ -12,7 +12,7 @@ from .enums import ConversionStatus
 
 
 class ConversionResult(BaseModel):
-    """Result of translating a single SAS partition to Python/PySpark.
+    """Result of translating a single SAS partition to Python.
 
     Produced by TranslationAgent (#12) and refined by ValidationAgent (#13).
     """

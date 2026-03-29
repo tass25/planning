@@ -46,7 +46,7 @@ KB_SCHEMA = pa.schema([
 class KBWriter:
     """Manage the Knowledge Base in LanceDB.
 
-    The table ``sas_python_examples`` stores verified SAS→Python/PySpark
+    The table ``sas_python_examples`` stores verified SAS→Python
     pairs with 768-dim Nomic embeddings.  An IVF index is (re)built
     automatically when the table reaches ``NUM_PARTITIONS * 2`` rows.
 
