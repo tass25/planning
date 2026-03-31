@@ -1,0 +1,12 @@
+Test file: test_evaluation.py
+Run at: 2026-03-31T22:41:20.188667+00:00
+Total: 7 | Pass: 7 | Fail: 0 | Skip: 0
+============================================================
+
+[PASS] TestQueryGenerator::test_generates_queries
+[PASS] TestQueryGenerator::test_reproducibility_with_seed
+[PASS] TestQueryGenerator::test_multiple_files
+[PASS] TestQueryGenerator::test_template_coverage
+[PASS] TestFlatIndexBuilder::test_build_flat_from_raptor
+[PASS] TestAblationRunner::test_runner_computes_summary
+[PASS] TestInitAblationDB::test_creates_table

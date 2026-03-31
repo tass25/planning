@@ -1,0 +1,57 @@
+Test file: test_rag.py
+Run at: 2026-03-31T22:41:20.188667+00:00
+Total: 52 | Pass: 52 | Fail: 0 | Skip: 0
+============================================================
+
+[PASS] TestPromptManager::test_list_templates_returns_all_six
+[PASS] TestPromptManager::test_render_static_contains_sas_code
+[PASS] TestPromptManager::test_render_static_includes_kb_examples
+[PASS] TestPromptManager::test_render_cross_verify_contains_both_codes
+[PASS] TestPromptManager::test_render_reflection_contains_error
+[PASS] TestPromptManager::test_render_missing_template_raises
+[PASS] TestPromptManager::test_custom_templates_dir
+[PASS] TestRAGRouterSelect::test_moderate_risk_selects_agentic
+[PASS] TestRAGRouterSelect::test_high_risk_selects_agentic
+[PASS] TestRAGRouterSelect::test_uncertain_risk_selects_agentic
+[PASS] TestRAGRouterSelect::test_failure_mode_selects_agentic
+[PASS] TestRAGRouterSelect::test_retry_selects_agentic
+[PASS] TestRAGRouterSelect::test_scc_membership_selects_graph
+[PASS] TestRAGRouterSelect::test_dependencies_select_graph
+[PASS] TestRAGRouterSelect::test_low_no_deps_selects_static
+[PASS] TestRAGRouterSelect::test_high_risk_with_deps_still_agentic
+[PASS] TestStaticRAG::test_returns_required_keys
+[PASS] TestStaticRAG::test_paradigm_is_static
+[PASS] TestStaticRAG::test_retrieval_k_is_3
+[PASS] TestStaticRAG::test_raptor_level_is_leaf
+[PASS] TestStaticRAG::test_prompt_contains_sas_code
+[PASS] TestStaticRAG::test_kb_examples_passed_through
+[PASS] TestStaticRAG::test_embedder_called_with_source
+[PASS] TestGraphRAG::test_returns_required_keys
+[PASS] TestGraphRAG::test_paradigm_is_graph
+[PASS] TestGraphRAG::test_retrieval_k_is_5
+[PASS] TestGraphRAG::test_raptor_level_is_cluster
+[PASS] TestGraphRAG::test_graph_context_populated
+[PASS] TestGraphRAG::test_upstream_translation_injected
+[PASS] TestGraphRAG::test_scc_siblings_excludes_self
+[PASS] TestGraphRAG::test_empty_scc_id_no_siblings
+[PASS] TestGraphRAG::test_prompt_contains_graph_keyword
+[PASS] TestAgenticRAG::test_returns_required_keys
+[PASS] TestAgenticRAG::test_paradigm_is_agentic
+[PASS] TestAgenticRAG::test_high_risk_k_is_8
+[PASS] TestAgenticRAG::test_moderate_risk_k_is_5
+[PASS] TestAgenticRAG::test_k_escalates_on_retry
+[PASS] TestAgenticRAG::test_attempt_0_level_leaf
+[PASS] TestAgenticRAG::test_attempt_1_level_cluster
+[PASS] TestAgenticRAG::test_attempt_2_level_root
+[PASS] TestAgenticRAG::test_attempt_beyond_2_caps_at_root
+[PASS] TestAgenticRAG::test_uncertain_skips_retrieval
+[PASS] TestAgenticRAG::test_retry_reformulates_query
+[PASS] TestAgenticRAG::test_reformulation_includes_failure_mode
+[PASS] TestAgenticRAG::test_graph_context_empty_on_attempt_0
+[PASS] TestAgenticRAG::test_graph_context_populated_on_attempt_2
+[PASS] TestRAGRouterBuildContext::test_static_route_returns_static_paradigm
+[PASS] TestRAGRouterBuildContext::test_graph_route_returns_graph_paradigm
+[PASS] TestRAGRouterBuildContext::test_agentic_route_returns_agentic_paradigm
+[PASS] TestRAGRouterBuildContext::test_retry_forces_agentic_even_for_low_risk
+[PASS] TestRAGRouterBuildContext::test_failure_mode_routes_to_agentic
+[PASS] TestRAGRouterBuildContext::test_context_always_has_prompt_and_kb_examples

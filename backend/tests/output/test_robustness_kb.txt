@@ -1,0 +1,43 @@
+Test file: test_robustness_kb.py
+Run at: 2026-03-31T22:41:20.188667+00:00
+Total: 38 | Pass: 38 | Fail: 0 | Skip: 0
+============================================================
+
+[PASS] TestRateLimitSemaphore::test_default_max_concurrent
+[PASS] TestRateLimitSemaphore::test_custom_max_concurrent
+[PASS] TestRateLimitSemaphore::test_acquire_release
+[PASS] TestRateLimitSemaphore::test_concurrent_limit
+[PASS] TestRateLimitSemaphore::test_global_instances_exist
+[PASS] TestCircuitBreaker::test_initial_state_closed
+[PASS] TestCircuitBreaker::test_trip_open_after_threshold
+[PASS] TestCircuitBreaker::test_success_resets_failures
+[PASS] TestCircuitBreaker::test_half_open_after_timeout
+[PASS] TestCircuitBreaker::test_half_open_success_closes
+[PASS] TestCircuitBreaker::test_half_open_failure_reopens
+[PASS] TestCircuitBreaker::test_manual_reset
+[PASS] TestCircuitBreaker::test_global_breakers_exist
+[PASS] TestFileSizeStrategy::test_standard_file
+[PASS] TestFileSizeStrategy::test_large_file
+[PASS] TestFileSizeStrategy::test_huge_file
+[PASS] TestFileSizeStrategy::test_nonexistent_file_returns_standard
+[PASS] TestFileSizeStrategy::test_boundary_standard
+[PASS] TestCheckpointInterval::test_standard
+[PASS] TestCheckpointInterval::test_large
+[PASS] TestCheckpointInterval::test_huge
+[PASS] TestCheckpointInterval::test_unknown_defaults
+[PASS] TestMemoryMonitor::test_initial_peak
+[PASS] TestMemoryMonitor::test_check_returns_float
+[PASS] TestMemoryMonitor::test_assert_under_limit_high_threshold
+[PASS] TestMemoryMonitor::test_assert_under_limit_tiny
+[PASS] TestMemoryGuards::test_sets_env_vars
+[PASS] TestMemoryGuards::test_does_not_overwrite
+[PASS] TestKBChangelog::test_log_insert
+[PASS] TestKBChangelog::test_log_and_retrieve
+[PASS] TestKBChangelog::test_multiple_versions
+[PASS] TestKBChangelog::test_different_examples_isolated
+[PASS] TestKBWriter::test_empty_count
+[PASS] TestKBWriter::test_insert_and_count
+[PASS] TestKBWriter::test_insert_empty_list
+[PASS] TestKBWriter::test_coverage_stats
+[PASS] TestKBWriter::test_append_to_existing
+[PASS] TestKBWriter::test_empty_coverage_before_insert

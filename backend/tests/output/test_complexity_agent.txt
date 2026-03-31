@@ -1,0 +1,24 @@
+Test file: test_complexity_agent.py
+Run at: 2026-03-31T22:41:20.188667+00:00
+Total: 19 | Pass: 19 | Fail: 0 | Skip: 0
+============================================================
+
+[PASS] TestFeatureExtraction::test_line_count_normalised
+[PASS] TestFeatureExtraction::test_call_execute_detected
+[PASS] TestFeatureExtraction::test_no_call_execute
+[PASS] TestFeatureExtraction::test_macro_definition_type_weight
+[PASS] TestFeatureExtraction::test_global_statement_type_weight
+[PASS] TestFeatureExtraction::test_feature_vector_length
+[PASS] TestRuleBasedPrediction::test_short_data_step_is_low
+[PASS] TestRuleBasedPrediction::test_long_macro_definition_is_high
+[PASS] TestRuleBasedPrediction::test_call_execute_is_high
+[PASS] TestRuleBasedPrediction::test_deep_nesting_is_high
+[PASS] TestRuleBasedPrediction::test_moderate_block
+[PASS] TestRuleBasedPrediction::test_confidence_in_metadata
+[PASS] TestECE::test_perfect_calibration_ece_zero
+[PASS] TestECE::test_random_proba_ece_is_high
+[PASS] TestComplexityFit::test_fit_returns_expected_keys
+[PASS] TestComplexityFit::test_train_accuracy_above_60_pct
+[PASS] TestComplexityFit::test_test_accuracy_above_50_pct
+[PASS] TestComplexityFit::test_ece_below_threshold
+[PASS] TestComplexityFit::test_process_after_fit_uses_model

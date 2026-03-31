@@ -1,0 +1,36 @@
+Test: Static RAG
+Run at: 2026-03-31T19:18:16.068755
+SAS file: gs_01_basic_data_step.sas
+Risk: LOW  |  Expected: paradigm=static, k=3, level=leaf
+
+2026-03-31 19:18:16 [info     ] kb_retrieved                   failure_mode=None k=3 partition_type=DATA_STEP_RETAIN returned=0
+2026-03-31 19:18:16 [info     ] static_rag_context             k=3 partition_type=DATA_STEP_RETAIN returned=0
+paradigm:      static
+retrieval_k:   3
+raptor_level:  leaf
+kb_examples:   0
+prompt_length: 999 chars
+build_time:    0.015s
+
+Generated prompt (first 500 chars):
+You are an expert SAS-to-Python (pandas) code translator.
+
+## Context
+- **Partition type**: DATA_STEP_RETAIN
+- **Risk level**: LOW
+- **RAG paradigm**: Static RAG (simple block, fixed retrieval)
+- **Complexity score**: 0.0
+
+## SAS Source Code
+```sas
+/* gs_01 - Basic DATA step with variable assignments */
+OPTIONS MPRINT SYMBOLGEN;
+
+DATA work.employees;
+    SET sashelp.class;
+    LENGTH full_name $50;
+    full_name = CATX(' ', name, 'Employee');
+    age_group = IFC(age >= 14, 'Senior', 'Junior');
+ 
+
+Result: PASS

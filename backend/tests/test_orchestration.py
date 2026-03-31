@@ -5,18 +5,29 @@ Covers:
     - RedisCheckpointManager degraded mode + interval logic
     - LLMAuditLogger DuckDB persistence
     - PartitionOrchestrator graph compilation
-    - E2E smoke test with mocked agents
+    - E2E smoke test with real orchestrator (degraded Redis)
 """
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
 _ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_ROOT))
+
+
+def _redis_reachable(url: str = "redis://localhost:6379/0") -> bool:
+    """Return True if Redis responds to PING within 1 second."""
+    try:
+        import redis as _redis
+        r = _redis.from_url(url, socket_connect_timeout=1)
+        r.ping()
+        return True
+    except Exception:
+        return False
 
 
 # ======================================================================
@@ -72,50 +83,80 @@ class TestRedisCheckpoint:
         """Pipeline works without Redis (degraded mode, no crash)."""
         from partition.orchestration.checkpoint import RedisCheckpointManager
 
-        # Connect to a definitely-wrong port
         mgr = RedisCheckpointManager("redis://localhost:99999")
         assert mgr.available is False
         assert mgr.save_checkpoint("f1", 50, []) is False
         assert mgr.find_latest_checkpoint("f1") is None
-        # clear_checkpoints should also be safe
         mgr.clear_checkpoints("f1")  # no-op, no crash
 
-    def test_checkpoint_interval_skip(self):
-        """Checkpoints only fire at multiples of CHECKPOINT_INTERVAL."""
+    def test_degraded_mode_returns_false_for_any_block(self):
+        """In degraded mode every block number returns False."""
         from partition.orchestration.checkpoint import RedisCheckpointManager
 
-        mgr = RedisCheckpointManager.__new__(RedisCheckpointManager)
-        mgr.available = True
-        mgr.client = MagicMock()
+        mgr = RedisCheckpointManager("redis://localhost:99999")
+        assert mgr.available is False
+        for block in (0, 25, 50, 100):
+            assert mgr.save_checkpoint("f1", block, [{"x": 1}]) is False
 
-        # Block 25 is NOT a multiple of 50 -> should skip
+    def test_degraded_find_returns_none(self):
+        """find_latest_checkpoint returns None in degraded mode."""
+        from partition.orchestration.checkpoint import RedisCheckpointManager
+
+        mgr = RedisCheckpointManager("redis://localhost:99999")
+        assert mgr.find_latest_checkpoint("any-file") is None
+
+    def test_checkpoint_interval_constant(self):
+        """CHECKPOINT_INTERVAL must be 50."""
+        from partition.orchestration.checkpoint import RedisCheckpointManager
+
+        assert RedisCheckpointManager.CHECKPOINT_INTERVAL == 50
+
+    def test_ttl_constant(self):
+        """TTL_SECONDS must be 86400 (24 h)."""
+        from partition.orchestration.checkpoint import RedisCheckpointManager
+
+        assert RedisCheckpointManager.TTL_SECONDS == 86_400
+
+    @pytest.mark.skipif(
+        not _redis_reachable(),
+        reason="Local Redis not available — interval logic requires live connection",
+    )
+    def test_checkpoint_interval_skip(self):
+        """Block 25 (not a multiple of 50) should be skipped."""
+        from partition.orchestration.checkpoint import RedisCheckpointManager
+
+        mgr = RedisCheckpointManager("redis://localhost:6379/0")
+        assert mgr.available is True
         result = mgr.save_checkpoint("f1", 25, [{"x": 1}])
         assert result is False
-        mgr.client.setex.assert_not_called()
 
-    def test_checkpoint_interval_fires_at_zero(self):
+    @pytest.mark.skipif(
+        not _redis_reachable(),
+        reason="Local Redis not available — interval logic requires live connection",
+    )
+    def test_checkpoint_fires_at_zero(self):
         """Block 0 always triggers a checkpoint."""
         from partition.orchestration.checkpoint import RedisCheckpointManager
 
-        mgr = RedisCheckpointManager.__new__(RedisCheckpointManager)
-        mgr.available = True
-        mgr.client = MagicMock()
-
-        result = mgr.save_checkpoint("f1", 0, [{"init": True}])
+        mgr = RedisCheckpointManager("redis://localhost:6379/0")
+        assert mgr.available is True
+        result = mgr.save_checkpoint("fire-zero", 0, [{"init": True}])
         assert result is True
-        mgr.client.setex.assert_called_once()
+        mgr.clear_checkpoints("fire-zero")
 
+    @pytest.mark.skipif(
+        not _redis_reachable(),
+        reason="Local Redis not available — interval logic requires live connection",
+    )
     def test_checkpoint_fires_at_interval(self):
         """Block 50 triggers a checkpoint."""
         from partition.orchestration.checkpoint import RedisCheckpointManager
 
-        mgr = RedisCheckpointManager.__new__(RedisCheckpointManager)
-        mgr.available = True
-        mgr.client = MagicMock()
-
-        result = mgr.save_checkpoint("f1", 50, [{"block": 50}])
+        mgr = RedisCheckpointManager("redis://localhost:6379/0")
+        assert mgr.available is True
+        result = mgr.save_checkpoint("fire-50", 50, [{"block": 50}])
         assert result is True
-        mgr.client.setex.assert_called_once()
+        mgr.clear_checkpoints("fire-50")
 
 
 # ======================================================================
@@ -142,8 +183,8 @@ class TestLLMAuditLogger:
         rows = con.execute("SELECT * FROM llm_audit").fetchall()
         assert len(rows) == 1
         assert rows[0][1] == "TestAgent"  # agent_name
-        assert rows[0][6] is True  # success
-        assert rows[0][7] is None  # error_msg
+        assert rows[0][6] is True          # success
+        assert rows[0][7] is None          # error_msg
         con.close()
 
     def test_audit_context_manager_failure(self, tmp_path):
@@ -165,7 +206,7 @@ class TestLLMAuditLogger:
         rows = con.execute("SELECT * FROM llm_audit").fetchall()
         assert len(rows) == 1
         assert rows[0][1] == "FailAgent"
-        assert rows[0][6] is False  # success
+        assert rows[0][6] is False   # success
         assert "boom" in rows[0][7]  # error_msg
         con.close()
 
@@ -176,34 +217,42 @@ class TestLLMAuditLogger:
 
 
 class TestOrchestratorGraph:
-    def test_graph_compiles(self):
+    def _make_orchestrator(self, tmp_path):
+        """Create a real orchestrator; Redis degrades gracefully on bad URL."""
+        from partition.orchestration.orchestrator import PartitionOrchestrator
+
+        return PartitionOrchestrator(
+            redis_url="redis://localhost:99999",
+            duckdb_path=str(tmp_path / "test.duckdb"),
+            target_runtime="python",
+        )
+
+    def test_graph_compiles(self, tmp_path):
         """The LangGraph StateGraph should compile without errors."""
-        from partition.orchestration.orchestrator import PartitionOrchestrator
+        orch = self._make_orchestrator(tmp_path)
+        assert orch.graph is not None
 
-        with patch("partition.orchestration.checkpoint.RedisCheckpointManager"):
-            orch = PartitionOrchestrator.__new__(PartitionOrchestrator)
-            orch.checkpoint = MagicMock()
-            orch.audit = MagicMock()
-            orch.target_runtime = "python"
-            orch.duckdb_path = "test.duckdb"
-            graph = orch._build_graph()
-            assert graph is not None
-
-    def test_graph_has_all_nodes(self):
+    def test_graph_has_all_nodes(self, tmp_path):
         """Graph contains all 8 pipeline nodes."""
-        from partition.orchestration.orchestrator import PartitionOrchestrator
+        orch = self._make_orchestrator(tmp_path)
+        graph = orch.graph
+        node_names = set(graph.nodes.keys()) - {"__start__", "__end__"}
+        expected = {
+            "file_process",
+            "streaming",
+            "chunking",
+            "raptor",
+            "risk_routing",
+            "persist_index",
+            "translation",
+            "merge",
+        }
+        assert node_names == expected, f"Expected {expected}, got {node_names}"
 
-        with patch("partition.orchestration.checkpoint.RedisCheckpointManager"):
-            orch = PartitionOrchestrator.__new__(PartitionOrchestrator)
-            orch.checkpoint = MagicMock()
-            orch.audit = MagicMock()
-            orch.target_runtime = "python"
-            orch.duckdb_path = "test.duckdb"
-            graph = orch._build_graph()
-
-            # LangGraph compiled graphs have a .nodes attribute or similar
-            # Just verify graph compiled (non-None) as a baseline
-            assert graph is not None
+    def test_redis_in_degraded_mode(self, tmp_path):
+        """Orchestrator initialises without crash when Redis is unreachable."""
+        orch = self._make_orchestrator(tmp_path)
+        assert orch.checkpoint.available is False
 
 
 # ======================================================================
@@ -216,7 +265,6 @@ class TestInitialState:
         """Verify the orchestrator creates a valid initial state dict."""
         from partition.orchestration.state import PipelineStage, PipelineState
 
-        # Build a sample initial state (same logic as orchestrator.run)
         state: PipelineState = {
             "input_paths": ["file1.sas", "file2.sas"],
             "target_runtime": "python",

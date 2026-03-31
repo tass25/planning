@@ -1,0 +1,10 @@
+Test file: test_cross_file_deps.py
+Run at: 2026-03-31T22:41:20.188667+00:00
+Total: 5 | Pass: 5 | Fail: 0 | Skip: 0
+============================================================
+
+[PASS] TestCrossFileDependencyResolver::test_resolved_include
+[PASS] TestCrossFileDependencyResolver::test_macro_var_include_unresolved
+[PASS] TestCrossFileDependencyResolver::test_libname_detected
+[PASS] TestCrossFileDependencyResolver::test_no_refs_produces_zero
+[PASS] TestCrossFileDependencyResolver::test_resolution_rate

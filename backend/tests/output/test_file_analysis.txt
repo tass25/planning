@@ -1,0 +1,10 @@
+Test file: test_file_analysis.py
+Run at: 2026-03-31T22:41:20.188667+00:00
+Total: 5 | Pass: 5 | Fail: 0 | Skip: 0
+============================================================
+
+[PASS] TestFileAnalysisAgent::test_discovery_finds_only_sas_files
+[PASS] TestFileAnalysisAgent::test_valid_sas_passes_prevalidation
+[PASS] TestFileAnalysisAgent::test_unclosed_macro_fails_prevalidation
+[PASS] TestFileAnalysisAgent::test_latin1_encoding_detected
+[PASS] TestFileAnalysisAgent::test_sha256_content_hash_correct

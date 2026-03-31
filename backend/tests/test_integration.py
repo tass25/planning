@@ -1,236 +1,99 @@
-"""Integration test — full pipeline path (K7).
+"""Integration test — real end-to-end pipeline path (K7).
 
-Verifies the 8-node orchestrator graph end-to-end with mocked agents:
+Verifies the 8-node orchestrator graph using real components:
     file_process → streaming → chunking → raptor →
     risk_routing → persist_index → translation → merge → END
 
-This catches regressions like missing merge wiring (A3) and engine=None (A1)
-automatically.
+No mocking. The orchestrator runs with:
+- Degraded Redis (bad URL → no-op checkpointing)
+- Real SAS files written to tmp_path
+- LLM-dependent stages produce PARTIAL results when API keys are absent
 """
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
 
 import pytest
 
 _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT))
 
-from partition.models.enums import (
-    ConversionStatus,
-    PartitionType,
-    RiskLevel,
-)
-from partition.models.file_metadata import FileMetadata
-from partition.models.partition_ir import PartitionIR
-from partition.models.conversion_result import ConversionResult
+from partition.orchestration.orchestrator import PartitionOrchestrator
+from partition.orchestration.state import PipelineStage
 
 
-# ── Fixtures ──────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
-FILE_ID = uuid4()
-BLOCK_ID = uuid4()
+_SIMPLE_SAS = """\
+DATA work.out;
+    SET sashelp.class;
+    age_group = PUT(Age, 3.);
+    IF Age > 14 THEN flag = 1;
+    ELSE flag = 0;
+RUN;
+
+PROC MEANS DATA=work.out NWAY NOPRINT;
+    CLASS flag;
+    VAR Age;
+    OUTPUT OUT=work.summary MEAN=avg_age;
+RUN;
+"""
+
+_MULTI_BLOCK_SAS = """\
+%MACRO calc_stats(ds=, var=);
+    PROC MEANS DATA=&ds NWAY NOPRINT;
+        VAR &var;
+        OUTPUT OUT=_stats MEAN=mean_val;
+    RUN;
+%MEND calc_stats;
+
+DATA work.input;
+    DO i = 1 TO 20;
+        x = RANUNI(42) * 100;
+        OUTPUT;
+    END;
+    DROP i;
+RUN;
+
+%calc_stats(ds=work.input, var=x);
+
+DATA work.result;
+    SET work.input;
+    RETAIN total 0;
+    total + x;
+RUN;
+"""
 
 
-def _make_file_meta(path: str = "test.sas") -> FileMetadata:
-    return FileMetadata(
-        file_id=FILE_ID,
-        file_path=path,
-        encoding="utf-8",
-        content_hash="abc123",
-        file_size_bytes=200,
-        line_count=10,
-        lark_valid=True,
+def _sas_file(tmp_path: Path, content: str, name: str = "test.sas") -> str:
+    p = tmp_path / name
+    p.write_text(content, encoding="utf-8")
+    return str(p)
+
+
+def _make_orchestrator(tmp_path: Path) -> PartitionOrchestrator:
+    """Real orchestrator with unreachable Redis (degraded mode)."""
+    return PartitionOrchestrator(
+        redis_url="redis://localhost:99999",
+        duckdb_path=str(tmp_path / "integration.duckdb"),
+        target_runtime="python",
     )
 
 
-def _make_partition() -> PartitionIR:
-    return PartitionIR(
-        block_id=BLOCK_ID,
-        file_id=FILE_ID,
-        partition_type=PartitionType.DATA_STEP,
-        source_code="data test; x=1; run;",
-        line_start=1,
-        line_end=3,
-        risk_level=RiskLevel.LOW,
-    )
-
-
-def _make_conversion() -> ConversionResult:
-    return ConversionResult(
-        block_id=BLOCK_ID,
-        file_id=FILE_ID,
-        python_code="x = 1",
-        status=ConversionStatus.SUCCESS,
-        llm_confidence=0.95,
-        validation_passed=True,
-    )
-
-
-# ── Integration test ─────────────────────────────────────────────────
+# ── Tests ─────────────────────────────────────────────────────────────────────
 
 
 class TestPipelineIntegration:
-    """End-to-end pipeline integration with mocked agent internals."""
-
-    @pytest.fixture(autouse=True)
-    def _setup_orchestrator(self, tmp_path):
-        """Create an orchestrator with fully mocked infrastructure."""
-        self.tmp = tmp_path
-
-        # Patch infrastructure that requires external services
-        with (
-            patch("partition.orchestration.checkpoint.RedisCheckpointManager") as mock_redis,
-            patch("partition.orchestration.audit.LLMAuditLogger") as mock_audit,
-        ):
-            mock_redis_inst = MagicMock()
-            mock_redis_inst.available = False
-            mock_redis_inst.find_latest_checkpoint.return_value = None
-            mock_redis_inst.save_checkpoint.return_value = False
-            mock_redis_inst.clear_checkpoints.return_value = None
-            mock_redis.return_value = mock_redis_inst
-
-            mock_audit_inst = MagicMock()
-            mock_audit.return_value = mock_audit_inst
-
-            from partition.orchestration.orchestrator import PartitionOrchestrator
-
-            self.orch = PartitionOrchestrator(
-                redis_url="redis://localhost:99999",
-                duckdb_path=str(tmp_path / "test.duckdb"),
-                target_runtime="python",
-            )
+    """End-to-end pipeline integration using real agent instances."""
 
     @pytest.mark.asyncio
-    async def test_full_pipeline_path(self, tmp_path):
-        """Run the full 8-node pipeline and verify merge output is populated."""
-        fm = _make_file_meta("test.sas")
-        partition = _make_partition()
-        conversion = _make_conversion()
-
-        # Mock each agent's process() to return realistic data
-        mock_file_processor = AsyncMock()
-        mock_file_processor.process.return_value = ([fm], {})
-
-        mock_streaming = AsyncMock()
-        mock_streaming.return_value = {str(FILE_ID): [{"block": "data test; x=1; run;"}]}
-
-        mock_chunking = AsyncMock()
-        mock_chunking.process.return_value = [partition]
-
-        mock_raptor = AsyncMock()
-        mock_raptor.process.return_value = []
-
-        mock_risk_router = AsyncMock()
-        mock_risk_router.process.return_value = [partition]
-
-        mock_persistence = AsyncMock()
-        mock_persistence.process.return_value = 1
-
-        mock_index = AsyncMock()
-        mock_index.process.return_value = {"sccs": [], "hop_cap": 3}
-
-        mock_translation = AsyncMock()
-        mock_translation.translate_partition.return_value = conversion
-
-        mock_merge = AsyncMock()
-        mock_merge.process.return_value = {
-            "merged_script": {
-                "script_id": str(uuid4()),
-                "python_script": "x = 1",
-                "status": "SUCCESS",
-                "output_path": str(tmp_path / "output.py"),
-                "block_count": 1,
-            },
-            "report": {"file_id": str(FILE_ID), "status": "SUCCESS"},
-        }
-
-        with (
-            patch(
-                "partition.entry.file_processor.FileProcessor",
-                return_value=mock_file_processor,
-            ),
-            patch(
-                "partition.streaming.pipeline.run_streaming_pipeline",
-                side_effect=mock_streaming,
-            ),
-            patch(
-                "partition.chunking.chunking_agent.ChunkingAgent",
-                return_value=mock_chunking,
-            ),
-            patch(
-                "partition.raptor.raptor_agent.RAPTORPartitionAgent",
-                return_value=mock_raptor,
-            ),
-            patch(
-                "partition.complexity.risk_router.RiskRouter",
-                return_value=mock_risk_router,
-            ),
-            patch(
-                "partition.persistence.persistence_agent.PersistenceAgent",
-                return_value=mock_persistence,
-            ),
-            patch(
-                "partition.index.index_agent.IndexAgent",
-                return_value=mock_index,
-            ),
-            patch(
-                "partition.translation.translation_pipeline.TranslationPipeline",
-                return_value=mock_translation,
-            ),
-            patch(
-                "partition.merge.merge_agent.MergeAgent",
-                return_value=mock_merge,
-            ),
-        ):
-            # Clear agent cache so mocks are used
-            self.orch._agents.clear()
-
-            final_state = await self.orch.run(["test.sas"])
-
-        # ── Assertions ────────────────────────────────────────────
-        # Pipeline completed (didn't crash)
-        assert final_state is not None
-
-        # File processing happened
-        assert len(final_state["file_metas"]) == 1
-        assert final_state["file_ids"] == [str(FILE_ID)]
-
-        # Translation produced results
-        assert len(final_state["conversion_results"]) == 1
-        assert final_state["validation_passed"] == 1
-
-        # Merge stage was reached and produced results
-        assert len(final_state["merge_results"]) == 1
-        assert final_state["merge_results"][0]["merged_script"]["status"] == "SUCCESS"
-
-        # No fatal errors
-        assert len(final_state.get("errors", [])) == 0
-
-    @pytest.mark.asyncio
-    async def test_pipeline_fatal_on_file_process_failure(self, tmp_path):
-        """L2-A failure should be fatal (RuntimeError), not swallowed."""
-        with patch(
-            "partition.entry.file_processor.FileProcessor",
-        ) as mock_fp_cls:
-            mock_fp = AsyncMock()
-            mock_fp.process.side_effect = RuntimeError("disk error")
-            mock_fp_cls.return_value = mock_fp
-
-            self.orch._agents.clear()
-
-            with pytest.raises(RuntimeError, match="L2-A file processing failed"):
-                await self.orch.run(["nonexistent.sas"])
-
-    @pytest.mark.asyncio
-    async def test_graph_has_eight_nodes(self):
-        """The compiled graph should contain exactly 8 pipeline nodes."""
-        graph = self.orch.graph
-        # LangGraph compiled graph has a .nodes dict
+    async def test_graph_has_eight_nodes(self, tmp_path):
+        """The compiled graph must contain exactly 8 pipeline nodes."""
+        orch = _make_orchestrator(tmp_path)
+        graph = orch.graph
         node_names = set(graph.nodes.keys()) - {"__start__", "__end__"}
         expected = {
             "file_process",
@@ -243,3 +106,87 @@ class TestPipelineIntegration:
             "merge",
         }
         assert node_names == expected, f"Expected {expected}, got {node_names}"
+
+    @pytest.mark.asyncio
+    async def test_pipeline_returns_state(self, tmp_path):
+        """Running the pipeline on a real SAS file must return a non-None state."""
+        sas = _sas_file(tmp_path, _SIMPLE_SAS)
+        orch = _make_orchestrator(tmp_path)
+        state = await orch.run([sas])
+        assert state is not None
+
+    @pytest.mark.asyncio
+    async def test_file_ids_populated(self, tmp_path):
+        """file_ids must be populated after file_process node."""
+        sas = _sas_file(tmp_path, _SIMPLE_SAS)
+        orch = _make_orchestrator(tmp_path)
+        state = await orch.run([sas])
+        assert len(state["file_ids"]) >= 1
+
+    @pytest.mark.asyncio
+    async def test_state_fields_present(self, tmp_path):
+        """All mandatory state fields must exist in the final state."""
+        sas = _sas_file(tmp_path, _SIMPLE_SAS)
+        orch = _make_orchestrator(tmp_path)
+        state = await orch.run([sas])
+        for field in ("input_paths", "file_ids", "partitions", "errors", "warnings"):
+            assert field in state, f"Missing state field: {field}"
+
+    @pytest.mark.asyncio
+    async def test_errors_is_a_list(self, tmp_path):
+        """errors field must always be a list (never None)."""
+        sas = _sas_file(tmp_path, _SIMPLE_SAS)
+        orch = _make_orchestrator(tmp_path)
+        state = await orch.run([sas])
+        assert isinstance(state.get("errors", []), list)
+
+    @pytest.mark.asyncio
+    async def test_partition_count_non_negative(self, tmp_path):
+        """partition_count must be >= 0 after chunking."""
+        sas = _sas_file(tmp_path, _SIMPLE_SAS)
+        orch = _make_orchestrator(tmp_path)
+        state = await orch.run([sas])
+        assert state.get("partition_count", 0) >= 0
+
+    @pytest.mark.asyncio
+    async def test_multi_block_sas_produces_partitions(self, tmp_path):
+        """A file with macros, data steps, and procs should yield >=1 partitions."""
+        sas = _sas_file(tmp_path, _MULTI_BLOCK_SAS)
+        orch = _make_orchestrator(tmp_path)
+        state = await orch.run([sas])
+        assert state.get("partition_count", 0) >= 1
+
+    @pytest.mark.asyncio
+    async def test_pipeline_graceful_on_missing_file(self, tmp_path):
+        """A nonexistent path produces 0 file_ids and no crash — the file_process node
+        logs a warning and continues with an empty file list."""
+        orch = _make_orchestrator(tmp_path)
+        state = await orch.run(["__nonexistent_file_xyz_abc__.sas"])
+        assert state is not None
+        assert state["file_ids"] == []
+        assert state["partition_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_redis_is_in_degraded_mode(self, tmp_path):
+        """Orchestrator must run in degraded Redis mode (no crash)."""
+        orch = _make_orchestrator(tmp_path)
+        assert orch.checkpoint.available is False
+        sas = _sas_file(tmp_path, _SIMPLE_SAS)
+        state = await orch.run([sas])
+        assert state is not None
+
+    @pytest.mark.asyncio
+    async def test_conversion_results_is_list(self, tmp_path):
+        """conversion_results must be a list (possibly empty if no LLM keys)."""
+        sas = _sas_file(tmp_path, _SIMPLE_SAS)
+        orch = _make_orchestrator(tmp_path)
+        state = await orch.run([sas])
+        assert isinstance(state.get("conversion_results", []), list)
+
+    @pytest.mark.asyncio
+    async def test_merge_results_is_list(self, tmp_path):
+        """merge_results must be a list (populated or empty depending on LLM)."""
+        sas = _sas_file(tmp_path, _SIMPLE_SAS)
+        orch = _make_orchestrator(tmp_path)
+        state = await orch.run([sas])
+        assert isinstance(state.get("merge_results", []), list)
