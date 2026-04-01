@@ -129,11 +129,18 @@ async def _process_file(sas_path: Path, embedder, clusterer, summarizer) -> tupl
 
 def _write_raptor_nodes(all_nodes) -> int:
     """Write all collected RAPTORNodes to LanceDB raptor_nodes table."""
+    import lancedb as _lancedb
     from partition.raptor.lancedb_writer import RAPTORLanceDBWriter
 
     if not all_nodes:
         log.warning("no_raptor_nodes_to_write")
         return 0
+
+    # Drop stale tables so each run starts from scratch (avoids UUID mismatch)
+    _db = _lancedb.connect(LANCEDB_PATH)
+    for _tbl in ("raptor_nodes", "flat_nodes"):
+        if _tbl in _db.table_names():
+            _db.drop_table(_tbl)
 
     writer = RAPTORLanceDBWriter(db_path=LANCEDB_PATH)
     # Write in batches of 100
