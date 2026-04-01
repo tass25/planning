@@ -31,7 +31,7 @@ pyyaml~=6.0.0
 psutil~=7.0.0
 # Prompt templates (week 10 — 3-tier RAG)
 jinja2~=3.1.0
-pytest-asyncio~=0.26.0
+pytest-asyncio~=1.3.0
 # Observability / Azure Monitor (OpenTelemetry-based)
 azure-monitor-opentelemetry~=1.6.0
 opentelemetry-api~=1.25.0
