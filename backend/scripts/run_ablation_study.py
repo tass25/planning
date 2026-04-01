@@ -164,29 +164,46 @@ def _build_flat_index() -> dict:
     return result
 
 
+_PTYPE_DEFAULT_TIER: dict[str, str] = {
+    "MACRO_CONDITIONAL": "HIGH",
+    "PROC_REG_LOGISTIC": "HIGH",
+    "MACRO_BASIC": "MODERATE",
+    "DATA_STEP_MERGE": "MODERATE",
+    "DATA_STEP_ARRAY": "MODERATE",
+    "DATA_STEP_FIRST_LAST": "MODERATE",
+    "PROC_SQL": "MODERATE",
+    "DATE_ARITHMETIC": "MODERATE",
+}
+
+
 def _generate_queries(all_partitions: list) -> list[dict]:
     from partition.evaluation.query_generator import generate_queries
 
     # Convert PartitionIR objects to dicts the generator understands
     part_dicts = []
     for p in all_partitions:
-        risk = getattr(p, "risk_level", None)
-        if hasattr(risk, "value"):
-            tier = {"LOW": "LOW", "MODERATE": "MODERATE", "MOD": "MODERATE",
-                    "HIGH": "HIGH", "UNCERTAIN": "HIGH"}.get(risk.value, "LOW")
-        else:
-            tier = "LOW"
-
         ptype = getattr(p, "partition_type", None)
         ptype_str = ptype.value if hasattr(ptype, "value") else str(ptype)
 
+        risk = getattr(p, "risk_level", None)
+        risk_val = risk.value if hasattr(risk, "value") else None
+        if risk_val and risk_val != "UNCERTAIN":
+            tier = {"LOW": "LOW", "MOD": "MODERATE",
+                    "MODERATE": "MODERATE", "HIGH": "HIGH"}.get(risk_val, "LOW")
+        else:
+            # ComplexityAgent not run in ablation — infer from partition type.
+            tier = _PTYPE_DEFAULT_TIER.get(ptype_str, "LOW")
+
+        source_code = getattr(p, "source_code", "") or ""
+
         part_dicts.append({
-            "partition_id": str(getattr(p, "block_id", "")),
-            "block_id":     str(getattr(p, "block_id", "")),
+            "partition_id":   str(getattr(p, "block_id", "")),
+            "block_id":       str(getattr(p, "block_id", "")),
             "source_file_id": str(getattr(p, "file_id", "")),
-            "file_id":      str(getattr(p, "file_id", "")),
+            "file_id":        str(getattr(p, "file_id", "")),
             "partition_type": ptype_str,
             "complexity_tier": tier,
+            "source_code":    source_code[:500],
         })
 
     queries = generate_queries(part_dicts, n_per_file=QUERIES_PER_FILE)
