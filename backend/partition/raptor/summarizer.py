@@ -170,7 +170,7 @@ class ClusterSummarizer:
         if self.groq_client and groq_breaker.allow_request():
             try:
                 result = self.groq_client.chat.completions.create(
-                    model="llama-3.1-70b-versatile",
+                    model="llama-3.3-70b-versatile",
                     messages=[{"role": "user", "content": prompt}],
                     response_model=ClusterSummary,
                     max_retries=2,

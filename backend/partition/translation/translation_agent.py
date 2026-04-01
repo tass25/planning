@@ -270,7 +270,7 @@ class TranslationAgent(BaseAgent):
         try:
             resp = await asyncio.to_thread(
                 self.groq_client.chat.completions.create,
-                model="llama-3.1-70b-versatile",
+                model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 max_retries=1,
             )
@@ -309,7 +309,7 @@ class TranslationAgent(BaseAgent):
             result = await asyncio.to_thread(
                 self._sync_create,
                 self.groq_client,
-                model="llama-3.1-70b-versatile",
+                model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 response_model=TranslationOutput,
                 max_retries=2,
@@ -344,7 +344,7 @@ class TranslationAgent(BaseAgent):
             result = await asyncio.to_thread(
                 self._sync_create,
                 self.groq_client,
-                model="llama-3.1-70b-versatile",
+                model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 response_model=TranslationOutput,
                 max_retries=2,
@@ -371,7 +371,7 @@ class TranslationAgent(BaseAgent):
         try:
             return await asyncio.to_thread(
                 self.groq_client.chat.completions.create,
-                model="llama-3.1-70b-versatile",
+                model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 response_model=CrossVerifyOutput,
                 max_retries=2,
