@@ -190,7 +190,7 @@ def _generate_queries(all_partitions: list) -> list[dict]:
 def _run_ablation(queries: list[dict], embedder) -> dict:
     from partition.evaluation.ablation_runner import AblationRunner
 
-    embed_fn = lambda text: embedder.embed(text)
+    embed_fn = lambda text: embedder.embed_query(text)
 
     runner = AblationRunner(
         lancedb_path=LANCEDB_PATH,

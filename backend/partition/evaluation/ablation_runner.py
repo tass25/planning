@@ -112,16 +112,16 @@ class AblationRunner:
         hits = table.search(embedding).limit(self.k).to_pandas()
         latency_ms = (time.perf_counter() - start) * 1000
 
-        # Check partition_type or summary_tier column
-        type_col = "partition_type" if "partition_type" in hits.columns else "summary_tier"
-        hit_types = hits[type_col].tolist() if type_col in hits.columns else []
-        hit_at_k = expected_type in hit_types
-
+        # ID-based hit check: target partition_id must appear in result's partition_ids
+        target_id = str(query.get("partition_id", ""))
+        hit_at_k = False
         rr = 0.0
-        for rank, ht in enumerate(hit_types, 1):
-            if ht == expected_type:
-                rr = 1.0 / rank
-                break
+        if target_id and "partition_ids" in hits.columns:
+            for rank, pids_json in enumerate(hits["partition_ids"].tolist(), 1):
+                if target_id in (pids_json or ""):
+                    hit_at_k = True
+                    rr = 1.0 / rank
+                    break
 
         result = {
             "run_id": self.run_id,
