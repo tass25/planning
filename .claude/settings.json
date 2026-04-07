@@ -6,5 +6,6 @@
       "Bash(mkdir -p /c/Users/labou/Desktop/Stage/docs/planning)",
       "Read(//c/Users/labou/Desktop/Stage/docs//**)"
     ]
-  }
+  },
+  "requestTimeout": 60000
 }

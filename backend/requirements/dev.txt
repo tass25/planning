@@ -1,0 +1,24 @@
+# Development-only dependencies — NOT included in the Docker image
+# Install with: pip install -r backend/requirements-dev.txt
+-r requirements.txt
+
+# Linting & formatting
+ruff~=0.9.0
+black~=25.0.0
+
+# Testing extras
+pytest-json-report~=1.5.0     # benchmark JSON output
+pytest-xdist~=3.6.0           # parallel test execution: pytest -n auto
+pytest-timeout~=2.3.0         # per-test timeout
+
+# Coverage comment on PRs
+coverage~=7.6.0
+
+# Security
+safety~=3.2.0
+
+# Fine-tuning (training only — never in runtime Docker)
+# Run these in Google Colab / Lightning AI, not locally
+# unsloth>=2024.11
+# trl>=0.12.0
+# bitsandbytes>=0.43.0

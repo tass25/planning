@@ -80,15 +80,39 @@ Research sprint adding three orthogonal innovations on top of the existing pipel
 | `notebooks/dpo_qwen.ipynb` | DPO training notebook |
 | `partition/utils/local_model_client.py` | `LocalModelClient` — llama.cpp inference wrapper |
 
-### LLM Routing Update (4-tier)
+### LLM Routing Update (5-tier)
 ```
-Tier 0 — LocalModelClient  (fine-tuned Qwen2.5-7B, free, ~200ms, LOW/MOD risk)
-Tier 1 — Azure OpenAI GPT-4o  (HIGH/UNCERTAIN risk, enterprise SLA)
-Tier 2 — Groq LLaMA-3.1-70B  (fallback)
-Tier 3 — PARTIAL status
+Tier 0 — LocalModelClient       (fine-tuned Qwen2.5-7B, free, ~200ms, LOW/MOD risk)
+Tier 1 — Ollama minimax-m2.7:cloud / qwen3-coder-next  (PRIMARY — 10/10 torture test)
+Tier 2 — Azure OpenAI GPT-4o / GPT-4o-mini  (fallback 1)
+Tier 3 — Groq LLaMA-3.3-70B    (fallback 2 + cross-verifier)
+Tier 4 — PARTIAL status
 ```
 
-New env var: `LOCAL_MODEL_PATH` — path to GGUF file or vLLM endpoint URL.
+New env vars:
+- `LOCAL_MODEL_PATH` — path to GGUF file or vLLM endpoint URL
+- `OLLAMA_API_KEY` — Ollama API key (OpenAI-compatible endpoint)
+- `OLLAMA_BASE_URL` — default `http://localhost:11434/v1`
+- `OLLAMA_MODEL` — default `minimax-m2.7:cloud`
+
+### Ollama Benchmark (2026-04-06)
+Tested `minimax-m2.7:cloud` on `tests/fixtures/torture_test.sas` (10 hardest SAS patterns):
+
+| Block | Confidence | Time |
+|-------|-----------|------|
+| RETAIN + FIRST./LAST. | 0.80 | 29.9s |
+| Missing value logic | 0.95 | 12.4s |
+| PROC SQL correlated subquery | 0.80 | 20.0s |
+| Macro + %DO loop | 1.00 | 29.0s |
+| PROC MEANS CLASS+OUTPUT | 1.00 | 28.4s |
+| PROC SORT NODUPKEY | 1.00 | 8.3s |
+| Hash object lookup | 0.95 | 16.6s |
+| Multi-level nested macro | 0.95 | 40.0s |
+| PROC TRANSPOSE | 0.95 | 13.7s |
+| Complex WHERE+FORMAT+LABEL | 1.00 | 14.7s |
+| **Total** | **10/10 SUCCESS** | **213s** |
+
+Test script: `scripts/eval/test_qwen_ollama.py`
 
 ---
 
@@ -206,10 +230,24 @@ trl>=0.12.0
 
 | Metric | Week 14 | Week 15 |
 |--------|---------|---------|
-| LLM tiers | 3 (Azure / Groq / PARTIAL) | 4 (Local / Azure / Groq / PARTIAL) |
+| LLM tiers | 3 (Azure / Groq / PARTIAL) | 5 (Local / Ollama / Azure / Groq / PARTIAL) |
 | RAPTOR clustering | Euclidean GMM | Hyperbolic Poincaré K-means |
 | Verification | Heuristic only | Heuristic + Z3 formal proof |
 | Training corpus | 330 pairs | 1 200 pairs |
 | Translation accuracy (gold std) | 82.2% | 87.4% |
 | Z3 provability (LOW risk) | N/A | 41% |
 | Tests | 278 | 309 |
+# ----------------------------------
+Summary:
+
+Block	Confidence	Time
+RETAIN + FIRST./LAST.	0.80	29.9s
+Missing value logic	0.95	12.4s
+PROC SQL correlated subquery	0.80	20.0s
+Macro + %DO loop	1.00	29.0s
+PROC MEANS CLASS+OUTPUT	1.00	28.4s
+PROC SORT NODUPKEY	1.00	8.3s
+Hash object lookup	0.95	16.6s
+Multi-level nested macro	0.95	40.0s
+PROC TRANSPOSE	0.95	13.7s
+Complex WHERE+FORMAT+LABEL	1.00	14.7s

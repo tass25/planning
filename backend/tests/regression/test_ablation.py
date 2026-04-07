@@ -12,7 +12,7 @@ from pathlib import Path
 import duckdb
 import pytest
 
-ABLATION_DB = "ablation.db"
+ABLATION_DB = "data/ablation.db"
 
 
 @pytest.fixture

@@ -54,7 +54,7 @@ class PersistenceAgent(BaseAgent):
         if db_url and db_url.startswith("sqlite"):
             self.engine = get_engine.__wrapped__(db_url) if hasattr(get_engine, '__wrapped__') else self._engine_from_url(db_url)
         else:
-            db_path = db_url or "file_registry.db"
+            db_path = db_url or "data/file_registry.db"
             # Strip sqlite:/// prefix if accidentally doubled
             if db_path.startswith("sqlite:///"):
                 db_path = db_path[len("sqlite:///"):]

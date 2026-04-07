@@ -322,13 +322,23 @@ def _translate_sas_to_python(sas_code: str) -> str:
         except Exception as exc:
             log.warning("Azure OpenAI failed: %s: %s", type(exc).__name__, exc)
 
-    # --- Try Groq ---
-    groq_key = os.getenv("GROQ_API_KEY")
-    if groq_key:
+    # --- Try Groq (with key rotation across GROQ_API_KEY, GROQ_API_KEY_2, …) ---
+    try:
+        from partition.utils.llm_clients import get_all_groq_keys
+        groq_keys = get_all_groq_keys()
+    except Exception:
+        groq_keys = [k for k in [
+            os.getenv("GROQ_API_KEY"),
+            os.getenv("GROQ_API_KEY_2"),
+            os.getenv("GROQ_API_KEY_3"),
+        ] if k]
+
+    model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    last_groq_exc = None
+    for groq_key in groq_keys:
         try:
-            from openai import OpenAI
+            from openai import OpenAI, RateLimitError
             client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
-            model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
             resp = client.chat.completions.create(
                 model=model,
                 messages=[
@@ -336,13 +346,22 @@ def _translate_sas_to_python(sas_code: str) -> str:
                     {"role": "user", "content": user_prompt},
                 ],
                 temperature=0.1,
-                max_tokens=16384,
+                max_tokens=8192,
             )
             code = resp.choices[0].message.content or ""
             code = _strip_markdown_fences(code)
             return code.strip()
         except Exception as exc:
+            err_str = str(exc).lower()
+            if "rate_limit" in err_str or "429" in err_str or "tokens per day" in err_str:
+                log.warning("Groq key rate-limited, trying next key: %s", str(exc)[:120])
+                last_groq_exc = exc
+                continue
             log.warning("Groq failed: %s: %s", type(exc).__name__, exc)
+            last_groq_exc = exc
+            break
+    if last_groq_exc:
+        log.warning("All Groq keys exhausted or failed: %s", str(last_groq_exc)[:120])
 
     # --- No LLM available ---
     log.error("All LLM providers failed — returning stub for %d-char SAS input", len(sas_code))

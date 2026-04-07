@@ -8,13 +8,14 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from .enums import ConversionStatus
+from .enums import ConversionStatus, VerificationStatus
 
 
 class ConversionResult(BaseModel):
     """Result of translating a single SAS partition to Python.
 
     Produced by TranslationAgent (#12) and refined by ValidationAgent (#13).
+    Z3 fields populated by Z3VerificationAgent after validation.
     """
 
     conversion_id: UUID = Field(default_factory=uuid4)
@@ -31,6 +32,10 @@ class ConversionResult(BaseModel):
     validation_passed: bool = False
     trace_id: UUID = Field(default_factory=uuid4)
     rag_paradigm: str = ""
+    # Z3 formal verification fields (populated by Z3VerificationAgent)
+    z3_status: VerificationStatus = VerificationStatus.SKIPPED
+    z3_pattern: str = ""          # which Z3 pattern matched (e.g. "linear_arithmetic")
+    z3_latency_ms: float = 0.0
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )

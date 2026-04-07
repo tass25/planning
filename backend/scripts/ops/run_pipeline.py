@@ -13,13 +13,18 @@ import asyncio
 import sys
 from pathlib import Path
 
+_HERE = Path(__file__).resolve().parent
+BACKEND_DIR = _HERE
+while not (BACKEND_DIR / "partition").exists():
+    BACKEND_DIR = BACKEND_DIR.parent
+
 from dotenv import load_dotenv
 
 # Load .env from repo root (Stage/.env)
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 
 # Ensure backend/ is on the Python path
-_BACKEND_ROOT = Path(__file__).resolve().parent.parent
+_BACKEND_ROOT = BACKEND_DIR
 sys.path.insert(0, str(_BACKEND_ROOT))
 
 from partition.db.duckdb_manager import init_all_duckdb_tables  # noqa: E402
@@ -47,7 +52,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--duckdb",
-        default="analytics.duckdb",
+        default="data/analytics.duckdb",
         help="DuckDB path for audit logs",
     )
     args = parser.parse_args()

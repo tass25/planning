@@ -12,10 +12,11 @@ import structlog
 
 from partition.models.partition_ir import PartitionIR
 from partition.models.conversion_result import ConversionResult
-from partition.models.enums import ConversionStatus
+from partition.models.enums import ConversionStatus, RiskLevel, VerificationStatus
 from partition.orchestration.audit import _get_duckdb
 from partition.translation.translation_agent import TranslationAgent
 from partition.translation.validation_agent import ValidationAgent, ValidationResult
+from partition.verification.z3_agent import Z3VerificationAgent
 
 logger = structlog.get_logger()
 
@@ -28,12 +29,13 @@ class TranslationPipeline:
     def __init__(
         self,
         target_runtime: str = "python",
-        duckdb_path: str = "analytics.duckdb",
+        duckdb_path: str = "data/analytics.duckdb",
     ):
         self.translator = TranslationAgent(
             target_runtime=target_runtime,
         )
         self.validator = ValidationAgent()
+        self.z3 = Z3VerificationAgent()
         self.duckdb_path = duckdb_path
 
     async def translate_partition(
@@ -76,6 +78,28 @@ class TranslationPipeline:
             )
         else:
             conversion.validation_passed = True
+
+            # Z3 formal verification (only when validation passed, non-blocking)
+            z3_result = await asyncio.to_thread(
+                self.z3.verify,
+                partition.source_code,
+                conversion.python_code,
+            )
+            conversion.z3_status = VerificationStatus(z3_result.status.value)
+            conversion.z3_pattern = z3_result.pattern
+            conversion.z3_latency_ms = z3_result.latency_ms
+
+            if z3_result.status.value == "counterexample":
+                # Re-escalate: force HIGH risk and re-translate once
+                logger.warning(
+                    "z3_counterexample",
+                    block_id=str(partition.block_id),
+                    counterexample=z3_result.counterexample,
+                )
+                partition.risk_level = RiskLevel.HIGH
+                conversion = await self.translator.process(partition)
+                if conversion.status != ConversionStatus.PARTIAL:
+                    conversion.validation_passed = True
 
         conversion.retry_count = retry_count
         self._log_quality(conversion)

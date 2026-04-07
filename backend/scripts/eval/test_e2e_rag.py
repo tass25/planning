@@ -45,7 +45,7 @@ from partition.utils.llm_clients import get_groq_openai_client
 import instructor
 
 GOLD_DIR = ROOT / "knowledge_base" / "gold_standard"
-LANCEDB_PATH = str(ROOT / "lancedb_data")
+LANCEDB_PATH = str(ROOT / "data/lancedb")
 
 _passed = 0
 _failed = 0

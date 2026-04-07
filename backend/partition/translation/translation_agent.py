@@ -3,13 +3,12 @@
 Converts SAS partitions to Python using:
 1. Failure-mode detection (6 rules)
 2. Three RAG paradigms: Static (LOW), GraphRAG (deps/SCC), Agentic (MOD/HIGH)
-3. LLM routing: LOW → Azure GPT-4o-mini, MODERATE/HIGH → Azure GPT-4o
-4. Cross-verification (Prompt C via Groq)
+3. LLM routing: Ollama (primary) → Azure (fallback) → Groq (last resort)
+4. Cross-verification (Prompt C): Ollama → Groq
 5. SCC batching for circular dependencies
 6. Reflexion-style retry with self-reflection on failure
 
-Azure migration: Primary LLM is Azure OpenAI (GPT-4o-mini / GPT-4o).
-Groq LLaMA-70B serves as fallback and cross-verifier.
+Provider chain (all tiers): Ollama minimax-m2.7/qwen3-coder → Azure GPT-4o → Groq LLaMA-70B.
 """
 
 from __future__ import annotations
@@ -31,6 +30,7 @@ from partition.models.enums import ConversionStatus
 from partition.translation.failure_mode_detector import (
     detect_failure_mode,
     get_failure_mode_rules,
+    get_combined_failure_mode_rules,
 )
 from partition.translation.kb_query import KBQueryClient
 from partition.raptor.embedder import NomicEmbedder
@@ -41,7 +41,11 @@ from partition.utils.llm_clients import (
     get_azure_openai_client,
     get_deployment_name,
     get_groq_openai_client,
+    get_ollama_client,
+    get_ollama_model,
+    GroqPool,
 )
+from partition.utils.local_model_client import get_local_model_client
 
 logger = structlog.get_logger()
 
@@ -94,7 +98,13 @@ class TranslationAgent(BaseAgent):
         # Translation context: stores completed translations for GraphRAG
         self._translations: dict[str, str] = {}
 
-        # Azure OpenAI client (primary) — via shared factory
+        # Ollama (PRIMARY) — minimax-m2.7:cloud / qwen3-coder-next
+        _ollama = get_ollama_client(async_client=False)
+        self.ollama_client = (
+            instructor.from_openai(_ollama) if _ollama else None
+        )
+
+        # Azure OpenAI (fallback 1) — GPT-4o / GPT-4o-mini
         try:
             self.azure_client = instructor.from_openai(
                 get_azure_openai_client(async_client=False)
@@ -102,17 +112,22 @@ class TranslationAgent(BaseAgent):
         except RuntimeError:
             self.azure_client = None
 
-        # Groq client (fallback + cross-verifier) — via shared factory
+        # Groq (fallback 2) — llama-3.3-70b, round-robin key pool
+        self._groq_pool = GroqPool()
+        self.groq_client = self._groq_pool if self._groq_pool.available else None
         _groq = get_groq_openai_client(async_client=False)
-        self.groq_client = instructor.from_openai(_groq) if _groq else None
+        self._groq_raw = _groq
+
+        # Tier 0: local fine-tuned GGUF (free, only for LOW risk)
+        self.local_client = get_local_model_client()
 
     async def process(self, partition: PartitionIR) -> ConversionResult:
         """Translate a single partition using the 3-tier RAG paradigm."""
         trace_id = uuid.uuid4()
 
-        # Step 1: Detect failure mode
-        failure_mode = detect_failure_mode(partition.source_code)
-        fm_rules = get_failure_mode_rules(failure_mode) if failure_mode else ""
+        # Step 1: Detect all failure modes (returns combined rules for the prompt)
+        failure_mode = detect_failure_mode(partition.source_code)  # kept for RAG routing
+        fm_rules = get_combined_failure_mode_rules(partition.source_code)
 
         # Step 2: RAG Router — select paradigm + retrieve + build prompt
         rag_ctx = self.rag_router.build_context(
@@ -136,6 +151,10 @@ class TranslationAgent(BaseAgent):
             try:
                 if partition.risk_level.value in ("MODERATE", "HIGH", "UNCERTAIN"):
                     translation, model_used = await self._translate_azure_4o(prompt)
+                elif self.local_client.is_available:
+                    translation, model_used = await self._translate_local(
+                        partition.source_code, prompt
+                    )
                 else:
                     translation, model_used = await self._translate_azure_mini(prompt)
                 break
@@ -265,28 +284,85 @@ class TranslationAgent(BaseAgent):
             error_description=error_description,
             failure_mode=failure_mode.value if failure_mode else None,
         )
-        if not self.groq_client:
+        if not self._groq_raw:
             return error_description  # graceful fallback
         try:
             resp = await asyncio.to_thread(
-                self.groq_client.chat.completions.create,
+                self._groq_raw.chat.completions.create,
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
-                max_retries=1,
+                max_tokens=512,
             )
             return resp.choices[0].message.content or error_description
         except Exception as exc:
             logger.warning("reflection_failed", error=str(exc))
             return error_description
 
+    async def _translate_local(
+        self, sas_code: str, prompt: str
+    ) -> tuple[TranslationOutput, str]:
+        """Tier 0: translate using local fine-tuned GGUF (LOW risk only).
+
+        Falls back to Azure mini if the local model returns None or fails.
+        """
+        result = await self.local_client.complete(sas_code, max_tokens=1024)
+        if result is not None:
+            # Wrap raw text into TranslationOutput (local model doesn't use instructor)
+            python_code = result.content.strip()
+            # Strip markdown fences if present
+            if python_code.startswith("```"):
+                lines = python_code.split("\n")
+                python_code = "\n".join(
+                    line for line in lines
+                    if not line.startswith("```")
+                ).strip()
+            imports = [
+                ln.strip()
+                for ln in python_code.split("\n")
+                if ln.strip().startswith(("import ", "from "))
+            ]
+            return (
+                TranslationOutput(
+                    python_code=python_code,
+                    imports_detected=imports,
+                    confidence=0.80,
+                    notes="local fine-tuned model",
+                ),
+                "local_qwen25",
+            )
+        # Local model unavailable at runtime — fall through to Azure mini
+        return await self._translate_azure_mini(prompt)
+
     def _sync_create(self, client, **kwargs) -> TranslationOutput:
-        """Thin wrapper for sync instructor call (used by asyncio.to_thread)."""
+        """Thin wrapper for sync instructor/pool call (used by asyncio.to_thread).
+
+        Accepts either an instructor-wrapped client (has .chat.completions.create)
+        or a GroqPool (has .call_with_rotation).
+        """
+        if isinstance(client, GroqPool):
+            return client.call_with_rotation(**kwargs)
         return client.chat.completions.create(**kwargs)
 
     async def _translate_azure_4o(
         self, prompt: str
     ) -> tuple[TranslationOutput, str]:
-        """Translate using Azure GPT-4o (primary, high-quality)."""
+        """Translate MOD/HIGH risk partitions. Chain: Ollama → Azure → Groq."""
+        # 1. Ollama (primary)
+        if self.ollama_client:
+            try:
+                result = await asyncio.to_thread(
+                    self._sync_create,
+                    self.ollama_client,
+                    model=get_ollama_model(),
+                    messages=[{"role": "user", "content": prompt}],
+                    response_model=TranslationOutput,
+                    max_retries=2,
+                )
+                return result, f"ollama_{get_ollama_model()}"
+            except Exception as e:
+                logger.warning("ollama_4o_failed", error=str(e))
+
+        # 2. Azure GPT-4o (fallback)
         if self.azure_client and azure_breaker.allow_request():
             try:
                 async with azure_limiter:
@@ -304,7 +380,7 @@ class TranslationAgent(BaseAgent):
                 azure_breaker.record_failure()
                 logger.warning("azure_4o_failed", error=str(e))
 
-        # Fallback to Groq 70B
+        # 3. Groq 70B (last resort)
         if self.groq_client:
             result = await asyncio.to_thread(
                 self._sync_create,
@@ -321,7 +397,23 @@ class TranslationAgent(BaseAgent):
     async def _translate_azure_mini(
         self, prompt: str
     ) -> tuple[TranslationOutput, str]:
-        """Translate using Azure GPT-4o-mini (fast, for LOW risk)."""
+        """Translate LOW risk partitions. Chain: Ollama → Azure → Groq."""
+        # 1. Ollama (primary)
+        if self.ollama_client:
+            try:
+                result = await asyncio.to_thread(
+                    self._sync_create,
+                    self.ollama_client,
+                    model=get_ollama_model(),
+                    messages=[{"role": "user", "content": prompt}],
+                    response_model=TranslationOutput,
+                    max_retries=2,
+                )
+                return result, f"ollama_{get_ollama_model()}"
+            except Exception as e:
+                logger.warning("ollama_mini_failed", error=str(e))
+
+        # 2. Azure GPT-4o-mini (fallback)
         if self.azure_client and azure_breaker.allow_request():
             try:
                 async with azure_limiter:
@@ -339,7 +431,7 @@ class TranslationAgent(BaseAgent):
                 azure_breaker.record_failure()
                 logger.warning("azure_mini_failed", error=str(e))
 
-        # Fallback to Groq 70B
+        # 3. Groq 70B (last resort)
         if self.groq_client:
             result = await asyncio.to_thread(
                 self._sync_create,
@@ -366,16 +458,32 @@ class TranslationAgent(BaseAgent):
             python_code=python_code,
             failure_mode=failure_mode.value if failure_mode else None,
         )
-        if not self.groq_client:
-            return None
-        try:
-            return await asyncio.to_thread(
-                self.groq_client.chat.completions.create,
-                model="llama-3.3-70b-versatile",
-                messages=[{"role": "user", "content": prompt}],
-                response_model=CrossVerifyOutput,
-                max_retries=2,
-            )
-        except Exception as e:
-            logger.warning("crossverify_failed", error=str(e))
-            return None
+        # 1. Ollama (primary)
+        if self.ollama_client:
+            try:
+                return await asyncio.to_thread(
+                    self._sync_create,
+                    self.ollama_client,
+                    model=get_ollama_model(),
+                    messages=[{"role": "user", "content": prompt}],
+                    response_model=CrossVerifyOutput,
+                    max_retries=2,
+                )
+            except Exception as e:
+                logger.warning("crossverify_ollama_failed", error=str(e))
+
+        # 2. Groq (fallback — independent context for cross-verify)
+        if self.groq_client:
+            try:
+                return await asyncio.to_thread(
+                    self._sync_create,
+                    self._groq_pool,
+                    model="llama-3.3-70b-versatile",
+                    messages=[{"role": "user", "content": prompt}],
+                    response_model=CrossVerifyOutput,
+                    max_retries=2,
+                )
+            except Exception as e:
+                logger.warning("crossverify_groq_failed", error=str(e))
+
+        return None

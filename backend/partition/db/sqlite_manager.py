@@ -130,7 +130,7 @@ class MergedScriptRow(Base):
 
 # ── Engine / Session helpers ──────────────────────────────────────────────────
 
-def get_engine(db_path: str = "file_registry.db"):
+def get_engine(db_path: str = "data/file_registry.db"):
     """Create a SQLAlchemy engine for the given SQLite database.
 
     Enables WAL journal mode and foreign keys via PRAGMA statements.

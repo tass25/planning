@@ -250,7 +250,7 @@ def generate_plots(
 
 def main():
     parser = argparse.ArgumentParser(description="Analyze ablation results")
-    parser.add_argument("--db", default="ablation.db")
+    parser.add_argument("--db", default="data/ablation.db")
     parser.add_argument("--run_id", default="latest")
     parser.add_argument("--plots", action="store_true", help="Generate plots")
     args = parser.parse_args()

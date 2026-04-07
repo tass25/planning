@@ -30,10 +30,11 @@ build/
 *.gpickle
 lancedb_data/
 artifacts/
-data/
+backend/data/
 
 # Logs
-logs/*.log
+logs/
+*.log
 
 # OS
 .DS_Store
@@ -51,9 +52,13 @@ htmlcov/
 node_modules/
 .vite/
 
-# Legacy folder (to be deleted manually)
+# Frontend build output
+frontend/dist/
+
+# Legacy folders (no longer exist)
 sas_converter/
 codara-ui-temp/
 
-# Debug artefacts
-backend/scripts/debug/output/*.txt
+# Test output
+backend/tests/output/
+backend/scripts/debug/output/

@@ -194,7 +194,7 @@ class TestAblationRunner:
 
 # ── Init Script (schema) ─────────────────────────────────────────────
 
-from scripts.init_ablation_db import init_ablation_schema
+from scripts.ablation.init_ablation_db import init_ablation_schema
 
 
 class TestInitAblationDB:

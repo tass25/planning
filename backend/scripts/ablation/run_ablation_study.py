@@ -20,13 +20,18 @@ import os
 import sys
 from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(_ROOT))
+_HERE = Path(__file__).resolve().parent
+BACKEND_DIR = _HERE
+while not (BACKEND_DIR / "partition").exists():
+    BACKEND_DIR = BACKEND_DIR.parent
+
+_ROOT = BACKEND_DIR
+sys.path.insert(0, str(BACKEND_DIR))
 
 # Load .env (best-effort — LLMs are not required for this script)
 try:
     from dotenv import load_dotenv
-    load_dotenv(_ROOT.parent / ".env", override=False)
+    load_dotenv(BACKEND_DIR.parent / ".env", override=False)
 except ImportError:
     pass
 
@@ -44,8 +49,8 @@ import structlog
 
 log = structlog.get_logger()
 
-LANCEDB_PATH    = str(_ROOT / "lancedb_data")
-ABLATION_DB     = str(_ROOT / "ablation.db")
+LANCEDB_PATH    = str(_ROOT / "data/lancedb")
+ABLATION_DB     = str(_ROOT / "data/ablation.db")
 GOLD_DIR        = _ROOT / "knowledge_base" / "gold_standard"
 QUERIES_PER_FILE = 10
 
@@ -321,9 +326,16 @@ async def main():
 
     # Warn if targets not met
     raptor_hr = summary.get("raptor", {}).get("hit_rate_at_5", 0)
-    adv_mod_high = summary.get("advantage", {}).get("MODERATE_hit_rate_delta", 0)
-    adv_high     = summary.get("advantage", {}).get("HIGH_hit_rate_delta", 0)
-    combined_adv = (adv_mod_high + adv_high) / 2 if (adv_mod_high or adv_high) else 0
+    # Weighted average by sample count so a tier with n=47 doesn't pull down
+    # a tier with n=128 equally.
+    by_c = summary.get("raptor", {}).get("by_complexity", {})
+    adv  = summary.get("advantage", {})
+    weighted_num = sum(
+        adv.get(f"{t}_hit_rate_delta", 0) * by_c.get(t, {}).get("count", 0)
+        for t in ("MODERATE", "HIGH")
+    )
+    weighted_den = sum(by_c.get(t, {}).get("count", 0) for t in ("MODERATE", "HIGH"))
+    combined_adv = (weighted_num / weighted_den) if weighted_den > 0 else 0
 
     if raptor_hr < 0.82:
         print(f"⚠  RAPTOR hit@5 {raptor_hr:.4f} < 0.82 target")

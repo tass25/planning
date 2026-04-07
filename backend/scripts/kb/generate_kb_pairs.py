@@ -32,10 +32,15 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+
+_HERE = Path(__file__).resolve().parent
+BACKEND_DIR = _HERE
+while not (BACKEND_DIR / "partition").exists():
+    BACKEND_DIR = BACKEND_DIR.parent
 from typing import Optional
 
 # Ensure the backend package root is on sys.path when run as a script
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(BACKEND_DIR))
 
 import instructor
 import structlog

@@ -138,7 +138,7 @@ class NotificationRow(ApiBase):
 
 # ── Engine helpers ────────────────────────────────────────────────────────────
 
-def get_api_engine(db_path: str = "codara_api.db"):
+def get_api_engine(db_path: str = "data/codara_api.db"):
     from pathlib import Path
     abs_path = str(Path(db_path).resolve())
     engine = create_engine(f"sqlite:///{abs_path}", echo=False)

@@ -42,3 +42,12 @@ class PartitionStrategy(str, Enum):
     DEPENDENCY_PRESERVING = "DEPENDENCY_PRESERVING"
     STRUCTURAL_GROUPING = "STRUCTURAL_GROUPING"
     HUMAN_REVIEW = "HUMAN_REVIEW"
+
+
+class VerificationStatus(str, Enum):
+    """Semantic equivalence verification result (Z3 / Oracle)."""
+    FORMAL_PROOF = "formal_proof"       # Z3 proved equivalent
+    BEHAVIORALLY_VERIFIED = "behavioral_verified"  # Oracle passed (Month 2)
+    COUNTEREXAMPLE = "counterexample"   # Z3/Oracle found a difference → re-queue
+    UNVERIFIABLE = "unverifiable"       # Outside decidable scope
+    SKIPPED = "skipped"                 # Feature flag disabled

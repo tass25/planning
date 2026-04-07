@@ -34,7 +34,7 @@ class KBQueryClient:
     TABLE_NAME = "sas_python_examples"
     MIN_RELEVANCE = 0.50
 
-    def __init__(self, db_path: str = "lancedb_data"):
+    def __init__(self, db_path: str = "data/lancedb"):
         self.db = _get_db(db_path)
 
     def retrieve_examples(

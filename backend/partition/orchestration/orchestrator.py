@@ -55,7 +55,7 @@ class PartitionOrchestrator:
     def __init__(
         self,
         redis_url: str = "redis://localhost:6379/0",
-        duckdb_path: str = "analytics.duckdb",
+        duckdb_path: str = "data/analytics.duckdb",
         target_runtime: str = "python",
     ):
         self.checkpoint = RedisCheckpointManager(redis_url)

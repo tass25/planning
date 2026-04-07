@@ -9,7 +9,7 @@ import argparse
 import duckdb
 
 
-def init_ablation_schema(db_path: str = "ablation.db") -> None:
+def init_ablation_schema(db_path: str = "data/ablation.db") -> None:
     conn = duckdb.connect(db_path)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS ablation_results (
@@ -31,6 +31,6 @@ def init_ablation_schema(db_path: str = "ablation.db") -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--db", default="ablation.db")
+    parser.add_argument("--db", default="data/ablation.db")
     args = parser.parse_args()
     init_ablation_schema(args.db)

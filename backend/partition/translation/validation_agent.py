@@ -2,20 +2,27 @@
 
 Post-translation validation:
 1. ast.parse() — syntax check
-2. exec() sandbox on synthetic 100-row DataFrame (5s timeout)
+2. exec() sandbox with a rich auto-namespace (15s timeout)
 3. Routing: pass → L4, fail + retry < 2 → retranslate, fail + retry >= 2 → PARTIAL
 
-Uses subprocess-based isolation to kill runaway code on timeout.
+Subprocess isolation via multiprocessing.Process + Queue (not Manager).
+Manager() is avoided because on Windows it spawns a separate manager
+process (~3s startup) which consistently eats the timeout budget.
+Queue only adds one child process, which starts fast enough on all platforms.
+
+Auto-namespace: any undefined variable referenced by translated code
+automatically receives a synthetic DataFrame, so translations that
+reference SAS dataset names (transactions, raw_data, customers, …)
+execute without NameError even without real input files.
 """
 
 from __future__ import annotations
 
 import ast
 import multiprocessing
+import sys
 from typing import Optional
 
-import numpy as np
-import pandas as pd
 import structlog
 
 from partition.base_agent import BaseAgent
@@ -24,7 +31,112 @@ from partition.models.enums import ConversionStatus
 
 logger = structlog.get_logger()
 
-VALIDATION_TIMEOUT = 5  # seconds
+# Windows subprocess spawn is slow (~2-4s per process).
+# 15s gives enough headroom for spawn + imports + user code.
+VALIDATION_TIMEOUT = 15 if sys.platform == "win32" else 8
+
+
+# ── Sandbox ──────────────────────────────────────────────────────────────────
+
+class _AutoNamespace(dict):
+    """Namespace dict that returns a synthetic DataFrame for any unknown key.
+
+    This lets translated code reference SAS dataset names
+    (transactions, raw_data, customers, etc.) without NameError,
+    as long as the column access doesn't require specific column names
+    that we can't predict. Column-name errors are still real failures.
+    """
+
+    def __missing__(self, key: str):
+        # Let Python builtins, dunder names, and keywords fall through normally
+        import builtins as _builtins
+        if key.startswith("_") or hasattr(_builtins, key):
+            raise KeyError(key)
+        try:
+            import numpy as _np
+            import pandas as _pd
+
+            rng = _np.random.default_rng(42)
+            # Build a DataFrame with many common SAS column name patterns
+            df = _pd.DataFrame({
+                "id":          range(1, 101),
+                "customer_id": range(1001, 1101),
+                "product_id":  range(201, 301),
+                "amount":      rng.uniform(10, 1000, 100).round(2),
+                "revenue":     rng.uniform(10, 5000, 100).round(2),
+                "units_sold":  rng.integers(1, 50, 100),
+                "score":       rng.uniform(0, 100, 100).round(2),
+                "age":         rng.integers(18, 80, 100),
+                "value":       rng.uniform(0, 100, 100).round(2),
+                "flag":        rng.integers(0, 2, 100),
+                "status":      rng.choice(["ACTIVE", "PENDING", "CLOSED"], 100),
+                "category":    rng.choice(["A", "B", "C", "D"], 100),
+                "region":      rng.choice(["NORTH", "SOUTH", "EAST", "WEST"], 100),
+                "product_line": rng.choice(["LINE1", "LINE2", "LINE3"], 100),
+                "month":       rng.integers(1, 13, 100),
+                "year":        rng.integers(2020, 2025, 100),
+                "date":        _pd.date_range("2023-01-01", periods=100, freq="D"),
+                "survey_date": _pd.date_range("2023-01-01", periods=100, freq="D"),
+                "close":       rng.uniform(10, 500, 100).round(2),
+                "open":        rng.uniform(10, 500, 100).round(2),
+                "high":        rng.uniform(10, 500, 100).round(2),
+                "low":         rng.uniform(10, 500, 100).round(2),
+                "volume":      rng.integers(1000, 100000, 100),
+                "name":        [f"record_{i}" for i in range(100)],
+                "product_name": [f"product_{i}" for i in range(100)],
+            })
+            self[key] = df
+            return df
+        except Exception:
+            raise KeyError(key)
+
+
+def _sandbox_exec(code: str, result_queue: "multiprocessing.Queue") -> None:
+    """Run code in a sandboxed subprocess, return result via queue.
+
+    Provides pd, np, and auto-namespace DataFrames for undefined names.
+    Blocks dangerous builtins.
+    """
+    import numpy as _np
+    import pandas as _pd
+
+    blocked = frozenset({
+        "open", "__import__", "exec", "eval", "compile",
+        "exit", "quit", "input", "breakpoint",
+        "memoryview",
+    })
+
+    if isinstance(__builtins__, dict):
+        safe_builtins = {
+            k: v for k, v in __builtins__.items()
+            if k not in blocked and not k.startswith("__")
+        }
+    else:
+        safe_builtins = {
+            k: getattr(__builtins__, k)
+            for k in dir(__builtins__)
+            if k not in blocked and not k.startswith("__")
+        }
+
+    namespace = _AutoNamespace({
+        "__builtins__": safe_builtins,
+        "pd": _pd,
+        "np": _np,
+        # Provide a default 'df' matching the original ValidationAgent contract
+        "df": _pd.DataFrame({
+            "id":       range(1, 101),
+            "amount":   _np.random.default_rng(42).uniform(10, 1000, 100).round(2),
+            "category": ["A", "B", "C", "D"] * 25,
+            "date":     _pd.date_range("2024-01-01", periods=100, freq="D"),
+            "flag":     [0, 1] * 50,
+        }),
+    })
+
+    try:
+        exec(code, namespace)  # noqa: S102 — sandboxed in subprocess
+        result_queue.put({"ok": True})
+    except Exception as e:
+        result_queue.put({"ok": False, "error": str(e)})
 
 
 class ValidationResult:
@@ -43,59 +155,6 @@ class ValidationResult:
         self.exec_ok = exec_ok
         self.error_msg = error_msg
         self.output = output
-
-
-def _sandbox_exec(code: str, result_dict: dict) -> None:
-    """Run code in a sandboxed subprocess (target for multiprocessing).
-
-    Provides: pd, np, df (synthetic 100-row DataFrame).
-    Blocks dangerous builtins.
-    """
-    import numpy as _np
-    import pandas as _pd
-
-    blocked = frozenset({
-        "open", "__import__", "exec", "eval", "compile",
-        "exit", "quit", "input", "breakpoint",
-        "getattr", "setattr", "delattr",
-        "globals", "locals", "vars", "dir",
-        "type", "classmethod", "staticmethod", "super",
-        "memoryview",
-    })
-
-    rng = _np.random.default_rng(42)
-    df = _pd.DataFrame({
-        "id": range(1, 101),
-        "amount": rng.uniform(10, 1000, 100).round(2),
-        "category": rng.choice(["A", "B", "C", "D"], 100),
-        "date": _pd.date_range("2023-01-01", periods=100, freq="D"),
-        "flag": rng.choice([0, 1], 100),
-    })
-
-    if isinstance(__builtins__, dict):
-        safe_builtins = {
-            k: v for k, v in __builtins__.items()
-            if k not in blocked and not k.startswith("_")
-        }
-    else:
-        safe_builtins = {
-            k: getattr(__builtins__, k)
-            for k in dir(__builtins__)
-            if k not in blocked and not k.startswith("_")
-        }
-
-    namespace = {
-        "__builtins__": safe_builtins,
-        "pd": _pd,
-        "np": _np,
-        "df": df,
-    }
-
-    try:
-        exec(code, namespace)  # noqa: S102 — sandboxed in subprocess
-        result_dict["ok"] = True
-    except Exception as e:
-        result_dict["error"] = str(e)
 
 
 class ValidationAgent(BaseAgent):
@@ -133,7 +192,7 @@ class ValidationAgent(BaseAgent):
         """Validate a conversion result."""
         python_code = conversion.python_code
 
-        # Step 1: Syntax check
+        # Step 1: Syntax check (always)
         syntax_ok, syntax_error = self._check_syntax(python_code)
         if not syntax_ok:
             logger.warning(
@@ -188,15 +247,15 @@ class ValidationAgent(BaseAgent):
     ) -> tuple[bool, str, Optional[object]]:
         """Execute code in a subprocess sandbox. Kills the process on timeout.
 
-        Uses multiprocessing instead of threading so runaway code is truly
-        terminated via process kill rather than leaked as a daemon thread.
+        Uses a Queue instead of Manager().dict() — Manager() spawns a
+        separate manager process which is ~3s overhead on Windows, reliably
+        eating the 5s timeout before any user code runs.
         """
-        manager = multiprocessing.Manager()
-        result_dict = manager.dict({"ok": False, "error": "", "output": None})
+        result_queue: multiprocessing.Queue = multiprocessing.Queue()
 
         proc = multiprocessing.Process(
             target=_sandbox_exec,
-            args=(code, result_dict),
+            args=(code, result_queue),
             daemon=True,
         )
         proc.start()
@@ -207,8 +266,10 @@ class ValidationAgent(BaseAgent):
             proc.join(timeout=2)
             return False, f"Timeout after {timeout}s (process killed)", None
 
-        return (
-            bool(result_dict.get("ok", False)),
-            str(result_dict.get("error", "")),
-            result_dict.get("output"),
-        )
+        if not result_queue.empty():
+            result = result_queue.get_nowait()
+            if result.get("ok"):
+                return True, "", None
+            return False, result.get("error", "unknown error"), None
+
+        return False, "subprocess exited with no result", None

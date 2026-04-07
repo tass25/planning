@@ -52,7 +52,7 @@ class KBWriter:
 
     Usage::
 
-        writer = KBWriter(db_path="lancedb_data")
+        writer = KBWriter(db_path="data/lancedb")
         writer.insert_pairs(pairs)
         writer.count()           # -> int
         writer.coverage_stats()  # -> {"DATA_STEP_BASIC": 30, ...}
@@ -61,7 +61,7 @@ class KBWriter:
     TABLE_NAME = "sas_python_examples"
     NUM_PARTITIONS = 64
 
-    def __init__(self, db_path: str = "lancedb_data") -> None:
+    def __init__(self, db_path: str = "data/lancedb") -> None:
         self.db = lancedb.connect(db_path)
 
     # ── Insert ────────────────────────────────────────────────────────────

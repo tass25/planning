@@ -8,7 +8,7 @@ from partition.base_agent import BaseAgent
 from partition.models.partition_ir import PartitionIR
 from partition.models.raptor_node import RAPTORNode
 from partition.raptor.embedder import NomicEmbedder
-from partition.raptor.clustering import GMMClusterer
+from partition.raptor.clustering import get_clusterer
 from partition.raptor.summarizer import ClusterSummarizer
 from partition.raptor.tree_builder import RAPTORTreeBuilder
 
@@ -29,7 +29,7 @@ class RAPTORPartitionAgent(BaseAgent):
         super().__init__(trace_id)
 
         self.embedder = NomicEmbedder(device=device)
-        self.clusterer = GMMClusterer()
+        self.clusterer = get_clusterer()   # GMM or HyperRAPTOR based on env flag
         self.summarizer = ClusterSummarizer()
         self.tree_builder = RAPTORTreeBuilder(
             embedder=self.embedder,

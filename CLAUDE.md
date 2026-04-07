@@ -1,11 +1,11 @@
 # CLAUDE.md — Codara Project Memory
-<!-- Optimized for AI ingestion. Last updated: 2026-03-24 -->
+<!-- Optimized for AI ingestion. Last updated: 2026-04-06 -->
 
 ## PROJECT IDENTITY
 **Name**: Codara — SAS→Python/PySpark Conversion Accelerator
 **Type**: PFE (internship/thesis) project, ~14-week sprint
-**Stage**: Week 13-14 (final polish, near-complete)
-**Version**: 3.0.0 (pipeline restructured to 8 orchestrator nodes in Week 13; each node backed by 1–4 specialist sub-agents)
+**Stage**: Week 15+ (post-14: Z3 verification, HyperRAPTOR, LocalModel tier, CI/CD, Azure infra)
+**Version**: 3.1.0 (Z3 + LocalModel tier + ValidationAgent Queue fix + full DuckDB schema)
 **Old package name**: `sas_converter/` (renamed to `backend/` — CI was fixed in Week 13)
 **Audit grade**: A- (after 44 fixes across 4 rounds + 20 post-audit fixes)
 
@@ -70,7 +70,7 @@ file_process → streaming → chunking → raptor → risk_routing → persist_
 | `backend/partition/models/conversion_result.py` | `ConversionResult` |
 | `backend/partition/models/file_metadata.py` | `FileMetadata` |
 | `backend/partition/base_agent.py` | `BaseAgent` ABC with `with_retry` decorator |
-| `backend/partition/utils/llm_clients.py` | `get_azure_openai_client()`, `get_groq_openai_client()`, `get_deployment_name(tier)` |
+| `backend/partition/utils/llm_clients.py` | `get_ollama_client()`, `get_ollama_model()`, `get_azure_openai_client()`, `get_groq_openai_client()`, `get_deployment_name(tier)` |
 | `backend/partition/utils/retry.py` | `RateLimitSemaphore`, `CircuitBreaker`; globals: `azure_limiter`, `azure_breaker`, `groq_limiter`, `groq_breaker` |
 
 ### Pipeline Stage Files
@@ -85,7 +85,7 @@ file_process → streaming → chunking → raptor → risk_routing → persist_
 | risk_routing | `partition/complexity/risk_router.py` → `ComplexityAgent` + `StrategyAgent` |
 | persist_index | `partition/persistence/persistence_agent.py` + `partition/index/index_agent.py` (NetworkX) |
 | translation | `partition/translation/translation_pipeline.py` → `TranslationAgent` + `ValidationAgent` |
-| translation core | `partition/translation/translation_agent.py` — full RAG routing + Azure/Groq LLM calls + cross-verify + Reflexion |
+| translation core | `partition/translation/translation_agent.py` — full RAG routing + Ollama/Azure/Groq LLM calls + cross-verify + Reflexion |
 | merge | `partition/merge/merge_agent.py` → `ScriptMerger` + `ImportConsolidator` + `DependencyInjector` + `ReportAgent` |
 
 ### RAG Subsystem
@@ -101,13 +101,22 @@ file_process → streaming → chunking → raptor → risk_routing → persist_
 | `partition/translation/failure_mode_detector.py` | 6 failure mode rules detection |
 | `partition/kb/kb_writer.py` | `KBWriter` — LanceDB table `sas_python_examples`, 16-field schema, IVF index |
 
+### Verification (Week 15)
+| File | Role |
+|------|------|
+| `backend/partition/verification/z3_agent.py` | `Z3VerificationAgent` — 4 SMT pattern encoders (linear arithmetic, boolean filter, sort/dedup, assignment) |
+| `backend/partition/utils/local_model_client.py` | `LocalModelClient` — lazy-loading llama-cpp wrapper for fine-tuned GGUF (Tier 0) |
+
 ### Knowledge Base
 | Path | Role |
 |------|------|
 | `backend/knowledge_base/gold_standard/` | 45+ `.sas` + `.gold.json` pairs for benchmark |
-| `backend/scripts/generate_kb_pairs.py` | Azure+Groq KB pair generation |
-| `backend/scripts/expand_kb.py` | Batch KB expansion |
-| `backend/scripts/kb_rollback.py` | Version rollback |
+| `backend/tests/fixtures/torture_test.sas` | 10-block torture test: RETAIN, FIRST./LAST., correlated SQL, macros, hash, PROC MEANS, TRANSPOSE |
+| `backend/scripts/kb/generate_kb_pairs.py` | Azure+Groq KB pair generation |
+| `backend/scripts/kb/expand_kb.py` | Batch KB expansion |
+| `backend/scripts/kb/kb_rollback.py` | Version rollback |
+| `backend/scripts/kb/build_dataset.py` | Multi-source fine-tuning dataset builder (gold + LanceDB + Gemini distillation + The Stack) |
+| `notebooks/fine_tune_qwen25_coder_sas.py` | QLoRA SFT+DPO training notebook for Google Colab (T4 GPU) |
 
 ### Frontend
 | File | Role |
@@ -151,22 +160,26 @@ file_process → streaming → chunking → raptor → risk_routing → persist_
 
 ### Env Vars Required
 ```
-AZURE_OPENAI_ENDPOINT=
+OLLAMA_API_KEY=                             # PRIMARY — minimax-m2.7:cloud / qwen3-coder-next
+OLLAMA_BASE_URL=http://localhost:11434/v1
+OLLAMA_MODEL=minimax-m2.7:cloud            # 10/10 on torture_test (2026-04-06)
+AZURE_OPENAI_ENDPOINT=                     # fallback 1
 AZURE_OPENAI_API_KEY=
 AZURE_OPENAI_API_VERSION=2024-10-21
-AZURE_OPENAI_DEPLOYMENT_MINI=gpt-4o-mini   # for LOW risk
-AZURE_OPENAI_DEPLOYMENT_FULL=gpt-4o        # for MOD/HIGH risk
-GROQ_API_KEY=                               # fallback + cross-verifier
-CODARA_JWT_SECRET=                          # JWT signing secret
+AZURE_OPENAI_DEPLOYMENT_MINI=gpt-4o-mini
+AZURE_OPENAI_DEPLOYMENT_FULL=gpt-4o
+GROQ_API_KEY=                              # fallback 2 + cross-verifier
+CODARA_JWT_SECRET=                         # JWT signing secret
 REDIS_URL=redis://localhost:6379/0
 ```
 
 ### LLM Routing Logic (TranslationAgent)
-- LOW risk → Azure GPT-4o-mini (fast/cheap)
-- MOD/HIGH/UNCERTAIN risk → Azure GPT-4o (quality)
-- Cross-verify (Prompt C) → Groq LLaMA-3.1-70b (independent context via `get_groq_openai_client`)
-- Reflexion retries → Groq LLaMA-3.1-70b
-- Fallback chain: Azure → Groq 70B → PARTIAL status
+- **Primary (all risk levels)** → Ollama `minimax-m2.7:cloud` (via OpenAI-compatible API)
+- **Fallback 1** → Azure GPT-4o (MOD/HIGH) / GPT-4o-mini (LOW)
+- **Fallback 2** → Groq LLaMA-3.3-70b (last resort + cross-verifier)
+- Cross-verify (Prompt C) → Ollama → Groq (independent context)
+- Reflexion retries → same chain
+- Full fallback chain: Ollama → Azure → Groq → PARTIAL status
 - Circuit breaker: 5 failures → open 60s (Azure), 3 failures → open 120s (Groq)
 - Rate limiter: 10 concurrent (Azure), 3 concurrent (Groq)
 
@@ -256,7 +269,7 @@ Actual orchestrator nodes: `file_process, streaming, chunking, raptor, risk_rout
 5. **`_translate_sas_to_python()` in `conversions.py`**: standalone LLM function separate from full pipeline; used for quick single-file conversions in the API. Has its own `PromptManager` instantiation.
 6. **RAPTOR on small files**: skips clustering if `partitions < 2`. GMM clustering requires `n_samples >= n_components`.
 7. **Redis checkpointing**: if Redis unavailable, orchestrator continues in degraded mode (no checkpoints). Reconnection not automatic.
-8. **AZURE_OPENAI_ENDPOINT/KEY missing**: `get_azure_openai_client()` raises `RuntimeError` caught in `TranslationAgent.__init__` → `azure_client = None` → falls back to Groq; if Groq also missing → all translations become PARTIAL.
+8. **OLLAMA_API_KEY missing**: `get_ollama_client()` returns `None` → falls back to Azure; Azure missing → falls back to Groq; all missing → PARTIAL status. `AZURE_OPENAI_ENDPOINT/KEY` absence sets `azure_client = None` silently (caught RuntimeError).
 9. **Test 8 in test_streaming.py**: hardcoded path `C:\Users\labou\Desktop\stagePfe\advanced_code.sas` — Windows-only, skipped if missing.
 10. **`merge_agent.process()`**: receives `cr.model_dump()` dicts, not ConversionResult objects — fragile if ConversionResult schema changes.
 
@@ -371,10 +384,105 @@ docker compose up --build    # redis :6379, backend :8000, frontend :8080
 cd backend && python -m pytest tests/ -v
 
 # Pipeline CLI
-cd backend && python scripts/run_pipeline.py path/to/file.sas
+cd backend && python scripts/ops/run_pipeline.py path/to/file.sas
 
 # KB generation
-cd backend && python scripts/generate_kb_pairs.py
+cd backend && python scripts/kb/generate_kb_pairs.py
+
+# Translation end-to-end test
+cd backend && python scripts/eval/translate_test.py
+
+# Ablation study
+cd backend && python scripts/ablation/run_ablation_study.py
+```
+
+---
+
+## PROJECT TREE (as of 2026-04-06, post-reorganization)
+
+```
+Stage/
+├── README.md                        # Project overview + quick start
+├── CLAUDE.md                        # AI project memory (this file)
+├── .env                             # Real keys — never commit
+├── .gitignore
+├── pyproject.toml                   # Build + pytest config
+│
+├── infra/                           # All Docker/DevOps files
+│   ├── Dockerfile                   # Backend image (multi-stage, python:3.11-slim)
+│   ├── docker-compose.yml           # Redis + Backend + Frontend
+│   └── azure_setup.sh               # One-time Azure infra provisioning
+│
+├── notebooks/
+│   └── fine_tune_qwen25_coder_sas.py   # QLoRA Colab notebook
+│
+├── docs/
+│   ├── guides/
+│   │   ├── 5av.md                   # Full technical changelog
+│   │   ├── ROADMAP.md
+│   │   ├── global.md                # Global architecture doc
+│   │   └── raptor_paper_notes.md
+│   ├── reports/
+│   │   ├── AUDIT_REPORT*.md
+│   │   ├── ablation_results.md
+│   │   └── cahier_des_charges.tex
+│   ├── planning/                    # Week-by-week planning docs
+│   │   ├── week-*.md
+│   │   ├── kanbanV2.md
+│   │   └── trello_kanban.md
+│   └── assets/
+│       └── architecture_v2.html     # Architecture diagram
+│
+├── frontend/                        # React/Vite app
+└── backend/
+    ├── api/                         # FastAPI app
+    │   ├── main.py
+    │   ├── auth.py / database.py / schemas.py
+    │   └── routes/                  # conversions, auth, kb, admin, analytics, …
+    ├── partition/                   # LangGraph pipeline (8 nodes)
+    │   ├── models/                  # PartitionIR, ConversionResult, enums
+    │   ├── orchestration/           # orchestrator, state, audit, checkpoint, telemetry
+    │   ├── entry/                   # file_processor, file_analysis, cross_file_dep
+    │   ├── streaming/               # FSM parser, stream_agent, state_agent
+    │   ├── chunking/                # boundary_detector, chunking_agent, partition_builder
+    │   ├── raptor/                  # embedder, clustering (GMM+HyperRAPTOR), tree_builder
+    │   ├── complexity/              # risk_router, complexity_agent, strategy_agent
+    │   ├── persistence/             # persistence_agent, SQLite writer
+    │   ├── index/                   # graph_builder (NetworkX), index_agent
+    │   ├── translation/             # translation_agent, validation_agent, pipeline, kb_query
+    │   ├── verification/            # z3_agent (SMT formal proofs)
+    │   ├── rag/                     # router, static_rag, graph_rag, agentic_rag
+    │   ├── prompts/                 # Jinja2 templates + manager
+    │   ├── merge/                   # script_merger, import_consolidator, report_agent
+    │   ├── retraining/              # feedback_ingestion, quality_monitor, retrain_trigger
+    │   ├── kb/                      # kb_writer (LanceDB), kb_changelog
+    │   ├── evaluation/              # ablation_runner, flat_index, query_generator
+    │   ├── utils/                   # llm_clients (GroqPool), retry, local_model_client
+    │   ├── config/                  # config_manager
+    │   └── db/                      # duckdb_manager, sqlite_manager
+    ├── requirements/
+    │   ├── base.txt                 # Production deps
+    │   └── dev.txt                  # Dev/test extras
+    ├── scripts/
+    │   ├── ablation/                # run_ablation_study, init_ablation_db, analyze_ablation
+    │   ├── kb/                      # generate_kb_pairs, expand_kb, kb_rollback, build_dataset
+    │   ├── eval/                    # translate_test, run_benchmark, test_e2e_rag
+    │   └── ops/                     # run_pipeline, submit_correction, verify_deliverables
+    ├── tests/
+    │   ├── fixtures/                # torture_test.sas (10 hard SAS patterns)
+    │   ├── regression/              # test_ablation.py
+    │   └── test_*.py                # 248 unit + integration tests
+    ├── knowledge_base/
+    │   ├── gold_standard/           # 45+ .sas + .gold.json pairs
+    │   └── output/                  # Generated pairs, benchmark outputs
+    ├── data/                        # Runtime data (gitignored)
+    │   ├── lancedb/                 # Vector KB (768-dim Nomic)
+    │   ├── analytics.duckdb         # LLM audit logs
+    │   ├── codara_api.db            # SQLite API database
+    │   ├── ablation.db              # Ablation study results
+    │   └── output/                  # Pipeline output files
+    ├── benchmark/                   # boundary_benchmark.py (pytest)
+    └── examples/                    # Demo scripts and sample SAS files
 ```
 
 ---
@@ -406,10 +514,12 @@ Each `.gold.json` has expected partition types, boundaries, and complexity score
 | 11 | L4+CL | ImportConsolidator, DependencyInjector, ScriptMerger, ReportAgent (#14), FeedbackIngestionAgent, ConversionQualityMonitor, RetrainTrigger. KB → 330 pairs | 191 | `2c5a6da` |
 | 12 | Eval | Ablation study infra: flat_index.py, query_generator.py, ablation_runner.py, init_ablation_db.py, analyze_ablation.py | 198 | `dbaebf1` |
 | 13 | Restructure | **11→8 orchestrator nodes, v3.0.0**. Introduced 8 composite node-agents (facade pattern), each delegating to 1–4 specialist sub-agents internally. Azure Monitor telemetry, GitHub Actions CI/CD, CodeQL, Docker. 44+20 audit fixes. Added MergeAgent node (7→8). | 221 | — |
-| 14 | Buffer | Polish + defense (in progress) | — | — |
+| 14 | Buffer | Polish + defense | — | — |
+| 15+ | Extensions | **v3.1.0** Z3 formal verification, HyperRAPTOR (Poincaré ball), LocalModel Tier 0, Gemini/Cerebras clients, QLoRA fine-tune pipeline, 6-job CI/CD, Azure Container Apps OIDC deploy. Bug fixes: ValidationAgent Queue (was Manager→timeout), DuckDB full schema, reflection raw-groq client. **Full repo reorganization** into logical subfolders. | 248 | — |
 
 ### Key Architecture Changes by Week
 - **Week 9**: Groq demoted from primary to fallback+verifier; Azure OpenAI becomes primary. Old plans (Ollama 8B for LOW, Groq 70B for MOD/HIGH) replaced.
+- **Week 15+ (2026-04-06)**: Ollama `minimax-m2.7:cloud` promoted to primary (10/10 on torture_test). New chain: Ollama → Azure → Groq.
 - **Week 13 restructure**: Orchestrator reduced from 11 nodes to 7, then 8. Introduced 8 composite node-agents (facade pattern) — sub-agents still exist internally, the orchestrator sees 8 nodes.
 - **Post-audit fix #15**: `ValidationAgent` exec sandbox changed from `threading.Thread` (leaky) to `multiprocessing.Process` + `.kill()` (true isolation).
 - **Post-audit fix #8**: `config_manager.py` rewritten — source YAML is now read-only, runtime state in separate `runtime_state.yaml`.
@@ -477,11 +587,9 @@ The `planning` branch contains files not merged to main:
 
 ## KNOWN ISSUES / NOTES
 
-- `docs/kanbanV2.md` is untracked (in git status) — work-in-progress kanban
-- `backend/tests/test_streaming.py` has a modified state (M in git status) — check before committing
-- Week 14 planning docs reference `ollama` as LLM (outdated); actual implementation uses Azure OpenAI (migrated Week 9); Groq is fallback only
 - `PySpark` target is supported in pipeline (`target_runtime` field exists) but frontend only shows `python` (`TargetRuntime = "python"` in types/index.ts)
 - `github_id` OAuth field exists in UserRow but GitHub OAuth callback is a stub
 - CORS allows `localhost:8080`, `localhost:5173`, `127.0.0.1:8080` — add prod domain when deploying
-- CI originally referenced `sas_converter/` path; fixed in Week 13 to `backend/`
 - `APPLICATIONINSIGHTS_CONNECTION_STRING` env var optional — telemetry is no-op when absent
+- Groq free tier: 100K tokens/day per key. With 3 keys (`GROQ_API_KEY`, `GROQ_API_KEY_2`, `GROQ_API_KEY_3`) GroqPool gives 300K TPD capacity with automatic rotation on 429
+- Docker: use `docker compose -f infra/docker-compose.yml up --build` (compose file is in `infra/`, not root)

@@ -30,7 +30,7 @@ def embedder():
 @pytest.fixture(scope="session")
 def lancedb_path():
     """Absolute path to the populated LanceDB knowledge base."""
-    return str(_ROOT / "lancedb_data")
+    return str(_ROOT / "data/lancedb")
 
 
 @pytest.fixture(scope="session")

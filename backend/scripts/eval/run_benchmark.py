@@ -37,10 +37,15 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+_HERE = Path(__file__).resolve().parent
+BACKEND_DIR = _HERE
+while not (BACKEND_DIR / "partition").exists():
+    BACKEND_DIR = BACKEND_DIR.parent
+
+sys.path.insert(0, str(BACKEND_DIR))
 
 from dotenv import load_dotenv
-load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
+load_dotenv(BACKEND_DIR.parent / ".env")
 
 from openai import AzureOpenAI, OpenAI
 import instructor

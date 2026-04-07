@@ -70,3 +70,34 @@ parameters must match across all siblings.
    with sibling partitions.
 5. Handle edge cases: empty DataFrames, null/missing values, type coercion.
 6. Preserve the original SAS logic exactly — do not optimise or simplify.
+
+## SAS-to-Python Pitfalls (MUST follow — violations = incorrect translation)
+- **NEVER use iterrows() for conditional column assignment** — it is 100x slower than vectorized ops.
+  Use `np.select(conditions, choices, default=...)` or `np.where(...)` for IF/THEN/ELSE on columns.
+- **Preserve columns needed by downstream partitions** — this is a multi-partition translation.
+  If a column is referenced in any downstream block, carry it through groupby/SELECT using
+  `.agg(col=('col','first'))`. Silently dropped columns break downstream steps.
+- **SAS NWAY in PROC MEANS** — NWAY means all CLASS variables combined, NOT `.dropna()`.
+  Do NOT filter NaN rows to simulate NWAY.
+- **BY … DESCENDING**: `BY a DESCENDING b` means a **ascending**, b **descending**.
+  → `df.sort_values(['a','b'], ascending=[True, False])` — NEVER `[False, False]`.
+- **PROC FORMAT is display-only**: SAS FORMAT never mutates the underlying column.
+  → WRONG: `df['status'] = df['status'].map(fmt)` (destroys original values).
+  → RIGHT: `df['status_fmt'] = df['status'].map(fmt).fillna('Other')`.
+- **pandas groupby drops NaN**: SAS GROUP BY / CLASS keeps NaN as a group; pandas drops by default.
+  → Always use `groupby([...], dropna=False)` when translating SAS GROUP BY or CLASS.
+- **SAS COMPRESS(str)**: Removes ALL non-alphanumeric characters (not just one character type).
+  → `import re; re.sub(r'[^a-zA-Z0-9]', '', value)` — NOT just `str.replace('-','')`.
+- **Column name case — #1 merge crash**: SAS variable names are case-insensitive; Python is NOT.
+  Before every merge, normalize key column names on BOTH DataFrames to the same case:
+  `df.columns = df.columns.str.lower()` — or use `left_on=`/`right_on=` with exact names.
+  This applies across partitions too: if upstream translated code uses lowercase, use lowercase here.
+- **Non-existent packages**: Do NOT import packages that are not on PyPI (e.g. `stepwisem`).
+- **PROC REG SELECTION=STEPWISE**: SAS uses F-statistic p-value thresholds (SLE=0.15, SLS=0.15), NOT BIC/AIC.
+  Backward step MUST be guarded by `if changed:` — running it unconditionally causes infinite oscillation.
+- **PROC MEANS OUTPUT with CLASS**: One `groupby(class_vars).agg(...)` — do NOT merge separate groupby results.
+- **Preserve columns across partitions** — scan downstream partition code for column references before groupby.
+  Carry needed columns with `.agg(col=('col','first'))`. A comment "add X later" is NOT a fix.
+- **Never strip error handling** — always wrap file I/O in try/except. Removing it is a regression.
+- **indicator=True belongs ONLY in DATA STEP MERGE** — never in PROC SQL join translations.
+  After using it, always drop _merge before returning.

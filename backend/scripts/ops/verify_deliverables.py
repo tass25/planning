@@ -8,9 +8,14 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# script is at backend/scripts/verify_deliverables.py
-BACKEND = Path(__file__).resolve().parent.parent   # Stage/backend/
-ROOT = BACKEND.parent                              # Stage/
+_HERE = Path(__file__).resolve().parent
+BACKEND_DIR = _HERE
+while not (BACKEND_DIR / "partition").exists():
+    BACKEND_DIR = BACKEND_DIR.parent
+
+# Auto-discover backend/ regardless of nesting depth
+BACKEND = BACKEND_DIR  # set by auto-discovery above
+ROOT = BACKEND.parent
 FRONTEND = ROOT / "frontend"
 
 REQUIRED: list[tuple[str, Path]] = [
@@ -40,7 +45,7 @@ REQUIRED: list[tuple[str, Path]] = [
     ("Conversions route",       BACKEND / "api/routes/conversions.py"),
     # ── Data ─────────────────────────────────────────────────────────────
     ("Gold standard dir",       BACKEND / "knowledge_base/gold_standard"),
-    ("Requirements",            BACKEND / "requirements.txt"),
+    ("Requirements",            BACKEND / "requirements/base.txt"),
     # ── Tests ────────────────────────────────────────────────────────────
     ("Test suite",              BACKEND / "tests"),
     ("Benchmark script",        BACKEND / "benchmark/boundary_benchmark.py"),
@@ -49,19 +54,19 @@ REQUIRED: list[tuple[str, Path]] = [
     ("Frontend types",          FRONTEND / "src/types/index.ts"),
     ("Frontend api.ts",         FRONTEND / "src/lib/api.ts"),
     # ── Infrastructure ───────────────────────────────────────────────────
-    ("Docker Compose",          ROOT / "docker-compose.yml"),
-    ("Dockerfile",              ROOT / "Dockerfile"),
+    ("Docker Compose",          ROOT / "infra/docker-compose.yml"),
+    ("Dockerfile",              ROOT / "infra/Dockerfile"),
     ("CI workflow",             ROOT / ".github/workflows/ci.yml"),
     ("CLAUDE.md",               ROOT / "CLAUDE.md"),
     ("README.md",               ROOT / "README.md"),
     # ── Docs ─────────────────────────────────────────────────────────────
-    ("Audit report v3",         ROOT / "docs/AUDIT_REPORT_V3.md"),
+    ("Audit report v3",         ROOT / "docs/reports/AUDIT_REPORT_V3.md"),
     ("Changelog 28mars",        ROOT / "docs/planning/28mars.md"),
 ]
 
 OPTIONAL: list[tuple[str, Path]] = [
-    ("LanceDB data dir",        BACKEND / "lancedb_data"),
-    ("Ablation DB",             BACKEND / "ablation.db"),
+    ("LanceDB data dir",        BACKEND / "data/lancedb"),
+    ("Ablation DB",             BACKEND / "data/ablation.db"),
     ("Ablation analyzer",       BACKEND / "scripts/analyze_ablation.py"),
     ("Complexity training CSV", BACKEND / "benchmark/complexity_training.csv"),
 ]

@@ -69,3 +69,42 @@ You **must** address every one of them in this attempt.
 5. Handle edge cases: empty DataFrames, null/missing values, type coercion.
 6. Preserve the original SAS logic exactly.
 7. Add comments explaining any non-trivial translation decisions.
+
+## SAS-to-Python Pitfalls (MUST follow — violations = incorrect translation)
+- **NEVER use iterrows() for conditional column assignment** — it is 100x slower than vectorized ops.
+  For IF/THEN/ELSE logic on columns: use `np.select(conditions, choices, default=...)` or `np.where(...)`.
+  iterrows() is only acceptable when row order matters AND the computation cannot be vectorized.
+  WRONG: `for idx, row in df.iterrows(): df.at[idx,'status'] = 'X' if row['bal']<0 else 'Y'`
+  RIGHT: `df['status'] = np.select([df['bal']<0, df['bal']==0], ['OVERDRAWN','EMPTY'], default='ACTIVE')`
+- **Preserve columns needed by downstream steps** — when translating PROC SQL GROUP BY or groupby,
+  scan ALL downstream steps (PROC REG MODEL, MERGE BY, PROC FREQ TABLES) for column references.
+  Any column referenced downstream MUST survive the groupby — add it as a key OR carry it through:
+  `.agg(region_code=('region_code','first'))`. A comment like "need to add region_code later" is NOT a fix.
+- **Never strip error handling between attempts** — if a previous attempt had try/except blocks around
+  file I/O or external calls, keep them. Removing error handling is a regression, not a simplification.
+  Always wrap pd.read_csv/read_parquet/open() in try/except, and always write audit log entries on failure.
+- **indicator=True belongs ONLY in DATA STEP MERGE** — never add indicator=True to a PROC SQL join
+  (pd.merge for LEFT JOIN). After using indicator=True in a MERGE, always drop _merge before returning.
+- **SAS NWAY option in PROC MEANS** — NWAY does NOT filter out NaN rows. It means "output only
+  the highest-level class combination" (all CLASS variables combined). In pandas this is the default
+  groupby output. Do NOT add `.dropna()` to simulate NWAY — it changes the data.
+- **BY … DESCENDING**: `BY a DESCENDING b` means a **ascending**, b **descending**.
+  → `df.sort_values(['a','b'], ascending=[True, False])` — NEVER `[False, False]`.
+- **PROC FORMAT is display-only**: SAS FORMAT never mutates the underlying column.
+  → WRONG: `df['status'] = df['status'].map(fmt)` (destroys original values).
+  → RIGHT: `df['status_fmt'] = df['status'].map(fmt).fillna('Other')`.
+- **pandas groupby drops NaN**: SAS GROUP BY / CLASS keeps NaN as a group; pandas drops by default.
+  → Always use `groupby([...], dropna=False)` when translating SAS GROUP BY or CLASS.
+- **SAS COMPRESS(str)**: Removes ALL non-alphanumeric characters (not just one character type).
+  → `import re; re.sub(r'[^a-zA-Z0-9]', '', value)` — NOT just `str.replace('-','')`.
+- **PROC MEANS OUTPUT with CLASS**: One `groupby(class_vars).agg(...)` call — do NOT merge two
+  separate groupby results (merging duplicates aggregates across sub-groups).
+- **Column name case — #1 merge crash**: SAS variable names are case-insensitive; Python is NOT.
+  Before every merge, normalize key column names on BOTH DataFrames to the same case:
+  `df.columns = df.columns.str.lower()` — or use `left_on=`/`right_on=` with exact names.
+  Never assume column names match; always verify both sides.
+- **Non-existent packages**: Do NOT import packages that are not on PyPI (e.g. `stepwisem`, `sas2py`).
+- **PROC REG SELECTION=STEPWISE**: SAS uses F-statistic p-value thresholds (SLE=0.15, SLS=0.15), NOT BIC/AIC.
+  Use statsmodels OLS `.pvalues` in a forward/backward loop. Do NOT use sklearn or BIC minimization.
+  Final model must be fit on the SAME encoding used during selection (dummies = dummies, not formula strings).
+- **SAS missing vs NaN**: `if x < .` means x is missing. Use `pd.isna(x)`, not `x < float('nan')`.

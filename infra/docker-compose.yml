@@ -15,24 +15,24 @@ services:
 
   backend:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: infra/Dockerfile
     ports:
       - "8000:8000"
     env_file:
-      - .env
+      - ../.env
     environment:
       - REDIS_URL=redis://redis:6379/0
     volumes:
-      - ./backend/config:/app/backend/config
-      - ./backend/uploads:/app/backend/uploads
+      - ../backend/config:/app/backend/config
+      - ../backend/uploads:/app/backend/uploads
     depends_on:
       redis:
         condition: service_healthy
 
   frontend:
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: Dockerfile
     ports:
       - "8080:80"

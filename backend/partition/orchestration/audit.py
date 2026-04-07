@@ -5,7 +5,7 @@ local analytics, calibration, and ablation tracking.
 
 Usage as a context manager::
 
-    audit = LLMAuditLogger("analytics.duckdb")
+    audit = LLMAuditLogger("data/analytics.duckdb")
     with audit.log_call("BoundaryDetectorAgent", "gpt-4o-mini", prompt) as call:
         result = llm_client.generate(prompt)
         call.set_response(result)
@@ -40,16 +40,42 @@ def _get_duckdb(db_path: str) -> duckdb.DuckDBPyConnection:
             conn = duckdb.connect(db_path)
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS llm_audit (
-                    call_id     VARCHAR,
-                    agent_name  VARCHAR,
-                    model_name  VARCHAR,
-                    prompt_hash VARCHAR,
+                    call_id       VARCHAR,
+                    agent_name    VARCHAR,
+                    model_name    VARCHAR,
+                    prompt_hash   VARCHAR,
                     response_hash VARCHAR,
-                    latency_ms  DOUBLE,
-                    success     BOOLEAN,
-                    error_msg   VARCHAR,
-                    tier        VARCHAR,
-                    created_at  TIMESTAMP DEFAULT NOW()
+                    latency_ms    DOUBLE,
+                    success       BOOLEAN,
+                    error_msg     VARCHAR,
+                    tier          VARCHAR,
+                    created_at    TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS conversion_results (
+                    conversion_id        VARCHAR,
+                    block_id             VARCHAR,
+                    file_id              VARCHAR,
+                    python_code          VARCHAR,
+                    imports_detected     VARCHAR,
+                    status               VARCHAR,
+                    llm_confidence       DOUBLE,
+                    failure_mode_flagged VARCHAR,
+                    model_used           VARCHAR,
+                    kb_examples_used     VARCHAR,
+                    retry_count          INTEGER,
+                    trace_id             VARCHAR
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS kb_changelog (
+                    changelog_id  VARCHAR,
+                    example_id    VARCHAR,
+                    action        VARCHAR,
+                    changed_by    VARCHAR,
+                    description   VARCHAR,
+                    created_at    TIMESTAMP DEFAULT NOW()
                 )
             """)
             _duckdb_connections[db_path] = conn
@@ -62,7 +88,7 @@ def _get_duckdb(db_path: str) -> duckdb.DuckDBPyConnection:
 class LLMAuditLogger:
     """Thin wrapper around DuckDB ``llm_audit`` inserts."""
 
-    def __init__(self, db_path: str = "analytics.duckdb"):
+    def __init__(self, db_path: str = "data/analytics.duckdb"):
         self.db_path = db_path
 
     @contextmanager

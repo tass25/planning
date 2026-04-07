@@ -7,7 +7,7 @@ import structlog
 
 logger = structlog.get_logger()
 
-DB_PATH = "analytics.duckdb"
+DB_PATH = "data/analytics.duckdb"
 
 
 def init_all_duckdb_tables(db_path: str = DB_PATH):

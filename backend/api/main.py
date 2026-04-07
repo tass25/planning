@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import traceback
 from pathlib import Path
@@ -28,7 +29,7 @@ from api.routes import auth, conversions, knowledge_base, admin, analytics, sett
 
 # ── Database ──────────────────────────────────────────────────────────────────
 
-DB_PATH = str(Path(__file__).resolve().parent.parent / "codara_api.db")
+DB_PATH = os.getenv("SQLITE_PATH", str(Path(__file__).resolve().parent.parent / "data" / "codara_api.db"))
 engine = get_api_engine(DB_PATH)
 init_api_db(engine)
 
