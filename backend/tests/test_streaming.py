@@ -25,7 +25,7 @@ import pytest
 import structlog
 
 from partition.models.file_metadata import FileMetadata
-from partition.streaming.backpressure import create_queue
+from partition.streaming.pipeline import create_queue
 from partition.streaming.models import LineChunk, ParsingState
 from partition.streaming.pipeline import run_streaming_pipeline
 from partition.streaming.state_agent import StateAgent

@@ -4,11 +4,32 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
-from typing import Any, TypedDict
+from typing import Any, Optional, TypedDict
 
 from pydantic import BaseModel, Field
 
 from .enums import PartitionType, RiskLevel, ConversionStatus
+
+
+class RAPTORNode(BaseModel):
+    """A node in the RAPTOR tree built for a single SAS file.
+
+    Levels:
+        0 — leaf (one PartitionIR block)
+        1 — first clustering pass
+        2+ — higher-level summaries
+        max_depth — root (whole-file summary)
+    """
+
+    node_id: UUID = Field(default_factory=uuid4)
+    level: int
+    summary: str
+    summary_tier: str  # "skipped" | "groq" | "ollama_fallback" | "heuristic_fallback" | "cached"
+    embedding: list[float]
+    child_ids: list[str] = Field(default_factory=list)
+    cluster_label: Optional[int] = None
+    file_id: UUID
+    partition_ids: list[str] = Field(default_factory=list)
 
 
 class PartitionMetadata(TypedDict, total=False):

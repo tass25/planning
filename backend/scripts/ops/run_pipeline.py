@@ -29,7 +29,7 @@ sys.path.insert(0, str(_BACKEND_ROOT))
 
 from partition.db.duckdb_manager import init_all_duckdb_tables  # noqa: E402
 from partition.orchestration.orchestrator import PartitionOrchestrator  # noqa: E402
-from partition.logging_config import configure_logging  # noqa: E402
+from partition.utils.logging_config import configure_logging  # noqa: E402
 
 configure_logging()
 

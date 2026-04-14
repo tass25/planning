@@ -8,8 +8,7 @@ from typing import Optional
 import numpy as np
 import structlog
 
-from partition.models.raptor_node import RAPTORNode
-from partition.models.partition_ir import PartitionIR
+from partition.models.partition_ir import RAPTORNode, PartitionIR
 from partition.raptor.embedder import NomicEmbedder
 from partition.raptor.clustering import GMMClusterer
 from partition.raptor.summarizer import ClusterSummarizer

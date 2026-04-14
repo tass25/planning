@@ -163,17 +163,11 @@
 \section{Host Company}
 \label{sec:host-company}
 
-  \subsection{Company Overview}
+  \subsection{Company Profile and Business Context}
   \label{subsec:company-overview}
 
-  \subsection{Business Sector and Data Practice}
-  \label{subsec:business-sector}
-
-  \subsection{Mission and Vision}
+  \subsection{Mission, Services, and Technological Focus}
   \label{subsec:mission-vision}
-
-  \subsection{Services and Technological Focus}
-  \label{subsec:services}
 
   \subsection{Internship Scope}
   \label{subsec:internship-scope}
@@ -196,20 +190,11 @@
 \section{Methodology Orientation}
 \label{sec:methodology}
 
-  \subsection{Agile Software Development}
-  \label{subsec:agile}
-
-  \subsection{CRISP-DM}
-  \label{subsec:crisp-dm}
-
-  \subsection{V-Model / Software Development Life Cycle}
-  \label{subsec:vmodel}
+  \subsection{Overview of Candidate Methodologies}
+  \label{subsec:methodologies-overview}
 
   \subsection{Design Science Research (DSR)}
   \label{subsec:dsr}
-
-  \subsection{Comparison of Methodologies}
-  \label{subsec:methodology-comparison}
 
   \subsection{Adopted Hybrid Methodology: DSR + Agile}
   \label{subsec:hybrid-methodology}
@@ -303,20 +288,11 @@
 \section{Related Work}
 \label{sec:related-work}
 
-  \subsection{Migration-Oriented Tools and Research}
+  \subsection{Migration Tools, Validation, and Multi-Agent Approaches}
   \label{subsec:related-migration}
 
-  \subsection{Validation and Testing of Generated Code}
-  \label{subsec:related-validation}
-
-  \subsection{Multi-Agent and Agentic AI Systems in Code Engineering}
-  \label{subsec:related-mas}
-
-  \subsection{Identified Research Gap}
+  \subsection{Research Gap and Positioning of This Project}
   \label{subsec:research-gap}
-
-  \subsection{Positioning of This Project}
-  \label{subsec:positioning}
 
 \section{Synthesis}
 \label{sec:ch2-synthesis}
@@ -400,35 +376,17 @@
 \section{The 8-Node LangGraph Pipeline}
 \label{sec:pipeline-design}
 
-  \subsection{Pipeline State Model}
+  \subsection{State Model and Composite Node Design Pattern}
   \label{subsec:state-model}
 
-  \subsection{Composite Node Design Pattern}
-  \label{subsec:composite-node}
+  \subsection{Input Phase: File Processing and Streaming (Nodes 1--2)}
+  \label{subsec:nodes-input}
 
-  \subsection{Node 1 --- File Processing (L2-A)}
-  \label{subsec:node1}
+  \subsection{Partitioning Phase: Boundary Detection and RAPTOR Clustering (Nodes 3--4)}
+  \label{subsec:nodes-partition}
 
-  \subsection{Node 2 --- Streaming Parser (L2-B)}
-  \label{subsec:node2}
-
-  \subsection{Node 3 --- Boundary Detection and Partitioning (L2-C)}
-  \label{subsec:node3}
-
-  \subsection{Node 4 --- RAPTOR Semantic Clustering (L2-C)}
-  \label{subsec:node4}
-
-  \subsection{Node 5 --- Risk Routing (L2-D)}
-  \label{subsec:node5}
-
-  \subsection{Node 6 --- Persistence and Indexing (L2-E)}
-  \label{subsec:node6}
-
-  \subsection{Node 7 --- Translation (L3)}
-  \label{subsec:node7}
-
-  \subsection{Node 8 --- Merge (L4)}
-  \label{subsec:node8}
+  \subsection{Routing, Persistence, Translation, and Merge (Nodes 5--8)}
+  \label{subsec:nodes-routing-merge}
 
 \section{Data Architecture}
 \label{sec:data-architecture}
@@ -460,20 +418,14 @@
 \section{Gold Standard Corpus Construction}
 \label{sec:corpus-construction}
 
-  \subsection{Absence of Industrial Benchmarks}
-  \label{subsec:no-datasets}
-
-  \subsection{Corpus Design and Requirements}
+  \subsection{Motivation and Design Requirements}
   \label{subsec:corpus-design}
 
   \subsection{Construction Methodology}
   \label{subsec:corpus-methodology}
 
-  \subsection{Corpus Statistics}
+  \subsection{Statistics and Limitations}
   \label{subsec:corpus-statistics}
-
-  \subsection{Limitations and Mitigation}
-  \label{subsec:corpus-limitations}
 
 \section{Conclusion}
 \label{sec:ch4-conclusion}
@@ -489,7 +441,7 @@
 \section{Three-Tier RAG Strategy}
 \label{sec:rag-impl}
 
-  \subsection{Conceptual Framework and Escalation Rules}
+  \subsection{Conceptual Framework, Knowledge Base, and Escalation Rules}
   \label{subsec:rag-framework}
 
   \subsection{Tier 1: Static RAG}
@@ -501,26 +453,14 @@
   \subsection{Tier 3: Agentic RAG}
   \label{subsec:agentic-rag-impl}
 
-  \subsection{Knowledge Base: Construction and Lifecycle}
-  \label{subsec:kb-lifecycle}
-
-  \subsection{Integration into Agent Workflows}
-  \label{subsec:rag-integration}
-
 \section{RAPTOR Implementation}
 \label{sec:raptor-impl}
 
-  \subsection{NomicEmbedder}
-  \label{subsec:nomic-impl}
+  \subsection{Embedding and Clustering Pipeline}
+  \label{subsec:embedding-clustering}
 
-  \subsection{GMM Clustering and BIC Selection}
-  \label{subsec:gmm-impl}
-
-  \subsection{Cluster Summarisation}
+  \subsection{Summarisation and Tree Construction}
   \label{subsec:summarizer-impl}
-
-  \subsection{Tree Builder}
-  \label{subsec:tree-builder-impl}
 
   \subsection{HyperRAPTOR Extension}
   \label{subsec:hyperraptor-impl}
@@ -561,17 +501,8 @@
   \subsection{Z3VerificationAgent Architecture}
   \label{subsec:z3-arch-impl}
 
-  \subsection{Pattern 1 --- Linear Arithmetic (RETAIN / cumulative)}
-  \label{subsec:z3-pattern1}
-
-  \subsection{Pattern 2 --- Boolean Filter (WHERE clause)}
-  \label{subsec:z3-pattern2}
-
-  \subsection{Pattern 3 --- Sort and Deduplication}
-  \label{subsec:z3-pattern3}
-
-  \subsection{Pattern 4 --- Assignment Semantics}
-  \label{subsec:z3-pattern4}
+  \subsection{SMT Encoding Patterns}
+  \label{subsec:z3-patterns}
 
   \subsection{CEGAR Loop}
   \label{subsec:cegar-impl}
@@ -591,9 +522,6 @@
   \subsection{Scenario C: High-Complexity Agentic RAG + CEGAR}
   \label{subsec:scenario-c}
 
-  \subsection{Cross-Scenario Consistency}
-  \label{subsec:cross-scenario}
-
 \section{Conclusion}
 \label{sec:ch5-conclusion}
 
@@ -608,20 +536,11 @@
 \section{Backend Deployment}
 \label{sec:backend-deployment}
 
-  \subsection{FastAPI Application Structure}
+  \subsection{FastAPI Structure, Endpoints, and Background Tasks}
   \label{subsec:fastapi-structure}
 
-  \subsection{REST API Endpoints}
-  \label{subsec:api-endpoints}
-
-  \subsection{Background Task Management}
-  \label{subsec:background-tasks}
-
-  \subsection{Containerisation with Docker Compose}
+  \subsection{Containerisation and CI/CD}
   \label{subsec:docker}
-
-  \subsection{CI/CD Pipeline}
-  \label{subsec:cicd}
 
 \section{Frontend Dashboard}
 \label{sec:frontend-deployment}
@@ -629,14 +548,8 @@
   \subsection{Technology Stack and Architecture}
   \label{subsec:frontend-stack}
 
-  \subsection{Conversion Workspace}
+  \subsection{Key Interface Views}
   \label{subsec:workspace-ui}
-
-  \subsection{Knowledge Base Management}
-  \label{subsec:kb-management-ui}
-
-  \subsection{Admin Panel}
-  \label{subsec:admin-ui}
 
   \subsection{End-to-End Integration Flow}
   \label{subsec:e2e-integration}
@@ -727,20 +640,14 @@
 \section{Strengths of the Proposed Framework}
 \label{sec:strengths}
 
-  \subsection{Translation Success Rate Meets Baseline Target}
+  \subsection{Translation Quality and Retrieval Gains}
   \label{subsec:strength-success}
-
-  \subsection{RAPTOR Delivers Significant Retrieval Advantage}
-  \label{subsec:strength-raptor}
 
   \subsection{Z3 Formal Verification Catches Real Semantic Errors}
   \label{subsec:strength-z3}
 
-  \subsection{Modular Architecture Enables Iterative Enhancement}
+  \subsection{Modularity and Production-Ready Deployment}
   \label{subsec:strength-modularity}
-
-  \subsection{Full Deployment Stack: API, UI, Docker, CI/CD}
-  \label{subsec:strength-deployment}
 
 \section{Limitations and Critical Assessment}
 \label{sec:limitations}
@@ -751,32 +658,11 @@
   \subsection{Macro Meta-Programming: Primary Failure Mode}
   \label{subsec:limit-macros}
 
-  \subsection{LLM Rate Limits: Throughput Ceiling}
-  \label{subsec:limit-rate-limits}
-
-  \subsection{Corpus Scale: 721 Blocks vs.\ Industrial Scale}
-  \label{subsec:limit-corpus}
-
-  \subsection{PySpark Target Not Exposed in Frontend}
-  \label{subsec:limit-pyspark}
-
-\section{Organisational Constraints}
-\label{sec:constraints-org}
-
-  \subsection{Timeframe: 14-Week Sprint}
-  \label{subsec:timeframe}
-
-  \subsection{Scope Delimitation: SAS/GRAPH and IML Out of Scope}
-  \label{subsec:scope-delimitation}
+  \subsection{Operational and Scope Limitations}
+  \label{subsec:limit-operational}
 
 \section{Integration with Design Science Research}
 \label{sec:dsr-integration}
-
-  \subsection{Mapping Sprints to DSR Phases}
-  \label{subsec:sprint-dsr-map}
-
-  \subsection{Hybrid DSR-Agile Effectiveness}
-  \label{subsec:hybrid-effectiveness}
 
 \section{Comparison with Related Work}
 \label{sec:comparison}
@@ -793,23 +679,14 @@
 \section{Future Work and Research Directions}
 \label{sec:future-work}
 
-  \subsection{Improving Boundary Accuracy}
-  \label{subsec:future-boundary}
+  \subsection{Short-Term Improvements}
+  \label{subsec:future-short-term}
 
-  \subsection{KB Expansion: 330 \texorpdfstring{$\to$}{->} 380+ Pairs}
-  \label{subsec:future-kb}
+  \subsection{Medium-Term Research Directions}
+  \label{subsec:future-mid-term}
 
-  \subsection{HyperRAPTOR Generalisation Study}
-  \label{subsec:future-hyperraptor}
-
-  \subsection{PySpark Frontend Activation}
-  \label{subsec:future-pyspark}
-
-  \subsection{Scalability to Enterprise Codebases}
-  \label{subsec:future-scale}
-
-  \subsection{Integration with Development Workflows}
-  \label{subsec:future-devtools}
+  \subsection{Long-Term Scalability and Integration}
+  \label{subsec:future-long-term}
 
 \section{Conclusion}
 \label{sec:ch7-conclusion}

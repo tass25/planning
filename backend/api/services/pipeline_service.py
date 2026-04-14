@@ -18,7 +18,6 @@ from api.core.database import (
     ConversionRow, ConversionStageRow, UserRow, NotificationRow,
     get_api_engine, get_api_session,
 )
-from api.services.conversion_service import STAGES
 from api.services.translation_service import translate_sas_to_python
 
 _log = structlog.get_logger("codara.pipeline")
@@ -214,9 +213,19 @@ def run_pipeline_sync(conversion_id: str, file_path: Path, db_path: str) -> None
             f"Data lineage: {lineage.get('total_reads', 0)} reads, {lineage.get('total_writes', 0)} writes",
         ]
 
+        # Accuracy: 100 if translation succeeded and syntax is valid,
+        # 50 if translation succeeded but had syntax warnings, 0 if unavailable.
+        syntax_ok = repair_notes and repair_notes[0].startswith("Syntax OK")
+        if translation_ok and syntax_ok:
+            accuracy = 100.0
+        elif translation_ok:
+            accuracy = 50.0
+        else:
+            accuracy = 0.0
+
         conv.status = "completed"
         conv.duration = round(total_elapsed, 2)
-        conv.accuracy = 100.0  # TODO: replace with real accuracy metric
+        conv.accuracy = accuracy
         conv.validation_report = "\n".join(report_lines)
         conv.merge_report = f"Pipeline completed in {total_elapsed:.2f}s"
 

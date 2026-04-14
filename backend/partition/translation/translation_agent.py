@@ -13,10 +13,8 @@ Provider chain (all tiers): Ollama minimax-m2.7/qwen3-coder → Azure GPT-4o →
 
 from __future__ import annotations
 
-import os
 import uuid
 import asyncio
-from datetime import datetime, timezone
 from typing import Optional
 
 import instructor
@@ -29,7 +27,6 @@ from partition.models.conversion_result import ConversionResult
 from partition.models.enums import ConversionStatus
 from partition.translation.failure_mode_detector import (
     detect_failure_mode,
-    get_failure_mode_rules,
     get_combined_failure_mode_rules,
 )
 from partition.translation.kb_query import KBQueryClient
@@ -450,32 +447,40 @@ class TranslationAgent(BaseAgent):
             python_code=python_code,
             failure_mode=failure_mode.value if failure_mode else None,
         )
+        messages = [{"role": "user", "content": prompt}]
+
         # 1. Ollama (primary)
         if self.ollama_client:
             try:
-                return await asyncio.to_thread(
-                    self._sync_create,
-                    self.ollama_client,
-                    model=get_ollama_model(),
-                    messages=[{"role": "user", "content": prompt}],
-                    response_model=CrossVerifyOutput,
-                    max_retries=2,
+                return await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self._sync_create,
+                        self.ollama_client,
+                        model=get_ollama_model(),
+                        messages=messages,
+                        response_model=CrossVerifyOutput,
+                        max_retries=2,
+                    ),
+                    timeout=_LLM_TIMEOUT_S,
                 )
-            except Exception as e:
-                logger.warning("crossverify_ollama_failed", error=str(e))
+            except Exception as exc:
+                logger.warning("crossverify_ollama_failed", error=str(exc))
 
         # 2. Groq (fallback — independent context for cross-verify)
         if self.groq_client:
             try:
-                return await asyncio.to_thread(
-                    self._sync_create,
-                    self._groq_pool,
-                    model="llama-3.3-70b-versatile",
-                    messages=[{"role": "user", "content": prompt}],
-                    response_model=CrossVerifyOutput,
-                    max_retries=2,
+                return await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self._sync_create,
+                        self._groq_pool,
+                        model=_GROQ_MODEL,
+                        messages=messages,
+                        response_model=CrossVerifyOutput,
+                        max_retries=2,
+                    ),
+                    timeout=_LLM_TIMEOUT_S,
                 )
-            except Exception as e:
-                logger.warning("crossverify_groq_failed", error=str(e))
+            except Exception as exc:
+                logger.warning("crossverify_groq_failed", error=str(exc))
 
         return None

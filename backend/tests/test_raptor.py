@@ -16,8 +16,7 @@ from unittest.mock import MagicMock
 from partition.raptor.clustering import GMMClusterer
 from partition.raptor.summarizer import ClusterSummarizer, ClusterSummary
 from partition.raptor.tree_builder import RAPTORTreeBuilder
-from partition.models.raptor_node import RAPTORNode
-from partition.models.partition_ir import PartitionIR
+from partition.models.partition_ir import RAPTORNode, PartitionIR
 from partition.models.enums import PartitionType
 
 

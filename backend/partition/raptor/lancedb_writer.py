@@ -10,7 +10,7 @@ import lancedb
 import pyarrow as pa
 import structlog
 
-from partition.models.raptor_node import RAPTORNode
+from partition.models.partition_ir import RAPTORNode
 
 logger = structlog.get_logger()
 

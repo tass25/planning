@@ -10,7 +10,7 @@ from pathlib import Path
 # Ensure the sas_converter package is importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from partition.logging_config import configure_logging
+from partition.utils.logging_config import configure_logging
 from partition.entry.file_analysis_agent import FileAnalysisAgent
 from partition.entry.cross_file_dep_resolver import CrossFileDependencyResolver
 from partition.entry.data_lineage_extractor import DataLineageExtractor

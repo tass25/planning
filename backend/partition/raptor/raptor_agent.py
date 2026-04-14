@@ -5,8 +5,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from partition.base_agent import BaseAgent
-from partition.models.partition_ir import PartitionIR
-from partition.models.raptor_node import RAPTORNode
+from partition.models.partition_ir import PartitionIR, RAPTORNode
 from partition.raptor.embedder import NomicEmbedder
 from partition.raptor.clustering import get_clusterer
 from partition.raptor.summarizer import ClusterSummarizer
