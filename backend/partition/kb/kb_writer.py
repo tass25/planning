@@ -40,6 +40,8 @@ KB_SCHEMA = pa.schema([
     pa.field("version",             pa.int32()),
     pa.field("superseded_by",       pa.string()),
     pa.field("created_at",          pa.string()),
+    # pipe-separated list of pattern-specific pitfalls (from teammate KB issues field)
+    pa.field("issues_text",         pa.string()),
 ])
 
 

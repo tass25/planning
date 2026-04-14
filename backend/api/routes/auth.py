@@ -2,22 +2,49 @@
 
 from __future__ import annotations
 
-import os
+import threading
+import time
 import uuid
 import secrets
+from collections import defaultdict
 from datetime import datetime, timezone
 
 import httpx
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, Request, status
 
-from api.auth import hash_password, verify_password, create_access_token, get_current_user
-from api.database import get_api_session, UserRow, NotificationRow
-from api.schemas import LoginRequest, SignupRequest, AuthResponse, UserOut, GitHubCallbackRequest
+from api.core.auth import hash_password, verify_password, create_access_token, get_current_user
+from api.core.database import get_api_session, UserRow, NotificationRow
+from api.core.schemas import LoginRequest, SignupRequest, AuthResponse, UserOut, GitHubCallbackRequest
+from config.settings import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
-GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
+GITHUB_CLIENT_ID = settings.github_client_id
+GITHUB_CLIENT_SECRET = settings.github_client_secret
+
+# ── Simple in-memory rate limiter ────────────────────────────────────────────
+# Tracks (ip, endpoint) → list of attempt timestamps within the window.
+_RATE_LIMIT_WINDOW_S = 60
+_RATE_LIMIT_MAX_ATTEMPTS = 5
+_rate_lock = threading.Lock()
+_rate_store: dict[str, list[float]] = defaultdict(list)
+
+
+def _check_rate_limit(request: Request, endpoint: str) -> None:
+    """Raise HTTP 429 if the caller exceeds MAX_ATTEMPTS per WINDOW_S."""
+    ip = request.client.host if request.client else "unknown"
+    key = f"{ip}:{endpoint}"
+    now = time.monotonic()
+    with _rate_lock:
+        attempts = _rate_store[key]
+        # Evict timestamps outside the current window
+        _rate_store[key] = [t for t in attempts if now - t < _RATE_LIMIT_WINDOW_S]
+        if len(_rate_store[key]) >= _RATE_LIMIT_MAX_ATTEMPTS:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Too many attempts. Try again in {_RATE_LIMIT_WINDOW_S}s.",
+            )
+        _rate_store[key].append(now)
 
 
 def _user_to_out(row: UserRow) -> UserOut:
@@ -45,7 +72,8 @@ def _create_notification(session, user_id: str, title: str, message: str, ntype:
 
 
 @router.post("/login", response_model=AuthResponse)
-def login(body: LoginRequest):
+def login(body: LoginRequest, request: Request):
+    _check_rate_limit(request, "login")
     from api.main import engine
     session = get_api_session(engine)
     try:
@@ -61,7 +89,8 @@ def login(body: LoginRequest):
 
 
 @router.post("/signup", response_model=AuthResponse)
-def signup(body: SignupRequest):
+def signup(body: SignupRequest, request: Request):
+    _check_rate_limit(request, "signup")
     from api.main import engine
     session = get_api_session(engine)
     try:

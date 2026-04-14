@@ -89,13 +89,17 @@ class KBQueryClient:
 
             examples = []
             for _, row in results.iterrows():
+                issues_raw = row.get("issues_text", "") or ""
+                # Convert pipe-separated string back to list for template rendering
+                issues_list = [i.strip() for i in issues_raw.split("|") if i.strip()]
                 examples.append({
-                    "example_id": row["example_id"],
-                    "sas_code": row["sas_code"],
+                    "example_id":  row["example_id"],
+                    "sas_code":    row["sas_code"],
                     "python_code": row["python_code"],
-                    "similarity": row.get("similarity", 0),
+                    "similarity":  row.get("similarity", 0),
                     "failure_mode": row.get("failure_mode", ""),
-                    "category": row.get("category", ""),
+                    "category":    row.get("category", ""),
+                    "issues":      issues_list,
                 })
 
             logger.info(

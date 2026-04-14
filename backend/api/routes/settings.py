@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Depends
 
-from api.auth import get_current_user, hash_password
-from api.database import get_api_session, UserRow
-from api.schemas import UserOut, ProfileUpdate, PreferencesUpdate
+from api.core.auth import get_current_user, hash_password
+from api.core.database import get_api_session, UserRow
+from api.core.schemas import UserOut, ProfileUpdate, PreferencesUpdate
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 

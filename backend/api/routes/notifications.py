@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.auth import get_current_user
-from api.database import get_api_session, NotificationRow
-from api.schemas import NotificationOut
+from api.core.auth import get_current_user
+from api.core.database import get_api_session, NotificationRow
+from api.core.schemas import NotificationOut
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 

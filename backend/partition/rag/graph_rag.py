@@ -98,6 +98,7 @@ class GraphRAG:
         scc_id: str = "",
         translations: dict[str, str] | None = None,
         hop_cap: int = 3,
+        z3_repair_hint: str = "",
         **kwargs,
     ) -> dict:
         """Retrieve KB examples + graph context and build the prompt.
@@ -144,6 +145,7 @@ class GraphRAG:
             kb_examples=kb_examples,
             graph_context=graph_context,
             scc_siblings=scc_siblings,
+            z3_repair_hint=z3_repair_hint,
         )
 
         logger.info(

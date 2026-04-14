@@ -7,9 +7,9 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Depends
 
-from api.auth import get_current_user
-from api.database import get_api_session, KBEntryRow, KBChangelogRow
-from api.schemas import (
+from api.core.auth import get_current_user
+from api.core.database import get_api_session, KBEntryRow, KBChangelogRow
+from api.core.schemas import (
     KnowledgeBaseEntryOut, KBEntryCreate, KBEntryUpdate,
     KBChangelogEntryOut,
 )

@@ -7,9 +7,9 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 
-from api.auth import get_current_user
-from api.database import get_api_session, ConversionRow
-from api.schemas import AnalyticsDataOut, FailureModeOut
+from api.core.auth import get_current_user
+from api.core.database import get_api_session, ConversionRow
+from api.core.schemas import AnalyticsDataOut, FailureModeOut
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 

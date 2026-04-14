@@ -57,24 +57,51 @@ def _has_sas_code(text: str) -> bool:
 
 
 def parse_blocks(sas_path: Path) -> list[tuple[str, str]]:
-    """Return list of (label, source_code) extracted from SAS file.
+    """Return list of (label, source_code) extracted from a SAS file.
 
-    Splits on /* ── N. label */ comment markers used in torture_test.sas.
-    Skips blocks that contain only comments / file preamble (no SAS statements).
+    Supports two common section-marker styles:
+      Style A (original torture_test.sas):
+        /* ── 1. RETAIN + BY-group ─────────── */
+      Style B (finance torture_test):
+        /* 1. GLOBAL CONFIGURATION & ENVIRONMENT SETUP */
+        /* N. ANY LABEL */
+
+    Skips blocks that contain only comments (no actual SAS statements).
+    Falls back to run/quit-boundary splitting if no section markers found.
     """
     text = sas_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    # Detect which marker style is present
+    style_a = any(l.startswith("/* ──") and "──" in l for l in lines)
+    style_b = any(_re.match(r"/\*\s*\d+\.", l.strip()) for l in lines)
+
+    if not style_a and not style_b:
+        # Fallback: split on RUN; / QUIT; boundaries
+        return _split_by_run_quit(text)
+
     blocks: list[tuple[str, str]] = []
     current_label = "block_0"
     current_lines: list[str] = []
 
-    for line in text.splitlines():
-        if line.startswith("/* ──") and "──" in line:
-            # flush previous block
+    for line in lines:
+        is_marker = False
+
+        if style_a and line.startswith("/* ──") and "──" in line:
+            is_marker = True
+            new_label = line.strip("/* ─").strip().rstrip(" */").strip()
+
+        elif style_b:
+            m = _re.match(r"/\*\s*(\d+\.\s*.+?)\s*\*/", line.strip())
+            if m:
+                is_marker = True
+                new_label = m.group(1).strip()
+
+        if is_marker:
             code = "\n".join(current_lines).strip()
             if code and _has_sas_code(code):
                 blocks.append((current_label, code))
-            # extract label from comment
-            current_label = line.strip("/* ─").strip().rstrip(" */").strip()
+            current_label = new_label
             current_lines = []
         else:
             current_lines.append(line)
@@ -83,6 +110,17 @@ def parse_blocks(sas_path: Path) -> list[tuple[str, str]]:
     if code and _has_sas_code(code):
         blocks.append((current_label, code))
 
+    return blocks
+
+
+def _split_by_run_quit(text: str) -> list[tuple[str, str]]:
+    """Fallback: split SAS file on RUN; / QUIT; statement boundaries."""
+    chunks = _re.split(r"(?i)\b(run|quit)\s*;", text)
+    blocks = []
+    for i, chunk in enumerate(chunks):
+        chunk = chunk.strip()
+        if chunk and _has_sas_code(chunk) and chunk.upper() not in ("RUN", "QUIT"):
+            blocks.append((f"block_{i:02d}", chunk))
     return blocks
 
 

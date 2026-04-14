@@ -10,7 +10,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc g++ && \
     rm -rf /var/lib/apt/lists/*
 
-COPY backend/requirements.txt .
+COPY backend/requirements/base.txt ./requirements.txt
 RUN pip install --no-cache-dir --prefix=/install \
     -r requirements.txt
 
@@ -31,8 +31,8 @@ COPY pyproject.toml ./
 # Create output / data directories
 RUN mkdir -p output logs lancedb_data backend/uploads
 
-# Non-root user for security
-RUN useradd --create-home appuser && chown -R appuser:appuser /app
+# Non-root user for security (system user, no home dir, no shell)
+RUN adduser --system --no-create-home --group appuser && chown -R appuser:appuser /app
 USER appuser
 
 ENV PYTHONPATH=/app/backend

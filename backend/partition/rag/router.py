@@ -115,6 +115,7 @@ class RAGRouter:
             failure_mode=failure_mode,
             failure_mode_rules=failure_mode_rules,
             complexity=complexity,
+            z3_repair_hint=partition.metadata.get("z3_repair_hint", ""),
         )
 
         if paradigm == "static":

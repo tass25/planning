@@ -1,5 +1,32 @@
 # CLAUDE.md — Codara Project Memory
-<!-- Optimized for AI ingestion. Last updated: 2026-04-06 -->
+<!-- Optimized for AI ingestion. Last updated: 2026-04-08 -->
+
+---
+
+## SESSION RULES (MANDATORY — apply every session, no exceptions)
+
+### 1. Always use the venv
+**NEVER** run Python with the system interpreter. Always use:
+```
+C:/Users/labou/Desktop/Stage/venv/Scripts/python
+C:/Users/labou/Desktop/Stage/venv/Scripts/pip
+```
+Before any `python` or `pip` command, check the path starts with `venv/Scripts/`. This is rule #1.
+
+### 2. Daily log file — create and append every session
+At the start of every session AND after every significant action, create/append to a file:
+```
+docs/logs/<D><Month>.md   (e.g., docs/logs/8April.md, docs/logs/15May.md)
+```
+**What goes in the log:**
+- Everything done in the session (features added, files changed, bugs fixed)
+- Full test output: accuracy numbers, pairs translated, errors, Z3 patterns, latency, pass/fail counts
+- Any counterexamples caught, CEGAR repairs, KB stats
+- Commands run and their exit codes
+
+**Format:** Append — never overwrite. Multiple sessions on the same day stack in the same file.
+
+---
 
 ## PROJECT IDENTITY
 **Name**: Codara — SAS→Python/PySpark Conversion Accelerator
@@ -320,8 +347,10 @@ Actual orchestrator nodes: `file_process, streaming, chunking, raptor, risk_rout
 ---
 
 ## DEFAULT CREDENTIALS (seeded)
-- Admin: `admin@codara.dev` / `admin123!`
-- User: `user@codara.dev` / `user123!`
+Hardcoded passwords removed. On first boot, random passwords are generated and printed to stdout.
+Set env vars to pin them:
+- `CODARA_ADMIN_PASSWORD=<password>` → admin@codara.dev
+- `CODARA_USER_PASSWORD=<password>`  → user@codara.dev
 
 ---
 

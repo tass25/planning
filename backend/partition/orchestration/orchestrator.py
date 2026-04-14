@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
-from typing import Optional
 from uuid import UUID
 
 import structlog
@@ -36,7 +35,32 @@ from partition.utils.large_file import configure_memory_guards, MemoryMonitor
 logger = structlog.get_logger()
 
 # Bump this whenever the pipeline graph topology or node semantics change.
-PIPELINE_VERSION = "3.0.0"
+PIPELINE_VERSION = "3.1.0"
+
+
+# Pattern: Factory
+class AgentFactory:
+    """Lazy-instantiation cache for pipeline sub-agents.
+
+    Agents are expensive to construct (model loading, DB connections).
+    This factory ensures each agent is created at most once per pipeline run
+    and reused across node invocations.
+    """
+
+    def __init__(self) -> None:
+        self._cache: dict[str, object] = {}
+
+    def get(self, key: str, cls: type, **kwargs) -> object:
+        """Return a cached agent, instantiating it with *kwargs* on first call."""
+        if key not in self._cache:
+            self._cache[key] = cls(**kwargs) if kwargs else cls()
+        return self._cache[key]
+
+    def get_factory(self, key: str, factory) -> object:
+        """Return a cached agent, using *factory()* callable on first call."""
+        if key not in self._cache:
+            self._cache[key] = factory()
+        return self._cache[key]
 
 
 class PartitionOrchestrator:
@@ -70,8 +94,9 @@ class PartitionOrchestrator:
             logger.warning("memory_monitor_init_failed", error=str(exc))
             self.memory_monitor = None
 
-        # Agent cache — avoid re-instantiation per node call
-        self._agents: dict[str, object] = {}
+        # Pattern: Factory — agent cache, avoid re-instantiation per node call
+        self._agent_factory = AgentFactory()
+        self._agents: dict[str, object] = {}  # kept for _get_agent() compat
 
         # Configure memory guards at startup (OMP, CUDA) — best-effort
         try:
@@ -324,7 +349,7 @@ class PartitionOrchestrator:
         _t0 = _t.perf_counter()
 
         trace_id = UUID(state["trace_id"])
-        agent = RAPTORPartitionAgent(trace_id=trace_id)
+        agent = self._get_agent("raptor", lambda: RAPTORPartitionAgent(trace_id=trace_id))
 
         # Group partitions by file_id
         file_groups: dict[str, list] = {}
@@ -564,23 +589,3 @@ class PartitionOrchestrator:
         }
 
 
-# ------------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------------
-
-
-def _common_parent(paths: list[Path]) -> Path:
-    """Return the deepest common parent directory of *paths*."""
-    if not paths:
-        return Path(".")
-    resolved = [p.resolve() for p in paths]
-    parts_lists = [list(p.parts) for p in resolved]
-    common = []
-    for parts in zip(*parts_lists):
-        if len(set(parts)) == 1:
-            common.append(parts[0])
-        else:
-            break
-    if not common:
-        return Path(".")
-    return Path(*common) if len(common) > 1 else Path(common[0])

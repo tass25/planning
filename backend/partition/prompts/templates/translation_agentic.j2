@@ -19,6 +19,17 @@ You have autonomous control over retrieval strategy and must produce the highest
 {{ failure_mode_rules }}
 {% endif %}
 
+{% if z3_repair_hint %}
+## ⚠ Z3 Formal Verification — Semantic Bug Found (MUST FIX)
+The previous translation was formally verified by the Z3 SMT solver and a
+**semantic bug was detected**. This is not a style issue — the translated
+Python produces a **mathematically different result** from the SAS source.
+
+{{ z3_repair_hint }}
+
+Fix only this specific bug. Do not change any other part of the translation.
+{% endif %}
+
 {% if previous_issues %}
 ## Previous Attempt Issues
 The following problems were identified in the previous translation attempt.
@@ -58,6 +69,12 @@ You **must** address every one of them in this attempt.
 ```python
 {{ ex.python_code }}
 ```
+{% if ex.issues %}
+**Pattern-specific pitfalls for this example (MUST follow):**
+{% for issue in ex.issues %}
+- {{ issue }}
+{% endfor %}
+{% endif %}
 {% endfor %}
 {% endif %}
 

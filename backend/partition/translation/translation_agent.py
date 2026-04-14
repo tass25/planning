@@ -63,15 +63,19 @@ class CrossVerifyOutput(BaseModel):
     issues: list[str] = Field(default_factory=list)
 
 
+_LLM_TIMEOUT_S = 60  # per asyncio.to_thread call
+_GROQ_MODEL = "llama-3.3-70b-versatile"
+
+
 class TranslationAgent(BaseAgent):
     """Agent #12: SAS → Python translation.
 
-    Routing (Azure-first):
-      - LOW risk → Azure GPT-4o-mini (fast, cheap)
-      - MODERATE/HIGH → Azure GPT-4o (higher quality)
-      - Cross-verify → Groq LLaMA-70B (independent context)
+    Routing (Ollama-first):
+      - LOW risk → Ollama (primary) → Azure GPT-4o-mini → Groq
+      - MODERATE/HIGH/UNCERTAIN → Ollama (primary) → Azure GPT-4o → Groq
+      - Cross-verify → Ollama → Groq (independent context)
 
-    Fallback chain: Azure GPT-4o → Groq 70B → PARTIAL status
+    Fallback chain: Ollama → Azure → Groq → PARTIAL status
     """
 
     MAX_RETRIES = 2
@@ -287,13 +291,18 @@ class TranslationAgent(BaseAgent):
         if not self._groq_raw:
             return error_description  # graceful fallback
         try:
-            resp = await asyncio.to_thread(
-                self._groq_raw.chat.completions.create,
-                model="llama-3.3-70b-versatile",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=512,
+            resp = await asyncio.wait_for(
+                asyncio.to_thread(
+                    self._groq_raw.chat.completions.create,
+                    model=_GROQ_MODEL,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=512,
+                ),
+                timeout=_LLM_TIMEOUT_S,
             )
-            return resp.choices[0].message.content or error_description
+            if not resp.choices or not resp.choices[0].message.content:
+                return error_description
+            return resp.choices[0].message.content
         except Exception as exc:
             logger.warning("reflection_failed", error=str(exc))
             return error_description
@@ -343,107 +352,90 @@ class TranslationAgent(BaseAgent):
             return client.call_with_rotation(**kwargs)
         return client.chat.completions.create(**kwargs)
 
-    async def _translate_azure_4o(
-        self, prompt: str
+    async def _translate_with_model(
+        self,
+        prompt: str,
+        azure_tier: str,
+        azure_label: str,
+        log_tag: str,
     ) -> tuple[TranslationOutput, str]:
-        """Translate MOD/HIGH risk partitions. Chain: Ollama → Azure → Groq."""
+        """Translate a partition. Chain: Ollama → Azure → Groq.
+
+        Args:
+            prompt:      Rendered Jinja2 prompt string.
+            azure_tier:  "full" or "mini" — selects the Azure deployment.
+            azure_label: Label stored in ConversionResult.model_used.
+            log_tag:     Short string used in warning log keys.
+        """
+        messages = [{"role": "user", "content": prompt}]
+
         # 1. Ollama (primary)
         if self.ollama_client:
             try:
-                result = await asyncio.to_thread(
-                    self._sync_create,
-                    self.ollama_client,
-                    model=get_ollama_model(),
-                    messages=[{"role": "user", "content": prompt}],
-                    response_model=TranslationOutput,
-                    max_retries=2,
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self._sync_create,
+                        self.ollama_client,
+                        model=get_ollama_model(),
+                        messages=messages,
+                        response_model=TranslationOutput,
+                        max_retries=2,
+                    ),
+                    timeout=_LLM_TIMEOUT_S,
                 )
                 return result, f"ollama_{get_ollama_model()}"
-            except Exception as e:
-                logger.warning("ollama_4o_failed", error=str(e))
+            except Exception as exc:
+                logger.warning(f"ollama_{log_tag}_failed", error=str(exc))
 
-        # 2. Azure GPT-4o (fallback)
+        # 2. Azure (fallback)
         if self.azure_client and azure_breaker.allow_request():
             try:
                 async with azure_limiter:
-                    result = await asyncio.to_thread(
-                        self._sync_create,
-                        self.azure_client,
-                        model=get_deployment_name("full"),
-                        messages=[{"role": "user", "content": prompt}],
-                        response_model=TranslationOutput,
-                        max_retries=2,
+                    result = await asyncio.wait_for(
+                        asyncio.to_thread(
+                            self._sync_create,
+                            self.azure_client,
+                            model=get_deployment_name(azure_tier),
+                            messages=messages,
+                            response_model=TranslationOutput,
+                            max_retries=2,
+                        ),
+                        timeout=_LLM_TIMEOUT_S,
                     )
                     azure_breaker.record_success()
-                    return result, "azure_gpt4o"
-            except Exception as e:
+                    return result, azure_label
+            except Exception as exc:
                 azure_breaker.record_failure()
-                logger.warning("azure_4o_failed", error=str(e))
+                logger.warning(f"azure_{log_tag}_failed", error=str(exc))
 
-        # 3. Groq 70B (last resort)
+        # 3. Groq (last resort)
         if self.groq_client:
-            result = await asyncio.to_thread(
-                self._sync_create,
-                self.groq_client,
-                model="llama-3.3-70b-versatile",
-                messages=[{"role": "user", "content": prompt}],
-                response_model=TranslationOutput,
-                max_retries=2,
+            result = await asyncio.wait_for(
+                asyncio.to_thread(
+                    self._sync_create,
+                    self.groq_client,
+                    model=_GROQ_MODEL,
+                    messages=messages,
+                    response_model=TranslationOutput,
+                    max_retries=2,
+                ),
+                timeout=_LLM_TIMEOUT_S,
             )
             return result, "groq_70b"
 
         raise RuntimeError("No LLM backend available for translation")
 
-    async def _translate_azure_mini(
-        self, prompt: str
-    ) -> tuple[TranslationOutput, str]:
-        """Translate LOW risk partitions. Chain: Ollama → Azure → Groq."""
-        # 1. Ollama (primary)
-        if self.ollama_client:
-            try:
-                result = await asyncio.to_thread(
-                    self._sync_create,
-                    self.ollama_client,
-                    model=get_ollama_model(),
-                    messages=[{"role": "user", "content": prompt}],
-                    response_model=TranslationOutput,
-                    max_retries=2,
-                )
-                return result, f"ollama_{get_ollama_model()}"
-            except Exception as e:
-                logger.warning("ollama_mini_failed", error=str(e))
+    async def _translate_azure_4o(self, prompt: str) -> tuple[TranslationOutput, str]:
+        """Translate MOD/HIGH risk partitions (Ollama→Azure GPT-4o→Groq)."""
+        return await self._translate_with_model(
+            prompt, azure_tier="full", azure_label="azure_gpt4o", log_tag="4o"
+        )
 
-        # 2. Azure GPT-4o-mini (fallback)
-        if self.azure_client and azure_breaker.allow_request():
-            try:
-                async with azure_limiter:
-                    result = await asyncio.to_thread(
-                        self._sync_create,
-                        self.azure_client,
-                        model=get_deployment_name("mini"),
-                        messages=[{"role": "user", "content": prompt}],
-                        response_model=TranslationOutput,
-                        max_retries=2,
-                    )
-                    azure_breaker.record_success()
-                    return result, "azure_gpt4o_mini"
-            except Exception as e:
-                azure_breaker.record_failure()
-                logger.warning("azure_mini_failed", error=str(e))
-
-        # 3. Groq 70B (last resort)
-        if self.groq_client:
-            result = await asyncio.to_thread(
-                self._sync_create,
-                self.groq_client,
-                model="llama-3.3-70b-versatile",
-                messages=[{"role": "user", "content": prompt}],
-                response_model=TranslationOutput,
-                max_retries=2,
-            )
-            return result, "groq_70b"
-
-        raise RuntimeError("No LLM backend available for translation")
+    async def _translate_azure_mini(self, prompt: str) -> tuple[TranslationOutput, str]:
+        """Translate LOW risk partitions (Ollama→Azure GPT-4o-mini→Groq)."""
+        return await self._translate_with_model(
+            prompt, azure_tier="mini", azure_label="azure_gpt4o_mini", log_tag="mini"
+        )
 
     async def _cross_verify(
         self,

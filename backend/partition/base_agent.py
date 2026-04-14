@@ -9,6 +9,9 @@ import asyncio
 
 import structlog
 
+# Module-level logger — structlog.get_logger() should never be called inside loops
+_log = structlog.get_logger(__name__)
+
 
 def with_retry(max_retries: int = 3, base_delay: float = 1.0, fallback=None):
     """Decorator for async retry with exponential backoff.
@@ -32,14 +35,14 @@ def with_retry(max_retries: int = 3, base_delay: float = 1.0, fallback=None):
                             return fallback(*args, **kwargs)
                         raise
                     delay = base_delay * (2 ** attempt)
-                    logger = structlog.get_logger()
-                    logger.warning(
+                    _log.warning(
                         "retry_attempt",
                         func=func.__qualname__,
                         attempt=attempt + 1,
                         max_retries=max_retries,
                         delay=delay,
                         error=str(last_exc),
+                        exc_info=True,
                     )
                     await asyncio.sleep(delay)
         return wrapper

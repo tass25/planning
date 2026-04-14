@@ -47,6 +47,7 @@ class StaticRAG:
         failure_mode: Optional[str] = None,
         failure_mode_rules: str = "",
         complexity: float = 0.0,
+        z3_repair_hint: str = "",
         **kwargs,
     ) -> dict:
         """Retrieve examples and build the translation prompt.
@@ -80,6 +81,7 @@ class StaticRAG:
             complexity=complexity,
             failure_mode_rules=failure_mode_rules,
             kb_examples=kb_examples,
+            z3_repair_hint=z3_repair_hint,
         )
 
         logger.info(

@@ -8,16 +8,126 @@ Provider hierarchy (translation chain):
   Tier 4 — Gemini 2.0 Flash (oracle & judge)
   Tier 5 — Cerebras Llama-3.1-70B (Best-of-N candidates)
   Tier 6 — PARTIAL status
+
+# Pattern: Strategy
+LLMStrategy ABC + OllamaStrategy / AzureStrategy / GroqStrategy concrete
+classes formalise the fallback chain.  FallbackChain iterates strategies
+in order, returning the first successful result.
 """
 
 from __future__ import annotations
 
 import os
-from typing import Optional
+from abc import ABC, abstractmethod
+from typing import Any, Optional
 
 import structlog
 
 logger = structlog.get_logger(__name__)
+
+
+# ── Strategy Pattern ──────────────────────────────────────────────────────────
+
+
+class LLMStrategy(ABC):
+    """Abstract base for a single LLM provider strategy."""
+
+    @abstractmethod
+    def get_client(self, *, async_client: bool = True) -> Any:
+        """Return a configured (Async)OpenAI-compatible client or None."""
+
+    @abstractmethod
+    def is_available(self) -> bool:
+        """Return True if the required credentials are present."""
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Human-readable provider name."""
+
+
+class OllamaStrategy(LLMStrategy):
+    """Tier 1 — Ollama (local + cloud models via OpenAI-compatible API)."""
+
+    @property
+    def name(self) -> str:
+        return "ollama"
+
+    def is_available(self) -> bool:
+        return bool(os.getenv("OLLAMA_API_KEY"))
+
+    def get_client(self, *, async_client: bool = True) -> Any:
+        return get_ollama_client(async_client=async_client)
+
+
+class AzureStrategy(LLMStrategy):
+    """Tier 2 — Azure OpenAI (GPT-4o / GPT-4o-mini)."""
+
+    @property
+    def name(self) -> str:
+        return "azure"
+
+    def is_available(self) -> bool:
+        return bool(
+            os.getenv("AZURE_OPENAI_ENDPOINT") and os.getenv("AZURE_OPENAI_API_KEY")
+        )
+
+    def get_client(self, *, async_client: bool = True) -> Any:
+        try:
+            return get_azure_openai_client(async_client=async_client)
+        except RuntimeError:
+            return None
+
+
+class GroqStrategy(LLMStrategy):
+    """Tier 3 — Groq (Llama-3.3-70B, fallback + cross-verifier)."""
+
+    @property
+    def name(self) -> str:
+        return "groq"
+
+    def is_available(self) -> bool:
+        return bool(os.getenv("GROQ_API_KEY"))
+
+    def get_client(self, *, async_client: bool = True) -> Any:
+        return get_groq_openai_client(async_client=async_client)
+
+
+# Pattern: Strategy — FallbackChain iterates strategies in priority order
+class FallbackChain:
+    """Try each LLMStrategy in order; return the first available client.
+
+    Usage::
+
+        chain = FallbackChain([OllamaStrategy(), AzureStrategy(), GroqStrategy()])
+        client = chain.get_client()   # first available provider
+        provider_name = chain.active_name
+    """
+
+    def __init__(self, strategies: list[LLMStrategy]) -> None:
+        self._strategies = strategies
+        self._active: LLMStrategy | None = None
+
+    def get_client(self, *, async_client: bool = True) -> Any:
+        """Return the first available client, caching the active strategy."""
+        for strategy in self._strategies:
+            if strategy.is_available():
+                client = strategy.get_client(async_client=async_client)
+                if client is not None:
+                    self._active = strategy
+                    return client
+        logger.warning("fallback_chain_exhausted", strategies=[s.name for s in self._strategies])
+        return None
+
+    @property
+    def active_name(self) -> str:
+        return self._active.name if self._active else "none"
+
+
+# Default chain: Ollama → Azure → Groq (matches CLAUDE.md routing)
+DEFAULT_FALLBACK_CHAIN = FallbackChain(
+    [OllamaStrategy(), AzureStrategy(), GroqStrategy()]
+)
 
 
 def get_azure_openai_client(*, async_client: bool = True):
@@ -68,11 +178,6 @@ def get_groq_client(*, async_client: bool = True):
             "The 'groq' package is not installed. "
             "Install it with: pip install groq"
         )
-
-
-def get_llm_provider() -> str:
-    """Return the configured LLM provider name (azure|groq)."""
-    return os.getenv("LLM_PROVIDER", "azure").lower()
 
 
 def get_deployment_name(tier: str = "mini") -> str:
@@ -262,6 +367,37 @@ def get_ollama_client(*, async_client: bool = True):
     return cls(api_key=api_key, base_url=base_url, timeout=300.0)
 
 
+# ── Ollama model name constants ───────────────────────────────────────
+# Use OLLAMA_MODEL env var to switch at runtime.  Defaults to
+# qwen3-coder-next which scored best on the torture_test benchmark.
+OLLAMA_MODEL_MINIMAX    = "minimax-m2.7:cloud"    # 10/10 torture test (2026-04-06)
+OLLAMA_MODEL_QWEN3      = "qwen3-coder-next"       # strong reasoning, recommended default
+OLLAMA_MODEL_DEEPSEEK   = "deepseek-v3.2"          # DeepSeek V3.2 via Ollama cloud
+
+
 def get_ollama_model() -> str:
-    """Return the configured Ollama model name (default: qwen3-coder-next)."""
-    return os.getenv("OLLAMA_MODEL", "qwen3-coder-next")
+    """Return the configured Ollama model name (default: qwen3-coder-next).
+
+    Override at runtime with the OLLAMA_MODEL env var.  Known good values:
+      - ``minimax-m2.7:cloud``  — 10/10 on torture test
+      - ``qwen3-coder-next``    — strong reasoning, recommended default
+      - ``deepseek-v3.2``       — DeepSeek V3.2 (alternative)
+    """
+    return os.getenv("OLLAMA_MODEL", OLLAMA_MODEL_QWEN3)
+
+
+def get_ollama_model_for_tier(tier: str) -> str:
+    """Return the Ollama model for a specific translation tier.
+
+    Allows using different models per risk level:
+      - ``low``    → OLLAMA_MODEL_LOW  (default: qwen3-coder-next)
+      - ``high``   → OLLAMA_MODEL_HIGH (default: qwen3-coder-next)
+      - default    → OLLAMA_MODEL (global override)
+
+    This supports A/B testing between minimax, qwen3, and deepseek.
+    """
+    tier_key = f"OLLAMA_MODEL_{tier.upper()}"
+    tier_model = os.getenv(tier_key)
+    if tier_model:
+        return tier_model
+    return get_ollama_model()

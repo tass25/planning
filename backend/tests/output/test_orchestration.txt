@@ -1,6 +1,6 @@
 Test file: test_orchestration.py
-Run at: 2026-03-31T22:57:57.123308+00:00
-Total: 16 | Pass: 16 | Fail: 0 | Skip: 0
+Run at: 2026-04-10T16:03:59.454558+00:00
+Total: 13 | Pass: 13 | Fail: 0 | Skip: 0
 ============================================================
 
 [PASS] TestPipelineState::test_state_has_all_required_fields
@@ -10,9 +10,6 @@ Total: 16 | Pass: 16 | Fail: 0 | Skip: 0
 [PASS] TestRedisCheckpoint::test_degraded_find_returns_none
 [PASS] TestRedisCheckpoint::test_checkpoint_interval_constant
 [PASS] TestRedisCheckpoint::test_ttl_constant
-[PASS] TestRedisCheckpoint::test_checkpoint_interval_skip
-[PASS] TestRedisCheckpoint::test_checkpoint_fires_at_zero
-[PASS] TestRedisCheckpoint::test_checkpoint_fires_at_interval
 [PASS] TestLLMAuditLogger::test_audit_context_manager_success
 [PASS] TestLLMAuditLogger::test_audit_context_manager_failure
 [PASS] TestOrchestratorGraph::test_graph_compiles

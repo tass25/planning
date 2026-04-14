@@ -4,11 +4,42 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
-from typing import Any
+from typing import Any, TypedDict
 
 from pydantic import BaseModel, Field
 
 from .enums import PartitionType, RiskLevel, ConversionStatus
+
+
+class PartitionMetadata(TypedDict, total=False):
+    """Typed schema for the keys written into PartitionIR.metadata.
+
+    ``total=False`` means all keys are optional — agents only populate
+    the fields that are relevant to their stage.
+    """
+
+    # Z3 formal verification
+    z3_result: str            # "verified" | "counterexample" | "unknown" | "skipped"
+    z3_patterns_checked: list[str]
+    z3_repair_hint: str       # CEGAR repair prompt injected by TranslationPipeline
+
+    # RAPTOR clustering
+    raptor_cluster_id: str
+    raptor_level: int
+
+    # Complexity / strategy
+    complexity_score: float
+    strategy: str
+
+    # Translation quality
+    failure_mode: str
+    reflexion_attempts: int
+
+    # Test configuration
+    test_coverage_type: str   # "full" | "partial" | "none"
+
+    # Catch-all for any extra keys agents may write
+    extra: dict[str, Any]
 
 
 class PartitionIR(BaseModel):

@@ -1,573 +1,513 @@
 
 
-# ======================================================================# Block 1: block_0
+# ======================================================================# Block 1: 1. RETAIN + BY-group FIRST./LAST.
 # ======================================================================
 
+import pandas as pd
 
-"""
-SAS-to-Python Translation: Finance Data Migration Pipeline
-Generated from ~150 lines of mixed Data Steps, Procedures, Macros, and Globals
+# Assuming 'transactions' DataFrame is already loaded in the environment.
+# This translation handles the SAS DATA step pattern:
+#   BY customer_id processing with RETAIN, FIRST./LAST. logic
 
-Translation Notes:
-- All imports at top
-- Idiomatic pandas patterns used throughout
-- No iterrows() - vectorized operations only
-- PROC FORMAT translated as display-only (new column, not overwrite)
-- MERGE with IN= translated using pd.merge(indicator=True)
-- PROC REG STEPWISE uses statsmodels with p-value thresholds (SLE=0.15, SLS=0.15)
-"""
+# Ensure data is sorted by customer_id (SAS BY processing requires sorted data)
+df = transactions.sort_values('customer_id').reset_index(drop=True)
+
+# Create first/last flags for customer_id detection
+# FIRST.var = 1 when current row is first in BY group
+df['_is_first'] = df.groupby('customer_id').cumcount() == 0
+# LAST.var = 1 when current row is last in BY group
+df['_is_last'] = df.groupby('customer_id').cumcount(ascending=False) == 0
+
+# Calculate running_total: cumulative sum of 'amount' within each customer group
+# This implicitly resets at the start of each group (equivalent to SAS RETAIN reset)
+df['running_total'] = df.groupby('customer_id')['amount'].cumsum()
+
+# Calculate tx_count: row number within each customer group (1-based)
+df['tx_count'] = df.groupby('customer_id').cumcount() + 1
+
+# Output only the last row per customer_id (equivalent to SAS 'if last.customer_id then output;')
+customer_summary = df[df['_is_last']][['customer_id', 'running_total', 'tx_count']].copy()
+
+# Clean up temporary flags
+df.drop(columns=['_is_first', '_is_last'], inplace=True)
+
+# Result: customer_summary contains one row per customer with:
+#   - customer_id
+#   - running_total: sum of all transaction amounts for that customer
+#   - tx_count: total number of transactions for that customer
+
+
+# Block 2: 2. Missing value logic (SAS . < any number)
+# ======================================================================
 
 import pandas as pd
 import numpy as np
-import re
-import os
-from datetime import datetime, date
-import statsmodels.api as sm
 
-# ============================================================================
-# 1. CONFIGURATION & ENVIRONMENT SETUP
-# ============================================================================
+# Read data
+df = raw_data.copy()
 
-# SAS equivalent: %LET env = PRODUCTION;
-env = "PRODUCTION"
+# If age is missing, set to 0
+df['age'] = df['age'].fillna(0)
 
-# SAS equivalent: %LET process_date = %SYSFUNC(today(), date9.);
-# Format: DDMMMYYYY (e.g., 01JAN2024)
-process_date = date.today().strftime("%d%b%Y").upper()
+# Create flag based on score value
+# SAS: score < . means score is missing (. is the smallest numeric in SAS)
+df['flag'] = np.select(
+    [df['score'].isna(), df['score'] > 100],
+    ['MISSING', 'INVALID'],
+    default='OK'
+)
 
-# SAS equivalent: %LET threshold = 5000;
-threshold = 5000
 
-# File paths (SAS equivalent: LIBNAME and FILENAME)
-RAW_SRC_PATH = "/data/raw/source_systems"
-STAGING_PATH = "/data/staging/temp_storage"
-FINAL_PATH = "/data/production/final_tables"
-LOG_OUT_PATH = "/logs/migration_audit.txt"
+# Block 3: 3. PROC SQL with correlated subquery
+# ======================================================================
 
-# ============================================================================
-# 2. MACRO DEFINITION: preprocess_finance_data(in_ds, out_ds)
-# ============================================================================
+import pandas as pd
+import numpy as np
 
-def preprocess_finance_data(in_df, out_ds_path):
+
+def get_high_value_customers(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Translates SAS MACRO preprocess_finance_data:
-    - UPCASE(STRIP(name)) → customer_name
-    - COMPRESS(account_id, '-') → removes ONLY hyphens (2-arg form)
-    - Conditional status assignment using np.select
-    - Date arithmetic: today() - last_transaction_dt
-    - PROC SORT: BY account_id DESCENDING days_since_active
+    Translate SAS PROC SQL: inner join with avg subquery, filter on 1.5x threshold.
     
-    Args:
-        in_df: Input DataFrame (already loaded from source)
-        out_ds_path: Path to save output DataFrame
-    
-    Returns:
-        DataFrame with preprocessing applied
+    SAS Logic:
+    1. Calculate mean(amount) grouped by customer_id
+    2. Inner join back to transactions on customer_id
+    3. Keep rows where t.amount > avg_t.avg_amount * 1.5
     """
-    df = in_df.copy()
+    # Handle empty DataFrame edge case
+    if df.empty:
+        return pd.DataFrame(columns=['customer_id', 'amount', 'avg_amount'])
     
-    # SAS: customer_name = UPCASE(STRIP(name));
-    df['customer_name'] = df['name'].str.strip().str.upper()
-    
-    # SAS: account_id = COMPRESS(account_id, '-');
-    # IMPORTANT: 2-argument COMPRESS removes ONLY the listed character (hyphen)
-    # NOT the default 1-argument behavior which removes all non-alphanumeric
-    df['account_id'] = df['account_id'].str.replace('-', '', regex=False)
-    
-    # SAS: IF balance < 0 THEN DO; status = 'OVERDRAWN'; flag = 1; END;
-    #       ELSE IF balance = 0 THEN status = 'EMPTY';
-    #       ELSE status = 'ACTIVE';
-    conditions = [
-        df['balance'] < 0,
-        df['balance'] == 0
-    ]
-    choices = ['OVERDRAWN', 'EMPTY']
-    df['status'] = np.select(conditions, choices, default='ACTIVE')
-    
-    # Add flag column for OVERDRAWN accounts (SAS: flag = 1 when balance < 0)
-    df['flag'] = (df['balance'] < 0).astype(int)
-    
-    # SAS: days_since_active = today() - last_transaction_dt;
-    df['days_since_active'] = (pd.Timestamp.today() - pd.to_datetime(df['last_transaction_dt'])).dt.days
-    
-    # SAS: IF days_since_active > 365 THEN account_type = 'DORMANT';
-    #       ELSE account_type = 'CURRENT';
-    df['account_type'] = np.where(df['days_since_active'] > 365, 'DORMANT', 'CURRENT')
-    
-    # SAS: LABEL status = "Account Status Indicator"
-    #       account_type = "Activity Classification"
-    # Python: Add as column metadata/comments (pandas doesn't have LABEL statement)
-    # Labels are preserved in the column name comments where applicable
-    
-    # Drop err_code (SAS: DROP=err_code - not created in Python version)
-    # No err_code column was created, so nothing to drop
-    
-    # SAS PROC SORT: BY account_id descending days_since_active;
-    # Translation: account_id ASCENDING, days_since_active DESCENDING
-    df = df.sort_values(
-        ['account_id', 'days_since_active'],
-        ascending=[True, False]
+    # Subquery: calculate average amount per customer
+    # dropna=False replicates SAS GROUP BY behavior (NaN kept as group)
+    avg_by_customer = (
+        df.groupby('customer_id', dropna=False)['amount']
+        .mean()
+        .reset_index()
+        .rename(columns={'amount': 'avg_amount'})
     )
     
-    # Save output (SAS equivalent: DATA &out_ds)
-    df.to_parquet(out_ds_path, index=False)
+    # Inner join - merge only matches (equivalent to SAS INNER JOIN)
+    merged = df.merge(avg_by_customer, on='customer_id', how='inner')
     
-    return df
+    # Filter: keep only high-value transactions (amount > 1.5 * avg_amount)
+    high_value = merged[merged['amount'] > merged['avg_amount'] * 1.5]
+    
+    return high_value[['customer_id', 'amount', 'avg_amount']]
 
 
-def stepwise_selection(X, y, sle=0.15, sls=0.15):
+# Example usage (assumes transactions DataFrame is already loaded):
+# high_value = get_high_value_customers(transactions)
+
+
+# Block 4: 4. Macro with parameters + %DO loop
+# ======================================================================
+
+import pandas as pd
+
+def rolling_mean(df, var='close', window=5, out='prices_ma'):
     """
-    Translates SAS: PROC REG; MODEL y = x1 x2 / SELECTION=STEPWISE;
+    Compute a rolling mean using a circular buffer pattern.
     
-    SAS PROC REG STEPWISE uses F-statistic p-value thresholds:
-    - SLE (Significance Level for Entry) = 0.15 default
-    - SLS (Significance Level for Stay) = 0.15 default
+    SAS equivalent logic:
+    - Uses modulo indexing to create a circular buffer of fixed size
+    - Only computes mean after 'window' observations are collected
+    - First (window-1) rows get missing values (. in SAS)
     
-    Algorithm:
-    1. Forward step: add variable with lowest p-value IF p <= SLE
-    2. Backward step: remove variable with p >= SLS after each addition
-    3. Repeat until convergence
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input dataset containing the variable to process
+    var : str
+        Column name for which to compute the rolling mean (default: 'close')
+    window : int
+        Rolling window size (default: 5)
+    out : str
+        Output name for the result (used in documentation only)
     
-    IMPORTANT: Uses p-values, NOT BIC/AIC (common mistake)
+    Returns
+    -------
+    pandas.DataFrame
+        Copy of input DataFrame with new column '{var}_ma' containing
+        the rolling mean. First (window-1) values are NaN.
     
-    Args:
-        X: DataFrame of predictor variables
-        y: Series of response variable
-        sle: Significance level for entry (default 0.15)
-        sls: Significance level for removal (default 0.15)
-    
-    Returns:
-        List of selected column names
+    Notes
+    -----
+    The pandas rolling() with min_periods=window replicates the SAS behavior:
+    - SAS 'if _n_ >= window' → pandas 'min_periods=window' (only compute when full)
+    - SAS circular buffer mean(of vals{*}) → pandas rolling().mean()
+    - SAS missing value . → pandas NaN
     """
-    included = []
+    if df.empty:
+        result = df.copy()
+        result[f'{var}_ma'] = pd.Series(dtype=float)
+        return result
     
-    while True:
-        changed = False
-        
-        # ----- Forward step -----
-        # Find p-values for all excluded variables
-        excluded = [c for c in X.columns if c not in included]
-        pvals = {}
-        
-        for col in excluded:
-            # Fit model with candidate variable added
-            predictors = included + [col]
-            X_const = sm.add_constant(X[predictors])
-            model = sm.OLS(y, X_const).fit()
-            pvals[col] = model.pvalues[col]
-        
-        # Add variable with lowest p-value if below threshold
-        if pvals:
-            best = min(pvals, key=pvals.get)
-            if pvals[best] <= sle:
-                included.append(best)
-                changed = True
-        
-        # ----- Backward step -----
-        # After adding, check if any included variable should be removed
-        if included:
-            X_const = sm.add_constant(X[included])
-            model = sm.OLS(y, X_const).fit()
-            
-            # Find variable with highest p-value among included
-            pvalues = model.pvalues[included]
-            worst = pvalues.idxmax()
-            
-            if pvalues[worst] >= sls:
-                included.remove(worst)
-                changed = True
-        
-        if not changed:
-            break
+    # Create a copy to avoid modifying the original DataFrame (SAS DATA step behavior)
+    result = df.copy()
     
-    return included
-
-
-# ============================================================================
-# 3. PROCEDURE SQL BLOCK: LEFT JOIN with aggregation
-# ============================================================================
-
-def sql_join_and_aggregate(cleaned_accounts_df, region_map_df):
-    """
-    Translates SAS PROC SQL:
-    - LEFT JOIN on region_code = code
-    - WHERE balance > threshold
-    - GROUP BY account_id, status, region, manager_id
-    - SUM(a.balance) AS total_balance
-    - ORDER BY total_balance DESC
-    
-    CRITICAL: Must preserve region_code and manager_id for PROC REG (downstream)
-    """
-    # Normalize column names for merge (SAS is case-insensitive, Python is NOT)
-    region_map_norm = region_map_df.copy()
-    region_map_norm.columns = region_map_norm.columns.str.lower()
-    
-    cleaned_norm = cleaned_accounts_df.copy()
-    cleaned_norm.columns = cleaned_norm.columns.str.lower()
-    
-    # Merge (SAS: LEFT JOIN)
-    merged = cleaned_norm.merge(
-        region_map_norm,
-        left_on='region_code',
-        right_on='code',
-        how='left',
-        indicator=True  # Track merge status (equivalent to IN= variables)
-    )
-    
-    # SAS: WHERE balance > &threshold
-    merged = merged[merged['balance'] > threshold]
-    
-    # SAS: GROUP BY 1, 2, 3, 4 (account_id, status, region, manager_id)
-    # Aggregate: SUM(a.balance) AS total_balance
-    # dropna=False ensures NaN groups are preserved (SAS CLASS behavior)
-    result = merged.groupby(
-        ['account_id', 'status', 'region', 'manager_id'],
-        dropna=False
-    ).agg(
-        total_balance=('balance', 'sum')
-    ).reset_index()
-    
-    # SAS: ORDER BY total_balance DESC
-    result = result.sort_values('total_balance', ascending=False)
+    # Compute rolling mean using pandas' built-in rolling window
+    # min_periods=window ensures mean is only computed after window is filled,
+    # matching SAS 'if _n_ >= window' conditional and circular buffer semantics
+    result[f'{var}_ma'] = df[var].rolling(window=window, min_periods=window).mean()
     
     return result
 
 
-# ============================================================================
-# 4. DATA STEP WITH IN-LINE DATALINES
-# ============================================================================
+# Example usage matching the SAS call:
+# %rolling_mean(dsn=prices, var=close, window=5, out=prices_ma);
 
-def create_manual_adjustments():
-    """
-    Translates SAS DATA step with DATALINES:
-    INPUT Account_ID $ Adjustment_Amt Type $;
-    DATALINES;
-    ACC100 250.00 REBATE
-    ACC205 -50.25 FEE
-    ACC309 1000.00 BONUS
-    ACC412 -15.00 CHARGE
-    ;
-    """
-    data = {
-        'Account_ID': ['ACC100', 'ACC205', 'ACC309', 'ACC412'],
-        'Adjustment_Amt': [250.00, -50.25, 1000.00, -15.00],
-        'Type': ['REBATE', 'FEE', 'BONUS', 'CHARGE']
-    }
+# Sample data for testing
+if __name__ == '__main__':
+    prices = pd.DataFrame({
+        'close': [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0]
+    })
     
-    return pd.DataFrame(data)
-
-
-# ============================================================================
-# 5. PROC MEANS: Summary statistics with CLASS
-# ============================================================================
-
-def proc_means_summary(df):
-    """
-    Translates SAS PROC MEANS:
-    PROC MEANS DATA=staging.joined_master N MEAN STD MIN MAX;
-        CLASS region status;
-        VAR total_balance;
-        OUTPUT OUT=work.summary_stats
-            MEAN=avg_balance
-            SUM=total_regional_val;
+    prices_ma = rolling_mean(prices, var='close', window=5, out='prices_ma')
+    print("Input DataFrame:")
+    print(prices)
+    print("\nOutput DataFrame with rolling mean:")
+    print(prices_ma)
     
-    CRITICAL RULES:
-    - Single groupby().agg() call with ALL statistics (NOT separate merges)
-    - dropna=False to preserve NaN groups (SAS CLASS includes missing)
-    - NWAY is default pandas groupby behavior (full cross-classification only)
-    """
-    # SAS: CLASS region status - two classification variables
-    # SAS: N MEAN STD MIN MAX - five statistics
-    # SAS: OUTPUT OUT with renamed variables
-    
-    result = df.groupby(
-        ['region', 'status'],
-        dropna=False  # SAS CLASS includes missing values as a group
-    ).agg(
-        N=('total_balance', 'count'),
-        avg_balance=('total_balance', 'mean'),
-        STD=('total_balance', 'std'),
-        MIN=('total_balance', 'min'),
-        MAX=('total_balance', 'max'),
-        total_regional_val=('total_balance', 'sum')
-    ).reset_index()
-    
-    return result
+    # Verify: at row 5 (index 4), mean should be (10+20+30+40+50)/5 = 30
+    # At row 6 (index 5), mean should be (20+30+40+50+60)/5 = 40
+    assert prices_ma.loc[4, 'close_ma'] == 30.0, "Rolling mean calculation error"
+    assert prices_ma.loc[5, 'close_ma'] == 40.0, "Rolling mean calculation error"
+    print("\n✓ Rolling mean calculations verified correctly.")
 
 
-# ============================================================================
-# 6. PROC FORMAT: Value mapping (DISPLAY ONLY)
-# ============================================================================
-
-# SAS equivalent:
-# PROC FORMAT;
-#     VALUE $grade
-#         'OVERDRAWN' = 'Red'
-#         'ACTIVE'    = 'Green'
-#         'DORMANT'   = 'Yellow'
-#         OTHER       = 'Gray';
-# RUN;
-
-# IMPORTANT: SAS FORMAT is display-only, never modifies underlying data
-# Create a NEW column, don't overwrite the original
-
-GRADE_FORMAT = {
-    'OVERDRAWN': 'Red',
-    'ACTIVE': 'Green',
-    'DORMANT': 'Yellow'
-}
-
-def apply_grade_format(df, source_col='status', target_col='status_color'):
-    """
-    Apply $GRADE format to a DataFrame column.
-    Creates NEW column, preserves original.
-    """
-    df[target_col] = df[source_col].map(GRADE_FORMAT).fillna('Gray')
-    return df
+# Block 5: 5. PROC MEANS with CLASS and OUTPUT
+# ======================================================================
 
 
-# ============================================================================
-# 7. PROC REG: STEPWISE REGRESSION
-# ============================================================================
+import pandas as pd
 
-def proc_reg_stepwise(df):
-    """
-    Translates SAS PROC REG with STEPWISE selection:
-    PROC REG DATA=staging.joined_master;
-        MODEL total_balance = region_code manager_id / SELECTION=STEPWISE;
-        TITLE "Predictive Model for Account Value";
-    
-    CRITICAL:
-    - Uses p-value thresholds (SLE=0.15, SLS=0.15), NOT BIC/AIC
-    - Must preserve region_code column from upstream (used in MODEL)
-    - Uses statsmodels OLS, not sklearn
-    """
-    # Prepare predictors - need region_code for the model
-    # Note: If region_code is categorical, would need pd.get_dummies()
-    # For numeric region_code, use as-is
-    X = df[['region_code', 'manager_id']].copy()
-    y = df['total_balance']
-    
-    # Drop rows with missing values in predictors or response
-    valid_mask = X.notna().all(axis=1) & y.notna()
-    X = X[valid_mask]
-    y = y[valid_mask]
-    
-    # Forward/backward stepwise selection using p-values
-    selected_vars = stepwise_selection(X, y, sle=0.15, sls=0.15)
-    
-    print(f"Predictive Model for Account Value")
-    print(f"Selected variables: {selected_vars}")
-    
-    # Fit final model with selected variables
-    if selected_vars:
-        X_selected = sm.add_constant(X[selected_vars])
-        final_model = sm.OLS(y, X_selected).fit()
-        print(final_model.summary())
-        return final_model, selected_vars
-    else:
-        print("No variables selected in stepwise procedure.")
-        return None, []
+# Load sales data (adjust path as needed)
+# sales = pd.read_csv('sales.csv')  # or read from another source
 
+# PROC MEANS equivalent:
+# - CLASS region product_line  → groupby(['region', 'product_line'], dropna=False)
+# - noprint                     → no console output needed
+# - mean=avg_revenue avg_units  → mean aggregation for revenue and units_sold
+# - sum=total_revenue total_units → sum aggregation
+# - n=obs_count                 → count (non-missing) aggregation
+# - drop=_type_ _freq_           → these are SAS-generated variables, no pandas equivalent needed
 
-# ============================================================================
-# 8. PROC FREQ: Cross-tabulation
-# ============================================================================
-
-def proc_freq(df):
-    """
-    Translates SAS PROC FREQ:
-    PROC FREQ DATA=final.monthly_report;
-        TABLES region * status / NOCOL NOPERCENT;
-    
-    NOCOL = suppress column percentages
-    NOPERCENT = suppress all percentages
-    """
-    # Cross-tabulation without percentages
-    freq_table = pd.crosstab(
-        df['region'],
-        df['status'],
-        dropna=False  # SAS CLASS/FREQ includes missing
+summary = (
+    sales
+    .groupby(['region', 'product_line'], dropna=False)
+    .agg(
+        avg_revenue=('revenue', 'mean'),
+        avg_units=('units_sold', 'mean'),
+        total_revenue=('revenue', 'sum'),
+        total_units=('units_sold', 'sum'),
+        obs_count=('revenue', 'count')  # n= counts non-missing observations
     )
-    
-    return freq_table
+    .reset_index()
+)
 
 
-# ============================================================================
-# 9. PROC PRINT: Display data
-# ============================================================================
+# Block 6: 6. PROC SORT NODUPKEY
+# ======================================================================
 
-def proc_print(df, n=10):
+import pandas as pd
+
+# Read input data — replace with actual source (e.g., pd.read_csv, database connection)
+customers = pd.read_csv('customers.csv')  # <-- substitute with real data load
+
+# PROC SORT data=customers NODUPKEY; by customer_id;
+# Step 1: Sort by customer_id (SAS always sorts before nodupkey removal)
+customers = customers.sort_values('customer_id')
+
+# Step 2: Remove duplicate customer_id values, keeping the first occurrence
+# This mimics SAS NODUPKEY behavior exactly
+customers = customers.drop_duplicates(subset=['customer_id'], keep='first')
+
+
+# Block 7: 7. Hash object for lookup
+# ======================================================================
+
+"""
+Translation of SAS DATA Step with Hash Table Lookup
+
+SAS Logic:
+1. Declare hash table from 'lookup_table' with key='product_id', data=['product_name', 'category']
+2. For each row in 'transactions', perform hash lookup
+3. If product_id not found (rc != 0), set product_name = 'UNKNOWN'
+
+Python Equivalent:
+- Load both DataFrames and perform LEFT merge on product_id
+- Fill missing (unmatched) product_name values with 'UNKNOWN'
+"""
+
+import pandas as pd
+
+
+def translate_hash_lookup(transactions, lookup_table):
     """
-    Translates SAS PROC PRINT:
-    PROC PRINT DATA=work.summary_stats (OBS=10);
-        TITLE "Top 10 Summary Statistics Preview";
+    Translate SAS hash lookup to pandas merge operation.
     
-    OBS=n limits output to first n rows
+    Parameters
+    ----------
+    transactions : pd.DataFrame
+        Source DataFrame containing transaction records
+    lookup_table : pd.DataFrame
+        Lookup DataFrame with product_id, product_name, category columns
+    
+    Returns
+    -------
+    pd.DataFrame
+        Enriched DataFrame with product_name and category from lookup
     """
-    return df.head(n)
-
-
-# ============================================================================
-# 10. MAIN PIPELINE EXECUTION
-# ============================================================================
-
-def main():
-    """
-    Main execution pipeline that reproduces the SAS code logic.
-    Loads data, processes it through all steps, and exports results.
-    """
+    # Validate inputs are non-empty DataFrames
+    if transactions.empty:
+        # Return empty DataFrame with expected columns if transactions is empty
+        return pd.DataFrame(columns=list(transactions.columns) + ['product_name', 'category'])
     
-    # -------------------------------------------------------------------------
-    # Step 6: Macro call (preprocess_finance_data)
-    # SAS: %preprocess_finance_data(raw_src.daily_ledger, staging.cleaned_accounts);
-    # -------------------------------------------------------------------------
+    if lookup_table.empty:
+        # If lookup is empty, all product_names become 'UNKNOWN'
+        result = transactions.copy()
+        result['product_name'] = 'UNKNOWN'
+        result['category'] = None
+        return result
     
-    # Load source data (SAS: raw_src.daily_ledger)
-    # In production, replace with actual data loading
-    daily_ledger = pd.read_parquet(f"{RAW_SRC_PATH}/daily_ledger.parquet")
+    # Select only the columns needed for the lookup (simulate hash.defineData)
+    lookup_subset = lookup_table[['product_id', 'product_name', 'category']].copy()
     
-    # Apply preprocessing macro
-    cleaned_accounts = preprocess_finance_data(
-        daily_ledger,
-        f"{STAGING_PATH}/cleaned_accounts.parquet"
-    )
+    # Normalize key column to handle any case differences
+    # SAS variable names are case-insensitive; Python is not
+    transactions['_product_id_norm'] = transactions['product_id']
+    lookup_subset['_product_id_norm'] = lookup_subset['product_id']
     
-    # -------------------------------------------------------------------------
-    # Step 3: PROC SQL - Join and aggregate
-    # -------------------------------------------------------------------------
-    
-    # Load region mapping (SAS: raw_src.region_map)
-    region_map = pd.read_parquet(f"{RAW_SRC_PATH}/region_map.parquet")
-    
-    joined_master = sql_join_and_aggregate(cleaned_accounts, region_map)
-    
-    # Save intermediate (SAS: staging.joined_master)
-    joined_master.to_parquet(f"{STAGING_PATH}/joined_master.parquet", index=False)
-    
-    # -------------------------------------------------------------------------
-    # Step 5: PROC MEANS
-    # -------------------------------------------------------------------------
-    
-    summary_stats = proc_means_summary(joined_master)
-    
-    # Save (SAS: work.summary_stats)
-    summary_stats.to_parquet(f"{STAGING_PATH}/summary_stats.parquet", index=False)
-    
-    # -------------------------------------------------------------------------
-    # Step 8: PROC REG with STEPWISE
-    # -------------------------------------------------------------------------
-    
-    # Need to add region_code to joined_master for PROC REG
-    # (merged data should have region_code from cleaned_accounts)
-    final_model, selected_vars = proc_reg_stepwise(joined_master)
-    
-    # -------------------------------------------------------------------------
-    # Step 4: DATA step with DATALINES
-    # -------------------------------------------------------------------------
-    
-    manual_adjustments = create_manual_adjustments()
-    
-    # -------------------------------------------------------------------------
-    # Step 9: DATA step with MERGE
-    # SAS: MERGE staging.joined_master (IN=a) work.manual_adjustments (IN=b);
-    #      BY Account_ID;
-    #      IF a;  (keep all primary records)
-    #      IF b THEN total_balance = total_balance + Adjustment_Amt;
-    # -------------------------------------------------------------------------
-    
-    # Normalize column names before merge (CRITICAL: SAS is case-insensitive)
-    joined_master_norm = joined_master.copy()
-    joined_master_norm.columns = joined_master_norm.columns.str.lower()
-    
-    manual_adj_norm = manual_adjustments.copy()
-    manual_adj_norm.columns = manual_adj_norm.columns.str.lower()
-    
-    # SAS MERGE with IN= variables
-    # IF a; keeps all records from primary (left) table
-    # IF b; adds adjustment to records in both tables
-    monthly_report = joined_master_norm.merge(
-        manual_adj_norm,
-        on='account_id',  # BY Account_ID (case-normalized)
+    # Perform LEFT merge — equivalent to SAS hash.find() with default behavior
+    # All transaction rows are preserved; lookup columns added where match exists
+    enriched = transactions.merge(
+        lookup_subset,
+        on='_product_id_norm',
         how='left',
-        indicator=True  # Creates '_merge' column (equivalent to IN=)
+        suffixes=('', '_lookup')
     )
     
-    # SAS: IF a; - keep all primary records (already done with how='left')
-    # SAS: IF b THEN total_balance = total_balance + Adjustment_Amt;
-    # Apply adjustment only where record exists in both (equivalent to IF b)
-    monthly_report.loc[
-        monthly_report['_merge'] == 'both',
-        'total_balance'
-    ] = (
-        monthly_report.loc[
-            monthly_report['_merge'] == 'both',
-            'total_balance'
-        ] + monthly_report.loc[
-            monthly_report['_merge'] == 'both',
-            'adjustment_amt'
-        ]
-    )
+    # Clean up the normalized key column
+    enriched.drop(columns=['_product_id_norm'], inplace=True)
     
-    # SAS: MONTH = "%SUBSTR(&process_date, 3, 3)";
-    # Extract characters 3-5 from process_date (0-indexed: 2-5)
-    monthly_report['MONTH'] = process_date[2:5]
+    # Handle product_name: if lookup failed (NaN), set to 'UNKNOWN'
+    # Equivalent to SAS: if rc ^= 0 then product_name = 'UNKNOWN'
+    enriched['product_name'] = enriched['product_name'].fillna('UNKNOWN')
     
-    # SAS: YEAR = "%SUBSTR(&process_date, 6, 4)";
-    # Extract characters 6-9 from process_date (0-indexed: 5-9)
-    monthly_report['YEAR'] = process_date[5:9]
-    
-    # SAS: FORMAT status $grade.;
-    # IMPORTANT: SAS FORMAT is display-only, never overwrites original data
-    monthly_report = apply_grade_format(monthly_report, 'status', 'status_color')
-    
-    # -------------------------------------------------------------------------
-    # Step 10: PROC EXPORT
-    # -------------------------------------------------------------------------
-    
-    output_filename = f"/output/migration_validation_{process_date}.csv"
-    monthly_report.to_csv(output_filename, index=False)
-    
-    # -------------------------------------------------------------------------
-    # Step 11: PROC FREQ and PROC PRINT
-    # -------------------------------------------------------------------------
-    
-    # PROC FREQ
-    freq_results = proc_freq(monthly_report)
-    print("\nPROC FREQ Results (region * status):")
-    print(freq_results)
-    
-    # PROC PRINT (OBS=10)
-    print("\nTop 10 Summary Statistics Preview:")
-    top_10 = proc_print(summary_stats, n=10)
-    print(top_10)
-    
-    # -------------------------------------------------------------------------
-    # Cleanup step (SAS DATA _NULL_)
-    # -------------------------------------------------------------------------
-    
-    cleanup_flag = 1
-    if cleanup_flag == 1:
-        timestamp = datetime.now().strftime("%d%b%Y %H:%M:%S").upper()
-        log_message = f"MIGRATION PARTITIONING TEST COMPLETE: {timestamp}"
-        print(log_message)
+    return enriched
+
+
+# Example usage with file I/O (wrapped in try/except per requirements)
+if __name__ == '__main__':
+    try:
+        # Load source data
+        transactions = pd.read_csv('transactions.csv')
+        lookup_table = pd.read_csv('lookup_table.csv')
         
-        # Write to log file
-        with open(LOG_OUT_PATH, 'a') as f:
-            f.write(f"{log_message}\n")
+        # Execute translation
+        enriched = translate_hash_lookup(transactions, lookup_table)
+        
+        # Display results
+        print("Translation successful. Shape:", enriched.shape)
+        print("\nFirst few rows:")
+        print(enriched.head())
+        
+        # Show lookup hit rate
+        unknown_count = (enriched['product_name'] == 'UNKNOWN').sum()
+        print(f"\nUnmatched product_ids (UNKNOWN): {unknown_count} / {len(enriched)}")
+        
+    except FileNotFoundError as e:
+        print(f"Error: Required file not found - {e}")
+    except pd.errors.EmptyDataError:
+        print("Error: One or more input files are empty")
+    except Exception as e:
+        print(f"Unexpected error during translation: {e}")
+
+
+# Block 8: 8. Multi-level nested macro
+# ======================================================================
+
+"""
+SAS Macro Translation: apply_to_all and summarise
+
+Translation of:
+%macro apply_to_all(action=, datasets=);
+    %let n = %sysfunc(countw(&datasets));
+    %do i = 1 %to &n;
+        %let ds = %scan(&datasets, &i);
+        %&action(dsn=&ds);
+    %end;
+%mend;
+
+%macro summarise(dsn=);
+    proc means data=&dsn; run;
+%mend;
+
+%apply_to_all(action=summarise, datasets=sales returns inventory);
+"""
+
+import pandas as pd
+
+
+def summarise(dsn):
+    """
+    Generate PROC MEANS-style summary statistics for a dataset.
     
-    return {
-        'cleaned_accounts': cleaned_accounts,
-        'joined_master': joined_master,
-        'summary_stats': summary_stats,
-        'monthly_report': monthly_report,
-        'final_model': final_model
-    }
+    PROC MEANS in SAS:
+    - Operates on all numeric variables by default
+    - Excludes missing values per variable (not per row)
+    - Outputs: N, Mean, Std Dev, Minimum, Maximum
+    
+    Args:
+        dsn: Dataset name (string) - will load from '{dsn}.csv'
+    
+    Raises:
+        FileNotFoundError: If dataset CSV does not exist
+        ValueError: If no numeric columns found
+    """
+    # Load dataset from CSV (following pattern: dataset_name = pd.read_csv('dataset_name.csv'))
+    csv_path = f"{dsn}.csv"
+    
+    try:
+        df = pd.read_csv(csv_path)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Dataset '{dsn}' not found. Expected file: {csv_path}")
+    
+    # SAS is case-insensitive; normalize column names to lowercase
+    df.columns = df.columns.str.lower()
+    
+    # Select only numeric columns (PROC MEANS operates on numeric vars by default)
+    numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+    
+    if not numeric_cols:
+        raise ValueError(f"No numeric columns found in dataset '{dsn}'")
+    
+    # Build summary statistics matching PROC MEANS output exactly
+    # SAS excludes NAs per variable - use .dropna() per column during aggregation
+    results = []
+    for var in numeric_cols:
+        var_data = df[var].dropna()  # Exclude NAs per variable (like SAS)
+        
+        summary = {
+            'Variable': var,
+            'N': len(var_data),  # Count excludes NaN
+            'Mean': var_data.mean(),
+            'Std Dev': var_data.std(ddof=1),  # SAS uses sample std (ddof=1)
+            'Minimum': var_data.min(),
+            'Maximum': var_data.max()
+        }
+        results.append(summary)
+    
+    summary_df = pd.DataFrame(results)
+    
+    # Print summary (SAS PROC MEANS prints to output by default)
+    print(f"===== Summary Statistics for {dsn} =====")
+    print(summary_df.to_string(index=False))
+    print()
+    
+    return summary_df
 
 
-# ============================================================================
-# ENTRY POINT
-# ============================================================================
+def apply_to_all(action, datasets):
+    """
+    Apply an action function to each dataset name in a space-separated string.
+    
+    Translation of SAS macro:
+    %macro apply_to_all(action=, datasets=);
+        %let n = %sysfunc(countw(&datasets));
+        %do i = 1 %to &n;
+            %let ds = %scan(&datasets, &i);
+            %&action(dsn=&ds);
+        %end;
+    %mend;
+    
+    Args:
+        action: Function that accepts 'dsn' keyword argument
+        datasets: Space-separated string of dataset names
+    """
+    # Split datasets by whitespace (matching SAS %scan with default delimiter)
+    dataset_list = datasets.split()
+    
+    for ds in dataset_list:
+        # Call the action function with dsn parameter (matching SAS macro call)
+        action(dsn=ds)
 
+
+# Execute the equivalent of:
+# %apply_to_all(action=summarise, datasets=sales returns inventory);
 if __name__ == "__main__":
-    results = main()
+    try:
+        apply_to_all(action=summarise, datasets="sales returns inventory")
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        print("Note: Ensure CSV files exist for each dataset name in the datasets list.")
+
+
+# Block 9: 9. PROC TRANSPOSE
+# ======================================================================
+
+import pandas as pd
+
+# Load input data from CSV
+monthly_sales = pd.read_csv('monthly_sales.csv')
+
+# Normalize column names to lowercase for case-insensitive SAS equivalence
+monthly_sales.columns = monthly_sales.columns.str.lower()
+
+# Use pd.pivot() instead of pd.pivot_table() to avoid aggregation
+# SAS PROC TRANSPOSE does NOT aggregate duplicates; it errors on them
+# pd.pivot() raises ValueError on duplicate entries, which matches SAS behavior
+# If duplicates may exist, they must be deduplicated beforehand
+wide_sales = monthly_sales.pivot(
+    index='product_id',   # BY variable in SAS TRANSPOSE
+    columns='month',      # ID variable - each unique value becomes a column
+    values='revenue'      # VAR variable - values to transpose
+)
+
+# Add prefix to column names (SAS: prefix=month_)
+wide_sales.columns = ['month_' + str(col) for col in wide_sales.columns]
+
+# Reset index to make product_id a regular column (SAS output structure)
+wide_sales = wide_sales.reset_index()
+
+# Store result silently - do not print (SAS out= dataset behavior)
+wide_sales
+
+# Block 10: 10. Complex WHERE + FORMAT + LABEL
+# ======================================================================
+
+import pandas as pd
+import numpy as np
+
+# Translate SAS DATA step: filtering, format/label metadata, and computed column
+# SAS: data report; set survey; where age >= 18 and age <= 65 and status in ('ACTIVE','PENDING') and score ^= .;
+
+# Filter rows based on WHERE clause conditions
+df = survey[
+    (survey['age'] >= 18) &
+    (survey['age'] <= 65) &
+    (survey['status'].isin(['ACTIVE', 'PENDING'])) &
+    (survey['score'].notna())  # score ^= . means score is not missing
+].copy()
+
+# Format specifications (display-only in SAS - do NOT modify underlying values):
+#   format score 8.2       -> numeric format: 2 decimal places
+#   format survey_date date9. -> date format: ddMMMyyyy (e.g., 01JAN2020)
+# Labels are metadata only - they don't affect data values
+#   label score = 'Survey Score (0-100)'
+#   label survey_date = 'Date of Survey'
+
+# Apply labels as pandas metadata (for export/reporting)
+df.attrs['label_score'] = 'Survey Score (0-100)'
+df.attrs['label_survey_date'] = 'Date of Survey'
+
+# Create computed column (same logic as SAS: score_pct = score / 100)
+df['score_pct'] = df['score'] / 100
+
+# If display formatting is needed for output, use separate formatted columns
+# (PROC FORMAT is display-only - NEVER overwrite original columns with .map())
+# Example for output: df['score_fmt'] = df['score'].map(lambda x: f'{x:8.2f}')
+
+# Create output DataFrame with original columns plus computed column
+report = df

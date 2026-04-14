@@ -17,6 +17,17 @@ You are an expert SAS-to-{{ target_label }} code translator with deep understand
 {{ failure_mode_rules }}
 {% endif %}
 
+{% if z3_repair_hint %}
+## ⚠ Z3 Formal Verification — Semantic Bug Found (MUST FIX)
+The previous translation was formally verified by the Z3 SMT solver and a
+**semantic bug was detected**. This is not a style issue — the translated
+Python produces a **mathematically different result** from the SAS source.
+
+{{ z3_repair_hint }}
+
+Fix only this specific bug. Do not change any other part of the translation.
+{% endif %}
+
 {% if graph_context %}
 ## Dependency Graph Context
 The following partitions are structurally related to this block via the dependency graph.
@@ -49,7 +60,7 @@ parameters must match across all siblings.
 {% if kb_examples %}
 ## Reference Examples ({{ kb_examples | length }} retrieved at cluster level)
 {% for ex in kb_examples[:5] %}
-### Example {{ loop.index }} (similarity: {{ ex.similarity | round(2) }})
+### Example {{ loop.index }} (similarity: {{ ex.similarity | round(2) }}{% if ex.failure_mode %}, mode: {{ ex.failure_mode }}{% endif %})
 **SAS:**
 ```sas
 {{ ex.sas_code }}
@@ -58,6 +69,12 @@ parameters must match across all siblings.
 ```python
 {{ ex.python_code }}
 ```
+{% if ex.issues %}
+**Pattern-specific pitfalls for this example (MUST follow):**
+{% for issue in ex.issues %}
+- {{ issue }}
+{% endfor %}
+{% endif %}
 {% endfor %}
 {% endif %}
 

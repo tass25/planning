@@ -54,6 +54,11 @@ Stage/
 │
 ├── backend/                         # Python FastAPI + LangGraph pipeline
 │   ├── api/                         # FastAPI REST API (auth, conversions, admin)
+│   │   ├── core/                    # Auth, DB models, schemas, repositories
+│   │   ├── middleware/              # Error handler, structured logging
+│   │   ├── routes/                  # HTTP handlers (thin — no business logic)
+│   │   └── services/                # Business logic: conversion, pipeline, translation
+│   ├── config/                      # Settings (Pydantic BaseSettings) + constants
 │   ├── partition/                   # 8-stage SAS conversion pipeline
 │   │   ├── entry/                   # L2-A: file scan, cross-file deps, registry
 │   │   ├── streaming/               # L2-B: async streaming + FSM
@@ -66,7 +71,7 @@ Stage/
 │   │   ├── merge/                   # L4: script assembly + reports
 │   │   ├── verification/            # Z3 SMT formal verification
 │   │   └── orchestration/           # LangGraph + Redis + DuckDB audit
-│   ├── config/                      # Project configuration (YAML)
+│   ├── config/                      # Settings (Pydantic BaseSettings + YAML) + constants
 │   ├── requirements/                # Python dependencies
 │   │   ├── base.txt                 # Production deps
 │   │   └── dev.txt                  # Dev/test extras
@@ -182,6 +187,7 @@ All variables live in `.env` at project root. Key ones:
 | `SQLITE_PATH` | No | SQLite DB path (default: `data/codara_api.db`) |
 | `DUCKDB_PATH` | No | DuckDB path (default: `data/analytics.duckdb`) |
 | `LANCEDB_PATH` | No | LanceDB path (default: `data/lancedb`) |
+| `CORS_ORIGINS` | No | Comma-separated allowed origins (default: localhost 8080/5173) |
 
 ## Default Credentials (dev seed)
 
@@ -189,3 +195,7 @@ All variables live in `.env` at project root. Key ones:
 |------|-------|----------|
 | Admin | `admin@codara.dev` | `admin123!` |
 | User | `user@codara.dev` | `user123!` |
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history.

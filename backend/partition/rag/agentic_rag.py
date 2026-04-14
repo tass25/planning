@@ -116,6 +116,7 @@ class AgenticRAG:
         reflection: str = "",
         error_description: str = "",
         translations: dict[str, str] | None = None,
+        z3_repair_hint: str = "",
         **kwargs,
     ) -> dict:
         """Retrieve with adaptive k, level escalation, and query reformulation.
@@ -156,6 +157,7 @@ class AgenticRAG:
                 reflection=reflection,
                 graph_context=[],
                 kb_examples=[],
+                z3_repair_hint=z3_repair_hint,
             )
             return {
                 "prompt": prompt,
@@ -208,6 +210,7 @@ class AgenticRAG:
             reflection=reflection,
             graph_context=graph_context,
             kb_examples=kb_examples,
+            z3_repair_hint=z3_repair_hint,
         )
 
         logger.info(
