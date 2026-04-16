@@ -22,7 +22,7 @@ export interface PipelineStageInfo {
 }
 
 export type ConversionStatus = "queued" | "running" | "completed" | "partial" | "failed";
-export type TargetRuntime = "python" | "pyspark";
+export type TargetRuntime = "python";
 export type TestCoverage = "full" | "structural_only";
 export type RiskLevel = "low" | "medium" | "high";
 

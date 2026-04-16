@@ -27,6 +27,14 @@ from api.middleware.error_handler import register_error_handlers
 
 from api.routes import auth, conversions, knowledge_base, admin, analytics, settings as settings_route, notifications
 
+# ── Telemetry — initialise before anything else so spans cover startup ────────
+from partition.orchestration.telemetry import _init_once as _init_telemetry
+_init_telemetry()
+
+# ── Queue worker — start consumer thread if Azure Queue is configured ─────────
+from api.services.queue_service import queue_service
+queue_service.start_worker()
+
 # ── Database ──────────────────────────────────────────────────────────────────
 
 engine = get_api_engine(settings.sqlite_path)

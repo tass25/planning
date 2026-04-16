@@ -1,7 +1,7 @@
 """Translation service — SAS→Python LLM translation logic.
 
 Extracted from api.routes.conversions to keep route handlers free of LLM client code.
-Fallback chain: Azure OpenAI → Groq (key rotation).
+Fallback chain: Nemotron (Ollama) → Azure OpenAI → Groq (key rotation).
 """
 
 from __future__ import annotations
@@ -88,10 +88,23 @@ These SAS statements have NO Python equivalent. Convert them to a `pass` comment
 ### 8. Macro Variables
 - `%LET var = value;` → `var = 'value'` (or appropriate type)
 - `&var` / `&var.` references → Use the Python variable directly (f-string if in text)
-- `%MACRO name(...); ... %MEND;` → `def name(...):`
+- `%MACRO name(...); ... %MEND;` → `def name(...):` — ONLY if the macro is called more than once.
+  If called once, expand it inline as top-level statements (no `def`).
 - `%IF ... %THEN ... %ELSE ...` → standard Python `if/else`
 - `%DO ... %END` → `for` loop
 - `%INCLUDE 'file.sas';` → `exec(open('file.py').read())` or `import module`
+
+### 12. NO Unnecessary `def` Functions
+- **Script-level SAS code MUST translate to top-level Python statements** — NOT wrapped in `def main()`,
+  `def run()`, `def process()`, or any function. SAS is a script; Python output must also be a script.
+- **For IF/ELIF value-mapping chains** (enum code → label), use a dict + `.map()`:
+    WRONG: `def map_status(v): if v=='1': return 'Active'; ...` then `df['col'].apply(map_status)`
+    RIGHT: `df['status'] = df['STATUS'].map({'1': 'Active', '2': 'Inactive'}).fillna('ERREUR')`
+- **For numeric range binning**, use `np.select()` or `pd.cut()`:
+    WRONG: `def categorize(v): if v <= 1000: return '[>0;1000]'; ...` then `.apply(categorize)`
+    RIGHT: `df['cat'] = np.select([df['v']<=1000, df['v']<=7000], ['[>0;1000]','[>1000;7000]'], default='ERREUR')`
+         — or: `df['cat'] = pd.cut(df['v'], bins=[0,1000,7000,float('inf')], labels=['[>0;1000]','[>1000;7000]','>7000'], right=True)`
+- **`def` is ONLY correct for** a `%MACRO` called 2+ times. Everything else: top-level statements.
 
 ### 9. SAS Functions → Python/pandas
 - `INPUT(var, numfmt.)` → `pd.to_numeric(var)`
@@ -141,13 +154,13 @@ def _strip_markdown_fences(code: str) -> str:
 
 
 def translate_sas_to_python(sas_code: str) -> str:
-    """Translate SAS code to Python via Azure OpenAI (primary) or Groq (fallback).
+    """Translate SAS code to Python via Nemotron (primary) with Azure/Groq fallbacks.
 
     Uses the PromptManager Jinja2 templates when available, falls back to the
     comprehensive rules-based system prompt otherwise.
     Returns translated Python code, or a stub comment if no LLM is configured.
 
-    Fallback chain: Azure OpenAI → Groq (key rotation) → stub.
+    Fallback chain: Nemotron (Ollama) → Azure OpenAI → Groq (key rotation) → stub.
     """
     from config.settings import settings
     from config.constants import AZURE_MAX_COMPLETION_TOKENS, GROQ_MAX_TOKENS, LLM_TRANSLATION_TEMPERATURE
@@ -196,7 +209,10 @@ def translate_sas_to_python(sas_code: str) -> str:
         "- NEVER use placeholders like '# ... (rest of the code remains the same)' or '# TODO'.\n"
         "- NEVER skip, abbreviate, or summarize any part of the code.\n"
         "- If the SAS code has 14 sections, your Python output MUST have all 14 sections fully implemented.\n"
-        "- Translate ALL macros to Python functions with complete logic.\n"
+        "- DO NOT wrap output in `def main()`, `def run()`, or any function — produce a flat script.\n"
+        "- DO NOT use `def` helper functions for IF/ELIF value-mapping; use dict+`.map()` or `np.select()` instead.\n"
+        "- `def` is ONLY acceptable when translating a `%MACRO` that is called more than once.\n"
+        "- Translate ALL macros to Python functions with complete logic (only if called 2+ times; otherwise inline).\n"
         "- Translate ALL PROC SQL to pandas operations or raw SQL equivalents.\n"
         "- Translate ALL DATA steps to pandas DataFrame operations.\n"
         "- The output must be a complete, runnable Python script — no stubs, no omissions."
@@ -209,7 +225,29 @@ def translate_sas_to_python(sas_code: str) -> str:
         f"Convert this SAS code to {target_label}:\n```sas\n{sas_code}\n```"
     )
 
-    # --- Try Azure OpenAI ---
+    # --- Try Nemotron via Ollama (primary) ---
+    if settings.ollama_base_url:
+        try:
+            from openai import OpenAI
+            nem_client = OpenAI(
+                api_key=settings.ollama_api_key or "ollama",
+                base_url=settings.ollama_base_url,
+            )
+            resp = nem_client.chat.completions.create(
+                model="nemotron-3-super:cloud",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=LLM_TRANSLATION_TEMPERATURE,
+                max_tokens=AZURE_MAX_COMPLETION_TOKENS,
+            )
+            code = resp.choices[0].message.content or ""
+            return _strip_markdown_fences(code).strip()
+        except Exception as exc:
+            _log.warning("nemotron_failed type=%s error=%s", type(exc).__name__, exc)
+
+    # --- Try Azure OpenAI (fallback 1) ---
     azure_key = settings.azure_openai_api_key
     azure_endpoint = settings.azure_openai_endpoint
     if azure_key and azure_endpoint:
@@ -234,7 +272,7 @@ def translate_sas_to_python(sas_code: str) -> str:
         except Exception as exc:
             _log.warning("azure_openai_failed type=%s error=%s", type(exc).__name__, exc)
 
-    # --- Try Groq (key rotation: GROQ_API_KEY, GROQ_API_KEY_2, GROQ_API_KEY_3) ---
+    # --- Try Groq (fallback 2, key rotation: GROQ_API_KEY, GROQ_API_KEY_2, GROQ_API_KEY_3) ---
     try:
         from partition.utils.llm_clients import get_all_groq_keys
         groq_keys = get_all_groq_keys()

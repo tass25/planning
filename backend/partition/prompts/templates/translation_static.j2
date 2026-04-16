@@ -57,6 +57,18 @@ Fix only this specific bug. Do not change any other part of the translation.
 6. Preserve the original SAS logic exactly — do not optimise or simplify.
 
 ## SAS-to-Python Pitfalls (MUST follow — violations = incorrect translation)
+- **NEVER wrap IF/ELIF value-mapping chains in `def` helper functions** — this is the #1 anti-pattern.
+  For finite label lookups (codes → descriptions, enum mappings):
+    WRONG: `def map_val(v): if v=='1': return 'A'; elif v=='2': return 'B'` then `.apply(map_val)`
+    RIGHT: `df['col'] = df['CODE'].map({'1': 'A', '2': 'B'}).fillna('ERREUR')`
+  For numeric range binning:
+    WRONG: `def cat(v): if v<=1000: return '[>0;1000]'; ...` then `.apply(cat)`
+    RIGHT: `df['col'] = np.select([df['v']<=1000, df['v']<=7000], ['[>0;1000]','[>1000;7000]'], default='ERREUR')`
+         — or: `pd.cut(df['v'], bins=[0,1000,7000,...], labels=[...], right=True)`
+- **Script-level SAS code → top-level Python statements** — do NOT wrap in `def main()`, `def run()`,
+  or any function wrapper. Each DATA step, PROC, and assignment becomes a direct top-level statement.
+- **`def` is ONLY appropriate for** a SAS `%MACRO` that is called **more than once** in the script.
+  If the macro is invoked only once, inline it as top-level statements — no `def` needed.
 - **NEVER use iterrows() for conditional column assignment** — it is 100x slower than vectorized ops.
   Use `np.select(conditions, choices, default=...)` or `np.where(...)` for IF/THEN/ELSE on columns.
 - **Preserve columns needed downstream** — scan ALL downstream steps before writing any groupby.

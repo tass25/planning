@@ -1,6 +1,6 @@
-# Codara — SAS → Python/PySpark Conversion Accelerator
+# Codara — SAS → Python Conversion Accelerator
 
-Multi-agent SAS-to-Python/PySpark conversion accelerator using LangGraph orchestration, RAPTOR semantic clustering, and a 3-tier LLM fallback chain (Ollama → Azure OpenAI → Groq).
+Multi-agent SAS-to-Python conversion accelerator using LangGraph orchestration, RAPTOR semantic clustering, and a 3-tier LLM fallback chain (Nemotron via Ollama → Azure OpenAI → Groq).
 
 ## Quick Start
 
@@ -144,8 +144,9 @@ file_process → streaming → chunking → raptor → risk_routing → persist_
 | Tier | Provider | When used |
 |------|----------|-----------|
 | 0 | Local GGUF (llama-cpp) | LOW risk, if fine-tuned model available |
-| 1 | Azure OpenAI GPT-4o-mini / GPT-4o | All risk levels (primary) |
-| 2 | Groq LLaMA-3.3-70B (3-key pool) | Fallback + cross-verifier |
+| 1 | **Nemotron** (`nemotron-3-super:cloud` via Ollama) | **Primary** — all risk levels |
+| 2 | Azure OpenAI GPT-4o / GPT-4o-mini | Fallback 1 — when Nemotron unavailable |
+| 3 | Groq LLaMA-3.3-70B (3-key pool) | Fallback 2 + cross-verifier |
 | — | PARTIAL | All providers exhausted |
 
 ## Tech Stack
@@ -172,29 +173,43 @@ python -m pytest tests/ -v --tb=short
 
 ## Environment Variables
 
-All variables live in `.env` at project root. Key ones:
+Copy `.env.example` to `.env` and fill in your values:
+
+```bash
+cp .env.example .env
+```
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `OLLAMA_API_KEY` | Yes | Ollama API key (primary LLM) |
-| `AZURE_OPENAI_API_KEY` | No | Azure OpenAI fallback |
+| `OLLAMA_API_KEY` | Yes | Ollama API key (primary LLM — Nemotron) |
+| `OLLAMA_BASE_URL` | No | Ollama base URL (default: `http://localhost:11434/v1`) |
+| `OLLAMA_MODEL` | No | Ollama model name (default: `nemotron-3-super:cloud`) |
+| `AZURE_OPENAI_API_KEY` | No | Azure OpenAI fallback key |
 | `AZURE_OPENAI_ENDPOINT` | No | Azure OpenAI endpoint URL |
-| `GROQ_API_KEY` | Yes | Groq API key (fallback + verifier) |
+| `AZURE_OPENAI_API_VERSION` | No | API version (default: `2024-10-21`) |
+| `AZURE_OPENAI_DEPLOYMENT_FULL` | No | Full model deployment name (default: `gpt-4o`) |
+| `AZURE_OPENAI_DEPLOYMENT_MINI` | No | Mini model deployment name (default: `gpt-4o-mini`) |
+| `GROQ_API_KEY` | Yes | Groq API key (fallback 2 + cross-verifier) |
 | `GROQ_API_KEY_2` | No | Groq key #2 (rotation on 429) |
 | `GROQ_API_KEY_3` | No | Groq key #3 (rotation on 429) |
 | `CODARA_JWT_SECRET` | Yes | JWT signing secret (256-bit hex) |
+| `CODARA_ADMIN_PASSWORD` | No | Admin seed password (random if unset) |
+| `CODARA_USER_PASSWORD` | No | User seed password (random if unset) |
 | `REDIS_URL` | No | Redis URL (default: `redis://localhost:6379/0`) |
-| `SQLITE_PATH` | No | SQLite DB path (default: `data/codara_api.db`) |
-| `DUCKDB_PATH` | No | DuckDB path (default: `data/analytics.duckdb`) |
-| `LANCEDB_PATH` | No | LanceDB path (default: `data/lancedb`) |
-| `CORS_ORIGINS` | No | Comma-separated allowed origins (default: localhost 8080/5173) |
+| `AZURE_STORAGE_CONNECTION_STRING` | No | Blob Storage (falls back to local disk) |
+| `AZURE_STORAGE_CONTAINER` | No | Blob container name (default: `codara-uploads`) |
+| `AZURE_QUEUE_NAME` | No | Queue name (default: `codara-pipeline-jobs`) |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | No | Azure Monitor telemetry (no-op if unset) |
 
 ## Default Credentials (dev seed)
 
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | `admin@codara.dev` | `admin123!` |
-| User | `user@codara.dev` | `user123!` |
+Passwords are **randomly generated** on first boot and printed to stdout.
+Pin them with env vars before first start:
+
+```bash
+CODARA_ADMIN_PASSWORD=<choose>   # → admin@codara.dev
+CODARA_USER_PASSWORD=<choose>    # → user@codara.dev
+```
 
 ## Changelog
 

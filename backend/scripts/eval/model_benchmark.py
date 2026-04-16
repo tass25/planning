@@ -66,6 +66,7 @@ MODELS = [
     "minimax-m2.7:cloud",
     "qwen3-coder-next",
     "deepseek-v3.2",
+    "nemotron-3-super:cloud",
 ]
 
 SYSTEM_PROMPT = """\
@@ -430,7 +431,12 @@ def write_benchmark_md(
     run_ts: str,
 ) -> None:
     def _short(m: str) -> str:
-        return m.split(":")[0].replace("minimax-m2.7", "minimax").replace("qwen3-coder-next", "qwen3")
+        return (
+            m.split(":")[0]
+            .replace("minimax-m2.7", "minimax")
+            .replace("qwen3-coder-next", "qwen3")
+            .replace("nemotron-3-super", "nemotron")
+        )
 
     def _pct(n, t):  return f"{n*100//t if t else 0}%"
 

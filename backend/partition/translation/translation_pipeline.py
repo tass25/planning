@@ -1,6 +1,14 @@
 """TranslationPipeline — end-to-end L3 pipeline.
 
 translate → validate → retry loop with DuckDB quality logging.
+
+Enhancements over baseline:
+  - Retry budget differentiation: MACRO/SQL get +1 extra retry; semantic
+    errors (exec fails but syntax passes) get +1 extra retry.
+  - Stagnation detection: stops retrying when consecutive corrections
+    produce no change in generated code (avoids wasting API calls).
+  - Error classification + analysis injected into retry context so the
+    translator receives a targeted repair hint.
 """
 
 from __future__ import annotations
@@ -15,15 +23,32 @@ from partition.models.enums import ConversionStatus, RiskLevel, VerificationStat
 from partition.orchestration.audit import _get_duckdb
 from partition.translation.translation_agent import TranslationAgent
 from partition.translation.validation_agent import ValidationAgent, ValidationResult
+from partition.translation.error_classifier import classify_error, SYNTAX
+from partition.translation.error_analyst import analyse_error
 from partition.verification.z3_agent import Z3VerificationAgent
 
 logger = structlog.get_logger()
+
+# ── Retry budget constants ────────────────────────────────────────────────────
+_BASE_RETRIES          = 2    # default max validation retries
+_MACRO_SQL_BONUS       = 1    # extra retry for MACRO_DEFINITION / SQL_BLOCK
+_SEMANTIC_ERROR_BONUS  = 1    # extra retry when syntax passes but exec fails
+_MAX_STAGNANT          = 2    # stop if code unchanged for this many consecutive retries
+
+
+def _retry_budget(partition: PartitionIR) -> int:
+    """Compute the retry budget for a partition based on its type."""
+    budget = _BASE_RETRIES
+    ptype  = partition.partition_type.value
+    if ptype in ("MACRO_DEFINITION", "MACRO_INVOCATION", "SQL_BLOCK"):
+        budget += _MACRO_SQL_BONUS
+    return budget
 
 
 class TranslationPipeline:
     """End-to-end L3 pipeline: translate → validate → retry loop."""
 
-    MAX_VALIDATION_RETRIES = 2
+    MAX_VALIDATION_RETRIES = _BASE_RETRIES
 
     def __init__(
         self,
@@ -70,7 +95,15 @@ class TranslationPipeline:
     async def _translate_partition_inner(
         self, partition: PartitionIR
     ) -> ConversionResult:
-        """Inner translate → validate → retry loop (no timeout guard here)."""
+        """Inner translate → validate → retry loop (no timeout guard here).
+
+        Retry behaviour:
+          - Budget: base 2 + 1 for MACRO/SQL + 1 for semantic (exec) errors.
+          - Stagnation: stops when ``_MAX_STAGNANT`` consecutive retries
+            produce identical code.
+          - Error context: injects ErrorAnalysis into partition metadata so
+            the translator can give targeted guidance on the next attempt.
+        """
         conversion = await self.translator.process(partition)
 
         # Skip validation for already-PARTIAL translations
@@ -79,24 +112,81 @@ class TranslationPipeline:
             return conversion
 
         # Validate
-        test_type = partition.metadata.get("test_coverage_type", "full")
+        test_type  = partition.metadata.get("test_coverage_type", "full")
         validation = await self.validator.validate(conversion, test_type)
 
-        retry_count = 0
-        while (
-            not validation.passed
-            and retry_count < self.MAX_VALIDATION_RETRIES
-        ):
+        max_retries  = _retry_budget(partition)
+        retry_count  = 0
+        stagnant     = 0
+        last_code    = conversion.python_code
+
+        while not validation.passed and retry_count < max_retries:
+            # Classify and analyse the error
+            err_report   = classify_error(
+                validation.error_msg,
+                getattr(validation, "traceback", ""),
+                conversion.python_code,
+            )
+            err_analysis = analyse_error(
+                err_report,
+                sas_code=partition.source_code,
+                python_code=conversion.python_code,
+                partition_type=partition.partition_type.value,
+            )
+
+            # Semantic errors (syntax ok, exec fails) get one extra attempt
+            if (
+                err_report.primary_category != SYNTAX
+                and validation.syntax_ok
+                and not getattr(validation, "exec_ok", True)
+                and retry_count == max_retries - 1
+            ):
+                max_retries += _SEMANTIC_ERROR_BONUS
+
             retry_count += 1
             logger.info(
                 "validation_retry",
                 block_id=str(partition.block_id),
                 attempt=retry_count,
-                error=validation.error_msg,
+                max=max_retries,
+                error_category=err_report.primary_category,
+                error=validation.error_msg[:120],
             )
-            conversion = await self.translator.process(partition)
+
+            # Build repair hint: structured error analysis + EGS execution state
+            hint_parts = [err_analysis.to_prompt_block()]
+            egs_block  = validation.egs_context_block()
+            if egs_block:
+                hint_parts.append(egs_block)
+            partition.metadata["error_analysis_hint"] = "\n\n".join(hint_parts)
+            partition.metadata["error_category"]      = err_report.primary_category
+
+            prev_conversion = conversion
+            try:
+                conversion = await self.translator.process(partition)
+            finally:
+                # Always clean up — even if process() raises mid-way
+                partition.metadata.pop("error_analysis_hint", None)
+                partition.metadata.pop("error_category", None)
+
             if conversion.status == ConversionStatus.PARTIAL:
                 break
+
+            # Stagnation check — stop if code hasn't changed
+            if conversion.python_code == last_code:
+                stagnant += 1
+                if stagnant >= _MAX_STAGNANT:
+                    logger.warning(
+                        "validation_stagnation",
+                        block_id=str(partition.block_id),
+                        stagnant_count=stagnant,
+                    )
+                    conversion = prev_conversion
+                    break
+            else:
+                stagnant  = 0
+                last_code = conversion.python_code
+
             validation = await self.validator.validate(conversion, test_type)
 
         if not validation.passed:

@@ -100,11 +100,14 @@ class Settings(BaseSettings):
 
     # ── Azure infra ───────────────────────────────────────────────────────────
     applicationinsights_connection_string: str = ""
-    azure_storage_account_url: str = ""   # for file uploads → Blob Storage (future)
+    # Blob Storage — set AZURE_STORAGE_CONNECTION_STRING to activate
+    azure_storage_connection_string: str = ""
+    azure_storage_container: str = "codara-uploads"
+    # Queue Storage — set AZURE_QUEUE_NAME to override default
+    azure_queue_name: str = "codara-pipeline-jobs"
 
     # ── Feature flags ─────────────────────────────────────────────────────────
     enable_z3_verification: bool = True
-    use_hyper_raptor: bool = False
     llm_provider: str = "azure"           # legacy: azure | groq
 
     # ── CORS ─────────────────────────────────────────────────────────────────

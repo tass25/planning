@@ -35,7 +35,10 @@ jinja2~=3.1.0
 pytest-asyncio~=0.26.0
 # Observability / Azure Monitor (OpenTelemetry-based)
 azure-monitor-opentelemetry~=1.6.0
-opentelemetry-api~=1.25.0
+opentelemetry-api~=1.36.0
+# Azure Storage (Blob + Queue)
+azure-storage-blob~=12.25.0
+azure-storage-queue~=12.12.0
 # Orchestration / Infrastructure
 langgraph~=0.2.0
 redis~=5.2.0
@@ -51,8 +54,6 @@ python-multipart~=0.0.20
 google-generativeai~=0.8.0          # Gemini 2.0 Flash — free 1M TPM/day
 # Formal verification (Week 15)
 z3-solver~=4.13.0                   # SMT solver for semantic equivalence proofs
-# Hyperbolic geometry / HyperRAPTOR (Week 15)
-geoopt~=0.5.0                       # Riemannian optimization on Poincaré ball
 # Local model inference (Week 15 — lazy import, optional)
 llama-cpp-python>=0.3.0             # run fine-tuned GGUF locally
 # Dataset & dedup (fine-tuning pipeline)

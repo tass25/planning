@@ -18,6 +18,7 @@ from api.core.database import (
     ConversionRow, ConversionStageRow, UserRow, NotificationRow,
     get_api_engine, get_api_session,
 )
+from api.services.blob_service import blob_service
 from api.services.translation_service import translate_sas_to_python
 
 _log = structlog.get_logger("codara.pipeline")
@@ -25,13 +26,32 @@ _log = structlog.get_logger("codara.pipeline")
 UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "uploads"
 
 
-def run_pipeline_sync(conversion_id: str, file_path: Path, db_path: str) -> None:
+def run_pipeline_sync(
+    conversion_id: str,
+    file_id: str,
+    filename: str,
+    db_path: str,
+) -> None:
     """Run L2-A agents + LLM translation synchronously inside a background thread.
+
+    Downloads the SAS file from Blob Storage (or local disk fallback),
+    runs the 8-stage pipeline, then cleans up the temp file if one was created.
 
     Stage flow:
         file_process → sas_partition → strategy_select → translate →
         validate → repair → merge → finalize
     """
+    # Resolve the file path — download from Blob if enabled, else use local disk
+    _temp_path: Path | None = None
+    try:
+        file_path: Path = asyncio.run(blob_service.download_to_temp(file_id, filename))
+        # download_to_temp returns a temp file when Blob is enabled; track it for cleanup
+        if blob_service.enabled:
+            _temp_path = file_path
+    except Exception as exc:
+        _log.error("pipeline_file_resolve_failed", conversion_id=conversion_id,
+                   file_id=file_id, filename=filename, error=str(exc))
+        return
     try:
         engine = get_api_engine(db_path)
         session = get_api_session(engine)
@@ -272,5 +292,12 @@ def run_pipeline_sync(conversion_id: str, file_path: Path, db_path: str) -> None
     if pipeline_engine is not None:
         try:
             pipeline_engine.dispose()
+        except Exception:
+            pass
+
+    # Clean up temp file created by blob download (local uploads are kept)
+    if _temp_path is not None:
+        try:
+            _temp_path.unlink(missing_ok=True)
         except Exception:
             pass

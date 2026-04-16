@@ -34,6 +34,8 @@ from api.core.schemas import (
 )
 from api.services.conversion_service import conv_to_out, STAGES, STAGE_DISPLAY_MAP
 from api.services.pipeline_service import run_pipeline_sync
+from api.services.blob_service import blob_service
+from api.services.queue_service import queue_service
 from config.settings import settings
 from config.constants import SSE_MAX_EVENTS, SSE_POLL_INTERVAL_S
 
@@ -69,15 +71,13 @@ async def upload_files(
                 detail=f"Invalid MIME type '{mime}' for {f.filename}. Expected text/plain or application/octet-stream.",
             )
         file_id = f"file-{uuid.uuid4().hex[:8]}"
-        dest = UPLOAD_DIR / file_id / f.filename
-        dest.parent.mkdir(parents=True, exist_ok=True)
         content = await f.read()
         if len(content) > _MAX_UPLOAD_BYTES:
             raise HTTPException(
                 status_code=413,
                 detail=f"File {f.filename} exceeds maximum upload size of 50 MB.",
             )
-        dest.write_bytes(content)
+        await blob_service.upload(file_id, f.filename, content)
         results.append(SasFileOut(
             id=file_id,
             name=f.filename,
@@ -105,13 +105,13 @@ def start_conversion(
         if not file_id:
             raise HTTPException(status_code=400, detail="No file specified")
 
-        upload_dir = UPLOAD_DIR / file_id
-        if not upload_dir.exists():
-            raise HTTPException(status_code=404, detail=f"Upload {file_id} not found")
-
-        sas_files = list(upload_dir.glob("*.sas"))
-        if not sas_files:
-            raise HTTPException(status_code=404, detail="No .sas file in upload")
+        # Resolve filename from blob or local disk
+        import asyncio as _asyncio
+        filenames = _asyncio.run(blob_service.list_files(file_id))
+        sas_filenames = [n for n in filenames if n.lower().endswith(".sas")]
+        if not sas_filenames:
+            raise HTTPException(status_code=404, detail=f"No .sas file found for upload {file_id}")
+        filename = sas_filenames[0]
 
         conv_id = f"conv-{uuid.uuid4().hex[:8]}"
         now = datetime.now(timezone.utc).isoformat()
@@ -119,7 +119,7 @@ def start_conversion(
         conv = ConversionRow(
             id=conv_id,
             user_id=current_user["sub"],
-            file_name=sas_files[0].name,
+            file_name=filename,
             status="queued",
             runtime="python",
             created_at=now,
@@ -137,7 +137,10 @@ def start_conversion(
         session.refresh(conv)
         result = conv_to_out(conv)
 
-        background_tasks.add_task(run_pipeline_sync, conv_id, sas_files[0], settings.sqlite_path)
+        # Prefer durable Azure Queue; fall back to BackgroundTasks for local dev
+        queued = queue_service.enqueue_job(conv_id, file_id, filename, settings.sqlite_path)
+        if not queued:
+            background_tasks.add_task(run_pipeline_sync, conv_id, file_id, filename, settings.sqlite_path)
 
         return result
     finally:

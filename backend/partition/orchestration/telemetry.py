@@ -38,9 +38,16 @@ def _init_once() -> None:
         return
     _initialised = True
 
-    conn_str = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING", "")
+    # Prefer settings singleton; fall back to raw env var so telemetry.py
+    # stays importable from partition/ without a circular dependency on api/.
+    try:
+        from config.settings import settings as _s
+        conn_str = _s.applicationinsights_connection_string
+    except Exception:
+        conn_str = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING", "")
+
     if not conn_str:
-        logger.info("telemetry_disabled", reason="no connection string")
+        logger.info("telemetry_disabled", reason="no connection string — set APPLICATIONINSIGHTS_CONNECTION_STRING")
         return
 
     try:
@@ -49,8 +56,8 @@ def _init_once() -> None:
 
         configure_azure_monitor(connection_string=conn_str)
 
-        _tracer = trace.get_tracer("sas_converter")
-        _meter = metrics.get_meter("sas_converter")
+        _tracer = trace.get_tracer("codara.pipeline")
+        _meter  = metrics.get_meter("codara.pipeline")
         logger.info("telemetry_enabled", backend="azure_monitor")
     except Exception as exc:
         logger.warning("telemetry_init_failed", error=str(exc))
@@ -93,8 +100,10 @@ def track_metric(
     if _meter is None:
         return
     try:
-        gauge = _meter.create_gauge(name)
-        gauge.set(value, attributes=dimensions or {})
+        # Use a histogram — compatible with all OTel 1.x versions.
+        # For point-in-time metrics, a single-bucket histogram records the value.
+        histogram = _meter.create_histogram(name)
+        histogram.record(value, attributes=dimensions or {})
     except Exception as exc:
         logger.debug("track_metric_failed", metric=name, error=str(exc))
 

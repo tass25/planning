@@ -16,7 +16,7 @@ class RAPTORPartitionAgent(BaseAgent):
     """Agent #7 — RAPTOR semantic clustering.
 
     Orchestrates:
-        NomicEmbedder → GMMClusterer → ClusterSummarizer → RAPTORTreeBuilder
+        NomicEmbedder → GMMClusterer (GMM, τ=0.72) → ClusterSummarizer → RAPTORTreeBuilder
 
     for each file's partition set, producing a hierarchical RAPTOR tree
     stored as ``list[RAPTORNode]``.
@@ -28,7 +28,7 @@ class RAPTORPartitionAgent(BaseAgent):
         super().__init__(trace_id)
 
         self.embedder = NomicEmbedder(device=device)
-        self.clusterer = get_clusterer()   # GMM or HyperRAPTOR based on env flag
+        self.clusterer = get_clusterer()   # GMMClusterer (production)
         self.summarizer = ClusterSummarizer()
         self.tree_builder = RAPTORTreeBuilder(
             embedder=self.embedder,

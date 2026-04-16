@@ -8,7 +8,7 @@ from __future__ import annotations
 
 # ── LLM generation limits ─────────────────────────────────────────────────────
 AZURE_MAX_COMPLETION_TOKENS: int = 16_384
-GROQ_MAX_TOKENS: int = 8_192
+GROQ_MAX_TOKENS: int = 4_096   # Groq free-tier: input+output must stay ~6k tokens total
 LLM_TRANSLATION_TEMPERATURE: float = 0.1
 
 # ── Health-check timeouts (seconds) ──────────────────────────────────────────
