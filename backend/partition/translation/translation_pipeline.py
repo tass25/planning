@@ -25,6 +25,8 @@ from partition.translation.translation_agent import TranslationAgent
 from partition.translation.validation_agent import ValidationAgent, ValidationResult
 from partition.translation.error_classifier import classify_error, SYNTAX
 from partition.translation.error_analyst import analyse_error
+from partition.translation.semantic_validator import SemanticValidator
+from partition.translation.lineage_guard import full_lineage_check, build_internal_table_set
 from partition.verification.z3_agent import Z3VerificationAgent
 
 logger = structlog.get_logger()
@@ -57,11 +59,13 @@ class TranslationPipeline:
         translator: TranslationAgent | None = None,
         validator: ValidationAgent | None = None,
         z3: Z3VerificationAgent | None = None,
+        sem_validator: SemanticValidator | None = None,
     ):
-        self.translator = translator or TranslationAgent(target_runtime=target_runtime)
-        self.validator = validator or ValidationAgent()
-        self.z3 = z3 or Z3VerificationAgent()
-        self.duckdb_path = duckdb_path
+        self.translator    = translator    or TranslationAgent(target_runtime=target_runtime)
+        self.validator     = validator     or ValidationAgent()
+        self.z3            = z3            or Z3VerificationAgent()
+        self.sem_validator = sem_validator or SemanticValidator()
+        self.duckdb_path   = duckdb_path
 
     # Per-partition wall-clock timeout (seconds).  The underlying LLM clients
     # have their own connect timeouts; this outer guard prevents a single
@@ -197,6 +201,56 @@ class TranslationPipeline:
             )
         else:
             conversion.validation_passed = True
+
+            # ── Lineage guard (static, cheap — no LLM call unless violations found)
+            internal_tables = build_internal_table_set(partition.source_code or "")
+            lin_report, mac_report = full_lineage_check(
+                conversion.python_code, internal_tables
+            )
+            lineage_hint_parts: list[str] = []
+            if not lin_report.ok:
+                lineage_hint_parts.append(lin_report.to_prompt_block())
+            if not mac_report.ok:
+                lineage_hint_parts.append(mac_report.to_prompt_block())
+            if lineage_hint_parts:
+                logger.warning(
+                    "lineage_violation",
+                    block_id=str(partition.block_id),
+                    n_violations=len(lin_report.violations) + len(mac_report.violations),
+                )
+                partition.metadata["error_analysis_hint"] = "\n\n".join(lineage_hint_parts)
+                partition.metadata["error_category"]      = "LINEAGE"
+                try:
+                    repaired = await self.translator.process(partition)
+                    if repaired.status != ConversionStatus.PARTIAL:
+                        conversion  = repaired
+                        retry_count += 1
+                finally:
+                    partition.metadata.pop("error_analysis_hint", None)
+                    partition.metadata.pop("error_category",      None)
+
+            # ── Semantic oracle check (oracle-computed expected vs actual output)
+            sem_result = await asyncio.to_thread(
+                self.sem_validator.validate,
+                partition,
+                conversion.python_code,
+            )
+            if not sem_result.passed:
+                logger.warning(
+                    "semantic_oracle_failure",
+                    block_id=str(partition.block_id),
+                    error_type=sem_result.error_type,
+                )
+                partition.metadata["error_analysis_hint"] = sem_result.to_repair_hint()
+                partition.metadata["error_category"]      = sem_result.error_type
+                try:
+                    repaired = await self.translator.process(partition)
+                    if repaired.status != ConversionStatus.PARTIAL:
+                        conversion  = repaired
+                        retry_count += 1
+                finally:
+                    partition.metadata.pop("error_analysis_hint", None)
+                    partition.metadata.pop("error_category",      None)
 
             # Z3 formal verification (only when validation passed, non-blocking)
             z3_result = await asyncio.to_thread(

@@ -191,3 +191,90 @@ def build_internal_table_set(sas_code: str) -> set[str]:
     # WORK library (always internal)
     names.discard("work")
     return names
+
+
+# ── Macro reference check (new) ───────────────────────────────────────────────
+
+@dataclass
+class MacroViolation:
+    macro_name: str    # the &var_name that was not resolved
+    line_no:    int
+    snippet:    str
+
+
+@dataclass
+class MacroReport:
+    ok:         bool
+    violations: list[MacroViolation] = field(default_factory=list)
+
+    def to_prompt_block(self) -> str:
+        if self.ok:
+            return ""
+        lines = ["## Unresolved SAS Macro References in Generated Python\n"]
+        lines.append(
+            "The following `&variable` patterns appear in the generated Python — "
+            "they are SAS macro variables that were never expanded. "
+            "Replace each with its Python equivalent or a literal value:\n"
+        )
+        for v in self.violations:
+            lines.append(f"  - Line {v.line_no}: `{v.snippet.strip()}`  →  `&{v.macro_name}` not resolved")
+        return "\n".join(lines)
+
+
+_MACRO_REF_RE = re.compile(r"&([A-Za-z_]\w*)", re.IGNORECASE)
+
+
+def check_macro_references(python_code: str) -> MacroReport:
+    """Scan generated Python for unresolved SAS macro variable references.
+
+    A SAS macro reference ``&var`` surviving into Python code is always a bug:
+    the macro expander should have substituted it before translation, or the
+    LLM should have replaced it with a Python variable.  Any ``&`` in Python
+    is a bitwise AND — it is never a valid macro sigil.
+
+    Args:
+        python_code: The translated Python script to check.
+
+    Returns:
+        MacroReport with ok=True when no ``&`` macro patterns are found.
+    """
+    if not python_code or not python_code.strip():
+        return MacroReport(ok=True)
+
+    violations: list[MacroViolation] = []
+    for line_no, line in enumerate(python_code.splitlines(), start=1):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        for m in _MACRO_REF_RE.finditer(line):
+            # Exclude legitimate Python bitwise AND: `a & b` (space on both sides)
+            start = m.start()
+            before = line[start - 1] if start > 0 else ""
+            after  = line[m.end()]   if m.end() < len(line) else ""
+            if before.strip() and after.strip():
+                # Looks like `a&b` — might be bitwise, but macro refs don't have a word char before &
+                if before.isalnum() or before in {")", "]", "_"}:
+                    continue   # skip — it's  a & b  bitwise
+            violations.append(MacroViolation(
+                macro_name = m.group(1),
+                line_no    = line_no,
+                snippet    = line,
+            ))
+
+    if violations:
+        return MacroReport(ok=False, violations=violations)
+    return MacroReport(ok=True)
+
+
+def full_lineage_check(
+    python_code: str,
+    internal_table_names: set[str] | None = None,
+) -> tuple[LineageReport, MacroReport]:
+    """Convenience: run both lineage + macro checks in one call.
+
+    Returns:
+        (LineageReport, MacroReport) — check .ok on each.
+    """
+    lineage = check_lineage(python_code, internal_table_names)
+    macros  = check_macro_references(python_code)
+    return lineage, macros
