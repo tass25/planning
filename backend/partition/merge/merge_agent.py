@@ -9,6 +9,7 @@ from __future__ import annotations
 from partition.base_agent import BaseAgent
 from partition.merge.script_merger import merge_script
 from partition.merge.report_agent import ReportAgent
+from partition.merge.namespace_checker import check_namespace
 
 
 class MergeAgent(BaseAgent):
@@ -47,6 +48,24 @@ class MergeAgent(BaseAgent):
             cross_file_sources=cross_file_sources,
         )
 
+        # ── Namespace safety check on final merged Python ─────────────────────
+        merged_code = merged.get("python_code", "") or ""
+        ns_result   = check_namespace(merged_code)
+        if ns_result.has_errors or ns_result.has_warnings:
+            self.logger.warning(
+                "namespace_violations",
+                source=source_path,
+                errors=len(ns_result.errors),
+                warnings=len(ns_result.warnings),
+            )
+            merged["namespace_check"] = {
+                "errors":   [str(e) for e in ns_result.errors],
+                "warnings": [str(w) for w in ns_result.warnings],
+                "report":   ns_result.to_report_block(),
+            }
+        else:
+            merged["namespace_check"] = {"errors": [], "warnings": [], "report": ""}
+
         report = self._reporter.generate_report(
             source_file_id=source_file_id,
             source_path=source_path,
@@ -60,6 +79,8 @@ class MergeAgent(BaseAgent):
             source=source_path,
             status=merged.get("status"),
             blocks=merged.get("block_count"),
+            ns_errors=len(ns_result.errors),
+            ns_warnings=len(ns_result.warnings),
         )
 
         return {
