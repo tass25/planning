@@ -3,8 +3,24 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "planning/**"
+      - "**.md"
+      - "**.html"
+      - "**.tex"
+      - "**.txt"
+      - ".gitignore"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "planning/**"
+      - "**.md"
+      - "**.html"
+      - "**.tex"
+      - "**.txt"
+      - ".gitignore"
 
 permissions:
   contents: read
