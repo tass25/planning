@@ -9,6 +9,10 @@ venv/
 .venv/
 env/
 
+# Secrets
+.env
+.env.local
+
 # IDE
 .vscode/
 .idea/
@@ -21,11 +25,14 @@ build/
 *.egg-info/
 *.egg
 
-# SQLite databases
+# Databases & runtime
 *.db
+*.duckdb
+lancedb_data/
 
 # Logs
-logs/*.log
+logs/
+*.log
 
 # OS
 .DS_Store
@@ -38,3 +45,9 @@ htmlcov/
 
 # mypy
 .mypy_cache/
+
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.vite/
