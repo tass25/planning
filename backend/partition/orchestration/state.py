@@ -75,6 +75,7 @@ class PipelineState(TypedDict):
     # ---- L3 outputs ----
     conversion_results: list         # ConversionResult objects
     validation_passed: int           # Number of conversions passing validation
+    namespace_violations: list[str]  # Column/schema violations detected by MIS
 
     # ---- L4 outputs ----
     merge_results: list              # Per-file merge outputs from MergeAgent

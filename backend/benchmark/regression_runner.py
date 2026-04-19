@@ -197,10 +197,10 @@ def run_regression(
     # Lazy imports to avoid circular dependencies at module level
     from partition.translation.dummy_data_generator import DummyDataGenerator
     from partition.translation.semantic_validator   import SemanticValidator, _exec_with_inputs
-    from partition.translation.deterministic_translator import DeterministicTranslator
+    from partition.translation.deterministic_translator import try_deterministic
 
     validator   = SemanticValidator()
-    det_xlator  = DeterministicTranslator()
+    det_xlator  = None  # use try_deterministic() function directly
     report      = RegressionReport()
     t0_total    = time.perf_counter()
 
@@ -211,7 +211,10 @@ def run_regression(
         return report
 
     for sas_path, gold in pairs:
-        sas_code  = sas_path.read_text(encoding="utf-8")
+        try:
+            sas_code = sas_path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            sas_code = sas_path.read_text(encoding="utf-8", errors="replace")
         blocks    = _partition_sas_blocks(sas_code)
         case_base = sas_path.stem
 
@@ -232,8 +235,8 @@ def run_regression(
 
                 if python_code is None:
                     # Deterministic translation (no LLM)
-                    det_result = det_xlator.translate(block)
-                    python_code = det_result if det_result else None
+                    det_result = try_deterministic(block)
+                    python_code = det_result.code if det_result else None
 
                 if python_code is None:
                     # No translation available → skip
@@ -278,10 +281,6 @@ def run_regression(
                     )
                     report.failed += 1
 
-                if verbose:
-                    icon = "✓" if result.passed else "✗"
-                    print(f"  {icon} {case_id:<40} {ptype:<20} {dur_ms:.0f}ms")
-
             except Exception as exc:
                 dur_ms = (time.perf_counter() - t0_case) * 1000
                 cr = CaseResult(
@@ -297,6 +296,9 @@ def run_regression(
 
             report.cases.append(cr)
             report.total += 1
+            if verbose:
+                icon = "PASS" if cr.status == "pass" else ("SKIP" if cr.status == "skip" else "FAIL")
+                print(f"  [{icon}] {case_id:<42} {ptype:<22} {cr.duration_ms:.0f}ms")
 
     report.duration_s = time.perf_counter() - t0_total
     return report

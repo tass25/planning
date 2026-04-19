@@ -19,6 +19,8 @@ Features:
 
 from __future__ import annotations
 
+import asyncio
+import re
 import uuid
 from pathlib import Path
 from uuid import UUID
@@ -36,6 +38,16 @@ logger = structlog.get_logger()
 
 # Bump this whenever the pipeline graph topology or node semantics change.
 PIPELINE_VERSION = "3.1.0"
+
+
+def _parse_output_tables(sas_code: str) -> list[str]:
+    """Extract output DATA dataset names from SAS source for ExecutionStateTracker."""
+    names: list[str] = []
+    for m in re.finditer(r'\bdata\s+([\w.]+)', sas_code, re.IGNORECASE):
+        name = m.group(1).split(".")[-1].lower()
+        if name not in ("_null_",) and name not in names:
+            names.append(name)
+    return names
 
 
 # Pattern: Factory
@@ -465,9 +477,17 @@ class PartitionOrchestrator:
         }
 
     async def _node_translation(self, state: PipelineState) -> dict:
-        """Consolidated L3: Translate + validate via TranslationPipeline."""
+        """Consolidated L3: Translate + validate via TranslationPipeline.
+
+        Integrations:
+          - ExecutionStateTracker: propagates real table schema between partitions so
+            downstream chunks receive actual column names rather than placeholders.
+          - MIS invariants: loaded once on first use (in a background thread) and
+            applied to every translation for invariant-violation detection.
+        """
         import time as _t
         from partition.translation.translation_pipeline import TranslationPipeline
+        from partition.orchestration.execution_state import ExecutionStateTracker
         _t0 = _t.perf_counter()
 
         pipeline = self._get_agent(
@@ -476,21 +496,58 @@ class PartitionOrchestrator:
                 target_runtime=state.get("target_runtime", "python"),
             ),
         )
+
+        # Load MIS invariants once per pipeline instance (background thread, non-blocking on fail)
+        if getattr(pipeline, "invariant_set", None) is None:
+            try:
+                await asyncio.to_thread(pipeline.load_invariants)
+            except Exception as exc:
+                logger.warning("mis_invariants_load_failed", error=str(exc))
+
+        # Execution state tracker: feeds real column names to downstream partitions
+        tracker = ExecutionStateTracker()
+
         partitions = state.get("partitions", [])
         warnings = list(state.get("warnings", []))
         conversion_results = []
         passed = 0
+        all_namespace_violations: list[str] = []
 
         for p in partitions:
             try:
+                # Inject upstream table context into partition metadata
+                upstream_ctx = tracker.get_context_for_partition(p)
+                if upstream_ctx:
+                    p.metadata["upstream_state"] = upstream_ctx
+
                 result = await pipeline.translate_partition(p)
+                p.metadata.pop("upstream_state", None)
+
                 if result is None:
                     warnings.append(f"Translation returned None for {p.block_id}")
                     continue
                 conversion_results.append(result)
+
                 if getattr(result, "validation_passed", False):
                     passed += 1
+                    # Register output tables for downstream context injection
+                    output_tables = (
+                        p.metadata.get("output_tables", [])
+                        or _parse_output_tables(p.source_code or "")
+                    )
+                    for tname in output_tables:
+                        tracker.infer(tname, cols=[], produced_by=p.block_id)
+                    tracker.record_step(
+                        p.block_id,
+                        input_tables=p.metadata.get("input_tables", []),
+                        output_tables=output_tables,
+                    )
+
+                ns_violations = getattr(result, "namespace_violations", [])
+                all_namespace_violations.extend(ns_violations)
+
             except Exception as exc:
+                p.metadata.pop("upstream_state", None)
                 warnings.append(f"Translation failed for {p.block_id}: {exc}")
                 logger.warning("translation_error", block_id=str(p.block_id), error=str(exc))
 
@@ -499,12 +556,14 @@ class PartitionOrchestrator:
             total=len(partitions),
             translated=len(conversion_results),
             validated=passed,
+            tracker_tables=len(tracker.materialized_names()),
         )
         track_event("stage_complete", {"stage": "translation", "translated": str(len(conversion_results)), "validated": str(passed)})
         track_metric("stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "translation"})
         return {
             "conversion_results": conversion_results,
             "validation_passed": passed,
+            "namespace_violations": all_namespace_violations,
             "stage": PipelineStage.TRANSLATION.value,
             "warnings": warnings,
         }

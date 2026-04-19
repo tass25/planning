@@ -430,7 +430,7 @@ class InvariantSet:
         ]
         for r in sorted(self.confirmed + self.rejected,
                         key=lambda x: (-x.oracle_pass_rate, x.invariant_name)):
-            status = "✓ Confirmed" if r.confirmed else "✗ Rejected"
+            status = "[+] Confirmed" if r.confirmed else "[-] Rejected"
             lines.append(
                 f"| {r.invariant_name} | {r.category} "
                 f"| {r.applicable_pairs} "
@@ -521,7 +521,10 @@ class MigrationInvariantSynthesizer:
             if not json_file.exists():
                 continue
             try:
-                sas_code = sas_file.read_text(encoding="utf-8")
+                try:
+                    sas_code = sas_file.read_text(encoding="utf-8")
+                except UnicodeDecodeError:
+                    sas_code = sas_file.read_text(encoding="utf-8", errors="replace")
                 gold     = json.loads(json_file.read_text(encoding="utf-8"))
                 py_code  = gold.get("python_code") or gold.get("expected_python")
                 if py_code:

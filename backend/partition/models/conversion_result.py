@@ -36,6 +36,14 @@ class ConversionResult(BaseModel):
     z3_status: VerificationStatus = VerificationStatus.SKIPPED
     z3_pattern: str = ""          # which Z3 pattern matched (e.g. "linear_arithmetic")
     z3_latency_ms: float = 0.0
+    # CDAIS coverage fields (populated by CDAISRunner)
+    cdais_all_passed: bool = True
+    cdais_certificates: list[str] = Field(default_factory=list)
+    cdais_failures_count: int = 0
+    # MIS invariant fields (populated by InvariantSet.check_translation)
+    mis_violations: list[str] = Field(default_factory=list)
+    # Namespace violations: column/dtype-related MIS violations surfaced to the UI
+    namespace_violations: list[str] = Field(default_factory=list)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )

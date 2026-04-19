@@ -184,6 +184,8 @@ class CDAISRunner:
             file_id=uuid.UUID(int=0),
             partition_type=PartitionType.DATA_STEP,
             source_code=sas_code,
+            line_start=0,
+            line_end=0,
             risk_level=RiskLevel.LOW,
         )
         return self.run(p, python_code)

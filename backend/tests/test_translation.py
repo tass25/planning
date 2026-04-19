@@ -115,7 +115,7 @@ class TestValidationAgent:
         from partition.translation.validation_agent import ValidationAgent
 
         agent = ValidationAgent()
-        ok, err, output = agent._execute_with_timeout(
+        ok, err, output, _states, _stdout = agent._execute_with_timeout(
             "result = df['amount'].sum()"
         )
         assert ok is True
@@ -125,7 +125,7 @@ class TestValidationAgent:
         from partition.translation.validation_agent import ValidationAgent
 
         agent = ValidationAgent()
-        ok, err, output = agent._execute_with_timeout(
+        ok, err, output, _states, _stdout = agent._execute_with_timeout(
             "x = 0\nwhile True:\n    x += 1", timeout=1
         )
         assert ok is False
@@ -135,7 +135,7 @@ class TestValidationAgent:
         from partition.translation.validation_agent import ValidationAgent
 
         agent = ValidationAgent()
-        ok, err, output = agent._execute_with_timeout(
+        ok, err, output, _states, _stdout = agent._execute_with_timeout(
             "result = 1 / 0"
         )
         assert ok is False
@@ -146,7 +146,7 @@ class TestValidationAgent:
         from partition.translation.validation_agent import ValidationAgent
 
         agent = ValidationAgent()
-        ok, err, output = agent._execute_with_timeout(
+        ok, err, output, _states, _stdout = agent._execute_with_timeout(
             "total = df['amount'].sum()\ncount = len(df)"
         )
         assert ok is True

@@ -31,6 +31,9 @@ from partition.verification.z3_agent import Z3VerificationAgent
 
 logger = structlog.get_logger()
 
+# Lazy type hints to avoid circular imports at module level
+# CDAISRunner and InvariantSet are imported inside __init__ / methods
+
 # ── Retry budget constants ────────────────────────────────────────────────────
 _BASE_RETRIES          = 2    # default max validation retries
 _MACRO_SQL_BONUS       = 1    # extra retry for MACRO_DEFINITION / SQL_BLOCK
@@ -60,12 +63,28 @@ class TranslationPipeline:
         validator: ValidationAgent | None = None,
         z3: Z3VerificationAgent | None = None,
         sem_validator: SemanticValidator | None = None,
+        cdais: object | None = None,
+        invariant_set: object | None = None,
     ):
+        from partition.testing.cdais.cdais_runner import CDAISRunner
         self.translator    = translator    or TranslationAgent(target_runtime=target_runtime)
         self.validator     = validator     or ValidationAgent()
         self.z3            = z3            or Z3VerificationAgent()
         self.sem_validator = sem_validator or SemanticValidator()
+        self.cdais         = cdais         or CDAISRunner()
+        self.invariant_set = invariant_set  # None = MIS disabled; call load_invariants() to enable
         self.duckdb_path   = duckdb_path
+
+    def load_invariants(self, gold_dir: str | None = None) -> None:
+        """Synthesize MIS invariants from the gold corpus (blocking — call in a thread)."""
+        from partition.invariant.invariant_synthesizer import MigrationInvariantSynthesizer
+        synth = MigrationInvariantSynthesizer(gold_standard_dir=gold_dir)
+        self.invariant_set = synth.synthesize()
+        logger.info(
+            "mis_invariants_loaded",
+            confirmed=len(self.invariant_set.confirmed),
+            rejected=len(self.invariant_set.rejected),
+        )
 
     # Per-partition wall-clock timeout (seconds).  The underlying LLM clients
     # have their own connect timeouts; this outer guard prevents a single
@@ -317,6 +336,74 @@ class TranslationPipeline:
                     )
                 # Clean up hint from metadata to avoid leaking into future blocks
                 partition.metadata.pop("z3_repair_hint", None)
+
+            # ── CDAIS coverage check (post-Z3, issues formal certificates) ──
+            cdais_report = await asyncio.to_thread(
+                self.cdais.run, partition, conversion.python_code
+            )
+            conversion.cdais_all_passed    = cdais_report.all_passed
+            conversion.cdais_certificates  = cdais_report.certificates
+            conversion.cdais_failures_count = len(cdais_report.failures)
+            if cdais_report.n_classes_checked > 0:
+                logger.info(
+                    "cdais_complete",
+                    block_id=str(partition.block_id),
+                    summary=cdais_report.summary(),
+                )
+            if not cdais_report.all_passed:
+                logger.warning(
+                    "cdais_failures",
+                    block_id=str(partition.block_id),
+                    n_failures=len(cdais_report.failures),
+                )
+                partition.metadata["error_analysis_hint"] = cdais_report.to_prompt_block()
+                partition.metadata["error_category"]      = "CDAIS"
+                try:
+                    repaired = await self.translator.process(partition)
+                    if repaired.status != ConversionStatus.PARTIAL:
+                        conversion  = repaired
+                        retry_count += 1
+                        conversion.cdais_all_passed = True
+                finally:
+                    partition.metadata.pop("error_analysis_hint", None)
+                    partition.metadata.pop("error_category",      None)
+            else:
+                partition.metadata["cdais_certificates"] = cdais_report.certificates
+
+            # ── MIS invariant check (catches errors outside the 6 CDAIS classes) ──
+            if self.invariant_set is not None:
+                inv_violations = await asyncio.to_thread(
+                    self.invariant_set.check_translation,
+                    partition.source_code or "",
+                    conversion.python_code,
+                )
+                conversion.mis_violations = inv_violations
+                # Namespace violations = column-schema invariants surfaced to UI
+                conversion.namespace_violations = [
+                    v for v in inv_violations
+                    if any(kw in v for kw in ("COLUMN", "DTYPE", "NAMESPACE", "SUPERSET"))
+                ]
+                if inv_violations:
+                    logger.warning(
+                        "mis_invariant_violations",
+                        block_id=str(partition.block_id),
+                        violations=inv_violations,
+                    )
+                    inv_hint = (
+                        "## MIS Invariant Violations\n\n"
+                        + "\n".join(f"- `{v}`" for v in inv_violations)
+                        + "\n\nFix the translation to satisfy all confirmed migration invariants."
+                    )
+                    partition.metadata["error_analysis_hint"] = inv_hint
+                    partition.metadata["error_category"]      = "MIS_INVARIANT"
+                    try:
+                        repaired = await self.translator.process(partition)
+                        if repaired.status != ConversionStatus.PARTIAL:
+                            conversion  = repaired
+                            retry_count += 1
+                    finally:
+                        partition.metadata.pop("error_analysis_hint", None)
+                        partition.metadata.pop("error_category",      None)
 
         conversion.retry_count = retry_count
         self._log_quality(conversion)
