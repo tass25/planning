@@ -1,0 +1,40 @@
+[
+  {
+    "example_id": "e21546e9-648c-4218-8992-eb9eedbc7c53",
+    "sas_code": "\n   /* create sample dataset */\n   data orders;\n     input order_id order_date : date9. order_total;\n     format order_date date9.;\n     datalines;\n1 01jan2022 100\n2 02jan2022 200\n3 03jan2022 300\n4 04jan2022 400\n5 05jan2022 500\n;\n   run;\n\n   /* use RETAIN to calculate running total and lag pattern */\n   data orders_with_running_total;\n     retain cumulative_total 0;\n     set orders;\n     /* calculate running total */\n     cumulative_total + order_total;\n     lag_order_total = lag(order_total);\n     /* keep original variables and add new ones */\n     output;\n   run;\n\n   /* print the resulting dataset */\n   proc print data=orders_with_running_total;\n     var order_id order_date order_total cumulative_total lag_order_total;\n   run;\n",
+    "python_code": "import pandas as pd\n\ndata = {'order_id': [1, 2, 3, 4, 5], 'order_date': ['01jan2022', '02jan2022', '03jan2022', '04jan2022', '05jan2022'], 'order_total': [100, 200, 300, 400, 500]}\norders = pd.DataFrame(data)\n# Convert order_date to datetime\norders['order_date'] = pd.to_datetime(orders['order_date'], format='%d%b%Y')\n# Calculate running total\norders['cumulative_total'] = orders['order_total'].cumsum()\n# Calculate lag of order_total\norders['lag_order_total'] = orders['order_total'].shift(1)\nprint(orders)",
+    "partition_type": "DATA_STEP_RETAIN",
+    "complexity_tier": "MODERATE",
+    "target_runtime": "python",
+    "verified": true,
+    "source": "benchmark_18c46c4c",
+    "failure_mode": "RETAIN",
+    "verification_method": "llm_crosscheck",
+    "verification_score": 1.0,
+    "category": "DATA_STEP_RETAIN",
+    "provider": "groq_gen",
+    "gen_model": "llama-3.3-70b-versatile",
+    "verify_model": "llama-3.3-70b-versatile",
+    "latency_s": 1.39,
+    "created_at": "2026-03-31T13:44:19.089653+00:00"
+  },
+  {
+    "example_id": "4ecaaa8d-42d3-4430-87dd-fbb0ab82323d",
+    "sas_code": "\n   /* define master dataset */\n   data orders;\n     input order_id order_date;\n     datalines;\n     1 20220101\n     2 20220115\n     3 20220201\n     ;\n   run;\n\n   /* define transactional dataset */\n   data order_items;\n     input order_id item_id item_name;\n     datalines;\n     1 101 itemA\n     1 102 itemB\n     2 201 itemC\n     2 202 itemD\n     3 301 itemE\n     ;\n   run;\n\n   /* merge and update using MERGE_BY and MERGE_SEMANTICS */\n   data updated_orders;\n     merge orders\n           order_items(rename = (order_id = order_id_match));\n     by order_id;\n     if order_id = order_id_match then do;\n       put 'Updating order # ' order_id;\n       /* perform update logic here */\n       update_order = 1;\n     end;\n     else do;\n       put 'No match found for order # ' order_id;\n       update_order = 0;\n     end;\n     drop order_id_match;\n   run;\n\n   /* print updated orders */\n   proc print data = updated_orders;\n     var order_id order_date update_order;\n   run;\n   ",
+    "python_code": "\nimport pandas as pd\nimport numpy as np\n\n# define master dataset\norders = pd.DataFrame({\n    'order_id': [1, 2, 3],\n    'order_date': [20220101, 20220115, 20220201]\n})\n\n# define transactional dataset\norder_items = pd.DataFrame({\n    'order_id': [1, 1, 2, 2, 3],\n    'item_id': [101, 102, 201, 202, 301],\n    'item_name': ['itemA', 'itemB', 'itemC', 'itemD', 'itemE']\n})\n\n# perform outer join (zipper join equivalent)\nmerged = pd.merge(orders, order_items, on='order_id', how='outer', suffixes=('', '_match'))\n\n# forward-fill to propagate order_id\nmerged['order_id'] = merged['order_id'].fillna(method='ffill')\n\n# perform update logic\nmerged['update_order'] = np.where(merged['order_id'] == merged['order_id_match'], 1, 0)\n\n# clean-up\nmerged = merged.drop(['order_id_match'], axis=1)\n\n# print updated orders\nprint(merged[['order_id', 'order_date', 'update_order']])\n",
+    "partition_type": "DATA_STEP_MERGE",
+    "complexity_tier": "MODERATE",
+    "target_runtime": "python",
+    "verified": true,
+    "source": "benchmark_18c46c4c",
+    "failure_mode": "MERGE_SEMANTICS",
+    "verification_method": "llm_crosscheck",
+    "verification_score": 1.0,
+    "category": "DATA_STEP_MERGE",
+    "provider": "groq_gen",
+    "gen_model": "llama-3.3-70b-versatile",
+    "verify_model": "llama-3.3-70b-versatile",
+    "latency_s": 1.73,
+    "created_at": "2026-03-31T13:44:19.089653+00:00"
+  }
+]

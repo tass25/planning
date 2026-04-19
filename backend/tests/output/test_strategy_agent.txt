@@ -1,0 +1,18 @@
+Test file: test_strategy_agent.py
+Run at: 2026-04-19T10:14:20.013237+00:00
+Total: 13 | Pass: 13 | Fail: 0 | Skip: 0
+============================================================
+
+[PASS] TestStrategyRouting::test_high_risk_gets_structural_grouping
+[PASS] TestStrategyRouting::test_uncertain_gets_human_review
+[PASS] TestStrategyRouting::test_low_data_step_gets_flat_partition
+[PASS] TestStrategyRouting::test_low_global_gets_flat_partition
+[PASS] TestStrategyRouting::test_moderate_macro_definition_gets_macro_aware
+[PASS] TestStrategyRouting::test_low_macro_invocation_gets_macro_aware
+[PASS] TestStrategyRouting::test_sql_block_gets_dependency_preserving
+[PASS] TestStrategyRouting::test_moderate_proc_gets_dependency_preserving
+[PASS] TestStrategyRouting::test_conditional_block_gets_macro_aware
+[PASS] TestStrategyRouting::test_loop_block_gets_macro_aware
+[PASS] TestStrategyBatch::test_all_blocks_get_strategy
+[PASS] TestStrategyBatch::test_process_empty_list
+[PASS] TestStrategyBatch::test_original_blocks_not_mutated_in_place

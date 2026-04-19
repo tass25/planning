@@ -1,0 +1,40 @@
+Test: Agentic RAG
+Run at: 2026-03-31T19:18:16.361938
+SAS file: gs_05_etl_pipeline.sas
+Risk: HIGH  |  Expected: paradigm=agentic, k=8, level escalates each attempt
+
+2026-03-31 19:18:16 [info     ] kb_retrieved                   failure_mode=RETAIN k=8 partition_type=DATA_STEP_RETAIN returned=0
+2026-03-31 19:18:16 [info     ] agentic_rag_context            attempt=0 graph_escalated=False k=8 partition_type=DATA_STEP_RETAIN returned=0 risk_level=HIGH
+Attempt 0:
+  paradigm:     agentic
+  retrieval_k:  8
+  raptor_level: leaf  (expected: leaf)
+  kb_examples:  0
+  prompt_len:   1721 chars
+  time:         0.324s
+
+2026-03-31 19:18:16 [info     ] kb_retrieved                   failure_mode=None k=11 partition_type=DATA_STEP_RETAIN returned=0
+2026-03-31 19:18:16 [info     ] agentic_rag_context            attempt=1 graph_escalated=False k=11 partition_type=DATA_STEP_RETAIN returned=0 risk_level=HIGH
+Attempt 1:
+  paradigm:     agentic
+  retrieval_k:  11
+  raptor_level: cluster  (expected: cluster)
+  kb_examples:  0
+  prompt_len:   1725 chars
+  time:         0.011s
+
+2026-03-31 19:18:16 [info     ] kb_retrieved                   failure_mode=None k=14 partition_type=DATA_STEP_RETAIN returned=0
+2026-03-31 19:18:16 [info     ] agentic_rag_context            attempt=2 graph_escalated=False k=14 partition_type=DATA_STEP_RETAIN returned=0 risk_level=HIGH
+Attempt 2:
+  paradigm:     agentic
+  retrieval_k:  14
+  raptor_level: root  (expected: root)
+  kb_examples:  0
+  prompt_len:   1722 chars
+  time:         0.010s
+
+2026-03-31 19:18:16 [info     ] agentic_rag_skip               reason='UNCERTAIN risk'
+UNCERTAIN risk:
+  kb_examples: 0  (expected: 0, retrieval skipped)
+
+Result: PASS

@@ -1,0 +1,41 @@
+Test file: test_cdais.py
+Run at: 2026-04-19T10:14:20.013237+00:00
+Total: 36 | Pass: 36 | Fail: 0 | Skip: 0
+============================================================
+
+[PASS] TestApplicableClasses::test_retain_reset_detected
+[PASS] TestApplicableClasses::test_lag_queue_detected
+[PASS] TestApplicableClasses::test_sort_stable_detected
+[PASS] TestApplicableClasses::test_null_arithmetic_detected
+[PASS] TestApplicableClasses::test_join_type_detected
+[PASS] TestApplicableClasses::test_group_boundary_detected
+[PASS] TestApplicableClasses::test_no_classes_for_empty_sas
+[PASS] TestApplicableClasses::test_no_false_positives_for_simple_data_step
+[PASS] TestCDASISynthesizer::test_synthesis_produces_sat_witness[RETAIN_RESET]
+[PASS] TestCDASISynthesizer::test_synthesis_produces_sat_witness[LAG_QUEUE]
+[PASS] TestCDASISynthesizer::test_synthesis_produces_sat_witness[SORT_STABLE]
+[PASS] TestCDASISynthesizer::test_synthesis_produces_sat_witness[NULL_ARITHMETIC]
+[PASS] TestCDASISynthesizer::test_synthesis_produces_sat_witness[JOIN_TYPE]
+[PASS] TestCDASISynthesizer::test_synthesis_produces_sat_witness[GROUP_BOUNDARY]
+[PASS] TestCDASISynthesizer::test_witness_has_minimum_rows[RETAIN_RESET]
+[PASS] TestCDASISynthesizer::test_witness_has_minimum_rows[LAG_QUEUE]
+[PASS] TestCDASISynthesizer::test_witness_has_minimum_rows[SORT_STABLE]
+[PASS] TestCDASISynthesizer::test_witness_has_minimum_rows[NULL_ARITHMETIC]
+[PASS] TestCDASISynthesizer::test_witness_has_minimum_rows[JOIN_TYPE]
+[PASS] TestCDASISynthesizer::test_witness_has_minimum_rows[GROUP_BOUNDARY]
+[PASS] TestCDAISRunnerOnCode::test_retain_reset_bad_translation_flagged
+[PASS] TestCDAISRunnerOnCode::test_lag_queue_bad_translation_flagged
+[PASS] TestCDAISRunnerOnCode::test_sort_stable_bad_translation_flagged
+[PASS] TestCDAISRunnerOnCode::test_join_type_bad_translation_flagged
+[PASS] TestCDAISRunnerOnCode::test_group_boundary_bad_translation_flagged
+[PASS] TestCDAISRunnerOnCode::test_empty_sas_all_skipped
+[PASS] TestCDAISRunnerOnCode::test_report_has_partition_id
+[PASS] TestCDAISRunnerOnCode::test_report_has_latency
+[PASS] TestCDAISReport::test_to_prompt_block_all_passed
+[PASS] TestCDAISReport::test_to_prompt_block_with_failures
+[PASS] TestCDAISReport::test_summary_format
+[PASS] TestCDAISReport::test_summary_all_passed
+[PASS] TestCDAISRunnerWithPartitionIR::test_run_with_partition_ir
+[PASS] TestCDAISRunnerWithPartitionIR::test_run_returns_report_even_on_empty_code
+[PASS] TestSkippedClasses::test_non_applicable_classes_are_skipped
+[PASS] TestSkippedClasses::test_skipped_classes_are_strings

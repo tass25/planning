@@ -1,0 +1,26 @@
+Test file: test_merge_retraining.py
+Run at: 2026-04-19T10:14:20.013237+00:00
+Total: 21 | Pass: 21 | Fail: 0 | Skip: 0
+============================================================
+
+[PASS] TestImportConsolidator::test_dedup_and_ordering
+[PASS] TestImportConsolidator::test_canonical_aliases
+[PASS] TestImportConsolidator::test_empty_imports
+[PASS] TestImportConsolidator::test_numpy_alias
+[PASS] TestImportConsolidator::test_matplotlib_alias
+[PASS] TestDependencyInjector::test_sas_name_to_snake
+[PASS] TestDependencyInjector::test_registry_roundtrip
+[PASS] TestDependencyInjector::test_build_from_partitions
+[PASS] TestDependencyInjector::test_cross_file_stubs
+[PASS] TestDependencyInjector::test_no_stubs_when_empty
+[PASS] TestScriptMerger::test_basic_merge
+[PASS] TestScriptMerger::test_human_review_inserts_todo
+[PASS] TestScriptMerger::test_ordering_by_line_start
+[PASS] TestScriptMerger::test_partial_status
+[PASS] TestReportAgent::test_generate_report
+[PASS] TestFeedbackIngestion::test_ingest_accepted
+[PASS] TestFeedbackIngestion::test_ingest_rejected
+[PASS] TestQualityMonitor::test_evaluate_triggers_alert
+[PASS] TestQualityMonitor::test_no_alert_when_healthy
+[PASS] TestRetrainTrigger::test_no_trigger_when_clean
+[PASS] TestRetrainTrigger::test_consecutive_low_success

@@ -1,0 +1,23 @@
+Test file: test_raptor.py
+Run at: 2026-04-19T10:14:20.013237+00:00
+Total: 18 | Pass: 18 | Fail: 0 | Skip: 0
+============================================================
+
+[PASS] TestGMMClusterer::test_cluster_basic
+[PASS] TestGMMClusterer::test_cluster_single_sample
+[PASS] TestGMMClusterer::test_cluster_empty
+[PASS] TestGMMClusterer::test_bic_convergence_true
+[PASS] TestGMMClusterer::test_bic_convergence_false
+[PASS] TestGMMClusterer::test_soft_assignment_tau
+[PASS] TestGMMClusterer::test_all_samples_assigned
+[PASS] TestClusterSummarizer::test_heuristic_fallback_contains_block_info
+[PASS] TestClusterSummarizer::test_heuristic_detects_constructs
+[PASS] TestClusterSummarizer::test_cache_key_deterministic
+[PASS] TestClusterSummarizer::test_heuristic_complexity_thresholds
+[PASS] TestRAPTORNode::test_create_raptor_node
+[PASS] TestPartitionIRRaptorFields::test_raptor_fields_default_none
+[PASS] TestPartitionIRRaptorFields::test_has_macros_property
+[PASS] TestRAPTORTreeBuilder::test_leaf_node_creation
+[PASS] TestRAPTORTreeBuilder::test_dynamic_depth_constants
+[PASS] TestRAPTORTreeBuilder::test_build_tree_returns_nodes
+[PASS] TestRAPTORTreeBuilder::test_backlink_sets_leaf_id

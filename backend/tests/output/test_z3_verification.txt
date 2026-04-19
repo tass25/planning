@@ -1,0 +1,39 @@
+Test file: test_z3_verification.py
+Run at: 2026-04-19T10:14:20.013237+00:00
+Total: 34 | Pass: 34 | Fail: 0 | Skip: 0
+============================================================
+
+[PASS] test_proc_means_groupby_proved
+[PASS] test_proc_means_no_groupby_counterexample
+[PASS] test_proc_means_missing_dropna_counterexample
+[PASS] test_proc_means_no_class_returns_unknown
+[PASS] test_proc_means_no_match_returns_none
+[PASS] test_boolean_filter_gt_proved
+[PASS] test_boolean_filter_eq_proved
+[PASS] test_boolean_filter_wrong_threshold_counterexample
+[PASS] test_boolean_filter_no_comparison_returns_none
+[PASS] test_sort_direction_proved
+[PASS] test_sort_direction_wrong_ascending_counterexample
+[PASS] test_sort_direction_no_sort_returns_none
+[PASS] test_sort_nodupkey_proved
+[PASS] test_sort_nodupkey_missing_dedup_counterexample
+[PASS] test_sort_nodupkey_not_matched_without_nodupkey
+[PASS] test_conditional_assignment_iterrows_counterexample
+[PASS] test_conditional_assignment_np_select_proved
+[PASS] test_conditional_assignment_wrong_threshold_counterexample
+[PASS] test_simple_assignment_equivalent
+[PASS] test_simple_assignment_counterexample
+[PASS] test_simple_assignment_no_data_step_returns_none
+[PASS] test_format_display_only_proved
+[PASS] test_format_display_overwrite_counterexample
+[PASS] test_left_join_proved
+[PASS] test_left_join_wrong_how_counterexample
+[PASS] test_left_join_no_match_returns_none
+[PASS] test_stepwise_regression_sklearn_counterexample
+[PASS] test_stepwise_regression_no_match_returns_none
+[PASS] test_verify_dispatches_proc_means
+[PASS] test_verify_returns_unknown_for_retain
+[PASS] test_verify_skipped_when_disabled
+[PASS] test_verify_has_latency_recorded
+[PASS] test_verify_counterexample_re_queues
+[PASS] test_z3_result_pattern_recorded

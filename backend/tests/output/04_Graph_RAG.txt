@@ -1,0 +1,43 @@
+Test: Graph RAG
+Run at: 2026-03-31T19:18:16.084889
+SAS file: gs_02_retain_accumulator.sas
+Risk: MODERATE  |  Expected: paradigm=graph, k=5, level=cluster
+partition_id (simulated dep): 5a96e92a-7531-40ea-8748-708b3df1d888
+scc_id: scc-cluster-001
+
+2026-03-31 19:18:16 [info     ] kb_retrieved                   failure_mode=None k=5 partition_type=DATA_STEP_RETAIN returned=5
+2026-03-31 19:18:16 [info     ] graph_rag_context              graph_deps=0 k=5 partition_type=DATA_STEP_RETAIN returned=5 scc_siblings=0
+paradigm:      graph
+retrieval_k:   5
+raptor_level:  cluster
+kb_examples:   5
+graph_context: 0 entries
+prompt_length: 25535 chars
+build_time:    0.274s
+
+Top KB examples retrieved:
+  [1] category=DATA_STEP_RETAIN  similarity=0.5875
+  [2] category=DATA_STEP_RETAIN  similarity=0.5752
+  [3] category=DATA_STEP_RETAIN  similarity=0.5657
+
+Graph context: empty (no NetworkX graph loaded in this isolated run)
+
+Generated prompt (first 500 chars):
+You are an expert SAS-to-Python (pandas) code translator with deep understanding of SAS dependency chains and macro scoping.
+
+## Context
+- **Partition type**: DATA_STEP_RETAIN
+- **Risk level**: MODERATE
+- **RAG paradigm**: GraphRAG (dependency-aware, graph context injected)
+- **Complexity score**: 0.0
+- **SCC group**: scc-cluster-001
+
+## SAS Source Code
+```sas
+/* gs_02 - DATA step with RETAIN and accumulator logic */
+DATA work.running_totals;
+    SET work.sales_data;
+    BY region;
+    RETAIN cu
+
+Result: PASS

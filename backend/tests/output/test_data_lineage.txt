@@ -1,0 +1,12 @@
+Test file: test_data_lineage.py
+Run at: 2026-04-19T10:14:20.013237+00:00
+Total: 7 | Pass: 7 | Fail: 0 | Skip: 0
+============================================================
+
+[PASS] TestDataLineageExtractor::test_data_step_set_read
+[PASS] TestDataLineageExtractor::test_data_step_output_write
+[PASS] TestDataLineageExtractor::test_proc_sql_from_join
+[PASS] TestDataLineageExtractor::test_create_table_write
+[PASS] TestDataLineageExtractor::test_multi_output_data_step
+[PASS] TestDataLineageExtractor::test_proc_data_read
+[PASS] TestDataLineageExtractor::test_output_out_write

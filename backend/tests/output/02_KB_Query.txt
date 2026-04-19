@@ -1,0 +1,61 @@
+Test: KB Query (KBQueryClient)
+Run at: 2026-03-31T19:18:15.769254
+Query SAS file: gs_01_basic_data_step.sas
+SAS code (336 chars):
+/* gs_01 - Basic DATA step with variable assignments */
+OPTIONS MPRINT SYMBOLGEN;
+
+DATA work.employees;
+    SET sashelp.class;
+    LENGTH full_name $50;
+    full_name = CATX(' ', name, 'Employee');
+    age_group = IFC(age >= 14, 'Senior', 'Junior');
+    bmi = weight / (height**2) * 703;
+    KEEP name full_name age age_group bmi;
+RUN;
+
+Embedding: dim=768, time=0.14s
+
+Querying each category (k=3):
+2026-03-31 19:18:15 [info     ] kb_retrieved                   failure_mode=None k=3 partition_type=DATA_STEP_ARRAY returned=0
+  DATA_STEP_ARRAY                0 hits  (similarity below 0.50 threshold)  t=0.011s
+2026-03-31 19:18:15 [info     ] kb_retrieved                   failure_mode=None k=3 partition_type=DATA_STEP_BASIC returned=0
+  DATA_STEP_BASIC                0 hits  (similarity below 0.50 threshold)  t=0.009s
+2026-03-31 19:18:15 [info     ] kb_retrieved                   failure_mode=None k=3 partition_type=DATA_STEP_FIRST_LAST returned=0
+  DATA_STEP_FIRST_LAST           0 hits  (similarity below 0.50 threshold)  t=0.008s
+2026-03-31 19:18:15 [info     ] kb_retrieved                   failure_mode=None k=3 partition_type=DATA_STEP_MERGE returned=0
+  DATA_STEP_MERGE                0 hits  (similarity below 0.50 threshold)  t=0.008s
+2026-03-31 19:18:15 [info     ] kb_retrieved                   failure_mode=None k=3 partition_type=DATA_STEP_RETAIN returned=0
+  DATA_STEP_RETAIN               0 hits  (similarity below 0.50 threshold)  t=0.010s
+2026-03-31 19:18:15 [info     ] kb_retrieved                   failure_mode=None k=3 partition_type=DATE_ARITHMETIC returned=0
+  DATE_ARITHMETIC                0 hits  (similarity below 0.50 threshold)  t=0.009s
+2026-03-31 19:18:15 [info     ] kb_retrieved                   failure_mode=None k=3 partition_type=MACRO_BASIC returned=0
+  MACRO_BASIC                    0 hits  (similarity below 0.50 threshold)  t=0.008s
+2026-03-31 19:18:15 [info     ] kb_retrieved                   failure_mode=None k=3 partition_type=MACRO_CONDITIONAL returned=0
+  MACRO_CONDITIONAL              0 hits  (similarity below 0.50 threshold)  t=0.008s
+2026-03-31 19:18:16 [info     ] kb_retrieved                   failure_mode=None k=3 partition_type=MISSING_VALUE_HANDLING returned=0
+  MISSING_VALUE_HANDLING         0 hits  (similarity below 0.50 threshold)  t=0.010s
+2026-03-31 19:18:16 [info     ] kb_retrieved                   failure_mode=None k=3 partition_type=PROC_FREQ returned=0
+  PROC_FREQ                      0 hits  (similarity below 0.50 threshold)  t=0.009s
+2026-03-31 19:18:16 [info     ] kb_retrieved                   failure_mode=None k=3 partition_type=PROC_IMPORT_EXPORT returned=0
+  PROC_IMPORT_EXPORT             0 hits  (similarity below 0.50 threshold)  t=0.010s
+2026-03-31 19:18:16 [info     ] kb_retrieved                   failure_mode=None k=3 partition_type=PROC_MEANS returned=0
+  PROC_MEANS                     0 hits  (similarity below 0.50 threshold)  t=0.009s
+2026-03-31 19:18:16 [info     ] kb_retrieved                   failure_mode=None k=3 partition_type=PROC_REG_LOGISTIC returned=0
+  PROC_REG_LOGISTIC              0 hits  (similarity below 0.50 threshold)  t=0.009s
+2026-03-31 19:18:16 [info     ] kb_retrieved                   failure_mode=None k=3 partition_type=PROC_SORT returned=0
+  PROC_SORT                      0 hits  (similarity below 0.50 threshold)  t=0.009s
+2026-03-31 19:18:16 [info     ] kb_retrieved                   failure_mode=None k=3 partition_type=PROC_SQL returned=0
+  PROC_SQL                       0 hits  (similarity below 0.50 threshold)  t=0.009s
+
+Fallback: KBWriter.search (no type filter, k=5):
+  MACRO_BASIC                    dist=0.5109346508979797  sim=0.489
+  PROC_MEANS                     dist=0.5731446743011475  sim=0.427
+  PROC_REG_LOGISTIC              dist=0.5733158588409424  sim=0.427
+  MISSING_VALUE_HANDLING         dist=0.584093451499939  sim=0.416
+  MISSING_VALUE_HANDLING         dist=0.5855382084846497  sim=0.414
+
+Total results across all category queries: 0
+Fallback (no filter) results: 5
+
+Result: PASS

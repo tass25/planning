@@ -1,0 +1,19 @@
+Test file: test_boundary_detector.py
+Run at: 2026-04-19T10:14:20.013237+00:00
+Total: 14 | Pass: 14 | Fail: 0 | Skip: 0
+============================================================
+
+[PASS] TestBoundaryDetector::test_simple_data_step
+[PASS] TestBoundaryDetector::test_proc_block
+[PASS] TestBoundaryDetector::test_macro_definition
+[PASS] TestBoundaryDetector::test_global_statement_is_structural_only
+[PASS] TestBoundaryDetector::test_multiple_blocks
+[PASS] TestBoundaryDetector::test_ambiguous_flag_large_block
+[PASS] TestBoundaryDetector::test_no_blocks_returns_empty
+[PASS] TestBoundaryDetector::test_unclosed_block_at_eof
+[PASS] TestBoundaryDetector::test_events_sorted_by_line_start
+[PASS] TestPartitionBuilderAgent::test_builds_partition_ir
+[PASS] TestPartitionBuilderAgent::test_metadata_contains_content_hash
+[PASS] TestPartitionBuilderAgent::test_metadata_placeholder_fields
+[PASS] TestPartitionBuilderAgent::test_empty_input_returns_empty
+[PASS] TestPartitionBuilderAgent::test_preserves_order

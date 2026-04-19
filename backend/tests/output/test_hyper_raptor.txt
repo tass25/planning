@@ -1,0 +1,28 @@
+Test file: test_hyper_raptor.py
+Run at: 2026-04-10T16:03:59.454558+00:00
+Total: 11 | Pass: 5 | Fail: 0 | Skip: 6
+============================================================
+
+[SKIP] TestHyperRAPTORClusterer::test_projection_norms_below_one
+    ('C:\\Users\\labou\\Desktop\\Stage\\backend\\tests\\test_hyper_raptor.py', 40, "Skipped: could not import 'geoopt': No module named 'geoopt'")
+
+[SKIP] TestHyperRAPTORClusterer::test_cluster_count_equals_k
+    ('C:\\Users\\labou\\Desktop\\Stage\\backend\\tests\\test_hyper_raptor.py', 48, "Skipped: could not import 'geoopt': No module named 'geoopt'")
+
+[SKIP] TestHyperRAPTORClusterer::test_all_samples_assigned
+    ('C:\\Users\\labou\\Desktop\\Stage\\backend\\tests\\test_hyper_raptor.py', 56, "Skipped: could not import 'geoopt': No module named 'geoopt'")
+
+[SKIP] TestHyperRAPTORClusterer::test_single_sample_returns_one_cluster
+    ('C:\\Users\\labou\\Desktop\\Stage\\backend\\tests\\test_hyper_raptor.py', 63, "Skipped: could not import 'geoopt': No module named 'geoopt'")
+
+[SKIP] TestHyperRAPTORClusterer::test_empty_returns_empty
+    ('C:\\Users\\labou\\Desktop\\Stage\\backend\\tests\\test_hyper_raptor.py', 70, "Skipped: could not import 'geoopt': No module named 'geoopt'")
+
+[PASS] TestHyperRAPTORClusterer::test_fallback_to_gmm_without_geoopt
+[SKIP] TestHyperRAPTORClusterer::test_large_input_completes
+    ('C:\\Users\\labou\\Desktop\\Stage\\backend\\tests\\test_hyper_raptor.py', 93, "Skipped: could not import 'geoopt': No module named 'geoopt'")
+
+[PASS] TestGetClusterer::test_default_returns_gmm
+[PASS] TestGetClusterer::test_flag_false_returns_gmm
+[PASS] TestGetClusterer::test_flag_true_returns_hyper
+[PASS] TestGetClusterer::test_gmm_still_works_after_flag_change
