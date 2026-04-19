@@ -6,14 +6,79 @@ and then `settings.<field>`.
 
 Azure deployment: set env vars in Container Apps → Configuration panel.
 SQLite → PostgreSQL migration: change DATABASE_URL only (no code change).
+
+Secret loading order:
+  1. .env file is pre-loaded via python-dotenv (local dev / Docker)
+  2. Azure Key Vault overrides specific secrets if AZURE_KEYVAULT_URL is set
+  3. pydantic-settings reads the final env state into the Settings object
 """
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
+import structlog
+from dotenv import load_dotenv
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_log = structlog.get_logger()
+
+_ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
+
+# Step 1 — pre-load .env so AZURE_KEYVAULT_URL is readable before Settings()
+load_dotenv(str(_ENV_FILE), override=False)
+
+
+def _load_keyvault_secrets() -> None:
+    """Pull secrets from Azure Key Vault into os.environ before Settings() loads.
+
+    Only runs when AZURE_KEYVAULT_URL is set (production / staging).
+    Falls back silently to .env values for any secret not in the vault.
+    Safe to call on local dev where AZURE_KEYVAULT_URL is empty.
+    """
+    vault_url = (os.getenv("AZURE_KEYVAULT_URL") or "").strip()
+    if not vault_url:
+        return  # local dev — .env is enough
+
+    try:
+        from azure.identity import DefaultAzureCredential
+        from azure.keyvault.secrets import SecretClient
+
+        client = SecretClient(vault_url=vault_url, credential=DefaultAzureCredential())
+
+        # Key Vault name → env var name mapping
+        secret_map: dict[str, str] = {
+            "GROQ-API-KEY":                     "GROQ_API_KEY",
+            "GROQ-API-KEY-2":                   "GROQ_API_KEY_2",
+            "GROQ-API-KEY-3":                   "GROQ_API_KEY_3",
+            "OLLAMA-API-KEY":                   "OLLAMA_API_KEY",
+            "CODARA-JWT-SECRET":                "CODARA_JWT_SECRET",
+            "GITHUB-CLIENT-SECRET":             "GITHUB_CLIENT_SECRET",
+            "AZURE-STORAGE-CONNECTION-STRING":  "AZURE_STORAGE_CONNECTION_STRING",
+            # Add more as you store them in the vault:
+            # "AZURE-OPENAI-API-KEY":           "AZURE_OPENAI_API_KEY",
+            # "AZURE-OPENAI-ENDPOINT":          "AZURE_OPENAI_ENDPOINT",
+            # "GEMINI-API-KEY":                 "GEMINI_API_KEY",
+        }
+
+        loaded, failed = 0, 0
+        for kv_name, env_name in secret_map.items():
+            try:
+                secret = client.get_secret(kv_name)
+                os.environ[env_name] = secret.value
+                loaded += 1
+            except Exception as exc:
+                # Secret not in vault — .env value (if any) stays in place
+                failed += 1
+                _log.debug("keyvault_secret_missing", name=kv_name, error=str(exc))
+
+        _log.info("keyvault_secrets_loaded", loaded=loaded, skipped=failed)
+
+    except Exception as exc:
+        # Non-fatal: vault unreachable → app still starts with .env values
+        _log.warning("keyvault_load_failed", error=str(exc))
 
 
 class Settings(BaseSettings):
@@ -65,10 +130,10 @@ class Settings(BaseSettings):
     # ── Redis ─────────────────────────────────────────────────────────────────
     redis_url: str = "redis://localhost:6379/0"
 
-    # ── LLM — Ollama (primary) ────────────────────────────────────────────────
+    # ── LLM — Ollama / Nemotron (primary) ────────────────────────────────────
     ollama_api_key: str = ""
     ollama_base_url: str = "http://localhost:11434/v1"
-    ollama_model: str = "minimax-m2.7:cloud"
+    ollama_model: str = "nemotron-3-super:cloud"
 
     # ── LLM — Azure OpenAI (fallback 1) ──────────────────────────────────────
     azure_openai_endpoint: str = ""
@@ -94,6 +159,15 @@ class Settings(BaseSettings):
     # ── JWT ───────────────────────────────────────────────────────────────────
     codara_jwt_secret: str = "codara-dev-secret-change-in-production"
 
+    def validate_production_secrets(self) -> None:
+        """Fail fast if insecure defaults are used in production."""
+        if self.app_env == "production":
+            if self.codara_jwt_secret.startswith("codara-dev"):
+                raise RuntimeError(
+                    "CODARA_JWT_SECRET must be set to a strong secret in production. "
+                    "Generate one with: openssl rand -hex 32"
+                )
+
     # ── GitHub OAuth ──────────────────────────────────────────────────────────
     github_client_id: str = ""
     github_client_secret: str = ""
@@ -111,18 +185,31 @@ class Settings(BaseSettings):
     llm_provider: str = "azure"           # legacy: azure | groq
 
     # ── CORS ─────────────────────────────────────────────────────────────────
-    # Comma-separated list in env: CORS_ORIGINS=https://app.codara.dev,http://localhost:5173
+    # Override via env: CORS_ORIGINS=https://app.codara.dev,http://localhost:5173
+    # pydantic-settings parses comma-separated strings into list[str] automatically.
     cors_origins: list[str] = [
         "http://localhost:8080",
         "http://localhost:5173",
         "http://127.0.0.1:8080",
     ]
 
+    # ── Local GGUF model (Tier 0 — optional) ─────────────────────────────────
+    local_model_path: str = ""          # path to .gguf file; empty = disabled
+    local_model_threads: int = 4        # CPU threads for llama-cpp inference
+    local_model_ctx: int = 4096         # context window in tokens
+
+    # ── Azure Key Vault (production secret injection) ─────────────────────────
+    azure_keyvault_url: str = ""        # e.g. https://codara-kv.vault.azure.net/
+
     # ── Misc ──────────────────────────────────────────────────────────────────
     lancedb_path: str = "lancedb_data"
     duckdb_path: str = "data/analytics.duckdb"
 
 
+# Step 2 — pull secrets from Key Vault into os.environ (no-op locally)
+_load_keyvault_secrets()
+
+# Step 3 — pydantic-settings reads the final env state
 # Singleton — import and use everywhere:
 #   from config.settings import settings
 settings = Settings()

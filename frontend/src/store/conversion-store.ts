@@ -88,7 +88,8 @@ export const useConversionStore = create<ConversionState>((set, get) => ({
 
   pollConversion: (id: string) => {
     get().stopPolling();
-    const intervalId = setInterval(async () => {
+    let delay = 1200;
+    const tick = async () => {
       try {
         const conv = await api.get<Conversion>(`/conversions/${id}`);
         set((s) => ({
@@ -96,24 +97,32 @@ export const useConversionStore = create<ConversionState>((set, get) => ({
         }));
         if (conv.status === "completed" || conv.status === "failed" || conv.status === "partial") {
           get().stopPolling();
+          return;
         }
+        delay = 1200; // reset backoff on success
       } catch (err) {
-        console.error("[codara] poll failed", err);
-        // Only stop polling on auth errors; retry on transient network issues
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes("401") || msg.includes("403") || msg.includes("404")) {
           get().stopPolling();
+          return;
         }
-        // Otherwise keep polling — transient network hiccups should not stop progress
+        if (msg.includes("429")) {
+          // Rate limited — exponential backoff capped at 30s
+          delay = Math.min(delay * 2, 30000);
+          console.warn(`[codara] rate limited, retrying in ${delay}ms`);
+        }
       }
-    }, 1200);
-    set({ pollingId: intervalId });
+      const nextId = setTimeout(tick, delay) as unknown as ReturnType<typeof setInterval>;
+      set({ pollingId: nextId });
+    };
+    const firstId = setTimeout(tick, delay) as unknown as ReturnType<typeof setInterval>;
+    set({ pollingId: firstId });
   },
 
   stopPolling: () => {
     const { pollingId } = get();
     if (pollingId) {
-      clearInterval(pollingId);
+      clearTimeout(pollingId);
       set({ pollingId: null });
     }
   },

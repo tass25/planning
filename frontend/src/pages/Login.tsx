@@ -8,9 +8,11 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 
+// Passwords are randomly generated at first boot and printed to stdout.
+// Set CODARA_ADMIN_PASSWORD / CODARA_USER_PASSWORD env vars to pin them.
 const DEMO_CREDENTIALS = {
-  admin: { email: "admin@codara.dev", password: "admin123!" },
-  user: { email: "user@codara.dev", password: "user123!" },
+  admin: { email: "admin@codara.dev", password: "" },
+  user: { email: "user@codara.dev", password: "" },
 };
 
 const FEATURES = [

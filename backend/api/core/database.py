@@ -5,7 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Column, String, Integer, Float, Boolean, Text, ForeignKey, create_engine, event,
+    Column, String, Integer, Float, Boolean, Text, ForeignKey, Index,
+    create_engine, event,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
 
@@ -38,10 +39,10 @@ class ConversionRow(ApiBase):
     __tablename__ = "conversions"
 
     id = Column(String, primary_key=True)
-    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     file_name = Column(String, nullable=False)
     status = Column(String, default="queued")     # queued | running | completed | partial | failed
-    runtime = Column(String, default="python")    # python
+    runtime = Column(String, default="python")
     duration = Column(Float, default=0.0)
     accuracy = Column(Float, default=0.0)
     sas_code = Column(Text, nullable=True)
@@ -49,21 +50,25 @@ class ConversionRow(ApiBase):
     validation_report = Column(Text, nullable=True)
     merge_report = Column(Text, nullable=True)
     created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=True)    # set on every status transition
 
     stages = relationship("ConversionStageRow", back_populates="conversion", cascade="all, delete-orphan")
 
 
 class ConversionStageRow(ApiBase):
     __tablename__ = "conversion_stages"
+    __table_args__ = (
+        Index("idx_stages_conversion_stage", "conversion_id", "stage"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    conversion_id = Column(String, ForeignKey("conversions.id"), nullable=False)
+    conversion_id = Column(String, ForeignKey("conversions.id"), nullable=False, index=True)
     stage = Column(String, nullable=False)
     status = Column(String, default="pending")
     latency = Column(Float, nullable=True)
     retry_count = Column(Integer, default=0)
     warnings = Column(Text, default="[]")         # JSON array
-    description = Column(String, nullable=True)     # e.g. "Analyzing SAS code structure..."
+    description = Column(String, nullable=True)
     started_at = Column(String, nullable=True)
     completed_at = Column(String, nullable=True)
 
@@ -88,7 +93,7 @@ class KBChangelogRow(ApiBase):
     __tablename__ = "kb_changelog"
 
     id = Column(String, primary_key=True)
-    entry_id = Column(String, ForeignKey("kb_entries.id"), nullable=False)
+    entry_id = Column(String, ForeignKey("kb_entries.id", ondelete="CASCADE"), nullable=False)
     action = Column(String, nullable=False)       # add | edit | rollback | delete
     user = Column(String, nullable=False)
     timestamp = Column(String, nullable=False)
@@ -99,6 +104,10 @@ class KBChangelogRow(ApiBase):
 
 class AuditLogRow(ApiBase):
     __tablename__ = "audit_logs"
+    __table_args__ = (
+        Index("idx_audit_timestamp", "timestamp"),
+        Index("idx_audit_model", "model"),
+    )
 
     id = Column(String, primary_key=True)
     model = Column(String, nullable=False)
@@ -115,7 +124,7 @@ class CorrectionRow(ApiBase):
     __tablename__ = "corrections"
 
     id = Column(String, primary_key=True)
-    conversion_id = Column(String, ForeignKey("conversions.id"), nullable=False)
+    conversion_id = Column(String, ForeignKey("conversions.id", ondelete="CASCADE"), nullable=False, index=True)
     corrected_code = Column(Text, nullable=False)
     explanation = Column(Text, nullable=False)
     category = Column(String, nullable=False)
@@ -126,9 +135,13 @@ class CorrectionRow(ApiBase):
 
 class NotificationRow(ApiBase):
     __tablename__ = "notifications"
+    __table_args__ = (
+        # Covers the common query: filter by user_id WHERE read=False for unread count
+        Index("idx_notifications_user_read", "user_id", "read"),
+    )
 
     id = Column(String, primary_key=True)
-    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     title = Column(String, nullable=False)
     message = Column(Text, nullable=False)
     type = Column(String, default="info")         # info | success | warning | error

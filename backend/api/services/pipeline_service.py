@@ -95,6 +95,7 @@ def run_pipeline_sync(
         return
 
     conv.status = "running"
+    conv.updated_at = datetime.now(timezone.utc).isoformat()
     session.commit()
 
     try:
@@ -126,6 +127,7 @@ def run_pipeline_sync(
     except Exception as exc:
         _log.error("pipeline_engine_init_failed", conversion_id=conversion_id, error=str(exc))
         conv.status = "failed"
+        conv.updated_at = datetime.now(timezone.utc).isoformat()
         conv.validation_report = f"Pipeline DB init error: {exc}"
         try:
             session.commit()
@@ -248,9 +250,11 @@ def run_pipeline_sync(
         conv.accuracy = accuracy
         conv.validation_report = "\n".join(report_lines)
         conv.merge_report = f"Pipeline completed in {total_elapsed:.2f}s"
+        conv.updated_at = datetime.now(timezone.utc).isoformat()
 
     except Exception as exc:
         conv.status = "failed"
+        conv.updated_at = datetime.now(timezone.utc).isoformat()
         conv.validation_report = f"Pipeline error: {exc}"
         for st in session.query(ConversionStageRow).filter(
             ConversionStageRow.conversion_id == conversion_id,

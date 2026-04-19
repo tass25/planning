@@ -3,12 +3,16 @@
 Converts SAS partitions to Python using:
 1. Failure-mode detection (6 rules)
 2. Three RAG paradigms: Static (LOW), GraphRAG (deps/SCC), Agentic (MOD/HIGH)
-3. LLM routing: Nemotron primary → Azure → Groq (last resort)
-4. Cross-verification (Prompt C): Ollama → Groq
+3. LLM routing: Nemotron (Ollama) → Azure GPT-4o → Groq LLaMA-70B
+4. Cross-verification (Prompt C): Nemotron → Groq (independent context)
 5. SCC batching for circular dependencies
 6. Reflexion-style retry with self-reflection on failure
 
-Provider chain: Ollama nemotron-3-super:cloud → Azure GPT-4o → Groq LLaMA-70B.
+Provider chain (primary → fallback 1 → fallback 2):
+  Tier 1 — Ollama nemotron-3-super:cloud  (PRIMARY)
+  Tier 2 — Azure GPT-4o / GPT-4o-mini    (fallback 1)
+  Tier 3 — Groq LLaMA-3.3-70B            (fallback 2 + cross-verifier)
+  Tier 4 — PARTIAL status                 (all tiers exhausted)
 """
 
 from __future__ import annotations
@@ -36,7 +40,7 @@ from partition.translation.format_mapper import get_format_hint_block
 from partition.translation.sas_builtins import get_builtins_hint_block
 from partition.translation.sas_type_inferencer import infer_types
 from partition.translation.kb_query import KBQueryClient
-from partition.raptor.embedder import NomicEmbedder
+from partition.raptor.embedder import get_embedder
 from partition.rag import RAGRouter
 from partition.prompts import PromptManager
 from partition.utils.retry import azure_limiter, azure_breaker
@@ -68,18 +72,18 @@ class CrossVerifyOutput(BaseModel):
 
 _LLM_TIMEOUT_S   = 60                       # per asyncio.to_thread call
 _GROQ_MODEL      = "llama-3.3-70b-versatile"
-_NEMOTRON_MODEL  = "nemotron-3-super:cloud"  # Ollama cloud — fallback 2 after Azure
+_NEMOTRON_MODEL  = "nemotron-3-super:cloud"  # PRIMARY Ollama model (Tier 1)
 
 
 class TranslationAgent(BaseAgent):
     """Agent #12: SAS → Python translation.
 
-    Routing (Nemotron-first):
-      - LOW risk → Nemotron → Azure GPT-4o-mini → Groq
+    LLM routing (Nemotron primary):
+      - LOW risk              → Nemotron → Azure GPT-4o-mini → Groq
       - MODERATE/HIGH/UNCERTAIN → Nemotron → Azure GPT-4o → Groq
-      - Cross-verify → Ollama → Groq (independent context)
+      - Cross-verify (Prompt C) → Nemotron → Groq (independent context)
 
-    Fallback chain: Nemotron → Azure → Groq → PARTIAL status
+    Full fallback chain: Nemotron (Ollama) → Azure → Groq → PARTIAL status
     """
 
     MAX_RETRIES = 2
@@ -95,7 +99,7 @@ class TranslationAgent(BaseAgent):
     ):
         super().__init__()
         self.target_runtime = target_runtime
-        self.embedder = NomicEmbedder()
+        self.embedder = get_embedder()   # shared singleton — not loaded per agent
         self.kb_client = KBQueryClient()
         self.prompt_manager = PromptManager()
         self.rag_router = RAGRouter(
@@ -686,7 +690,7 @@ class TranslationAgent(BaseAgent):
                 return await asyncio.wait_for(
                     asyncio.to_thread(
                         self._sync_create,
-                        self._groq_pool,
+                        self.groq_client,
                         model=_GROQ_MODEL,
                         messages=messages,
                         response_model=CrossVerifyOutput,

@@ -6,8 +6,6 @@ chardet~=5.2.0
 lark~=1.2.2
 structlog~=25.1.0
 aiofiles~=24.1.0
-pytest~=8.3.0
-pytest-cov~=6.1.0
 # ML / calibration (L2-D ComplexityAgent)
 scikit-learn~=1.6.0
 numpy~=2.2.0
@@ -32,7 +30,6 @@ pyyaml~=6.0.0
 psutil~=7.0.0
 # Prompt templates (week 10 — 3-tier RAG)
 jinja2~=3.1.0
-pytest-asyncio~=0.26.0
 # Observability / Azure Monitor (OpenTelemetry-based)
 azure-monitor-opentelemetry~=1.6.0
 opentelemetry-api~=1.36.0
@@ -50,14 +47,10 @@ python-jose[cryptography]~=3.3.0
 passlib[bcrypt]~=1.7.0
 httpx~=0.28.0
 python-multipart~=0.0.20
-# Free LLM providers (Month 1 extensions)
-google-generativeai~=0.8.0          # Gemini 2.0 Flash — free 1M TPM/day
 # Formal verification (Week 15)
 z3-solver~=4.13.0                   # SMT solver for semantic equivalence proofs
-# Local model inference (Week 15 — lazy import, optional)
-llama-cpp-python>=0.3.0             # run fine-tuned GGUF locally
-# Dataset & dedup (fine-tuning pipeline)
-datasets~=3.0.0                     # HuggingFace datasets
-datasketch~=1.6.0                   # MinHash LSH deduplication
-# Code quality metrics
-radon~=6.0.0                        # cyclomatic complexity for generated code
+# Local model inference (optional — only needed if LOCAL_MODEL_PATH is set)
+# Install manually: pip install llama-cpp-python
+# llama-cpp-python>=0.3.0
+azure-keyvault-secrets~=4.9.0
+azure-identity~=1.19.0

@@ -129,3 +129,24 @@ class NomicEmbedder:
     def cache_size(self) -> int:
         """Number of texts currently cached."""
         return len(self._cache)
+
+
+# ── Module-level singleton ────────────────────────────────────────────────────
+# The sentence-transformers model is ~270 MB and takes ~10s to load on first
+# call.  All agents share this one instance so concurrent pipelines don't each
+# load their own copy.
+
+_embedder: NomicEmbedder | None = None
+
+
+def get_embedder(device: str = "cpu") -> NomicEmbedder:
+    """Return the shared NomicEmbedder singleton (created lazily on first call).
+
+    Args:
+        device: ``"cpu"`` or ``"cuda"``. Only used on the very first call;
+                subsequent calls return the already-initialised instance.
+    """
+    global _embedder  # noqa: PLW0603
+    if _embedder is None:
+        _embedder = NomicEmbedder(device=device)
+    return _embedder

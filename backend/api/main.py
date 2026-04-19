@@ -20,6 +20,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config.settings import settings
+
+# Fail fast if insecure JWT default is used in production
+settings.validate_production_secrets()
+
 from api.core.database import get_api_engine, init_api_db, get_api_session, UserRow, KBEntryRow
 from api.core.auth import hash_password
 from api.middleware.logging_middleware import LoggingMiddleware
@@ -99,7 +103,7 @@ def _seed():
                 "generated_first_boot_password",
                 account=label,
                 env_var=env_var,
-                password=pw,
+                # password intentionally omitted from logs — printed to stdout only
             )
             print(  # noqa: T201 — deliberate first-boot output
                 f"\n[Codara] First-boot password for {label}: {pw}"

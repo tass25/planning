@@ -50,30 +50,6 @@ def _parse_output_tables(sas_code: str) -> list[str]:
     return names
 
 
-# Pattern: Factory
-class AgentFactory:
-    """Lazy-instantiation cache for pipeline sub-agents.
-
-    Agents are expensive to construct (model loading, DB connections).
-    This factory ensures each agent is created at most once per pipeline run
-    and reused across node invocations.
-    """
-
-    def __init__(self) -> None:
-        self._cache: dict[str, object] = {}
-
-    def get(self, key: str, cls: type, **kwargs) -> object:
-        """Return a cached agent, instantiating it with *kwargs* on first call."""
-        if key not in self._cache:
-            self._cache[key] = cls(**kwargs) if kwargs else cls()
-        return self._cache[key]
-
-    def get_factory(self, key: str, factory) -> object:
-        """Return a cached agent, using *factory()* callable on first call."""
-        if key not in self._cache:
-            self._cache[key] = factory()
-        return self._cache[key]
-
 
 class PartitionOrchestrator:
     """Agent #15: LangGraph-based orchestrator for the full L2 pipeline.
@@ -106,9 +82,8 @@ class PartitionOrchestrator:
             logger.warning("memory_monitor_init_failed", error=str(exc))
             self.memory_monitor = None
 
-        # Pattern: Factory — agent cache, avoid re-instantiation per node call
-        self._agent_factory = AgentFactory()
-        self._agents: dict[str, object] = {}  # kept for _get_agent() compat
+        # Agent cache — avoid re-instantiation per node call
+        self._agents: dict[str, object] = {}
 
         # Configure memory guards at startup (OMP, CUDA) — best-effort
         try:

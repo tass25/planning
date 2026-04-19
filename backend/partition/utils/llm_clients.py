@@ -370,20 +370,22 @@ def get_ollama_client(*, async_client: bool = True):
 # ── Ollama model name constants ───────────────────────────────────────
 # Use OLLAMA_MODEL env var to switch at runtime.  Defaults to
 # qwen3-coder-next which scored best on the torture_test benchmark.
+OLLAMA_MODEL_NEMOTRON   = "nemotron-3-super:cloud" # PRIMARY — Nemotron via Ollama cloud
 OLLAMA_MODEL_MINIMAX    = "minimax-m2.7:cloud"    # 10/10 torture test (2026-04-06)
-OLLAMA_MODEL_QWEN3      = "qwen3-coder-next"       # strong reasoning, recommended default
+OLLAMA_MODEL_QWEN3      = "qwen3-coder-next"       # strong reasoning, alternative
 OLLAMA_MODEL_DEEPSEEK   = "deepseek-v3.2"          # DeepSeek V3.2 via Ollama cloud
 
 
 def get_ollama_model() -> str:
-    """Return the configured Ollama model name (default: qwen3-coder-next).
+    """Return the configured Ollama model name (default: nemotron-3-super:cloud).
 
     Override at runtime with the OLLAMA_MODEL env var.  Known good values:
-      - ``minimax-m2.7:cloud``  — 10/10 on torture test
-      - ``qwen3-coder-next``    — strong reasoning, recommended default
-      - ``deepseek-v3.2``       — DeepSeek V3.2 (alternative)
+      - ``nemotron-3-super:cloud`` — PRIMARY (Nemotron via Ollama cloud)
+      - ``minimax-m2.7:cloud``     — 10/10 on torture test
+      - ``qwen3-coder-next``       — strong reasoning, alternative
+      - ``deepseek-v3.2``          — DeepSeek V3.2 (alternative)
     """
-    return os.getenv("OLLAMA_MODEL", OLLAMA_MODEL_QWEN3)
+    return os.getenv("OLLAMA_MODEL", OLLAMA_MODEL_NEMOTRON)
 
 
 def get_ollama_model_for_tier(tier: str) -> str:

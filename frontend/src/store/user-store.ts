@@ -87,7 +87,8 @@ export const useUserStore = create<UserState>((set, get) => ({
     }
   },
 
-  logout: () => {
+  logout: async () => {
+    try { await api.post("/auth/logout", {}); } catch { /* ignore — token cleared regardless */ }
     clearToken();
     set({ isAuthenticated: false, currentUser: null, notifications: [], unreadCount: 0 });
   },

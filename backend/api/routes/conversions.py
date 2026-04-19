@@ -44,6 +44,11 @@ router = APIRouter(prefix="/conversions", tags=["conversions"])
 UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
+# Limits simultaneous LangGraph pipelines in the BackgroundTasks fallback path.
+# Azure Queue (preferred) is already bounded by the worker thread count.
+# Without this, 50 concurrent uploads → 50 simultaneous pipelines → OOM.
+_PIPELINE_SEMAPHORE = asyncio.Semaphore(5)
+
 _MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
 _ALLOWED_CONTENT_TYPES = frozenset({
     "text/plain",
@@ -92,7 +97,7 @@ async def upload_files(
 # ── Start conversion ──────────────────────────────────────────────────────────
 
 @router.post("/start", response_model=ConversionOut)
-def start_conversion(
+async def start_conversion(
     body: StartConversionRequest,
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user),
@@ -105,9 +110,8 @@ def start_conversion(
         if not file_id:
             raise HTTPException(status_code=400, detail="No file specified")
 
-        # Resolve filename from blob or local disk
-        import asyncio as _asyncio
-        filenames = _asyncio.run(blob_service.list_files(file_id))
+        # Resolve filename from blob or local disk (await — no nested asyncio.run)
+        filenames = await blob_service.list_files(file_id)
         sas_filenames = [n for n in filenames if n.lower().endswith(".sas")]
         if not sas_filenames:
             raise HTTPException(status_code=404, detail=f"No .sas file found for upload {file_id}")
@@ -140,11 +144,26 @@ def start_conversion(
         # Prefer durable Azure Queue; fall back to BackgroundTasks for local dev
         queued = queue_service.enqueue_job(conv_id, file_id, filename, settings.sqlite_path)
         if not queued:
-            background_tasks.add_task(run_pipeline_sync, conv_id, file_id, filename, settings.sqlite_path)
+            async def _guarded_pipeline():
+                async with _PIPELINE_SEMAPHORE:
+                    await asyncio.to_thread(
+                        run_pipeline_sync, conv_id, file_id, filename, settings.sqlite_path
+                    )
+            background_tasks.add_task(_guarded_pipeline)
 
         return result
     finally:
         session.close()
+
+
+# ── Ownership helper ──────────────────────────────────────────────────────────
+
+def _assert_owner(conv: ConversionRow, current_user: dict) -> None:
+    """Raise 403 if the caller doesn't own this conversion (admins bypass)."""
+    if current_user.get("role") == "admin":
+        return
+    if conv.user_id != current_user["sub"]:
+        raise HTTPException(status_code=403, detail="Access denied")
 
 
 # ── List / Get ────────────────────────────────────────────────────────────────
@@ -154,8 +173,11 @@ def list_conversions(current_user: dict = Depends(get_current_user)):
     from api.main import engine
     session = get_api_session(engine)
     try:
-        rows = session.query(ConversionRow).order_by(ConversionRow.created_at.desc()).all()
-        return [conv_to_out(r) for r in rows]
+        q = session.query(ConversionRow).order_by(ConversionRow.created_at.desc())
+        # Admins see all; regular users see only their own
+        if current_user.get("role") != "admin":
+            q = q.filter(ConversionRow.user_id == current_user["sub"])
+        return [conv_to_out(r) for r in q.all()]
     finally:
         session.close()
 
@@ -168,6 +190,7 @@ def get_conversion(conversion_id: str, current_user: dict = Depends(get_current_
         conv = session.query(ConversionRow).get(conversion_id)
         if not conv:
             raise HTTPException(status_code=404, detail="Conversion not found")
+        _assert_owner(conv, current_user)
         return conv_to_out(conv)
     finally:
         session.close()
@@ -181,6 +204,7 @@ def download_code(conversion_id: str, current_user: dict = Depends(get_current_u
         conv = session.query(ConversionRow).get(conversion_id)
         if not conv or not conv.python_code:
             raise HTTPException(status_code=404, detail="No generated code")
+        _assert_owner(conv, current_user)
         return conv.python_code
     finally:
         session.close()
@@ -191,6 +215,16 @@ def download_code(conversion_id: str, current_user: dict = Depends(get_current_u
 @router.get("/{conversion_id}/partitions", response_model=list[PartitionOut])
 def get_partitions(conversion_id: str, current_user: dict = Depends(get_current_user)):
     """Get partitions from the pipeline DB for this conversion."""
+    from api.main import engine as _engine
+    _s = get_api_session(_engine)
+    try:
+        _conv = _s.query(ConversionRow).get(conversion_id)
+        if not _conv:
+            raise HTTPException(status_code=404, detail="Conversion not found")
+        _assert_owner(_conv, current_user)
+    finally:
+        _s.close()
+
     pipeline_db = UPLOAD_DIR / f"{conversion_id}_pipeline.db"
     if not pipeline_db.exists():
         return []
@@ -245,6 +279,7 @@ def submit_correction(
         conv = session.query(ConversionRow).get(conversion_id)
         if not conv:
             raise HTTPException(status_code=404, detail="Conversion not found")
+        _assert_owner(conv, current_user)
         corr = CorrectionRow(
             id=f"corr-{uuid.uuid4().hex[:8]}",
             conversion_id=conversion_id,
@@ -282,6 +317,7 @@ def download_py(conversion_id: str, current_user: dict = Depends(get_current_use
         conv = session.query(ConversionRow).get(conversion_id)
         if not conv:
             raise HTTPException(status_code=404, detail="Conversion not found")
+        _assert_owner(conv, current_user)
         code = conv.python_code or "# No converted code available yet"
         filename = conv.file_name.replace(".sas", ".py") if conv.file_name else "converted.py"
         return StreamingResponse(
@@ -302,6 +338,7 @@ def download_md(conversion_id: str, current_user: dict = Depends(get_current_use
         conv = session.query(ConversionRow).get(conversion_id)
         if not conv:
             raise HTTPException(status_code=404, detail="Conversion not found")
+        _assert_owner(conv, current_user)
 
         stages_sorted = sorted(
             conv.stages,
@@ -354,6 +391,7 @@ def download_html(conversion_id: str, current_user: dict = Depends(get_current_u
         conv = session.query(ConversionRow).get(conversion_id)
         if not conv:
             raise HTTPException(status_code=404, detail="Conversion not found")
+        _assert_owner(conv, current_user)
 
         stages_sorted = sorted(
             conv.stages,
@@ -412,6 +450,7 @@ def download_zip(conversion_id: str, current_user: dict = Depends(get_current_us
         conv = session.query(ConversionRow).get(conversion_id)
         if not conv:
             raise HTTPException(status_code=404, detail="Conversion not found")
+        _assert_owner(conv, current_user)
 
         buf = io.BytesIO()
         base = conv.file_name.replace(".sas", "") if conv.file_name else "conversion"
@@ -429,8 +468,8 @@ def download_zip(conversion_id: str, current_user: dict = Depends(get_current_us
                 f"Conversion: {conv.file_name}\n"
                 f"Status: {conv.status}\n"
                 f"Runtime: {conv.runtime}\n"
-                f"Accuracy: {conv.accuracy}%\n"
-                f"Duration: {conv.duration:.2f}s"
+                f"Accuracy: {conv.accuracy or 0}%\n"
+                f"Duration: {(conv.duration or 0.0):.2f}s"
             )
             zf.writestr("README.txt", summary)
 
@@ -460,46 +499,50 @@ async def stream_conversion_status(
         data: {"id": "...", "status": "running", "progress": 42, "stage": "..."}
     """
     async def _event_generator():
+        from api.main import engine
+        # Open one session for the lifetime of this SSE connection — not one per tick.
+        session = get_api_session(engine)
         last_status: str | None = None
         count = 0
-        while count < SSE_MAX_EVENTS:
-            from api.main import engine
-            session = get_api_session(engine)
-            try:
-                conv = session.query(ConversionRow).get(conversion_id)
-                if conv is None:
-                    yield f"data: {json.dumps({'error': 'not_found'})}\n\n"
+        try:
+            while count < SSE_MAX_EVENTS:
+                try:
+                    # Expire cached ORM state so we get fresh DB values each tick
+                    session.expire_all()
+                    conv = session.query(ConversionRow).get(conversion_id)
+                    if conv is None:
+                        yield f"data: {json.dumps({'error': 'not_found'})}\n\n"
+                        return
+                    status = conv.status or "queued"
+                    stages_sorted = sorted(
+                        conv.stages,
+                        key=lambda s: STAGES.index(s.stage) if s.stage in STAGES else 99,
+                    )
+                    completed = sum(1 for s in stages_sorted if s.status == "completed")
+                    total = len(stages_sorted) or 8
+                    progress = int(completed / total * 100)
+                    current_stage = next(
+                        (s.stage for s in stages_sorted if s.status == "running"), None
+                    )
+                    payload = {
+                        "id": conversion_id,
+                        "status": status,
+                        "progress": progress,
+                        "stage": current_stage,
+                    }
+                    if status != last_status or count % 5 == 0:
+                        yield f"data: {json.dumps(payload)}\n\n"
+                        last_status = status
+                    if status in ("completed", "failed", "partial"):
+                        return
+                except Exception as exc:
+                    _log.warning("sse_error", conversion_id=conversion_id, error=str(exc))
+                    yield f"data: {json.dumps({'error': 'stream_error'})}\n\n"
                     return
-                status = conv.status or "queued"
-                stages_sorted = sorted(
-                    conv.stages,
-                    key=lambda s: STAGES.index(s.stage) if s.stage in STAGES else 99,
-                )
-                completed = sum(1 for s in stages_sorted if s.status == "completed")
-                total = len(stages_sorted) or 8
-                progress = int(completed / total * 100)
-                current_stage = next(
-                    (s.stage for s in stages_sorted if s.status == "running"), None
-                )
-                payload = {
-                    "id": conversion_id,
-                    "status": status,
-                    "progress": progress,
-                    "stage": current_stage,
-                }
-                if status != last_status or count % 5 == 0:
-                    yield f"data: {json.dumps(payload)}\n\n"
-                    last_status = status
-                if status in ("completed", "failed", "partial"):
-                    return
-            except Exception as exc:
-                _log.warning("sse_error", conversion_id=conversion_id, error=str(exc))
-                yield f"data: {json.dumps({'error': 'stream_error'})}\n\n"
-                return
-            finally:
-                session.close()
-            await asyncio.sleep(SSE_POLL_INTERVAL_S)
-            count += 1
+                await asyncio.sleep(SSE_POLL_INTERVAL_S)
+                count += 1
+        finally:
+            session.close()
 
     return StreamingResponse(
         _event_generator(),

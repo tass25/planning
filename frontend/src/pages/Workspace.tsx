@@ -6,18 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Download, ArrowLeft, GitCompare, FileText, AlertTriangle, CheckCircle, Code2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { useEffect, useState, useMemo } from "react";
-import { api } from "@/lib/api";
-import { getToken } from "@/lib/api";
+import { useEffect, useState, useMemo, useRef } from "react";
+import { api, getToken } from "@/lib/api";
 import type { Partition } from "@/types";
 
 const stageLabels: Record<string, string> = {
   file_process: "File Processing",
   sas_partition: "SAS Partitioning",
   strategy_select: "Dependency Resolution",
-  translate: "Data Lineage",
-  validate: "LLM Translation",
-  repair: "Syntax Validation",
+  translate: "LLM Translation",
+  validate: "Syntax Validation",
+  repair: "CEGAR Repair",
   merge: "Module Assembly",
   finalize: "Finalization",
 };
@@ -100,24 +99,59 @@ export default function WorkspacePage() {
   const hasBothCodes = !!(conversion?.sasCode && conversion?.pythonCode);
   const [diffMode, setDiffMode] = useState(true);
   const [partitions, setPartitions] = useState<Partition[]>([]);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // correction form state
+  const [corrCode, setCorrCode] = useState("");
+  const [corrExplanation, setCorrExplanation] = useState("");
+  const [corrCategory, setCorrCategory] = useState("");
+  const [corrSubmitting, setCorrSubmitting] = useState(false);
+
   useEffect(() => { if (conversion) api.get<Partition[]>(`/conversions/${conversion.id}/partitions`).then(setPartitions).catch(() => {}); }, [conversion]);
+
+  const showToast = (msg: string, ok: boolean) => {
+    setToast({ msg, ok });
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 4000);
+  };
 
   const downloadFile = async (ext: string) => {
     if (!conversion) return;
     const token = getToken();
-    const res = await fetch(`/api/conversions/${conversion.id}/download/${ext}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) return;
-    const blob = await res.blob();
-    const cd = res.headers.get("content-disposition");
-    const filename = cd?.match(/filename=(.+)/)?.[1] || `download.${ext}`;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const res = await fetch(`/api/conversions/${conversion.id}/download/${ext}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) { showToast(`Download failed (${res.status})`, false); return; }
+      const blob = await res.blob();
+      const cd = res.headers.get("content-disposition");
+      const filename = cd?.match(/filename=(.+)/)?.[1] || `download.${ext}`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      showToast("Download failed — network error", false);
+    }
+  };
+
+  const handleSubmitCorrection = async () => {
+    if (!conversion || !corrCode.trim()) return;
+    setCorrSubmitting(true);
+    try {
+      await api.post(`/conversions/${conversion.id}/corrections`, {
+        correctedCode: corrCode,
+        explanation: corrExplanation,
+        category: corrCategory || "Syntax Error",
+      });
+      setCorrCode(""); setCorrExplanation(""); setCorrCategory("");
+      showToast("Correction submitted — thank you!", true);
+    } catch {
+      showToast("Failed to submit correction", false);
+    } finally {
+      setCorrSubmitting(false);
+    }
   };
 
   if (!conversion) {
@@ -303,10 +337,24 @@ export default function WorkspacePage() {
       <div className="glass-panel p-5">
         <h2 className="text-sm font-semibold text-foreground mb-3">Submit Correction</h2>
         <div className="space-y-3">
-          <textarea placeholder="Corrected code..." className="w-full h-24 bg-muted/30 border border-border rounded-lg p-3 text-sm font-mono text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:border-accent transition-colors" />
+          <textarea
+            value={corrCode}
+            onChange={(e) => setCorrCode(e.target.value)}
+            placeholder="Corrected code..."
+            className="w-full h-24 bg-muted/30 border border-border rounded-lg p-3 text-sm font-mono text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:border-accent transition-colors"
+          />
           <div className="grid grid-cols-2 gap-3">
-            <input placeholder="Explanation..." className="bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent transition-colors" />
-            <select className="bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-accent transition-colors">
+            <input
+              value={corrExplanation}
+              onChange={(e) => setCorrExplanation(e.target.value)}
+              placeholder="Explanation..."
+              className="bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-accent transition-colors"
+            />
+            <select
+              value={corrCategory}
+              onChange={(e) => setCorrCategory(e.target.value)}
+              className="bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-accent transition-colors"
+            >
               <option value="">Category...</option>
               <option>Syntax Error</option>
               <option>Logic Error</option>
@@ -314,9 +362,24 @@ export default function WorkspacePage() {
               <option>Data Type Issue</option>
             </select>
           </div>
-          <Button variant="outline" size="sm" className="border-border text-muted-foreground hover:text-foreground">Submit Correction</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-border text-muted-foreground hover:text-foreground"
+            onClick={handleSubmitCorrection}
+            disabled={corrSubmitting || !corrCode.trim()}
+          >
+            {corrSubmitting ? "Submitting…" : "Submit Correction"}
+          </Button>
         </div>
       </div>
+
+      {/* Toast notification */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium transition-all ${toast.ok ? "bg-green-600 text-white" : "bg-red-600 text-white"}`}>
+          {toast.msg}
+        </div>
+      )}
     </motion.div>
   );
 }

@@ -92,7 +92,7 @@ def parse_blocks(sas_path: Path) -> list[tuple[str, str]]:
 # ── Prompt ───────────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPT = """\
-You are an expert SAS-to-Python translator. Convert the given SAS code to idiomatic Python using pandas (and PySpark where appropriate for large-scale ops).
+You are an expert SAS-to-Python translator. Convert the given SAS code to idiomatic Python using pandas.
 Rules:
 - RETAIN → accumulate with shift/cumsum or explicit state variable
 - FIRST./LAST. → groupby with head(1)/tail(1) or transform

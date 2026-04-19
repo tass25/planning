@@ -1,0 +1,18 @@
+# Dependencies for offline scripts only — NOT needed by the API server.
+# Install with: pip install -r backend/requirements/scripts.txt
+#
+# Used by:
+#   scripts/kb/build_dataset.py   — KB pair generation + Gemini distillation
+#   scripts/kb/generate_kb_pairs.py
+#   notebooks/fine_tune_qwen25_coder_sas.py
+-r base.txt
+
+# Gemini 2.0 Flash (oracle / dataset distillation)
+google-generativeai~=0.8.0
+
+# HuggingFace dataset building + MinHash deduplication
+datasets~=3.0.0
+datasketch~=1.6.0
+
+# Local GGUF inference (fine-tuned model)
+llama-cpp-python>=0.3.0

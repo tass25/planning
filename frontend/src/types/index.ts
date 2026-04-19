@@ -48,6 +48,7 @@ export interface Conversion {
   duration: number;
   accuracy: number;
   createdAt: string;
+  updatedAt?: string;
   stages: PipelineStageInfo[];
   sasCode?: string;
   pythonCode?: string;

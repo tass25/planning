@@ -113,6 +113,7 @@ class ConversionOut(BaseModel):
     duration: float = 0.0
     accuracy: float = 0.0
     createdAt: str
+    updatedAt: Optional[str] = None
     progress: int = 0
     stages: list[PipelineStageInfo] = Field(default_factory=list)
     sasCode: Optional[str] = None

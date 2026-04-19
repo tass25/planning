@@ -39,14 +39,15 @@ class LocalModelClient:
     """llama-cpp-python wrapper with OpenAI-compatible interface.
 
     Lazy-loads the model on first use (model file is ~4.5 GB).
-    Subsequent calls use the cached instance.
+    Subsequent calls use the cached Llama instance.
 
     Thread safety: asyncio.to_thread() bridges the sync llama_cpp
     API into the async pipeline without blocking the event loop.
+    A 5-minute hard timeout prevents stalled CPU/GPU inference from
+    hanging the pipeline indefinitely.
     """
 
-    _instance: Optional["LocalModelClient"] = None
-    _llm = None  # cached Llama instance
+    _llm = None  # cached Llama instance (lazy-loaded on first call)
 
     SYSTEM_PROMPT = (
         "You are an expert SAS-to-Python migration engineer. "
@@ -56,9 +57,10 @@ class LocalModelClient:
     )
 
     def __init__(self) -> None:
-        self.model_path = os.getenv("LOCAL_MODEL_PATH", "")
-        self.n_threads = int(os.getenv("LOCAL_MODEL_THREADS", "4"))
-        self.n_ctx = int(os.getenv("LOCAL_MODEL_CTX", "4096"))
+        from config.settings import settings
+        self.model_path = settings.local_model_path or os.getenv("LOCAL_MODEL_PATH", "")
+        self.n_threads = settings.local_model_threads
+        self.n_ctx = settings.local_model_ctx
         self._available: Optional[bool] = None
 
     @property
@@ -123,7 +125,10 @@ class LocalModelClient:
         )
         elapsed_ms = (time.monotonic() - t0) * 1000
 
-        content = response["choices"][0]["message"]["content"]
+        choices = response.get("choices", [])
+        if not choices:
+            raise RuntimeError("Local model returned empty choices list")
+        content = choices[0]["message"]["content"]
         usage = response.get("usage", {})
 
         return LocalCompletion(
@@ -143,8 +148,9 @@ class LocalModelClient:
         if not self.is_available:
             return None
         try:
-            result = await asyncio.to_thread(
-                self._run_inference, sas_code, max_tokens, temperature
+            result = await asyncio.wait_for(
+                asyncio.to_thread(self._run_inference, sas_code, max_tokens, temperature),
+                timeout=300,  # 5-min hard cap — GGUF can stall on overloaded CPU/GPU
             )
             logger.info(
                 "local_model_complete",
@@ -152,6 +158,9 @@ class LocalModelClient:
                 tokens=result.completion_tokens,
             )
             return result
+        except asyncio.TimeoutError:
+            logger.error("local_model_timeout", timeout_s=300)
+            return None
         except Exception as exc:
             logger.error("local_model_error", error=str(exc))
             return None

@@ -197,7 +197,7 @@ class KBQueryClient:
             query_embedding: Pre-computed Nomic 768-dim embedding of the query.
             partition_type:  SAS block type string.
             failure_mode:    Detected failure mode (optional).
-            target_runtime:  "python" or "pyspark".
+            target_runtime:  target language runtime (always "python").
             k:               Number of candidates to retrieve (semantic pre-fetch = 3k).
             sas_code:        Raw SAS source code for keyword scoring.
         """

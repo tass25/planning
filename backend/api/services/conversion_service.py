@@ -74,6 +74,7 @@ def conv_to_out(row) -> ConversionOut:
         duration=row.duration or 0.0,
         accuracy=row.accuracy or 0.0,
         createdAt=row.created_at or "",
+        updatedAt=getattr(row, "updated_at", None),
         sasCode=row.sas_code,
         pythonCode=row.python_code,
         validationReport=row.validation_report,
