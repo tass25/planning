@@ -1,7 +1,18 @@
-"""Pipeline service — background pipeline execution extracted from route handler.
+"""Pipeline service — the 8-stage SAS→Python conversion pipeline.
 
-Extracted from api.routes.conversions._run_pipeline_sync.
-Called via FastAPI BackgroundTasks — runs in a thread pool, not the async event loop.
+This runs inside a FastAPI BackgroundTasks thread (or an Azure Queue worker),
+so it's synchronous Python. Any async agent calls use asyncio.run() because
+this code is always outside the event loop — there's no running loop to conflict with.
+
+Stage mapping (frontend display name → what actually runs here):
+    file_process    → FileAnalysisAgent: scans file structure, identifies modules
+    sas_partition   → RegistryWriterAgent: chunks SAS into logical blocks
+    strategy_select → CrossFileDependencyResolver: resolves imports and deps
+    translate       → DataLineageExtractor: traces data reads/writes/transforms
+    validate        → translate_sas_to_python(): LLM translation (Nemotron → Azure → Groq)
+    repair          → compile(): Python syntax check, no LLM call
+    merge           → assemble final module with auto-generated header
+    finalize        → package results and update DB
 """
 
 from __future__ import annotations

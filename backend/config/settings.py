@@ -160,7 +160,12 @@ class Settings(BaseSettings):
     codara_jwt_secret: str = "codara-dev-secret-change-in-production"
 
     def validate_production_secrets(self) -> None:
-        """Fail fast if insecure defaults are used in production."""
+        """Crash at startup if the JWT secret is still the dev default in production.
+
+        The default secret is public knowledge (it's in the repo). Any token
+        signed with it can be trivially forged to impersonate any user, including
+        admins. We'd rather crash loudly at boot than silently accept forged tokens.
+        """
         if self.app_env == "production":
             if self.codara_jwt_secret.startswith("codara-dev"):
                 raise RuntimeError(

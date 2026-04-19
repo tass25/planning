@@ -45,7 +45,12 @@ uvicorn api.main:app --reload --port 8000
 ```
 
 ## Default seeded credentials
-| Role  | Email               | Password  |
-|-------|---------------------|-----------|
-| Admin | admin@codara.dev    | admin123! |
-| User  | user@codara.dev     | user123!  |
+On first boot, random passwords are generated and printed once to stdout.
+Pin them with env vars so they survive restarts:
+
+| Role  | Email               | Env var                  |
+|-------|---------------------|--------------------------|
+| Admin | admin@codara.dev    | `CODARA_ADMIN_PASSWORD`  |
+| User  | user@codara.dev     | `CODARA_USER_PASSWORD`   |
+
+If the env var is absent, a fresh random password is generated and logged to stdout on each cold start.

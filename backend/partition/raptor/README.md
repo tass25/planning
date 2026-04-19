@@ -14,7 +14,7 @@ Recursive Abstractive Processing for Tree-Organized Retrieval (Sarthi et al.) ad
 |------|-------------|
 | `embedder.py` | `NomicEmbedder` — 768-dim embeddings via `nomic-ai/nomic-embed-text-v1.5`; SHA-256 cache; task prefixes |
 | `clustering.py` | `GMMClusterer` — Gaussian Mixture Model with soft assignment (τ=0.72); k=√N; BIC convergence |
-| `summarizer.py` | `ClusterSummarizer` — 3-tier LLM fallback: Azure OpenAI GPT-4o → Groq Llama-3.1-70B → heuristic |
+| `summarizer.py` | `ClusterSummarizer` — 3-tier LLM fallback: Nemotron (Ollama) → Azure GPT-4o → Groq Llama-3.3-70B → heuristic |
 | `tree_builder.py` | `RAPTORTreeBuilder` — Recursive algorithm: leaf → GMM → summarize → embed → recurse; depth 3-5 |
 | `lancedb_writer.py` | `RAPTORLanceDBWriter` — LanceDB persistence with Arrow schema; cosine IVF index (32 partitions) |
 | `raptor_agent.py` | Orchestrates the full RAPTOR pipeline for a set of partitions |
@@ -37,7 +37,7 @@ list[PartitionIR] (from Chunking Layer)
         |
         v  cluster assignments
   ClusterSummarizer
-    -> Azure OpenAI GPT-4o / Groq 70B / heuristic fallback
+    -> Nemotron (Ollama) → Azure GPT-4o → Groq 70B → heuristic fallback
     -> Pydantic structured output (ClusterSummary)
         |
         v  summaries

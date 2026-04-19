@@ -1,4 +1,14 @@
-"""Codara API — main FastAPI application."""
+"""Codara API — FastAPI application entry point.
+
+Startup order matters here:
+  1. Load .env  →  2. Pull Key Vault secrets  →  3. Init settings
+  4. Fail fast on weak JWT  →  5. Init telemetry  →  6. Start queue worker
+  7. Init SQLite  →  8. Register routes  →  9. Seed default data
+
+Telemetry must come before the DB so spans cover table creation time.
+The queue worker must start before routes are registered so the first
+incoming request can immediately enqueue a pipeline job.
+"""
 
 from __future__ import annotations
 
@@ -7,10 +17,11 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load .env from repo root (Stage/.env — three levels up from backend/api/main.py)
+# .env lives at the repo root, three levels up from backend/api/main.py
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 
-# Ensure backend/ package is importable
+# Make sure `backend/` is importable as a package root — needed when running
+# uvicorn from outside the backend/ directory (e.g. Docker, CI)
 _pkg_root = str(Path(__file__).resolve().parent.parent)
 if _pkg_root not in sys.path:
     sys.path.insert(0, _pkg_root)
@@ -21,7 +32,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config.settings import settings
 
-# Fail fast if insecure JWT default is used in production
+# Catch weak JWT secrets before we accept a single request — better to crash
+# at startup than to sign tokens with a known default and silently expose the app
 settings.validate_production_secrets()
 
 from api.core.database import get_api_engine, init_api_db, get_api_session, UserRow, KBEntryRow
@@ -31,11 +43,14 @@ from api.middleware.error_handler import register_error_handlers
 
 from api.routes import auth, conversions, knowledge_base, admin, analytics, settings as settings_route, notifications
 
-# ── Telemetry — initialise before anything else so spans cover startup ────────
+# Telemetry spans must wrap everything that follows, so we init first.
+# When APPLICATIONINSIGHTS_CONNECTION_STRING is absent this is a no-op.
 from partition.orchestration.telemetry import _init_once as _init_telemetry
 _init_telemetry()
 
-# ── Queue worker — start consumer thread if Azure Queue is configured ─────────
+# Start the Azure Queue consumer thread if AZURE_QUEUE_NAME is configured.
+# In local dev this thread simply never picks up jobs (the queue is empty)
+# and BackgroundTasks handles pipeline execution instead.
 from api.services.queue_service import queue_service
 queue_service.start_worker()
 
@@ -59,10 +74,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Global error handlers ─────────────────────────────────────────────────────
 register_error_handlers(app)
 
-# ── Include routers ──────────────────────────────────────────────────────────
+# ── Routes ────────────────────────────────────────────────────────────────────
 
 app.include_router(auth.router,                prefix="/api")
 app.include_router(conversions.router,         prefix="/api")
@@ -76,12 +90,12 @@ app.include_router(notifications.router,       prefix="/api")
 # ── Seed data ─────────────────────────────────────────────────────────────────
 
 def _seed():
-    """Create default admin + demo user + seed KB entries if DB is empty.
+    """Populate the database with a default admin, a demo user, and a handful
+    of KB entries the first time the app boots on a fresh database.
 
-    Passwords are sourced from env vars CODARA_ADMIN_PASSWORD and
-    CODARA_USER_PASSWORD.  If not set, a random 24-char password is
-    generated and printed ONCE to stdout so the operator can note it.
-    Hardcoded default passwords are intentionally NOT used.
+    Passwords are never hardcoded — they come from CODARA_ADMIN_PASSWORD /
+    CODARA_USER_PASSWORD env vars, or get randomly generated and printed to
+    stdout once so the operator can note them down.
     """
     import os
     import secrets
@@ -90,7 +104,7 @@ def _seed():
     session = get_api_session(engine)
     try:
         if session.query(UserRow).count() > 0:
-            return  # already seeded
+            return  # already seeded on a previous boot — nothing to do
 
         now = datetime.now(timezone.utc).isoformat()
 
@@ -98,14 +112,15 @@ def _seed():
             pw = os.environ.get(env_var)
             if pw:
                 return pw
+            # Generate a random password, log it to stdout (not the structured log
+            # — we don't want it accidentally shipped to a logging service)
             pw = secrets.token_urlsafe(18)  # ~24 printable chars
             _log.warning(
                 "generated_first_boot_password",
                 account=label,
                 env_var=env_var,
-                # password intentionally omitted from logs — printed to stdout only
             )
-            print(  # noqa: T201 — deliberate first-boot output
+            print(  # noqa: T201
                 f"\n[Codara] First-boot password for {label}: {pw}"
                 f"\n  Set {env_var}=<password> to pin this for future runs.\n"
             )
@@ -114,7 +129,6 @@ def _seed():
         admin_pw = _get_or_generate_password("CODARA_ADMIN_PASSWORD", "admin@codara.dev")
         user_pw  = _get_or_generate_password("CODARA_USER_PASSWORD",  "user@codara.dev")
 
-        # Admin user
         session.add(UserRow(
             id="u-001",
             email="admin@codara.dev",
@@ -126,7 +140,6 @@ def _seed():
             created_at=now,
         ))
 
-        # Demo user
         session.add(UserRow(
             id="u-002",
             email="user@codara.dev",
@@ -138,7 +151,8 @@ def _seed():
             created_at=now,
         ))
 
-        # Seed KB entries (same as UI mock)
+        # A few representative KB entries so the UI doesn't open to an empty
+        # knowledge base on a fresh install
         kb_seeds = [
             ("kb-001", "proc sort data=mydata; by var1 var2; run;",
              "mydata = mydata.sort_values(['var1', 'var2'])", "data_manipulation", 0.98),
@@ -173,8 +187,11 @@ except Exception as exc:
 
 
 # ── Health endpoint ───────────────────────────────────────────────────────────
-# Azure Container Apps liveness/readiness probe target.
-# Each dependency check has a 2s timeout and never crashes the endpoint.
+# Used as the Azure Container Apps liveness / readiness probe.
+# Each dependency is checked independently with a 2-second timeout so a
+# slow Redis doesn't block the SQLite check (and vice versa).
+# The endpoint always returns 200 — the "status" field in the body tells
+# Azure whether to route traffic here.
 
 @app.get("/api/health")
 async def health():
@@ -201,6 +218,7 @@ async def health():
                 r.ping()
             return "ok"
         except Exception:
+            # Redis is optional (checkpointing degrades) — report degraded, not down
             return "degraded"
 
     async def _check_lancedb() -> str:
@@ -234,6 +252,7 @@ async def health():
         _check_ollama(),
     )
 
+    # SQLite must be ok; Redis and LanceDB can be degraded without blocking traffic
     all_ok = all(
         s in ("ok", "degraded")
         for s in [sqlite_status, redis_status, lancedb_status]

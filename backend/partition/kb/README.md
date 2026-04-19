@@ -1,7 +1,8 @@
 # `partition/kb/` — Knowledge Base Module
 
-Knowledge Base management for verified SAS→Python/PySpark translation pairs.
+Knowledge Base management for verified SAS→Python translation pairs.
 Added in **Week 9** to support RAPTOR retrieval-augmented translation.
+Currently at ~330 verified pairs across 15 SAS categories.
 
 ## Modules
 
@@ -16,9 +17,9 @@ Added in **Week 9** to support RAPTOR retrieval-augmented translation.
 ┌───────────────────────┐
 │  generate_kb_pairs.py │  (scripts/)
 │  Dual-LLM chain:      │
-│    A: Generate SAS     │─── Azure OpenAI GPT-4o
-│    B: Convert→Python   │─── Azure OpenAI GPT-4o
-│    C: Cross-verify     │─── Groq LLaMA-3.1-70B
+│    A: Generate SAS     │─── Nemotron / Azure GPT-4o
+│    B: Convert→Python   │─── Nemotron / Azure GPT-4o
+│    C: Cross-verify     │─── Groq LLaMA-3.3-70B (independent context)
 └──────────┬────────────┘
            │ verified pairs (confidence ≥ 0.85)
            ▼
@@ -37,11 +38,11 @@ Added in **Week 9** to support RAPTOR retrieval-augmented translation.
 |-------|------|-------------|
 | `example_id` | string | UUID primary key |
 | `sas_code` | string | Original SAS code |
-| `python_code` | string | Python/PySpark equivalent |
+| `python_code` | string | Python equivalent |
 | `embedding` | float32[768] | Nomic Embed v1.5 vector |
 | `partition_type` | string | SAS construct category |
 | `complexity_tier` | string | LOW / MODERATE / HIGH |
-| `target_runtime` | string | python / pyspark |
+| `target_runtime` | string | Always `python` |
 | `verified` | bool | Cross-verification passed |
 | `source` | string | llm_gen / failure_mode_injection / manual |
 | `failure_mode` | string | Targeted failure mode or empty |
@@ -62,5 +63,6 @@ Added in **Week 9** to support RAPTOR retrieval-augmented translation.
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/generate_kb_pairs.py` | Full KB generation CLI |
-| `scripts/kb_rollback.py` | Version rollback utility |
+| `scripts/kb/generate_kb_pairs.py` | Full KB generation CLI |
+| `scripts/kb/kb_rollback.py` | Version rollback utility |
+| `scripts/kb/expand_kb.py` | Batch KB expansion |

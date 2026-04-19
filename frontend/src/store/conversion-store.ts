@@ -49,6 +49,7 @@ export const useConversionStore = create<ConversionState>((set, get) => ({
     set((s) => ({
       conversions: [conv, ...s.conversions],
       activeConversionId: conv.id,
+      // Clear the upload queue — the files are now owned by the new conversion
       uploadedFiles: [],
     }));
     get().pollConversion(conv.id);
@@ -87,34 +88,50 @@ export const useConversionStore = create<ConversionState>((set, get) => ({
     })),
 
   pollConversion: (id: string) => {
+    // Always cancel any existing poll before starting a new one —
+    // otherwise two overlapping intervals can race and double-update state.
     get().stopPolling();
+
+    // Start at 1.2s and exponentially back off on rate-limit errors (max 30s).
+    // On a successful response we reset back to 1.2s so the UI stays snappy
+    // while the pipeline is actively running.
     let delay = 1200;
+
     const tick = async () => {
       try {
         const conv = await api.get<Conversion>(`/conversions/${id}`);
         set((s) => ({
           conversions: s.conversions.map((c) => (c.id === id ? conv : c)),
         }));
+
+        // Stop as soon as we hit a terminal state — no point polling a finished job
         if (conv.status === "completed" || conv.status === "failed" || conv.status === "partial") {
           get().stopPolling();
           return;
         }
-        delay = 1200; // reset backoff on success
+
+        delay = 1200; // reset backoff after a clean response
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
+
+        // Auth errors and missing conversions are unrecoverable — stop immediately
         if (msg.includes("401") || msg.includes("403") || msg.includes("404")) {
           get().stopPolling();
           return;
         }
+
+        // Rate limited — double the wait time up to 30s so we don't hammer the API
         if (msg.includes("429")) {
-          // Rate limited — exponential backoff capped at 30s
           delay = Math.min(delay * 2, 30000);
           console.warn(`[codara] rate limited, retrying in ${delay}ms`);
         }
       }
+
+      // Schedule the next tick and store the timeout ID so stopPolling() can cancel it
       const nextId = setTimeout(tick, delay) as unknown as ReturnType<typeof setInterval>;
       set({ pollingId: nextId });
     };
+
     const firstId = setTimeout(tick, delay) as unknown as ReturnType<typeof setInterval>;
     set({ pollingId: firstId });
   },

@@ -1,7 +1,7 @@
 # `partition/utils/` — Robustness Utilities
 
-Resilience primitives for the SAS→Python/PySpark conversion pipeline.
-Added in **Week 9** to harden all external API calls (Azure OpenAI, Groq)
+Resilience primitives for the SAS→Python conversion pipeline.
+Added in **Week 9** to harden all external API calls (Ollama, Azure OpenAI, Groq)
 and protect against large-file memory exhaustion.
 
 ## Modules
@@ -9,6 +9,8 @@ and protect against large-file memory exhaustion.
 | File | Purpose |
 |------|---------|
 | `retry.py` | `RateLimitSemaphore` (async concurrency limiter) + `CircuitBreaker` (trip-open after N failures, auto-reset) |
+| `llm_clients.py` | Factory functions for Ollama, Azure OpenAI, Groq, and GroqPool clients |
+| `local_model_client.py` | `LocalModelClient` — optional llama-cpp wrapper for a local GGUF model (Tier 0) |
 | `large_file.py` | `detect_file_size_strategy()` (standard / large / huge), `checkpoint_interval()`, `configure_memory_guards()`, `MemoryMonitor` |
 
 ## Key Components

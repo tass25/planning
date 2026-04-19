@@ -22,6 +22,9 @@ const stageLabels: Record<string, string> = {
 };
 
 // ── GitHub-style side-by-side diff view ──────────────────────────────────────
+// Renders SAS (left, red tint) and Python (right, green tint) line-by-line.
+// We pad the shorter side with empty lines so the two columns always have the
+// same height and line numbers stay aligned visually.
 
 function DiffView({ sasCode, pythonCode, fileName }: { sasCode: string; pythonCode: string; fileName: string }) {
   const sasLines = sasCode.split("\n");
@@ -108,6 +111,8 @@ export default function WorkspacePage() {
   const [corrCategory, setCorrCategory] = useState("");
   const [corrSubmitting, setCorrSubmitting] = useState(false);
 
+  // Load partitions once we have a conversion — failure is silent because
+  // the partitions tab is informational and not required for the main flow
   useEffect(() => { if (conversion) api.get<Partition[]>(`/conversions/${conversion.id}/partitions`).then(setPartitions).catch(() => {}); }, [conversion]);
 
   const showToast = (msg: string, ok: boolean) => {
@@ -116,6 +121,9 @@ export default function WorkspacePage() {
     toastTimer.current = setTimeout(() => setToast(null), 4000);
   };
 
+  // We use raw fetch instead of api.get() here because we need the full
+  // Response object to read the Content-Disposition header (for the filename)
+  // and to convert the body to a Blob for the anchor download trick
   const downloadFile = async (ext: string) => {
     if (!conversion) return;
     const token = getToken();
@@ -127,6 +135,7 @@ export default function WorkspacePage() {
       const blob = await res.blob();
       const cd = res.headers.get("content-disposition");
       const filename = cd?.match(/filename=(.+)/)?.[1] || `download.${ext}`;
+      // Programmatic download: create a temporary anchor, click it, then clean up
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url; a.download = filename; a.click();

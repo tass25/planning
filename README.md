@@ -102,21 +102,7 @@ Stage/
 │   ├── vite.config.ts               # Dev server (port 5173, proxy → :8000)
 │   └── Dockerfile                   # Frontend Docker image (Nginx)
 │
-├── docs/                            # Documentation
-│   ├── guides/                      # Technical guides
-│   │   ├── 5av.md                   # Full technical changelog
-│   │   ├── ROADMAP.md               # Feature roadmap
-│   │   ├── global.md                # Global architecture doc
-│   │   └── raptor_paper_notes.md    # RAPTOR research notes
-│   ├── reports/                     # Audit reports & benchmarks
-│   │   ├── AUDIT_REPORT_V3.md       # Latest audit
-│   │   ├── ablation_results.md      # RAPTOR vs flat-index ablation
-│   │   └── cahier_des_charges.tex   # Project specification (LaTeX)
-│   ├── planning/                    # Weekly planning docs
-│   │   ├── week-*.md                # Week-by-week plans
-│   │   └── kanbanV2.md              # Kanban board
-│   └── assets/                      # Diagrams and HTML docs
-│       └── architecture_v2.html     # Architecture diagram
+│                                    # (docs/, planning, reports → Planning branch)
 │
 └── notebooks/                       # Jupyter / Colab notebooks
     └── fine_tune_qwen25_coder_sas.py  # QLoRA fine-tuning (Colab T4)
@@ -211,6 +197,11 @@ CODARA_ADMIN_PASSWORD=<choose>   # → admin@codara.dev
 CODARA_USER_PASSWORD=<choose>    # → user@codara.dev
 ```
 
-## Changelog
+## Documentation
 
-See [CHANGELOG.md](CHANGELOG.md) for version history.
+Planning journals, audit reports, architecture diagrams, and research notes
+live in the `Planning` branch to keep `main` focused on code.
+
+```bash
+git checkout Planning   # access docs, reports, weekly planning
+```

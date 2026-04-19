@@ -73,7 +73,7 @@ The orchestration layer is designed to **never crash** — it degrades gracefull
 
 | Protection | Detail |
 |-----------|--------|
-| **Missing env vars** | `get_azure_openai_client()` and `get_groq_client()` raise clear `RuntimeError` with actionable messages (e.g., "GROQ_API_KEY not set. Get a free key at https://console.groq.com") instead of cryptic `KeyError`. |
-| **Missing packages** | `get_groq_client()` catches `ImportError` for the `groq` package and raises `RuntimeError("The 'groq' package is not installed. Install it with: pip install groq")`. |
-| **Retry + circuit breaker** | The `retry.py` module provides `with_retry` (exponential backoff) and `CircuitBreaker` (fail-fast after N consecutive failures) decorators used by all LLM-calling agents. |
+| **Missing env vars** | `get_azure_openai_client()` and `get_groq_openai_client()` return `None` when keys are absent rather than crashing. The TranslationAgent skips the unavailable tier and moves to the next one in the chain. |
+| **Missing packages** | Each LLM client factory is wrapped in `try/except ImportError`. If the package isn't installed the client comes back `None` and the tier is skipped silently. |
+| **Retry + circuit breaker** | The `retry.py` module provides `with_retry` (exponential backoff) and `CircuitBreaker` (fail-fast after N consecutive failures) for Azure and Groq. Ollama has its own timeout guard. |
 

@@ -52,16 +52,26 @@ def _parse_output_tables(sas_code: str) -> list[str]:
 
 
 class PartitionOrchestrator:
-    """Agent #15: LangGraph-based orchestrator for the full L2 pipeline.
+    """Agent #15: LangGraph-based orchestrator for the full 8-stage SAS→Python pipeline.
+
+    The pipeline is a linear LangGraph StateGraph — each node receives the full
+    PipelineState dict and returns a partial update. LangGraph merges those updates
+    before passing state to the next node.
+
+    Error handling philosophy:
+      - L2-A (file_process) failure is fatal. Without file metadata there is nothing
+        for downstream stages to work on, so we raise immediately.
+      - All other stage failures are non-fatal. The node appends to state["errors"]
+        and the pipeline continues so we still produce a (potentially partial) result.
 
     Parameters
     ----------
     redis_url : str
-        Redis connection URL for checkpointing.
+        Redis connection URL for checkpointing (saves state every 50 blocks).
     duckdb_path : str
         Path to DuckDB file for LLM audit logs.
     target_runtime : str
-        ``"python"``.
+        Always ``"python"`` — PySpark support was scoped out.
     """
 
     def __init__(
@@ -99,7 +109,12 @@ class PartitionOrchestrator:
     # ------------------------------------------------------------------
 
     def _get_agent(self, key: str, factory):
-        """Return a cached agent instance, creating it on first call."""
+        """Return a cached agent instance, creating it on first call.
+
+        Agents load sentence-transformer models, open DB connections, and spin up
+        LLM clients on instantiation — doing that on every node call would be slow
+        and wasteful. The cache means each agent is built once per pipeline run.
+        """
         if key not in self._agents:
             self._agents[key] = factory()
         return self._agents[key]
@@ -109,10 +124,15 @@ class PartitionOrchestrator:
     # ------------------------------------------------------------------
 
     def _build_graph(self):
-        """Construct and compile the consolidated 8-node LangGraph pipeline."""
+        """Construct and compile the 8-node LangGraph pipeline.
+
+        The graph is linear (no branches, no cycles) because SAS conversion is
+        strictly sequential — each stage needs the output of the previous one.
+        LangGraph's compile() validates the graph structure and produces a
+        Pregel-style executor that handles async node execution.
+        """
         workflow = StateGraph(PipelineState)
 
-        # Consolidated nodes (was 11, now 8)
         workflow.add_node("file_process", self._node_file_process)
         workflow.add_node("streaming", self._node_streaming)
         workflow.add_node("chunking", self._node_chunking)
@@ -122,10 +142,9 @@ class PartitionOrchestrator:
         workflow.add_node("translation", self._node_translation)
         workflow.add_node("merge", self._node_merge)
 
-        # Set entry point
         workflow.set_entry_point("file_process")
 
-        # Linear pipeline edges
+        # Strict linear flow — order matters
         workflow.add_edge("file_process", "streaming")
         workflow.add_edge("streaming", "chunking")
         workflow.add_edge("chunking", "raptor")
