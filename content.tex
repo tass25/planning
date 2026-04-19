@@ -1,0 +1,738 @@
+% =============================================================================
+% content.tex — Codara PFE Report
+% =============================================================================
+
+\documentclass[12pt,a4paper]{report}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{times}
+\usepackage[english]{babel}
+
+\usepackage[
+  a4paper,
+  top=2.5cm, bottom=2.5cm,
+  left=3cm,  right=2.5cm,
+  headheight=15pt
+]{geometry}
+
+\usepackage{setspace}
+\onehalfspacing
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[R]{\nouppercase{\leftmark}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+
+\usepackage{titlesec}
+\titleformat{\chapter}[display]
+  {\normalfont\Large\bfseries\centering}
+  {Chapter \thechapter}{10pt}{\LARGE}
+\titlespacing*{\chapter}{0pt}{30pt}{20pt}
+
+\usepackage{titletoc}
+
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\usepackage{amsmath, amssymb}
+
+\usepackage[hidelinks, breaklinks=true]{hyperref}
+\usepackage{bookmark}
+
+\usepackage[numbers, sort&compress]{natbib}
+\bibliographystyle{IEEEtran}
+
+\usepackage[printonlyused]{acronym}
+
+\newcommand{\codara}{\textsc{Codara}}
+
+% =============================================================================
+\begin{document}
+
+\pagenumbering{roman}
+
+% Title Page
+\begin{titlepage}
+  \centering
+  \vspace*{1cm}
+  {\large \textbf{[Institution Name]}}\\[0.4cm]
+  {\large [Faculty / Department]}\\[0.5cm]
+  \rule{\linewidth}{0.5pt}\\[0.5cm]
+  {\Large \textbf{End-of-Study Project Report (PFE)}}\\[0.3cm]
+  {\large Engineering Degree in [Specialty]}\\[1.2cm]
+  {\LARGE \textbf{\codara{}}}\\[0.5cm]
+  {\large \textit{A Multi-Agent SAS-to-Python/PySpark Conversion Accelerator}}\\[0.3cm]
+  {\normalsize Using LangGraph Orchestration, RAPTOR Semantic Clustering,}\\
+  {\normalsize and 3-Tier LLM Fallback Translation with Z3 Formal Verification}\\[2cm]
+  \begin{tabular}{ll}
+    \textbf{Presented by:} & [Author Name] \\[0.3cm]
+    \textbf{Supervisor:}   & [Supervisor Name], [Title] \\[0.3cm]
+    \textbf{Host company:} & [Company Name] \\
+  \end{tabular}\\[2cm]
+  \begin{tabular}{lll}
+    \multicolumn{3}{c}{\textbf{Jury}} \\[0.3cm]
+    [Name] & [Title] & President \\
+    [Name] & [Title] & Examiner \\
+    [Name] & [Title] & Supervisor \\
+  \end{tabular}\\[2cm]
+  {\large Academic Year 2025--2026}
+\end{titlepage}
+
+\chapter*{Dedication}
+\addcontentsline{toc}{chapter}{Dedication}
+\thispagestyle{plain}
+
+\chapter*{Acknowledgements}
+\addcontentsline{toc}{chapter}{Acknowledgements}
+\thispagestyle{plain}
+
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+\thispagestyle{plain}
+
+\tableofcontents
+
+\listoffigures
+\addcontentsline{toc}{chapter}{List of Figures}
+
+\listoftables
+\addcontentsline{toc}{chapter}{List of Tables}
+
+\chapter*{List of Abbreviations}
+\addcontentsline{toc}{chapter}{List of Abbreviations}
+\thispagestyle{plain}
+
+\begin{acronym}[RAPTOR]
+  \acro{API}{Application Programming Interface}
+  \acro{ASGI}{Asynchronous Server Gateway Interface}
+  \acro{CEGAR}{Counterexample-Guided Abstraction Refinement}
+  \acro{CI/CD}{Continuous Integration / Continuous Delivery}
+  \acro{CRISP-DM}{Cross-Industry Standard Process for Data Mining}
+  \acro{DAG}{Directed Acyclic Graph}
+  \acro{DSR}{Design Science Research}
+  \acro{ECE}{Expected Calibration Error}
+  \acro{ETL}{Extract, Transform, Load}
+  \acro{FSM}{Finite State Machine}
+  \acro{GMM}{Gaussian Mixture Model}
+  \acro{IR}{Intermediate Representation}
+  \acro{JWT}{JSON Web Token}
+  \acro{KB}{Knowledge Base}
+  \acro{LLM}{Large Language Model}
+  \acro{MRR}{Mean Reciprocal Rank}
+  \acro{PFE}{Projet de Fin d'Études (End-of-Study Project)}
+  \acro{RAG}{Retrieval-Augmented Generation}
+  \acro{RAPTOR}{Recursive Abstractive Processing for Tree-Organized Retrieval}
+  \acro{REST}{Representational State Transfer}
+  \acro{SAS}{Statistical Analysis System}
+  \acro{SCC}{Strongly Connected Component}
+  \acro{SDLC}{Software Development Life Cycle}
+  \acro{SMT}{Satisfiability Modulo Theories}
+  \acro{SSE}{Server-Sent Events}
+\end{acronym}
+
+% =============================================================================
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\chapter*{General Introduction}
+\addcontentsline{toc}{chapter}{General Introduction}
+\markboth{General Introduction}{General Introduction}
+\thispagestyle{fancy}
+
+% =============================================================================
+\chapter{Project Context and Foundation}
+\label{ch:context}
+
+\section{Introduction}
+\label{sec:ch1-intro}
+
+\section{Academic Institution}
+\label{sec:institution}
+
+\section{Host Company}
+\label{sec:host-company}
+
+  \subsection{Company Profile and Business Context}
+  \label{subsec:company-overview}
+
+  \subsection{Mission, Services, and Technological Focus}
+  \label{subsec:mission-vision}
+
+  \subsection{Internship Scope}
+  \label{subsec:internship-scope}
+
+\section{Project Presentation}
+\label{sec:project-presentation}
+
+  \subsection{Initial Situation and Problem Statement}
+  \label{subsec:problem}
+
+  \subsection{Study and Critique of Existing Solutions}
+  \label{subsec:existing-solutions}
+
+  \subsection{Proposed Solution Overview}
+  \label{subsec:proposed-solution}
+
+  \subsection{Expected Deliverables}
+  \label{subsec:deliverables}
+
+\section{Methodology Orientation}
+\label{sec:methodology}
+
+  \subsection{Overview of Candidate Methodologies}
+  \label{subsec:methodologies-overview}
+
+  \subsection{Design Science Research (DSR)}
+  \label{subsec:dsr}
+
+  \subsection{Adopted Hybrid Methodology: DSR + Agile}
+  \label{subsec:hybrid-methodology}
+
+\section{Conclusion}
+\label{sec:ch1-conclusion}
+
+
+% =============================================================================
+\chapter{Theoretical Foundations and Related Work}
+\label{ch:foundations}
+
+\section{Introduction}
+\label{sec:ch2-intro}
+
+\section{The SAS Language: Constructs and Migration Challenges}
+\label{sec:sas-language}
+
+  \subsection{Core Language Constructs}
+  \label{subsec:sas-constructs}
+
+  \subsection{Python and PySpark Equivalents}
+  \label{subsec:python-equivalents}
+
+  \subsection{Complexity Taxonomy for Migration}
+  \label{subsec:complexity-taxonomy}
+
+\section{Automated Code Translation}
+\label{sec:code-translation}
+
+  \subsection{Rule-Based Transpilers}
+  \label{subsec:rule-based}
+
+  \subsection{LLM-Based Code Translation}
+  \label{subsec:llm-translation}
+
+  \subsection{Hybrid Approaches}
+  \label{subsec:hybrid-translation}
+
+  \subsection{Limitations of Existing Tools}
+  \label{subsec:existing-limitations}
+
+\section{Retrieval-Augmented Generation}
+\label{sec:rag-theory}
+
+  \subsection{Foundations of RAG}
+  \label{subsec:rag-foundations}
+
+  \subsection{RAPTOR: Recursive Abstractive Processing}
+  \label{subsec:raptor-theory}
+
+  \subsection{Graph RAG}
+  \label{subsec:graph-rag-theory}
+
+  \subsection{Agentic RAG}
+  \label{subsec:agentic-rag-theory}
+
+\section{Multi-Agent Orchestration}
+\label{sec:mas-theory}
+
+  \subsection{Multi-Agent System Principles}
+  \label{subsec:mas-principles}
+
+  \subsection{LangGraph as Orchestration Framework}
+  \label{subsec:langgraph-theory}
+
+  \subsection{Why Multi-Agent for SAS Migration}
+  \label{subsec:mas-justification}
+
+\section{Formal Verification for Generated Code}
+\label{sec:formal-verification-theory}
+
+  \subsection{Satisfiability Modulo Theories (SMT)}
+  \label{subsec:smt-theory}
+
+  \subsection{Code Equivalence Checking}
+  \label{subsec:equivalence-checking}
+
+  \subsection{CEGAR: Counterexample-Guided Abstraction Refinement}
+  \label{subsec:cegar-theory}
+
+\section{Machine Learning for Complexity Scoring}
+\label{sec:ml-theory}
+
+  \subsection{Logistic Regression and Calibration}
+  \label{subsec:lr-calibration}
+
+  \subsection{Feature Engineering for Code Complexity}
+  \label{subsec:code-features}
+
+\section{Related Work}
+\label{sec:related-work}
+
+  \subsection{Migration Tools, Validation, and Multi-Agent Approaches}
+  \label{subsec:related-migration}
+
+  \subsection{Research Gap and Positioning of This Project}
+  \label{subsec:research-gap}
+
+\section{Synthesis}
+\label{sec:ch2-synthesis}
+
+\section{Conclusion}
+\label{sec:ch2-conclusion}
+
+
+% =============================================================================
+\chapter{Project Specifications}
+\label{ch:specifications}
+
+\section{Introduction}
+\label{sec:ch3-intro}
+
+\section{Project Objectives}
+\label{sec:objectives}
+
+  \subsection{Business Objectives}
+  \label{subsec:business-objectives}
+
+  \subsection{Technical Objectives}
+  \label{subsec:technical-objectives}
+
+  \subsection{Scientific Objectives}
+  \label{subsec:scientific-objectives}
+
+\section{Functional Requirements}
+\label{sec:functional-requirements}
+
+\section{Non-Functional Requirements}
+\label{sec:nonfunctional-requirements}
+
+\section{Use Cases and Scenarios}
+\label{sec:use-cases}
+
+  \subsection{Actor Identification}
+  \label{subsec:actors}
+
+  \subsection{Use Case Diagram}
+  \label{subsec:use-case-diagram}
+
+  \subsection{Detailed Use Cases}
+  \label{subsec:detailed-use-cases}
+
+  \subsection{Conversion Scenarios}
+  \label{subsec:conversion-scenarios}
+
+\section{High-Level Architecture}
+\label{sec:high-level-arch}
+
+\section{Constraints and Assumptions}
+\label{sec:constraints}
+
+\section{Conclusion}
+\label{sec:ch3-conclusion}
+
+
+% =============================================================================
+\chapter{System Architecture and Design Decisions}
+\label{ch:architecture}
+
+\section{Introduction}
+\label{sec:ch4-intro}
+
+\section{Technology Selection Through Empirical Evaluation}
+\label{sec:tech-selection}
+
+  \subsection{Multi-Agent Orchestration Framework Selection}
+  \label{subsec:framework-selection}
+
+  \subsection{LLM Benchmarking and Provider Selection}
+  \label{subsec:llm-benchmarking}
+
+  \subsection{Embedding Model and Vector Store Selection}
+  \label{subsec:embedding-selection}
+
+  \subsection{Formal Verification Tool Selection}
+  \label{subsec:z3-selection}
+
+\section{The 8-Node LangGraph Pipeline}
+\label{sec:pipeline-design}
+
+  \subsection{State Model and Composite Node Design Pattern}
+  \label{subsec:state-model}
+
+  \subsection{Input Phase: File Processing and Streaming (Nodes 1--2)}
+  \label{subsec:nodes-input}
+
+  \subsection{Partitioning Phase: Boundary Detection and RAPTOR Clustering (Nodes 3--4)}
+  \label{subsec:nodes-partition}
+
+  \subsection{Routing, Persistence, Translation, and Merge (Nodes 5--8)}
+  \label{subsec:nodes-routing-merge}
+
+\section{Data Architecture}
+\label{sec:data-architecture}
+
+  \subsection{SQLite API Database}
+  \label{subsec:sqlite-schema}
+
+  \subsection{LanceDB Knowledge Base}
+  \label{subsec:lancedb-schema}
+
+  \subsection{DuckDB Audit Store}
+  \label{subsec:duckdb-schema}
+
+  \subsection{Redis Checkpoint Store}
+  \label{subsec:redis-schema}
+
+\section{API and Service Layer Design}
+\label{sec:api-design}
+
+  \subsection{Layered Architecture: Routes \texorpdfstring{$\to$}{->} Services \texorpdfstring{$\to$}{->} Core}
+  \label{subsec:layered-api}
+
+  \subsection{Key API Endpoints}
+  \label{subsec:key-endpoints}
+
+  \subsection{Authentication and Authorisation Design}
+  \label{subsec:auth-design}
+
+\section{Gold Standard Corpus Construction}
+\label{sec:corpus-construction}
+
+  \subsection{Motivation and Design Requirements}
+  \label{subsec:corpus-design}
+
+  \subsection{Construction Methodology}
+  \label{subsec:corpus-methodology}
+
+  \subsection{Statistics and Limitations}
+  \label{subsec:corpus-statistics}
+
+\section{Conclusion}
+\label{sec:ch4-conclusion}
+
+
+% =============================================================================
+\chapter{Knowledge Integration and Pipeline Implementation}
+\label{ch:implementation}
+
+\section{Introduction}
+\label{sec:ch5-intro}
+
+\section{Three-Tier RAG Strategy}
+\label{sec:rag-impl}
+
+  \subsection{Conceptual Framework, Knowledge Base, and Escalation Rules}
+  \label{subsec:rag-framework}
+
+  \subsection{Tier 1: Static RAG}
+  \label{subsec:static-rag-impl}
+
+  \subsection{Tier 2: Graph RAG}
+  \label{subsec:graph-rag-impl}
+
+  \subsection{Tier 3: Agentic RAG}
+  \label{subsec:agentic-rag-impl}
+
+\section{RAPTOR Implementation}
+\label{sec:raptor-impl}
+
+  \subsection{Embedding and Clustering Pipeline}
+  \label{subsec:embedding-clustering}
+
+  \subsection{Summarisation and Tree Construction}
+  \label{subsec:summarizer-impl}
+
+  \subsection{HyperRAPTOR Extension}
+  \label{subsec:hyperraptor-impl}
+
+\section{Complexity Scoring and Strategy Routing}
+\label{sec:complexity-impl}
+
+  \subsection{Feature Engineering}
+  \label{subsec:feature-engineering}
+
+  \subsection{Logistic Regression with Platt Scaling}
+  \label{subsec:platt-impl}
+
+  \subsection{StrategyAgent: Risk-to-Paradigm Mapping}
+  \label{subsec:strategy-impl}
+
+\section{Translation and Validation}
+\label{sec:translation-impl}
+
+  \subsection{Prompt Engineering}
+  \label{subsec:prompt-engineering}
+
+  \subsection{LLM Invocation with Structured Output}
+  \label{subsec:llm-invocation}
+
+  \subsection{LLM Fallback Chain Implementation}
+  \label{subsec:fallback-impl}
+
+  \subsection{ValidationAgent Sandbox}
+  \label{subsec:sandbox-impl}
+
+  \subsection{Cross-Verification and Reflexion}
+  \label{subsec:crossverify-impl}
+
+\section{Z3 Formal Verification Layer}
+\label{sec:z3-impl}
+
+  \subsection{Z3VerificationAgent Architecture}
+  \label{subsec:z3-arch-impl}
+
+  \subsection{SMT Encoding Patterns}
+  \label{subsec:z3-patterns}
+
+  \subsection{CEGAR Loop}
+  \label{subsec:cegar-impl}
+
+\section{Functional Scenario Testing}
+\label{sec:scenario-testing}
+
+  \subsection{Testing Methodology and Scope}
+  \label{subsec:test-methodology}
+
+  \subsection{Scenario A: Low-Complexity Static RAG Path}
+  \label{subsec:scenario-a}
+
+  \subsection{Scenario B: Cross-File Graph RAG Path}
+  \label{subsec:scenario-b}
+
+  \subsection{Scenario C: High-Complexity Agentic RAG + CEGAR}
+  \label{subsec:scenario-c}
+
+\section{Conclusion}
+\label{sec:ch5-conclusion}
+
+
+% =============================================================================
+\chapter{Deployment and User Interface}
+\label{ch:deployment}
+
+\section{Introduction}
+\label{sec:ch6-intro}
+
+\section{Backend Deployment}
+\label{sec:backend-deployment}
+
+  \subsection{FastAPI Structure, Endpoints, and Background Tasks}
+  \label{subsec:fastapi-structure}
+
+  \subsection{Containerisation and CI/CD}
+  \label{subsec:docker}
+
+\section{Frontend Dashboard}
+\label{sec:frontend-deployment}
+
+  \subsection{Technology Stack and Architecture}
+  \label{subsec:frontend-stack}
+
+  \subsection{Key Interface Views}
+  \label{subsec:workspace-ui}
+
+  \subsection{End-to-End Integration Flow}
+  \label{subsec:e2e-integration}
+
+\section{Conclusion}
+\label{sec:ch6-conclusion}
+
+
+% =============================================================================
+\chapter{Evaluation, Results, and Discussion}
+\label{ch:evaluation}
+
+\section{Introduction}
+\label{sec:ch7-intro}
+
+\section{Evaluation Methodology}
+\label{sec:eval-methodology}
+
+  \subsection{Evaluation Framework and Metrics}
+  \label{subsec:metrics}
+
+  \subsection{Experimental Protocol}
+  \label{subsec:experimental-protocol}
+
+\section{Boundary Detection Results}
+\label{sec:boundary-results}
+
+  \subsection{Deterministic Detector Performance}
+  \label{subsec:det-perf}
+
+  \subsection{LLM Fallback Contribution}
+  \label{subsec:llm-boundary-contribution}
+
+  \subsection{Discussion: Gap to Target}
+  \label{subsec:boundary-gap}
+
+\section{RAPTOR Ablation Study}
+\label{sec:raptor-results}
+
+  \subsection{Experimental Setup}
+  \label{subsec:ablation-setup}
+
+  \subsection{Retrieval Quality}
+  \label{subsec:retrieval-quality}
+
+  \subsection{Translation Quality Impact}
+  \label{subsec:raptor-translation-impact}
+
+  \subsection{HyperRAPTOR Pilot Results}
+  \label{subsec:hyperraptor-results}
+
+\section{Complexity Scoring Calibration}
+\label{sec:complexity-results}
+
+  \subsection{Calibration Curve and ECE}
+  \label{subsec:ece-results}
+
+  \subsection{Risk-Level Distribution and Routing Statistics}
+  \label{subsec:risk-distribution}
+
+\section{End-to-End Translation Results}
+\label{sec:translation-results}
+
+  \subsection{Overall Translation Success Rate}
+  \label{subsec:overall-success}
+
+  \subsection{Z3 Verification Outcomes}
+  \label{subsec:z3-outcomes}
+
+  \subsection{Failure Mode Analysis}
+  \label{subsec:failure-mode-analysis}
+
+  \subsection{Streaming Performance}
+  \label{subsec:streaming-perf}
+
+\section{System Performance and LLM Cost}
+\label{sec:system-perf}
+
+  \subsection{API Latency}
+  \label{subsec:api-latency}
+
+  \subsection{LLM Token Cost}
+  \label{subsec:llm-cost}
+
+  \subsection{Test Suite Coverage}
+  \label{subsec:test-coverage}
+
+\section{Strengths of the Proposed Framework}
+\label{sec:strengths}
+
+  \subsection{Translation Quality and Retrieval Gains}
+  \label{subsec:strength-success}
+
+  \subsection{Z3 Formal Verification Catches Real Semantic Errors}
+  \label{subsec:strength-z3}
+
+  \subsection{Modularity and Production-Ready Deployment}
+  \label{subsec:strength-modularity}
+
+\section{Limitations and Critical Assessment}
+\label{sec:limitations}
+
+  \subsection{Boundary Accuracy Below Target (79.3\% vs.\ 90\%)}
+  \label{subsec:limit-boundary}
+
+  \subsection{Macro Meta-Programming: Primary Failure Mode}
+  \label{subsec:limit-macros}
+
+  \subsection{Operational and Scope Limitations}
+  \label{subsec:limit-operational}
+
+\section{Integration with Design Science Research}
+\label{sec:dsr-integration}
+
+\section{Comparison with Related Work}
+\label{sec:comparison}
+
+  \subsection{vs.\ Industrial Migration Tools}
+  \label{subsec:vs-industrial}
+
+  \subsection{vs.\ Academic Code Translation Approaches}
+  \label{subsec:vs-academic}
+
+  \subsection{Novelty Claims}
+  \label{subsec:novelty}
+
+\section{Future Work and Research Directions}
+\label{sec:future-work}
+
+  \subsection{Short-Term Improvements}
+  \label{subsec:future-short-term}
+
+  \subsection{Medium-Term Research Directions}
+  \label{subsec:future-mid-term}
+
+  \subsection{Long-Term Scalability and Integration}
+  \label{subsec:future-long-term}
+
+\section{Conclusion}
+\label{sec:ch7-conclusion}
+
+
+% =============================================================================
+\chapter*{General Conclusion}
+\addcontentsline{toc}{chapter}{General Conclusion}
+\markboth{General Conclusion}{General Conclusion}
+\thispagestyle{fancy}
+
+% =============================================================================
+\bibliography{references}
+
+\chapter*{Webography}
+\addcontentsline{toc}{chapter}{Webography}
+\thispagestyle{plain}
+\begin{itemize}
+  \item FastAPI documentation. \url{https://fastapi.tiangolo.com/} [Accessed: April 2026]
+  \item LangGraph documentation. \url{https://langchain-ai.github.io/langgraph/} [Accessed: April 2026]
+  \item LanceDB documentation. \url{https://lancedb.github.io/lancedb/} [Accessed: April 2026]
+  \item Z3 Theorem Prover. \url{https://github.com/Z3Prover/z3} [Accessed: April 2026]
+  \item Nomic Embed v1.5. \url{https://www.nomic.ai/blog/posts/nomic-embed-text-v1} [Accessed: April 2026]
+  \item SAS Language Reference. \url{https://support.sas.com/documentation/} [Accessed: April 2026]
+\end{itemize}
+
+\appendix
+\renewcommand{\thechapter}{\Alph{chapter}}
+\titleformat{\chapter}[display]
+  {\normalfont\Large\bfseries\centering}
+  {Appendix \thechapter}{10pt}{\LARGE}
+
+\chapter{Gold Standard Corpus Sample}
+\label{app:gold-corpus}
+
+\chapter{RAPTOR Tree Visualisation}
+\label{app:raptor-tree}
+
+\chapter{Z3 SMT Pattern Listings}
+\label{app:z3-patterns}
+
+\chapter{Torture Test --- Annotated SAS Fixture}
+\label{app:torture-test}
+
+\chapter{API Endpoint Reference}
+\label{app:api-reference}
+
+% =============================================================================
+\end{document}
