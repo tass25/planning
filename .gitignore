@@ -1,64 +1,79 @@
-# Python
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 
-# Virtual environment
+# ── Virtual environment ───────────────────────────────────────────────────────
 venv/
 .venv/
 env/
 
-# Environment secrets
+# ── Secrets — never commit the real .env ─────────────────────────────────────
 .env
+.env.local
+.env.*.local
 
-# IDE
+# ── IDE ───────────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Distribution / packaging
+# ── Distribution / packaging ──────────────────────────────────────────────────
 dist/
 build/
 *.egg-info/
 *.egg
 
-# Databases & runtime artifacts
+# ── Databases & runtime data ──────────────────────────────────────────────────
+# These are generated at runtime — never commit them
 *.db
 *.duckdb
 *.gpickle
 lancedb_data/
 artifacts/
+data/
 backend/data/
 
-# Logs
+# ── Generated pipeline output ─────────────────────────────────────────────────
+# Everything under backend/output/ is produced by pipeline runs or benchmarks
+backend/output/
+backend/knowledge_base/output/
+
+# ── Upload storage ────────────────────────────────────────────────────────────
+# Uploaded SAS files land here at runtime — not source code
+backend/uploads/
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
 logs/
+backend/logs/
 *.log
 
-# OS
+# ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
-# pytest
+# ── pytest / coverage ─────────────────────────────────────────────────────────
 .pytest_cache/
 htmlcov/
 .coverage
+coverage.xml
+test-results.xml
 
-# mypy
+# ── mypy ─────────────────────────────────────────────────────────────────────
 .mypy_cache/
 
-# Node modules
+# ── Node / Frontend ───────────────────────────────────────────────────────────
 node_modules/
 .vite/
-
-# Frontend build output
 frontend/dist/
+frontend/node_modules/
 
-# Legacy folders (no longer exist)
+# ── Legacy paths (renamed/removed) ───────────────────────────────────────────
 sas_converter/
 codara-ui-temp/
 
-# Test output
+# ── Test output (generated txt/html files) ───────────────────────────────────
 backend/tests/output/
 backend/scripts/debug/output/
