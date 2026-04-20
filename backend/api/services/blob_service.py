@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import asyncio
+import re
 import tempfile
 from pathlib import Path
 
@@ -91,12 +92,15 @@ class BlobStorageService:
     @staticmethod
     def _safe_id(file_id: str) -> str:
         """Strip path-traversal characters from a file/blob ID."""
-        return "".join(c for c in file_id if c.isalnum() or c == "-")
+        return re.sub(r"[^a-zA-Z0-9\-]", "", file_id)
 
     def _save_local(self, file_id: str, filename: str, content: bytes) -> str:
         safe = self._safe_id(file_id)
-        dest = (_LOCAL_UPLOAD_DIR / safe / Path(filename).name).resolve()
-        if not str(dest).startswith(str(_LOCAL_UPLOAD_DIR.resolve())):
+        base = _LOCAL_UPLOAD_DIR.resolve()
+        dest = (base / safe / Path(filename).name).resolve()
+        try:
+            dest.relative_to(base)
+        except ValueError:
             raise ValueError(f"Path traversal detected in file_id: {file_id}")
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(content)
@@ -135,8 +139,11 @@ class BlobStorageService:
         if self._enabled:
             return await asyncio.to_thread(self._list_sync, file_id)
         safe = self._safe_id(file_id)
-        folder = (_LOCAL_UPLOAD_DIR / safe).resolve()
-        if not str(folder).startswith(str(_LOCAL_UPLOAD_DIR.resolve())):
+        base = _LOCAL_UPLOAD_DIR.resolve()
+        folder = (base / safe).resolve()
+        try:
+            folder.relative_to(base)
+        except ValueError:
             return []
         return [p.name for p in folder.glob("*.sas")] if folder.exists() else []
 

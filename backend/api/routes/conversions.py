@@ -12,6 +12,7 @@ import asyncio
 import html as html_mod
 import io
 import json
+import re
 import uuid
 import zipfile
 from datetime import datetime, timezone
@@ -250,9 +251,12 @@ def get_partitions(conversion_id: str, current_user: dict = Depends(get_current_
         _s.close()
 
     # Sanitize conversion_id before using in path (prevent path traversal)
-    safe_id = "".join(c for c in conversion_id if c.isalnum() or c == "-")
-    pipeline_db = (UPLOAD_DIR / f"{safe_id}_pipeline.db").resolve()
-    if not str(pipeline_db).startswith(str(UPLOAD_DIR.resolve())):
+    safe_id = re.sub(r"[^a-zA-Z0-9\-]", "", conversion_id)
+    upload_base = UPLOAD_DIR.resolve()
+    pipeline_db = (upload_base / f"{safe_id}_pipeline.db").resolve()
+    try:
+        pipeline_db.relative_to(upload_base)
+    except ValueError:
         raise HTTPException(status_code=400, detail="Invalid conversion ID")
     if not pipeline_db.exists():
         return []
