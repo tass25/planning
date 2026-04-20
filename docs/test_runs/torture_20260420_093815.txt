@@ -1,0 +1,187 @@
+<All keys matched successfully>
+
+[36m----------------------------------------------------------------------
+  Codara translate_test - 10 blocks from torture_test.sas
+----------------------------------------------------------------------[0m
+
+2026-04-20 09:38:34 [info     ] nomic_embedder_init            device=cpu model=nomic-ai/nomic-embed-text-v1.5
+2026-04-20 09:38:35 [info     ] groq_pool_init                 keys_available=3
+[1/10] 1. RETAIN + BY-group FIRST./LAST.                       risk=HIGH      2026-04-20 09:38:36 [warning  ] kb_table_missing               table=sas_python_examples
+2026-04-20 09:38:36 [info     ] agentic_rag_context            attempt=0 graph_escalated=False k=8 partition_type=DATA_STEP returned=0 risk_level=HIGH
+2026-04-20 09:38:36 [info     ] rag_paradigm_selected          attempt=0 paradigm=agentic partition_type=DATA_STEP risk_level=HIGH
+2026-04-20 09:38:37 [warning  ] azure_debate_failed            error='<failed_attempts>\n\n<generation number="1">\n<exception>\n    Connection error.\n</exception>\n<completion>\n    None\n</completion>\n</generation>\n\n</failed_attempts>\n\n<last_exception>\n    Connection error.\n</last_exception>'
+2026-04-20 09:38:44 [warning  ] crossverify_azure_failed       error='<failed_attempts>\n\n<generation number="1">\n<exception>\n    Connection error.\n</exception>\n<completion>\n    None\n</completion>\n</generation>\n\n<generation number="2">\n<exception>\n    Connection error.\n</exception>\n<completion>\n    None\n</completion>\n</generation>\n\n</failed_attempts>\n\n<last_exception>\n    Connection error.\n</last_exception>'
+2026-04-20 09:38:45 [debug    ] z3_unknown                     matched=1 patterns_tried=10
+2026-04-20 09:38:45 [info     ] cdais_synthesized              error_class=RETAIN_RESET latency_ms=15.0 rows=6
+2026-04-20 09:38:45 [warning  ] cdais_failure                  details=['Translated Python crashed on CDAIS witness (exec timeout/error).'] error_class=RETAIN_RESET partition_id=6dc604d8-8ae5-46a1-b9c5-2ca4fec2e95e
+2026-04-20 09:38:45 [info     ] cdais_synthesized              error_class=NULL_ARITHMETIC latency_ms=0.0 rows=6
+2026-04-20 09:38:45 [warning  ] cdais_failure                  details=['Translated Python crashed on CDAIS witness (exec timeout/error).'] error_class=NULL_ARITHMETIC partition_id=6dc604d8-8ae5-46a1-b9c5-2ca4fec2e95e
+2026-04-20 09:38:45 [info     ] cdais_synthesized              error_class=GROUP_BOUNDARY latency_ms=31.0 rows=6
+2026-04-20 09:38:45 [warning  ] cdais_failure                  details=['Translated Python crashed on CDAIS witness (exec timeout/error).'] error_class=GROUP_BOUNDARY partition_id=6dc604d8-8ae5-46a1-b9c5-2ca4fec2e95e
+2026-04-20 09:38:45 [info     ] cdais_complete                 failed=3 latency_ms=62 partition_id=6dc604d8-8ae5-46a1-b9c5-2ca4fec2e95e passed=0
+2026-04-20 09:38:45 [info     ] cdais_complete                 block_id=6dc604d8-8ae5-46a1-b9c5-2ca4fec2e95e summary='CDAIS: 0/3 error classes certified | 3 failures | 0 skipped | 62ms'
+2026-04-20 09:38:45 [warning  ] cdais_failures                 block_id=6dc604d8-8ae5-46a1-b9c5-2ca4fec2e95e n_failures=3
+2026-04-20 09:38:45 [warning  ] kb_table_missing               table=sas_python_examples
+2026-04-20 09:38:45 [info     ] agentic_rag_context            attempt=0 graph_escalated=False k=8 partition_type=DATA_STEP returned=0 risk_level=HIGH
+2026-04-20 09:38:45 [info     ] rag_paradigm_selected          attempt=0 paradigm=agentic partition_type=DATA_STEP risk_level=HIGH
+2026-04-20 09:38:46 [warning  ] azure_debate_failed            error='<failed_attempts>\n\n<generation number="1">\n<exception>\n    Connection error.\n</exception>\n<completion>\n    None\n</completion>\n</generation>\n\n</failed_attempts>\n\n<last_exception>\n    Connection error.\n</last_exception>'
+2026-04-20 09:39:08 [warning  ] crossverify_azure_failed       error='<failed_attempts>\n\n<generation number="1">\n<exception>\n    Connection error.\n</exception>\n<completion>\n    None\n</completion>\n</generation>\n\n<generation number="2">\n<exception>\n    Connection error.\n</exception>\n<completion>\n    None\n</completion>\n</generation>\n\n</failed_attempts>\n\n<last_exception>\n    Connection error.\n</last_exception>'
+[32mSUCCESS   [0m model=ollama_nemotron-3-super:cloud conf=0.80 32.7s
+[2/10] 2. Missing value logic (SAS . < any number)             risk=LOW       2026-04-20 09:39:08 [warning  ] kb_table_missing               table=sas_python_examples
+2026-04-20 09:39:08 [info     ] static_rag_context             k=3 partition_type=DATA_STEP returned=0
+2026-04-20 09:39:08 [info     ] rag_paradigm_selected          attempt=0 paradigm=static partition_type=DATA_STEP risk_level=LOW
+2026-04-20 09:39:08 [info     ] local_model_unavailable        hint='Set LOCAL_MODEL_PATH in .env after downloading the GGUF' path='(not set)'
+2026-04-20 09:39:11 [warning  ] azure_low_failed               error='<failed_attempts>\n\n<generation number="1">\n<exception>\n    Connection error.\n</exception>\n<completion>\n    None\n</completion>\n</generation>\n\n<generation number="2">\n<exception>\n    Connection error.\n</exception>\n<completion>\n    None\n</completion>\n</generation>\n\n</failed_attempts>\n\n<last_exception>\n    Connection error.\n</last_exception>'
+2026-04-20 09:39:19 [warning  ] crossverify_azure_failed       error='<failed_attempts>\n\n<generation number="1">\n<exception>\n    Connection error.\n</exception>\n<completion>\n    None\n</completion>\n</generation>\n\n<generation number="2">\n<exception>\n    Connection error.\n</exception>\n<completion>\n    None\n</completion>\n</generation>\n\n</failed_attempts>\n\n<last_exception>\n    Connection error.\n</last_exception>'
+2026-04-20 09:39:19 [warning  ] z3_pattern_error               error="could not convert string to float: '.'" pattern=conditional_assignment
+2026-04-20 09:39:19 [debug    ] z3_unknown                     matched=1 patterns_tried=10
+2026-04-20 09:39:19 [debug    ] cdais_no_applicable_classes    partition_id=6931550a-0e63-45c5-96d7-cdacc350dbea
+[32mSUCCESS   [0m model=ollama_nemotron-3-super:cloud conf=0.95 11.3s z3=unverifiable
+[3/10] 3. PROC SQL with correlated subquery                    risk=MODERATE  2026-04-20 09:39:19 [warning  ] kb_table_missing               table=sas_python_examples
+2026-04-20 09:39:19 [info     ] agentic_rag_context            attempt=0 graph_escalated=False k=5 partition_type=DATA_STEP returned=0 risk_level=MODERATE
+2026-04-20 09:39:19 [info     ] rag_paradigm_selected          attempt=0 paradigm=agentic partition_type=DATA_STEP risk_level=MODERATE
+2026-04-20 09:39:22 [warning  ] circuit_opened                 breaker=azure_openai failures=5 reset_after_s=60.0
+2026-04-20 09:39:22 [warning  ] azure_high_failed              error='<failed_attempts>\n\n<generation number="1">\n<exception>\n    Connection error.\n</exception>\n<completion>\n    None\n</completion>\n</generation>\n\n<generation number="2">\n<exception>\n    Connection error.\n</exception>\n<completion>\n    None\n</completion>\n</generation>\n\n</failed_attempts>\n\n<last_exception>\n    Connection error.\n</last_exception>'
+2026-04-20 09:39:26 [debug    ] z3_unknown                     matched=1 patterns_tried=10
+2026-04-20 09:39:26 [debug    ] cdais_no_applicable_classes    partition_id=77328c12-7bf2-42ff-9d00-6c58f6dad21f
+[32mSUCCESS   [0m model=ollama_nemotron-3-super:cloud conf=0.95 6.8s z3=unverifiable
+[4/10] 4. Macro with parameters + %DO loop                     risk=MODERATE  2026-04-20 09:39:26 [warning  ] kb_table_missing               table=sas_python_examples
+2026-04-20 09:39:26 [info     ] agentic_rag_context            attempt=0 graph_escalated=False k=5 partition_type=DATA_STEP returned=0 risk_level=MODERATE
+2026-04-20 09:39:26 [info     ] rag_paradigm_selected          attempt=0 paradigm=agentic partition_type=DATA_STEP risk_level=MODERATE
+2026-04-20 09:39:31 [debug    ] z3_unknown                     matched=2 patterns_tried=10
+2026-04-20 09:39:31 [debug    ] cdais_no_applicable_classes    partition_id=10b434de-e26d-4045-a52e-e6368f65310e
+[32mSUCCESS   [0m model=ollama_nemotron-3-super:cloud conf=0.95 4.7s z3=unverifiable
+[5/10] 5. PROC MEANS with CLASS and OUTPUT                     risk=LOW       2026-04-20 09:39:31 [warning  ] kb_table_missing               table=sas_python_examples
+2026-04-20 09:39:31 [info     ] agentic_rag_context            attempt=0 graph_escalated=False k=5 partition_type=DATA_STEP returned=0 risk_level=LOW
+2026-04-20 09:39:31 [info     ] rag_paradigm_selected          attempt=0 paradigm=agentic partition_type=DATA_STEP risk_level=LOW
+2026-04-20 09:39:36 [info     ] z3_proved                      latency_ms=0.0 pattern=proc_means_groupby
+2026-04-20 09:39:36 [debug    ] cdais_no_applicable_classes    partition_id=7f108a94-2f77-4917-b7e1-5db832ad8369
+[32mSUCCESS   [0m model=ollama_nemotron-3-super:cloud conf=0.95 5.4s z3=formal_proof
+[6/10] 6. PROC SORT NODUPKEY                                   risk=LOW       2026-04-20 09:39:36 [info     ] deterministic_translation      block_id=308424b7-ae6d-48a9-a97b-1c494eae218c rule='PROC SORT NODUPKEY'
+2026-04-20 09:39:36 [info     ] z3_proved                      latency_ms=0.0 pattern=sort_direction
+2026-04-20 09:39:36 [info     ] cdais_synthesized              error_class=SORT_STABLE latency_ms=16.0 rows=2
+2026-04-20 09:39:36 [info     ] cdais_cert_issued              error_class=SORT_STABLE partition_id=308424b7-ae6d-48a9-a97b-1c494eae218c
+2026-04-20 09:39:36 [info     ] cdais_complete                 failed=0 latency_ms=16 partition_id=308424b7-ae6d-48a9-a97b-1c494eae218c passed=1
+2026-04-20 09:39:36 [info     ] cdais_complete                 block_id=308424b7-ae6d-48a9-a97b-1c494eae218c summary='CDAIS: 1/1 error classes certified | 0 failures | 0 skipped | 16ms'
+[32mSUCCESS   [0m model=deterministic:PROC SORT NODUPKEY conf=1.00 0.0s z3=formal_proof
+[7/10] 7. Hash object for lookup                               risk=HIGH      2026-04-20 09:39:36 [warning  ] kb_table_missing               table=sas_python_examples
+2026-04-20 09:39:36 [info     ] agentic_rag_context            attempt=0 graph_escalated=False k=8 partition_type=DATA_STEP returned=0 risk_level=HIGH
+2026-04-20 09:39:36 [info     ] rag_paradigm_selected          attempt=0 paradigm=agentic partition_type=DATA_STEP risk_level=HIGH
+2026-04-20 09:39:38 [warning  ] azure_debate_failed            error='<failed_attempts>\n\n<generation number="1">\n<exception>\n    Connection error.\n</exception>\n<completion>\n    None\n</completion>\n</generation>\n\n</failed_attempts>\n\n<last_exception>\n    Connection error.\n</last_exception>'
+2026-04-20 09:39:57 [debug    ] z3_unknown                     matched=2 patterns_tried=10
+2026-04-20 09:39:57 [debug    ] cdais_no_applicable_classes    partition_id=cb887a16-b8a9-47b8-ad33-ab693275a2b1
+[32mSUCCESS   [0m model=ollama_nemotron-3-super:cloud conf=0.95 21.1s z3=unverifiable
+[8/10] 8. Multi-level nested macro                             risk=MODERATE  2026-04-20 09:39:57 [info     ] macro_expansion_incomplete     msg='Dynamic macro variables left unexpanded — LLM will handle' unexpanded=['dsn', 'n', 'i', 'datasets', 'action', 'ds']
+2026-04-20 09:39:58 [warning  ] kb_table_missing               table=sas_python_examples
+2026-04-20 09:39:58 [info     ] agentic_rag_context            attempt=0 graph_escalated=False k=5 partition_type=DATA_STEP returned=0 risk_level=MODERATE
+2026-04-20 09:39:58 [info     ] rag_paradigm_selected          attempt=0 paradigm=agentic partition_type=DATA_STEP risk_level=MODERATE
+2026-04-20 09:40:07 [warning  ] lineage_violation              block_id=e12d8801-75e4-471e-b106-c9c90d323e27 n_violations=1
+2026-04-20 09:40:07 [info     ] macro_expansion_incomplete     msg='Dynamic macro variables left unexpanded — LLM will handle' unexpanded=['dsn', 'n', 'i', 'datasets', 'action', 'ds']
+2026-04-20 09:40:07 [warning  ] kb_table_missing               table=sas_python_examples
+2026-04-20 09:40:07 [info     ] agentic_rag_context            attempt=0 graph_escalated=False k=5 partition_type=DATA_STEP returned=0 risk_level=MODERATE
+2026-04-20 09:40:07 [info     ] rag_paradigm_selected          attempt=0 paradigm=agentic partition_type=DATA_STEP risk_level=MODERATE
+2026-04-20 09:40:12 [debug    ] z3_unknown                     matched=1 patterns_tried=10
+2026-04-20 09:40:12 [debug    ] cdais_no_applicable_classes    partition_id=e12d8801-75e4-471e-b106-c9c90d323e27
+[32mSUCCESS   [0m model=ollama_nemotron-3-super:cloud conf=0.95 14.7s z3=unverifiable
+[9/10] 9. PROC TRANSPOSE                                       risk=LOW       2026-04-20 09:40:12 [warning  ] kb_table_missing               table=sas_python_examples
+2026-04-20 09:40:12 [info     ] static_rag_context             k=3 partition_type=DATA_STEP returned=0
+2026-04-20 09:40:12 [info     ] rag_paradigm_selected          attempt=0 paradigm=static partition_type=DATA_STEP risk_level=LOW
+2026-04-20 09:40:15 [debug    ] z3_unknown                     matched=0 patterns_tried=10
+2026-04-20 09:40:15 [debug    ] cdais_no_applicable_classes    partition_id=8c3c824c-3fba-4a4e-ae0d-e0ea602ef22f
+[32mSUCCESS   [0m model=ollama_nemotron-3-super:cloud conf=0.95 3.0s
+[10/10] 10. Complex WHERE + FORMAT + LABEL                      risk=LOW       2026-04-20 09:40:15 [warning  ] kb_table_missing               table=sas_python_examples
+2026-04-20 09:40:15 [info     ] static_rag_context             k=3 partition_type=DATA_STEP returned=0
+2026-04-20 09:40:15 [info     ] rag_paradigm_selected          attempt=0 paradigm=static partition_type=DATA_STEP risk_level=LOW
+2026-04-20 09:40:20 [info     ] z3_proved                      latency_ms=0.0 pattern=boolean_filter
+2026-04-20 09:40:20 [debug    ] cdais_no_applicable_classes    partition_id=0e13510f-70bf-4251-87d8-75ae5e38afc5
+[32mSUCCESS   [0m model=ollama_nemotron-3-super:cloud conf=0.90 4.5s z3=formal_proof
+
+[36m----------------------------------------------------------------------
+  Summary
+----------------------------------------------------------------------[0m
+  Blocks translated : 10
+  SUCCESS           : [32m10[0m (100%)
+  PARTIAL           : [33m0[0m (0%)
+  Z3 formal proofs  : 3
+  Z3 counterexamples: 0
+  Total time        : 104.2s
+
+
+  Output saved to: C:\Users\labou\Desktop\Stage\backend\output\translate_test/
+[36m----------------------------------------------------------------------
+  Translations preview (first 6 lines each)
+----------------------------------------------------------------------[0m
+
+[32m[1. RETAIN + BY-group FIRST./LAST.][0m
+  import pandas as pd
+  import numpy as np
+  
+  # Assuming 'transactions' DataFrame exists with columns: customer_id, amount
+  # Sort by customer_id to match SAS BY statement behavior
+  transactions = transactions.sort_values('customer_id').reset_index(drop=True)
+
+[32m[2. Missing value logic (SAS . < any number)][0m
+  import pandas as pd
+  import numpy as np
+  
+  # Assuming 'raw_data' DataFrame is already loaded
+  cleaned = raw_data.copy()
+
+[32m[3. PROC SQL with correlated subquery][0m
+  import pandas as pd
+  
+  # Input DataFrame 'transactions' assumed to exist with columns: customer_id, amount
+  # Compute average amount per customer
+  avg_t = transactions.groupby('customer_id', dropna=False)['amount'].mean().reset_index(name='avg_amount')
+  # Join with original transactions
+
+[32m[4. Macro with parameters + %DO loop][0m
+  import pandas as pd
+  import numpy as np
+  
+  # Assuming 'prices' DataFrame is already loaded
+  # If loading from file, use: prices = pd.read_csv('prices.csv')
+
+[32m[5. PROC MEANS with CLASS and OUTPUT][0m
+  import pandas as pd
+  import numpy as np
+  
+  # Assuming sales DataFrame is already loaded
+  # Translating PROC MEANS with CLASS and OUTPUT
+  summary = (
+
+[32m[6. PROC SORT NODUPKEY][0m
+  import pandas as pd  # noqa
+  customers = customers.sort_values(['customer_id'], ascending=[True], kind='mergesort').reset_index(drop=True)
+  customers = customers.drop_duplicates(subset=['customer_id']).reset_index(drop=True)
+
+[32m[7. Hash object for lookup][0m
+  import pandas as pd
+  
+  # Load the lookup table and transactions data
+  # Assuming these are already loaded as DataFrames or need to be read from files
+  # For this translation, we'll work with existing DataFrames: lookup_table and transactions
+
+[32m[8. Multi-level nested macro][0m
+  import pandas as pd
+  import numpy as np
+  
+  # Load datasets (placeholder for actual data loading)
+  sales = pd.DataFrame()  # Replace with actual data loading
+  returns = pd.DataFrame()  # Replace with actual data loading
+
+[32m[9. PROC TRANSPOSE][0m
+  import pandas as pd
+  
+  # Assuming monthly_sales DataFrame is already loaded
+  # PROC TRANSPOSE: reshape from long to wide format
+  # BY product_id -> groupby key
+  # ID month -> column names  
+
+[32m[10. Complex WHERE + FORMAT + LABEL][0m
+  import pandas as pd
+  import numpy as np
+  
+  # Assuming 'survey' DataFrame is already loaded
+  # Filter rows: age between 18-65 inclusive, status in ACTIVE/PENDING, score not missing
+  report = survey[
