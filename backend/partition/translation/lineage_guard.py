@@ -114,7 +114,7 @@ def check_lineage(
                 is_internal = (
                     strict
                     or (internal and table_name in internal)
-                    or _looks_internal(filepath, table_name)
+                    or (not internal and _looks_internal(filepath, table_name))
                 )
 
                 if is_internal:
@@ -185,6 +185,11 @@ def build_internal_table_set(sas_code: str) -> set[str]:
 
     # out= on PROCs
     for m in re.finditer(r"\bout\s*=\s*([A-Za-z0-9_.]+)", sas_code, re.IGNORECASE):
+        raw = m.group(1).lower()
+        names.add(raw.split(".")[-1])
+
+    # PROC <verb> DATA=<name> without out= writes back to the same dataset
+    for m in re.finditer(r"proc\s+\w+\s+data\s*=\s*([A-Za-z0-9_.]+)", sas_code, re.IGNORECASE):
         raw = m.group(1).lower()
         names.add(raw.split(".")[-1])
 
