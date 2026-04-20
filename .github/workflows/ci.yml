@@ -232,29 +232,14 @@ jobs:
         run: |
           IMAGE="ghcr.io/${{ github.repository_owner }}/codara:sha-${{ github.sha }}"
 
-          # Create or update the container app
-          az containerapp up \
+          # Only update the image — secrets and env vars are wired to Key Vault
+          # once by azure_setup.sh and never need to be re-set on each deploy.
+          # Using `update` instead of `up` avoids resetting the secret references.
+          az containerapp update \
             --name ca-codara-backend \
             --resource-group rg-codara \
-            --environment cae-codara \
             --image "$IMAGE" \
-            --target-port 8000 \
-            --ingress external \
-            --registry-server ghcr.io \
-            --registry-username ${{ github.actor }} \
-            --registry-password ${{ secrets.GITHUB_TOKEN }} \
-            --env-vars \
-              REDIS_URL=secretref:redis-url \
-              AZURE_OPENAI_API_KEY=secretref:azure-openai-key \
-              AZURE_OPENAI_ENDPOINT=secretref:azure-openai-endpoint \
-              GROQ_API_KEY=secretref:groq-api-key \
-              CODARA_JWT_SECRET=secretref:jwt-secret \
-              APPLICATIONINSIGHTS_CONNECTION_STRING=secretref:appinsights-conn-str \
-              GEMINI_API_KEY=secretref:gemini-api-key \
-            --min-replicas 0 \
-            --max-replicas 2 \
-            --cpu 0.5 \
-            --memory 1.0Gi
+            --output table
 
       - name: Smoke test — health endpoint
         run: |

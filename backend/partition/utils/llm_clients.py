@@ -2,7 +2,7 @@
 
 Provider hierarchy (translation chain):
   Tier 0 — Local GGUF via llama-cpp-python (fine-tuned Qwen2.5-Coder, free)
-  Tier 1 — Ollama minimax-m2.7:cloud / qwen3-coder-next (PRIMARY — 10/10 on torture test)
+  Tier 1 — Ollama nemotron-3-super:cloud (PRIMARY — override via OLLAMA_MODEL env var)
   Tier 2 — Azure OpenAI GPT-4o / GPT-4o-mini (fallback 1)
   Tier 3 — Groq Llama-3.3-70B (fallback 2 — cross-verify & last resort)
   Tier 4 — Gemini 2.0 Flash (oracle & judge)
