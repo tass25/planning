@@ -34,10 +34,11 @@ class RegistryWriterAgent(BaseAgent):
 
         try:
             for fm in files:
-                # Check if content_hash already exists
+                # Dedup by file_id (primary key) — content_hash dedup would break FK
+                # references when the same file is re-uploaded with a new UUID.
                 existing = (
                     session.query(FileRegistryRow)
-                    .filter_by(content_hash=fm.content_hash)
+                    .filter_by(file_id=str(fm.file_id))
                     .first()
                 )
                 if existing is not None:
