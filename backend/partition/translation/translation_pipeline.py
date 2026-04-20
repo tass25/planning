@@ -96,9 +96,11 @@ class TranslationPipeline:
     ) -> ConversionResult:
         """Full translate → validate → retry loop for one partition."""
         try:
-            async with asyncio.timeout(self.PARTITION_TIMEOUT_S):
-                return await self._translate_partition_inner(partition)
-        except TimeoutError:
+            return await asyncio.wait_for(
+                self._translate_partition_inner(partition),
+                timeout=self.PARTITION_TIMEOUT_S,
+            )
+        except asyncio.TimeoutError:
             logger.error(
                 "translate_partition_timeout",
                 block_id=str(partition.block_id),

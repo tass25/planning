@@ -3,14 +3,14 @@
 Converts SAS partitions to Python using:
 1. Failure-mode detection (6 rules)
 2. Three RAG paradigms: Static (LOW), GraphRAG (deps/SCC), Agentic (MOD/HIGH)
-3. LLM routing: Nemotron (Ollama) → Azure GPT-4o → Groq LLaMA-70B
-4. Cross-verification (Prompt C): Nemotron → Groq (independent context)
+3. LLM routing: Azure GPT-4o → Nemotron (Ollama) → Groq LLaMA-70B
+4. Cross-verification (Prompt C): Azure → Groq (independent context)
 5. SCC batching for circular dependencies
 6. Reflexion-style retry with self-reflection on failure
 
 Provider chain (primary → fallback 1 → fallback 2):
-  Tier 1 — Ollama nemotron-3-super:cloud  (PRIMARY)
-  Tier 2 — Azure GPT-4o / GPT-4o-mini    (fallback 1)
+  Tier 1 — Azure GPT-4o / GPT-4o-mini    (PRIMARY)
+  Tier 2 — Ollama nemotron-3-super:cloud  (fallback 1)
   Tier 3 — Groq LLaMA-3.3-70B            (fallback 2 + cross-verifier)
   Tier 4 — PARTIAL status                 (all tiers exhausted)
 """
@@ -78,12 +78,12 @@ _NEMOTRON_MODEL  = "nemotron-3-super:cloud"  # PRIMARY Ollama model (Tier 1)
 class TranslationAgent(BaseAgent):
     """Agent #12: SAS → Python translation.
 
-    LLM routing (Nemotron primary):
-      - LOW risk              → Nemotron → Azure GPT-4o-mini → Groq
-      - MODERATE/HIGH/UNCERTAIN → Nemotron → Azure GPT-4o → Groq
-      - Cross-verify (Prompt C) → Nemotron → Groq (independent context)
+    LLM routing (Azure primary):
+      - LOW risk              → Azure GPT-4o-mini → Nemotron → Groq
+      - MODERATE/HIGH/UNCERTAIN → Azure GPT-4o → Nemotron → Groq
+      - Cross-verify (Prompt C) → Azure → Groq (independent context)
 
-    Full fallback chain: Nemotron (Ollama) → Azure → Groq → PARTIAL status
+    Full fallback chain: Azure → Nemotron (Ollama) → Groq → PARTIAL status
     """
 
     MAX_RETRIES = 2
@@ -113,19 +113,19 @@ class TranslationAgent(BaseAgent):
         # Avoids redundant LLM calls for structurally identical SAS patterns.
         self._translation_cache: dict[str, str] = {}
 
-        # Ollama (PRIMARY via nemotron-3-super:cloud)
-        _ollama = get_ollama_client(async_client=False)
-        self.ollama_client = (
-            instructor.from_openai(_ollama) if _ollama else None
-        )
-
-        # Azure OpenAI (fallback 1) — GPT-4o / GPT-4o-mini
+        # Azure OpenAI (PRIMARY) — GPT-4o / GPT-4o-mini
         try:
             self.azure_client = instructor.from_openai(
                 get_azure_openai_client(async_client=False)
             )
         except RuntimeError:
             self.azure_client = None
+
+        # Ollama/Nemotron (fallback 1) — nemotron-3-super:cloud
+        _ollama = get_ollama_client(async_client=False)
+        self.ollama_client = (
+            instructor.from_openai(_ollama) if _ollama else None
+        )
 
         # Groq (fallback 2) — llama-3.3-70b, round-robin key pool
         self._groq_pool = GroqPool()
@@ -407,10 +407,10 @@ class TranslationAgent(BaseAgent):
         # Run two independent translations concurrently
         results = await asyncio.gather(
             self._run_translation_safe(
-                self.ollama_client, _NEMOTRON_MODEL, messages, "nemotron_debate"
+                self.azure_client, get_deployment_name("full"), messages, "azure_debate"
             ),
             self._run_translation_safe(
-                self.azure_client, get_deployment_name("full"), messages, "azure_debate"
+                self.ollama_client, _NEMOTRON_MODEL, messages, "nemotron_debate"
             ),
             return_exceptions=True,
         )
@@ -425,9 +425,9 @@ class TranslationAgent(BaseAgent):
                 "## Translation Debate\n"
                 "Two independent translations have been produced. "
                 "Select the more semantically correct one or synthesise the best parts.\n\n"
-                "### Candidate A (Nemotron)\n"
+                "### Candidate A (Azure GPT-4o)\n"
                 f"```python\n{candidate_a.python_code}\n```\n\n"
-                "### Candidate B (Azure GPT-4o)\n"
+                "### Candidate B (Nemotron)\n"
                 f"```python\n{candidate_b.python_code}\n```\n\n"
                 "Output the best translation as your `python_code` field. "
                 "Set `notes` to a one-sentence explanation of why you chose/synthesised this."
@@ -445,15 +445,15 @@ class TranslationAgent(BaseAgent):
                     timeout=_LLM_TIMEOUT_S,
                 )
                 logger.info("debate_judged", notes=judged.notes[:80] if judged.notes else "")
-                return judged, "debate:nemotron+azure→groq"
+                return judged, "debate:azure+nemotron→groq"
             except Exception as exc:
                 logger.warning("debate_judge_failed", error=str(exc))
 
         # Fallback: return whichever candidate exists, else standard chain
         if candidate_a:
-            return candidate_a, f"ollama_{_NEMOTRON_MODEL}"
+            return candidate_a, "azure_gpt4o"
         if candidate_b:
-            return candidate_b, "azure_gpt4o"
+            return candidate_b, f"ollama_{_NEMOTRON_MODEL}"
 
         # Full fallback to standard high-risk chain
         return await self._translate_high_risk(prompt)
@@ -584,25 +584,7 @@ class TranslationAgent(BaseAgent):
         """
         messages = [{"role": "user", "content": prompt}]
 
-        # 1. Nemotron (primary) — nemotron-3-super:cloud via Ollama
-        if self.ollama_client:
-            try:
-                result = await asyncio.wait_for(
-                    asyncio.to_thread(
-                        self._sync_create,
-                        self.ollama_client,
-                        model=_NEMOTRON_MODEL,
-                        messages=messages,
-                        response_model=TranslationOutput,
-                        max_retries=2,
-                    ),
-                    timeout=_LLM_TIMEOUT_S,
-                )
-                return result, f"ollama_{_NEMOTRON_MODEL}"
-            except Exception as exc:
-                logger.warning(f"nemotron_{log_tag}_failed", error=str(exc))
-
-        # 2. Azure (fallback 1) — GPT-4o / GPT-4o-mini
+        # 1. Azure (primary) — GPT-4o / GPT-4o-mini
         if self.azure_client and azure_breaker.allow_request():
             try:
                 async with azure_limiter:
@@ -622,6 +604,24 @@ class TranslationAgent(BaseAgent):
             except Exception as exc:
                 azure_breaker.record_failure()
                 logger.warning(f"azure_{log_tag}_failed", error=str(exc))
+
+        # 2. Nemotron (fallback 1) — nemotron-3-super:cloud via Ollama
+        if self.ollama_client:
+            try:
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        self._sync_create,
+                        self.ollama_client,
+                        model=_NEMOTRON_MODEL,
+                        messages=messages,
+                        response_model=TranslationOutput,
+                        max_retries=2,
+                    ),
+                    timeout=_LLM_TIMEOUT_S,
+                )
+                return result, f"ollama_{_NEMOTRON_MODEL}"
+            except Exception as exc:
+                logger.warning(f"nemotron_{log_tag}_failed", error=str(exc))
 
         # 3. Groq (last resort) — llama-3.3-70b
         if self.groq_client:
@@ -667,22 +667,26 @@ class TranslationAgent(BaseAgent):
         )
         messages = [{"role": "user", "content": prompt}]
 
-        # 1. Ollama (primary)
-        if self.ollama_client:
+        # 1. Azure (primary — independent context for cross-verify)
+        if self.azure_client and azure_breaker.allow_request():
             try:
-                return await asyncio.wait_for(
-                    asyncio.to_thread(
-                        self._sync_create,
-                        self.ollama_client,
-                        model=get_ollama_model(),
-                        messages=messages,
-                        response_model=CrossVerifyOutput,
-                        max_retries=2,
-                    ),
-                    timeout=_LLM_TIMEOUT_S,
-                )
+                async with azure_limiter:
+                    result = await asyncio.wait_for(
+                        asyncio.to_thread(
+                            self._sync_create,
+                            self.azure_client,
+                            model=get_deployment_name("full"),
+                            messages=messages,
+                            response_model=CrossVerifyOutput,
+                            max_retries=2,
+                        ),
+                        timeout=_LLM_TIMEOUT_S,
+                    )
+                    azure_breaker.record_success()
+                    return result
             except Exception as exc:
-                logger.warning("crossverify_ollama_failed", error=str(exc))
+                azure_breaker.record_failure()
+                logger.warning("crossverify_azure_failed", error=str(exc))
 
         # 2. Groq (fallback — independent context for cross-verify)
         if self.groq_client:

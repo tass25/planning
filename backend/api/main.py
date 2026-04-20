@@ -201,9 +201,12 @@ async def health():
         try:
             from sqlalchemy import text
             from config.constants import HEALTH_CHECK_TIMEOUT_S
-            async with asyncio.timeout(HEALTH_CHECK_TIMEOUT_S):
+
+            async def _do():
                 with engine.connect() as conn:
                     conn.execute(text("SELECT 1"))
+
+            await asyncio.wait_for(_do(), timeout=HEALTH_CHECK_TIMEOUT_S)
             return "ok"
         except Exception as exc:
             _log.warning("health_sqlite_fail", error=str(exc))
@@ -213,9 +216,12 @@ async def health():
         try:
             import redis as _redis
             from config.constants import HEALTH_CHECK_TIMEOUT_S
-            async with asyncio.timeout(HEALTH_CHECK_TIMEOUT_S):
+
+            async def _do():
                 r = _redis.from_url(settings.redis_url)
                 r.ping()
+
+            await asyncio.wait_for(_do(), timeout=HEALTH_CHECK_TIMEOUT_S)
             return "ok"
         except Exception:
             # Redis is optional (checkpointing degrades) — report degraded, not down
@@ -225,8 +231,11 @@ async def health():
         try:
             import lancedb
             from config.constants import HEALTH_CHECK_TIMEOUT_S
-            async with asyncio.timeout(HEALTH_CHECK_TIMEOUT_S):
+
+            async def _do():
                 lancedb.connect(settings.lancedb_path)
+
+            await asyncio.wait_for(_do(), timeout=HEALTH_CHECK_TIMEOUT_S)
             return "ok"
         except Exception:
             return "degraded"
@@ -235,13 +244,16 @@ async def health():
         try:
             import httpx
             from config.constants import HEALTH_CHECK_TIMEOUT_S, HEALTH_OLLAMA_HTTP_TIMEOUT_S
-            async with asyncio.timeout(HEALTH_CHECK_TIMEOUT_S):
+
+            async def _do():
                 base = settings.ollama_base_url.replace("/v1", "")
                 async with httpx.AsyncClient() as client:
                     resp = await client.get(f"{base}/api/tags", timeout=HEALTH_OLLAMA_HTTP_TIMEOUT_S)
                     if resp.status_code == 200:
                         return "ok"
-            return "unavailable"
+                return "unavailable"
+
+            return await asyncio.wait_for(_do(), timeout=HEALTH_CHECK_TIMEOUT_S)
         except Exception:
             return "unavailable"
 
