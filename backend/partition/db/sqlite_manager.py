@@ -142,7 +142,11 @@ def get_engine(db_path: str = "data/file_registry.db"):
 
     Enables WAL journal mode and foreign keys via PRAGMA statements.
     """
-    abs_path = str(Path(db_path).resolve())
+    resolved = Path(db_path).resolve()
+    # Guard against path traversal: only allow .db files under the project tree
+    if resolved.suffix != ".db":
+        raise ValueError(f"Invalid database path (must end in .db): {db_path}")
+    abs_path = str(resolved)
     engine = create_engine(f"sqlite:///{abs_path}", echo=False)
 
     @event.listens_for(engine, "connect")

@@ -190,11 +190,14 @@ def extract_proc_format_values(sas_code: str) -> dict[str, dict[str, str]]:
         re.IGNORECASE | re.DOTALL,
     )
     value_block_pattern = re.compile(
-        r"value\s+(\$?\w+)\s+((?:[^;]*\n?)*?);",
-        re.IGNORECASE,
+        r"value\s+(\$?\w+)\s+([^;]+);",
+        re.IGNORECASE | re.DOTALL,
     )
+    # Split into key=value pairs — keys are either quoted strings or keywords/numbers
     pair_pattern = re.compile(
-        r"([\d.\-]+|['\"].*?['\"]|other|low|high|\.)\s*(?:[-,]\s*(?:[\d.\-]+|['\"].*?['\"]|other))?\s*=\s*['\"]([^'\"]*)['\"]",
+        r"(['\"][^'\"]{0,200}['\"]|[\d.\-]+|other|low|high|\.)"
+        r"(?:\s*[-,]\s*(?:['\"][^'\"]{0,200}['\"]|[\d.\-]+|other))?"
+        r"\s*=\s*['\"]([^'\"]{0,500})['\"]",
         re.IGNORECASE,
     )
 

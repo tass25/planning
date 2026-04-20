@@ -249,7 +249,11 @@ def get_partitions(conversion_id: str, current_user: dict = Depends(get_current_
     finally:
         _s.close()
 
-    pipeline_db = UPLOAD_DIR / f"{conversion_id}_pipeline.db"
+    # Sanitize conversion_id before using in path (prevent path traversal)
+    safe_id = "".join(c for c in conversion_id if c.isalnum() or c == "-")
+    pipeline_db = (UPLOAD_DIR / f"{safe_id}_pipeline.db").resolve()
+    if not str(pipeline_db).startswith(str(UPLOAD_DIR.resolve())):
+        raise HTTPException(status_code=400, detail="Invalid conversion ID")
     if not pipeline_db.exists():
         return []
 

@@ -88,8 +88,16 @@ class BlobStorageService:
         _log.info("blob_uploaded", blob=blob_name, size=len(content))
         return blob_name
 
+    @staticmethod
+    def _safe_id(file_id: str) -> str:
+        """Strip path-traversal characters from a file/blob ID."""
+        return "".join(c for c in file_id if c.isalnum() or c == "-")
+
     def _save_local(self, file_id: str, filename: str, content: bytes) -> str:
-        dest = _LOCAL_UPLOAD_DIR / file_id / filename
+        safe = self._safe_id(file_id)
+        dest = (_LOCAL_UPLOAD_DIR / safe / Path(filename).name).resolve()
+        if not str(dest).startswith(str(_LOCAL_UPLOAD_DIR.resolve())):
+            raise ValueError(f"Path traversal detected in file_id: {file_id}")
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(content)
         return str(dest)
@@ -126,7 +134,10 @@ class BlobStorageService:
         """Return blob names (filenames only) under a given file_id prefix."""
         if self._enabled:
             return await asyncio.to_thread(self._list_sync, file_id)
-        folder = _LOCAL_UPLOAD_DIR / file_id
+        safe = self._safe_id(file_id)
+        folder = (_LOCAL_UPLOAD_DIR / safe).resolve()
+        if not str(folder).startswith(str(_LOCAL_UPLOAD_DIR.resolve())):
+            return []
         return [p.name for p in folder.glob("*.sas")] if folder.exists() else []
 
     def _list_sync(self, file_id: str) -> list[str]:
