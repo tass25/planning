@@ -18,10 +18,10 @@ from typing import Optional
 
 import structlog
 
-from partition.prompts import PromptManager
-from partition.translation.kb_query import KBQueryClient
-from partition.raptor.embedder import NomicEmbedder
 from partition.index.graph_builder import NetworkXGraphBuilder
+from partition.prompts import PromptManager
+from partition.raptor.embedder import NomicEmbedder
+from partition.translation.kb_query import KBQueryClient
 
 logger = structlog.get_logger()
 
@@ -189,7 +189,8 @@ class AgenticRAG:
         graph_context = []
         if attempt_number >= 2 and partition_id:
             graph_context = self._get_graph_context_for_escalation(
-                partition_id, translations=translations,
+                partition_id,
+                translations=translations,
             )
 
         target_label = "Python (pandas)"

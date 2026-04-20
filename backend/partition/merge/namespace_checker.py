@@ -32,23 +32,44 @@ from dataclasses import dataclass, field
 
 # Names that are always defined — builtins + common library aliases injected
 # by the pipeline merge step.
-_PRELOADED: frozenset[str] = frozenset(
-    dir(builtins)
-) | frozenset({
-    "pd", "np", "plt", "sns", "spark", "F", "Window",
-    "os", "sys", "re", "json", "math", "datetime", "Path",
-    "io", "itertools", "collections", "functools",
-    # pandas/numpy types that appear as names
-    "DataFrame", "Series", "Index", "NaN", "inf",
-    # common pipeline injections
-    "df", "df_in", "df_out",
-})
+_PRELOADED: frozenset[str] = frozenset(dir(builtins)) | frozenset(
+    {
+        "pd",
+        "np",
+        "plt",
+        "sns",
+        "spark",
+        "F",
+        "Window",
+        "os",
+        "sys",
+        "re",
+        "json",
+        "math",
+        "datetime",
+        "Path",
+        "io",
+        "itertools",
+        "collections",
+        "functools",
+        # pandas/numpy types that appear as names
+        "DataFrame",
+        "Series",
+        "Index",
+        "NaN",
+        "inf",
+        # common pipeline injections
+        "df",
+        "df_in",
+        "df_out",
+    }
+)
 
 
 @dataclass
 class NamespaceViolation:
     line: int
-    kind: str    # "USE_BEFORE_DEF" | "SHADOW_CONFLICT"
+    kind: str  # "USE_BEFORE_DEF" | "SHADOW_CONFLICT"
     name: str
     message: str
 
@@ -58,7 +79,7 @@ class NamespaceViolation:
 
 @dataclass
 class NamespaceCheckResult:
-    errors:   list[NamespaceViolation] = field(default_factory=list)
+    errors: list[NamespaceViolation] = field(default_factory=list)
     warnings: list[NamespaceViolation] = field(default_factory=list)
 
     @property
@@ -84,6 +105,7 @@ class NamespaceCheckResult:
 
 # ── AST visitor ───────────────────────────────────────────────────────────────
 
+
 class _NamespaceVisitor(ast.NodeVisitor):
     """Walk a merged Python AST top-to-bottom, tracking definitions.
 
@@ -94,9 +116,9 @@ class _NamespaceVisitor(ast.NodeVisitor):
     """
 
     def __init__(self) -> None:
-        self.defined: set[str]         = set(_PRELOADED)
-        self.df_names: set[str]        = set()   # names known to hold DataFrames
-        self.errors:   list[NamespaceViolation] = []
+        self.defined: set[str] = set(_PRELOADED)
+        self.df_names: set[str] = set()  # names known to hold DataFrames
+        self.errors: list[NamespaceViolation] = []
         self.warnings: list[NamespaceViolation] = []
 
     # ── helpers ────────────────────────────────────────────────────────────────
@@ -120,11 +142,26 @@ class _NamespaceVisitor(ast.NodeVisitor):
             func = node.func
             if isinstance(func, ast.Attribute):
                 if func.attr in {
-                    "DataFrame", "read_csv", "read_excel", "read_parquet",
-                    "read_sas", "merge", "concat", "groupby", "reset_index",
-                    "sort_values", "drop_duplicates", "rename", "assign",
-                    "pivot_table", "pivot", "melt", "explode", "fillna",
-                    "dropna", "copy",
+                    "DataFrame",
+                    "read_csv",
+                    "read_excel",
+                    "read_parquet",
+                    "read_sas",
+                    "merge",
+                    "concat",
+                    "groupby",
+                    "reset_index",
+                    "sort_values",
+                    "drop_duplicates",
+                    "rename",
+                    "assign",
+                    "pivot_table",
+                    "pivot",
+                    "melt",
+                    "explode",
+                    "fillna",
+                    "dropna",
+                    "copy",
                 }:
                     return True
         if isinstance(node, ast.Name) and node.id in self.df_names:
@@ -163,15 +200,17 @@ class _NamespaceVisitor(ast.NodeVisitor):
         # x += expr  — x must already be defined
         if isinstance(node.target, ast.Name):
             if node.target.id not in self.defined:
-                self.errors.append(NamespaceViolation(
-                    line=node.lineno,
-                    kind="USE_BEFORE_DEF",
-                    name=node.target.id,
-                    message=(
-                        f"augmented assignment `{node.target.id} +=` but "
-                        f"`{node.target.id}` was not defined above this line."
-                    ),
-                ))
+                self.errors.append(
+                    NamespaceViolation(
+                        line=node.lineno,
+                        kind="USE_BEFORE_DEF",
+                        name=node.target.id,
+                        message=(
+                            f"augmented assignment `{node.target.id} +=` but "
+                            f"`{node.target.id}` was not defined above this line."
+                        ),
+                    )
+                )
         self.visit(node.value)
         self._define_target(node.target)
 
@@ -181,16 +220,18 @@ class _NamespaceVisitor(ast.NodeVisitor):
         # Register loop variable — warn if it shadows a DataFrame
         if isinstance(node.target, ast.Name):
             if node.target.id in self.df_names:
-                self.warnings.append(NamespaceViolation(
-                    line=node.lineno,
-                    kind="SHADOW_CONFLICT",
-                    name=node.target.id,
-                    message=(
-                        f"loop variable `{node.target.id}` shadows a DataFrame "
-                        "from a prior chunk — downstream code reading this name "
-                        "will get a loop scalar, not the DataFrame."
-                    ),
-                ))
+                self.warnings.append(
+                    NamespaceViolation(
+                        line=node.lineno,
+                        kind="SHADOW_CONFLICT",
+                        name=node.target.id,
+                        message=(
+                            f"loop variable `{node.target.id}` shadows a DataFrame "
+                            "from a prior chunk — downstream code reading this name "
+                            "will get a loop scalar, not the DataFrame."
+                        ),
+                    )
+                )
             self._define_target(node.target)
         for stmt in node.body:
             self.visit(stmt)
@@ -217,15 +258,17 @@ class _NamespaceVisitor(ast.NodeVisitor):
     def visit_Name(self, node: ast.Name) -> None:
         if isinstance(node.ctx, ast.Load):
             if node.id not in self.defined:
-                self.errors.append(NamespaceViolation(
-                    line=node.lineno,
-                    kind="USE_BEFORE_DEF",
-                    name=node.id,
-                    message=(
-                        f"`{node.id}` is read before it is defined. "
-                        "Check chunk ordering in the dependency graph."
-                    ),
-                ))
+                self.errors.append(
+                    NamespaceViolation(
+                        line=node.lineno,
+                        kind="USE_BEFORE_DEF",
+                        name=node.id,
+                        message=(
+                            f"`{node.id}` is read before it is defined. "
+                            "Check chunk ordering in the dependency graph."
+                        ),
+                    )
+                )
         self.generic_visit(node)
 
     def visit_Global(self, node: ast.Global) -> None:
@@ -269,6 +312,7 @@ class _NamespaceVisitor(ast.NodeVisitor):
 
 # ── public API ────────────────────────────────────────────────────────────────
 
+
 def check_namespace(python_code: str) -> NamespaceCheckResult:
     """Parse and walk the merged Python code, returning namespace violations.
 
@@ -287,10 +331,10 @@ def check_namespace(python_code: str) -> NamespaceCheckResult:
     try:
         tree = ast.parse(python_code)
     except SyntaxError:
-        return result   # syntax errors handled by ValidationAgent
+        return result  # syntax errors handled by ValidationAgent
 
     visitor = _NamespaceVisitor()
     visitor.visit(tree)
-    result.errors   = visitor.errors
+    result.errors = visitor.errors
     result.warnings = visitor.warnings
     return result

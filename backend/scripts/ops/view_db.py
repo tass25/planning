@@ -11,23 +11,24 @@ Usage (from backend/):
 
 from __future__ import annotations
 
-import sys
 import os
+import sys
 
 # ensure backend/ is on sys.path so partition.* imports work from anywhere
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 # ── paths (resolved relative to this file: backend/scripts/ops/view_db.py) ──
-_HERE        = os.path.dirname(os.path.abspath(__file__))          # .../backend/scripts/ops
-_BACKEND     = os.path.abspath(os.path.join(_HERE, "..", ".."))    # .../backend
-_DATA        = os.path.join(_BACKEND, "data")
+_HERE = os.path.dirname(os.path.abspath(__file__))  # .../backend/scripts/ops
+_BACKEND = os.path.abspath(os.path.join(_HERE, "..", ".."))  # .../backend
+_DATA = os.path.join(_BACKEND, "data")
 
-LANCEDB_PATH  = os.path.join(_DATA, "lancedb")
-DUCKDB_PATH   = os.path.join(_DATA, "analytics.duckdb")
-SQLITE_PATH   = os.path.join(_DATA, "codara_api.db")
+LANCEDB_PATH = os.path.join(_DATA, "lancedb")
+DUCKDB_PATH = os.path.join(_DATA, "analytics.duckdb")
+SQLITE_PATH = os.path.join(_DATA, "codara_api.db")
 
-SEP  = "=" * 72
+SEP = "=" * 72
 SEP2 = "-" * 72
+
 
 def _hdr(title: str):
     print(f"\n{SEP}")
@@ -37,14 +38,17 @@ def _hdr(title: str):
 
 # ── LanceDB ──────────────────────────────────────────────────────────────────
 
+
 def show_lancedb(search_query: str = ""):
     _hdr("LanceDB  —  Vector KB  (data/lancedb)")
     try:
         import lancedb
-        import pandas as pd
+        import pandas as pd  # noqa: F401
 
         if not os.path.exists(LANCEDB_PATH):
-            print("  [!] data/lancedb not found. Run: venv/Scripts/python scripts/kb/seed_kb.py --clear")
+            print(
+                "  [!] data/lancedb not found. Run: venv/Scripts/python scripts/kb/seed_kb.py --clear"
+            )
             return
 
         db = lancedb.connect(LANCEDB_PATH)
@@ -56,7 +60,7 @@ def show_lancedb(search_query: str = ""):
             print("  [!] No tables yet. Run seed_kb.py --clear to populate.")
             return
 
-        t  = db.open_table(tables[0])
+        t = db.open_table(tables[0])
         df = t.to_pandas()
 
         print(f"  Rows   : {len(df)}")
@@ -70,7 +74,7 @@ def show_lancedb(search_query: str = ""):
             print(f"    {cat:<35} {n} pair(s)")
 
         # Coverage by partition_type
-        print(f"\n  Coverage by partition_type:")
+        print("\n  Coverage by partition_type:")
         print(SEP2)
         for pt, n in df["partition_type"].value_counts().items():
             print(f"    {pt:<35} {n}")
@@ -84,7 +88,9 @@ def show_lancedb(search_query: str = ""):
         if "similarity_score" in df.columns:
             s = df["similarity_score"].dropna()
             if len(s):
-                print(f"  Similarity score: min={s.min():.3f}  max={s.max():.3f}  mean={s.mean():.3f}")
+                print(
+                    f"  Similarity score: min={s.min():.3f}  max={s.max():.3f}  mean={s.mean():.3f}"
+                )
 
         # Semantic search
         if search_query:
@@ -92,20 +98,30 @@ def show_lancedb(search_query: str = ""):
             print(SEP2)
             try:
                 from partition.raptor.embedder import NomicEmbedder
+
                 emb = NomicEmbedder()
                 vec = emb.embed_query(search_query).tolist()
                 results = t.search(vec).limit(5).to_pandas()
                 for i, row in results.iterrows():
-                    print(f"\n  [{i+1}] category={row.get('category','')}  partition_type={row.get('partition_type','')}")
+                    print(
+                        f"\n  [{i+1}] category={row.get('category','')}  partition_type={row.get('partition_type','')}"
+                    )
                     print(f"       SAS  : {str(row.get('sas_code',''))[:120].strip()}")
                     print(f"       Python: {str(row.get('python_code',''))[:120].strip()}")
             except Exception as e:
                 print(f"  [!] Search failed: {e}")
 
         # First 5 rows — key columns
-        print(f"\n  First 5 rows (key columns):")
+        print("\n  First 5 rows (key columns):")
         print(SEP2)
-        display_cols = ["category", "partition_type", "failure_mode", "verified", "sas_code", "python_code"]
+        display_cols = [
+            "category",
+            "partition_type",
+            "failure_mode",
+            "verified",
+            "sas_code",
+            "python_code",
+        ]
         display_cols = [c for c in display_cols if c in df.columns]
         preview = df[display_cols].head(5).copy()
         # truncate long code fields so the table stays readable
@@ -121,6 +137,7 @@ def show_lancedb(search_query: str = ""):
 
 
 # ── DuckDB ───────────────────────────────────────────────────────────────────
+
 
 def show_duckdb():
     _hdr("DuckDB  —  LLM Audit Logs  (data/analytics.duckdb)")
@@ -143,7 +160,7 @@ def show_duckdb():
                 pass
 
         # first 5 rows of every table
-        print(f"\n  First 5 rows per table:")
+        print("\n  First 5 rows per table:")
         for tname in tables["name"]:
             print(f"\n  [{tname}]")
             print(SEP2)
@@ -161,7 +178,7 @@ def show_duckdb():
 
         # conversion_results aggregates
         if "conversion_results" in tables["name"].values:
-            print(f"\n  conversion_results — aggregates by status:")
+            print("\n  conversion_results — aggregates by status:")
             print(SEP2)
             agg = con.execute("""
                 SELECT
@@ -185,11 +202,13 @@ def show_duckdb():
 
 # ── SQLite ────────────────────────────────────────────────────────────────────
 
+
 def show_sqlite():
     _hdr("SQLite  —  API Database  (data/codara_api.db)")
     try:
         import sqlite3
-        import pandas as pd
+
+        import pandas as pd  # noqa: F401
 
         if not os.path.exists(SQLITE_PATH):
             print("  [!] codara_api.db not found — start the API first (uvicorn api.main:app).")
@@ -198,8 +217,7 @@ def show_sqlite():
         con = sqlite3.connect(SQLITE_PATH)
 
         tables = pd.read_sql(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
-            con
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name", con
         )["name"].tolist()
         print(f"  Tables : {tables}\n")
 
@@ -211,7 +229,7 @@ def show_sqlite():
                 pass
 
         # first 5 rows of every table
-        print(f"\n  First 5 rows per table:")
+        print("\n  First 5 rows per table:")
         for tname in tables:
             print(f"\n  [{tname}]")
             print(SEP2)
@@ -235,6 +253,7 @@ def show_sqlite():
 
 
 # ── entrypoint ────────────────────────────────────────────────────────────────
+
 
 def main():
     args = sys.argv[1:]

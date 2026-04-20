@@ -28,8 +28,12 @@ from pathlib import Path
 import structlog
 
 from api.core.database import (
-    ConversionRow, ConversionStageRow, UserRow, NotificationRow,
-    get_api_engine, get_api_session,
+    ConversionRow,
+    ConversionStageRow,
+    NotificationRow,
+    UserRow,
+    get_api_engine,
+    get_api_session,
 )
 from api.services.blob_service import blob_service
 from api.services.translation_service import translate_sas_to_python
@@ -67,14 +71,19 @@ def run_pipeline_sync(
             _temp_dir = Path(tempfile.mkdtemp(prefix=f"codara_{conversion_id}_"))
             file_path = _temp_dir / filename
             shutil.move(str(raw_path), file_path)
-            _temp_path = _temp_dir   # cleanup the whole dir on exit
+            _temp_path = _temp_dir  # cleanup the whole dir on exit
         else:
             # Local mode: raw_path is already under uploads/file-XXXXXXXX/filename
             # which is an isolated per-upload directory — no move needed.
             file_path = raw_path
     except Exception as exc:
-        _log.error("pipeline_file_resolve_failed", conversion_id=conversion_id,
-                   file_id=file_id, filename=filename, error=str(exc))
+        _log.error(
+            "pipeline_file_resolve_failed",
+            conversion_id=conversion_id,
+            file_id=file_id,
+            filename=filename,
+            error=str(exc),
+        )
         return
     try:
         engine = get_api_engine(db_path)
@@ -90,10 +99,14 @@ def run_pipeline_sync(
         description: str | None = None,
     ) -> None:
         try:
-            st = session.query(ConversionStageRow).filter(
-                ConversionStageRow.conversion_id == conversion_id,
-                ConversionStageRow.stage == stage_name,
-            ).first()
+            st = (
+                session.query(ConversionStageRow)
+                .filter(
+                    ConversionStageRow.conversion_id == conversion_id,
+                    ConversionStageRow.stage == stage_name,
+                )
+                .first()
+            )
             if st:
                 st.status = status
                 now = datetime.now(timezone.utc).isoformat()
@@ -133,15 +146,16 @@ def run_pipeline_sync(
 
     # Ensure backend package is on sys.path for partition imports
     import sys
+
     pkg_root = str(Path(__file__).resolve().parent.parent.parent.parent)
     if pkg_root not in sys.path:
         sys.path.insert(0, pkg_root)
 
-    from partition.entry.file_analysis_agent import FileAnalysisAgent
-    from partition.entry.registry_writer_agent import RegistryWriterAgent
+    from partition.db.sqlite_manager import get_engine, init_db
     from partition.entry.cross_file_dep_resolver import CrossFileDependencyResolver
     from partition.entry.data_lineage_extractor import DataLineageExtractor
-    from partition.db.sqlite_manager import get_engine, init_db
+    from partition.entry.file_analysis_agent import FileAnalysisAgent
+    from partition.entry.registry_writer_agent import RegistryWriterAgent
 
     pipeline_db_path = str(UPLOAD_DIR / f"{conversion_id}_pipeline.db")
     pipeline_engine = None
@@ -168,54 +182,86 @@ def run_pipeline_sync(
 
     try:
         # Stage 1: file_process
-        _update_stage("file_process", "running", description="Scanning file structure & identifying SAS modules...")
+        _update_stage(
+            "file_process",
+            "running",
+            description="Scanning file structure & identifying SAS modules...",
+        )
         t0 = time.perf_counter()
         agent1 = FileAnalysisAgent()
         files = asyncio.run(agent1.process(project_root)) or []
         lat = (time.perf_counter() - t0) * 1000
-        _update_stage("file_process", "completed", lat, f"Discovered {len(files)} file(s) — structure mapped")
+        _update_stage(
+            "file_process", "completed", lat, f"Discovered {len(files)} file(s) — structure mapped"
+        )
 
         # Stage 2: sas_partition
-        _update_stage("sas_partition", "running", description="Chunking SAS code into logical blocks...")
+        _update_stage(
+            "sas_partition", "running", description="Chunking SAS code into logical blocks..."
+        )
         t0 = time.perf_counter()
         agent2 = RegistryWriterAgent()
         reg_result = asyncio.run(agent2.process(files, pipeline_engine)) or {}
         lat = (time.perf_counter() - t0) * 1000
         inserted = reg_result.get("inserted", 0)
-        _update_stage("sas_partition", "completed", lat, f"Partitioned into {inserted} block(s) — registry built")
+        _update_stage(
+            "sas_partition",
+            "completed",
+            lat,
+            f"Partitioned into {inserted} block(s) — registry built",
+        )
 
         # Stage 3: strategy_select
-        _update_stage("strategy_select", "running", description="Resolving cross-file dependencies & imports...")
+        _update_stage(
+            "strategy_select",
+            "running",
+            description="Resolving cross-file dependencies & imports...",
+        )
         t0 = time.perf_counter()
         agent3 = CrossFileDependencyResolver()
         deps = asyncio.run(agent3.process(files, project_root, pipeline_engine)) or {}
         lat = (time.perf_counter() - t0) * 1000
         _update_stage(
-            "strategy_select", "completed", lat,
+            "strategy_select",
+            "completed",
+            lat,
             f"Resolved {deps.get('resolved', 0)}/{deps.get('total', 0)} dependencies",
         )
 
         # Stage 4: translate (data lineage)
-        _update_stage("translate", "running", description="Tracing data lineage — reads, writes, transforms...")
+        _update_stage(
+            "translate",
+            "running",
+            description="Tracing data lineage — reads, writes, transforms...",
+        )
         t0 = time.perf_counter()
         agent4 = DataLineageExtractor()
         lineage = asyncio.run(agent4.process(files, pipeline_engine)) or {}
         lat = (time.perf_counter() - t0) * 1000
         _update_stage(
-            "translate", "completed", lat,
+            "translate",
+            "completed",
+            lat,
             f"Mapped {lineage.get('total_reads', 0)} reads + {lineage.get('total_writes', 0)} writes",
         )
 
         # Stage 5: validate (LLM translation)
-        _update_stage("validate", "running", description="Translating SAS code to Python via LLM...")
+        _update_stage(
+            "validate", "running", description="Translating SAS code to Python via LLM..."
+        )
         t0 = time.perf_counter()
         python_code = translate_sas_to_python(sas_code)
         lat = (time.perf_counter() - t0) * 1000
         translation_ok = python_code and not python_code.startswith("# TRANSLATION UNAVAILABLE")
         _update_stage(
-            "validate", "completed", lat,
-            "SAS → Python translation complete" if translation_ok
-            else "Translation skipped — LLM not configured",
+            "validate",
+            "completed",
+            lat,
+            (
+                "SAS → Python translation complete"
+                if translation_ok
+                else "Translation skipped — LLM not configured"
+            ),
         )
 
         # Stage 6: repair (syntax validation)
@@ -229,7 +275,9 @@ def run_pipeline_sync(
             except SyntaxError as se:
                 repair_notes.append(f"Syntax warning at line {se.lineno}: {se.msg}")
         lat = (time.perf_counter() - t0) * 1000
-        _update_stage("repair", "completed", lat, repair_notes[0] if repair_notes else "No repairs needed")
+        _update_stage(
+            "repair", "completed", lat, repair_notes[0] if repair_notes else "No repairs needed"
+        )
 
         # Stage 7: merge
         _update_stage("merge", "running", description="Assembling final Python module...")
@@ -245,7 +293,9 @@ def run_pipeline_sync(
         _update_stage("merge", "completed", lat, "Merged successfully — final module ready")
 
         # Stage 8: finalize
-        _update_stage("finalize", "running", description="Packaging results & generating reports...")
+        _update_stage(
+            "finalize", "running", description="Packaging results & generating reports..."
+        )
         t0 = time.perf_counter()
         lat = (time.perf_counter() - t0) * 1000
         _update_stage("finalize", "completed", lat, "Pipeline complete — results ready")
@@ -301,17 +351,21 @@ def run_pipeline_sync(
             if conv.status == "completed"
             else f"Conversion of '{conv.file_name}' failed. Please try again."
         )
-        session.add(NotificationRow(
-            id=f"notif-{uuid.uuid4().hex[:8]}",
-            user_id=conv.user_id,
-            title=notif_title,
-            message=notif_msg,
-            type="success" if conv.status == "completed" else "error",
-            created_at=datetime.now(timezone.utc).isoformat(),
-        ))
+        session.add(
+            NotificationRow(
+                id=f"notif-{uuid.uuid4().hex[:8]}",
+                user_id=conv.user_id,
+                title=notif_title,
+                message=notif_msg,
+                type="success" if conv.status == "completed" else "error",
+                created_at=datetime.now(timezone.utc).isoformat(),
+            )
+        )
         session.commit()
     except Exception as exc:
-        _log.warning("post_pipeline_bookkeeping_failed", conversion_id=conversion_id, error=str(exc))
+        _log.warning(
+            "post_pipeline_bookkeeping_failed", conversion_id=conversion_id, error=str(exc)
+        )
 
     try:
         session.close()

@@ -20,3 +20,21 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# E402: imports after sys.path manipulation (intentional in main.py / conversions.py)
+# E701/E702: one-liner style in benchmark scripts
+ignore = ["E402", "E501", "E701", "E702", "E741"]
+select = ["E", "F", "W", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/benchmark/*" = ["E", "W"]
+"backend/tests/*" = ["F841"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]

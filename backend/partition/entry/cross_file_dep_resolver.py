@@ -6,23 +6,16 @@ import re
 from pathlib import Path
 
 from ..base_agent import BaseAgent
+from ..db.sqlite_manager import CrossFileDependencyRow, get_session
 from ..models.file_metadata import FileMetadata
-from ..db.sqlite_manager import get_session, CrossFileDependencyRow
-
 
 # ── Regex patterns ────────────────────────────────────────────────────────────
 
-INCLUDE_PATTERN = re.compile(
-    r"""%INCLUDE\s+['"]([^'"]+)['"]""", re.IGNORECASE
-)
+INCLUDE_PATTERN = re.compile(r"""%INCLUDE\s+['"]([^'"]+)['"]""", re.IGNORECASE)
 
-LIBNAME_PATTERN = re.compile(
-    r"""LIBNAME\s+(\w+)\s+['"]([^'"]+)['"]""", re.IGNORECASE
-)
+LIBNAME_PATTERN = re.compile(r"""LIBNAME\s+(\w+)\s+['"]([^'"]+)['"]""", re.IGNORECASE)
 
-MACRO_VAR_INCLUDE = re.compile(
-    r"%INCLUDE\s+&(\w+)", re.IGNORECASE
-)
+MACRO_VAR_INCLUDE = re.compile(r"%INCLUDE\s+&(\w+)", re.IGNORECASE)
 
 
 class CrossFileDependencyResolver(BaseAgent):
@@ -64,7 +57,9 @@ class CrossFileDependencyResolver(BaseAgent):
                     self.logger.warning("read_failed", file=str(filepath), error=str(exc))
                     continue
 
-                deps = self._extract_dependencies(content, filepath, project_root, file_index, str(fm.file_id))
+                deps = self._extract_dependencies(
+                    content, filepath, project_root, file_index, str(fm.file_id)
+                )
                 for dep in deps:
                     session.add(dep)
                     total += 1
@@ -108,40 +103,48 @@ class CrossFileDependencyResolver(BaseAgent):
         # %INCLUDE 'path';
         for match in INCLUDE_PATTERN.finditer(content):
             ref_path = match.group(1)
-            resolved, target_id, abs_path = self._resolve(ref_path, source_path, project_root, file_index)
-            rows.append(CrossFileDependencyRow(
-                source_file_id=source_file_id,
-                ref_type="INCLUDE",
-                raw_reference=ref_path,
-                resolved=resolved,
-                target_file_id=target_id,
-                target_path=abs_path,
-            ))
+            resolved, target_id, abs_path = self._resolve(
+                ref_path, source_path, project_root, file_index
+            )
+            rows.append(
+                CrossFileDependencyRow(
+                    source_file_id=source_file_id,
+                    ref_type="INCLUDE",
+                    raw_reference=ref_path,
+                    resolved=resolved,
+                    target_file_id=target_id,
+                    target_path=abs_path,
+                )
+            )
 
         # LIBNAME name 'path';
         for match in LIBNAME_PATTERN.finditer(content):
             lib_name = match.group(1)
             lib_path = match.group(2)
-            rows.append(CrossFileDependencyRow(
-                source_file_id=source_file_id,
-                ref_type="LIBNAME",
-                raw_reference=f"{lib_name}={lib_path}",
-                resolved=False,  # LIBNAME points to a directory, not a file
-                target_file_id=None,
-                target_path=lib_path,
-            ))
+            rows.append(
+                CrossFileDependencyRow(
+                    source_file_id=source_file_id,
+                    ref_type="LIBNAME",
+                    raw_reference=f"{lib_name}={lib_path}",
+                    resolved=False,  # LIBNAME points to a directory, not a file
+                    target_file_id=None,
+                    target_path=lib_path,
+                )
+            )
 
         # %INCLUDE &macro_var — unresolvable statically
         for match in MACRO_VAR_INCLUDE.finditer(content):
             var_name = match.group(1)
-            rows.append(CrossFileDependencyRow(
-                source_file_id=source_file_id,
-                ref_type="INCLUDE",
-                raw_reference=f"&{var_name}",
-                resolved=False,
-                target_file_id=None,
-                target_path=None,
-            ))
+            rows.append(
+                CrossFileDependencyRow(
+                    source_file_id=source_file_id,
+                    ref_type="INCLUDE",
+                    raw_reference=f"&{var_name}",
+                    resolved=False,
+                    target_file_id=None,
+                    target_path=None,
+                )
+            )
 
         return rows
 

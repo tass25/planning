@@ -42,6 +42,7 @@ def _ensure_table(con: duckdb.DuckDBPyConnection) -> None:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
+
 def log_kb_change(
     db_path: str,
     example_id: str,
@@ -127,7 +128,13 @@ def get_history(db_path: str, example_id: str) -> list[dict]:
         con.close()
 
     cols = [
-        "change_id", "example_id", "action", "old_version",
-        "new_version", "author", "diff_summary", "changed_at",
+        "change_id",
+        "example_id",
+        "action",
+        "old_version",
+        "new_version",
+        "author",
+        "diff_summary",
+        "changed_at",
     ]
     return [dict(zip(cols, row)) for row in rows]

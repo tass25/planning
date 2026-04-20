@@ -37,13 +37,14 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from partition.translation.deterministic_translator import try_deterministic
-from partition.translation.lineage_guard import check_lineage, build_internal_table_set
 from partition.translation.error_classifier import classify_error
+from partition.translation.lineage_guard import build_internal_table_set, check_lineage
 
 GOLD_DIR = _ROOT / "knowledge_base" / "gold_standard"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _load_pairs() -> list[tuple[str, str, dict]]:
     """Return list of (sas_filename, sas_code, gold_meta) tuples."""
@@ -87,8 +88,12 @@ def _has_unnecessary_def(code: str) -> bool:
 # ── Deterministic-pattern tests ───────────────────────────────────────────────
 
 DETERMINISTIC_PATTERNS = [
-    "proc sort", "proc import", "proc export",
-    "datalines", "cards", "proc print",
+    "proc sort",
+    "proc import",
+    "proc export",
+    "datalines",
+    "cards",
+    "proc print",
 ]
 
 
@@ -118,12 +123,13 @@ def test_deterministic_fires_for_known_patterns(name: str, sas_code: str, gold_m
     # For simple (single-proc) files, we expect a hit
     gold_tier = gold_meta.get("tier", "")
     if gold_tier == "simple":
-        assert result is not None, (
-            f"{name}: expected deterministic translation for simple tier, got None"
-        )
+        assert (
+            result is not None
+        ), f"{name}: expected deterministic translation for simple tier, got None"
 
 
 # ── Lineage guard tests ───────────────────────────────────────────────────────
+
 
 @pytest.mark.parametrize("name,sas_code,gold_meta", _PAIRS, ids=[p[0] for p in _PAIRS])
 def test_no_lineage_violations_in_deterministic(name: str, sas_code: str, gold_meta: dict):
@@ -135,12 +141,12 @@ def test_no_lineage_violations_in_deterministic(name: str, sas_code: str, gold_m
     internal = build_internal_table_set(sas_code)
     report = check_lineage(result.code, internal_table_names=internal)
     assert report.ok, (
-        f"{name}: lineage violation in deterministic code:\n"
-        + report.to_prompt_block()
+        f"{name}: lineage violation in deterministic code:\n" + report.to_prompt_block()
     )
 
 
 # ── No-def tests ──────────────────────────────────────────────────────────────
+
 
 @pytest.mark.parametrize("name,sas_code,gold_meta", _PAIRS, ids=[p[0] for p in _PAIRS])
 def test_no_def_main_in_deterministic(name: str, sas_code: str, gold_meta: dict):
@@ -149,47 +155,55 @@ def test_no_def_main_in_deterministic(name: str, sas_code: str, gold_meta: dict)
     if result is None:
         pytest.skip(f"{name}: no deterministic rule matched")
 
-    assert not _has_def_main(result.code), (
-        f"{name}: deterministic code contains illegal def main() wrapper"
-    )
+    assert not _has_def_main(
+        result.code
+    ), f"{name}: deterministic code contains illegal def main() wrapper"
 
 
 # ── Error classifier unit tests ───────────────────────────────────────────────
 
+
 class TestErrorClassifier:
     def test_syntax_error(self):
         from partition.translation.error_classifier import SYNTAX
+
         r = classify_error("SyntaxError: unexpected EOF", "", "def foo(")
         assert r.primary_category == SYNTAX
 
     def test_key_error_col(self):
         from partition.translation.error_classifier import COL_MISSING
+
         r = classify_error("KeyError: 'amount'", "", "df['amount'] + 1")
         assert r.primary_category == COL_MISSING
         assert "amount" in r.affected_columns
 
     def test_type_error_dtype(self):
         from partition.translation.error_classifier import DTYPE_MISMATCH, TYPE_ERROR
+
         r = classify_error("TypeError: can only concatenate str (not 'int') to str", "")
         assert r.primary_category in (DTYPE_MISMATCH, TYPE_ERROR)
 
     def test_empty_dataframe(self):
         from partition.translation.error_classifier import EMPTY_SUSPICIOUS
+
         r = classify_error("empty dataframe: length 0", "")
         assert r.primary_category == EMPTY_SUSPICIOUS
 
     def test_merge_contract(self):
         from partition.translation.error_classifier import MERGE_CONTRACT
+
         r = classify_error("merge semantics mismatch in_left in_right", "")
         assert r.primary_category == MERGE_CONTRACT
 
     def test_fallthrough(self):
         from partition.translation.error_classifier import RUNTIME_GENERAL
+
         r = classify_error("some unknown runtime error", "")
         assert r.primary_category == RUNTIME_GENERAL
 
 
 # ── Deterministic translator unit tests ──────────────────────────────────────
+
 
 class TestDeterministicTranslator:
     def test_proc_sort_basic(self):
@@ -209,7 +223,7 @@ class TestDeterministicTranslator:
         sas = "proc sort data=ds; by descending score; run;"
         r = try_deterministic(sas)
         assert r is not None
-        assert "False" in r.code   # ascending=False
+        assert "False" in r.code  # ascending=False
 
     def test_proc_import_csv(self):
         sas = "proc import datafile='data.csv' out=raw dbms=csv replace; run;"
@@ -243,6 +257,7 @@ class TestDeterministicTranslator:
 
 
 # ── Lineage guard unit tests ──────────────────────────────────────────────────
+
 
 class TestLineageGuard:
     def test_clean_code(self):

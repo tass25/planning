@@ -52,6 +52,7 @@ logger = structlog.get_logger()
 
 # ── Pydantic output models ───────────────────────────────────────────────────
 
+
 class GeneratedSAS(BaseModel):
     """Output of Prompt A: a realistic SAS code block."""
 
@@ -74,15 +75,9 @@ class ConvertedPython(BaseModel):
 class CrossVerifyResult(BaseModel):
     """Output of Prompt C: cross-verification judgment."""
 
-    equivalent: bool = Field(
-        ..., description="Are the SAS and Python semantically equivalent?"
-    )
-    issues: list[str] = Field(
-        default_factory=list, description="Identified issues"
-    )
-    confidence: float = Field(
-        ..., description="Confidence in equivalence judgment (0-1)"
-    )
+    equivalent: bool = Field(..., description="Are the SAS and Python semantically equivalent?")
+    issues: list[str] = Field(default_factory=list, description="Identified issues")
+    confidence: float = Field(..., description="Confidence in equivalence judgment (0-1)")
 
 
 # ── Provider registry ────────────────────────────────────────────────────────
@@ -261,6 +256,7 @@ CRITICAL PROC MEANS OUTPUT RULES:
 
 # ── KBGenerator ───────────────────────────────────────────────────────────────
 
+
 class KBGenerator:
     """Generate verified SAS→Python KB pairs using dual-LLM chain.
 
@@ -338,6 +334,7 @@ class KBGenerator:
 
         # Load embedder once — avoid reloading torch model on every pair
         from partition.raptor.embedder import NomicEmbedder
+
         self._embedder = NomicEmbedder()
 
         logger.info(
@@ -365,7 +362,10 @@ class KBGenerator:
             return
         self._groq_key_idx = (self._groq_key_idx + 1) % len(self._groq_keys)
         self.verifier = instructor.from_openai(
-            OpenAI(api_key=self._groq_keys[self._groq_key_idx], base_url="https://api.groq.com/openai/v1"),
+            OpenAI(
+                api_key=self._groq_keys[self._groq_key_idx],
+                base_url="https://api.groq.com/openai/v1",
+            ),
             mode=instructor.Mode.JSON,
         )
         logger.info("groq_key_rotated", key_idx=self._groq_key_idx)
@@ -404,66 +404,78 @@ class KBGenerator:
         confidence = verify.confidence if verify else 0.0
 
         # Token counts (chars / 4 ≈ tokens)
-        sas_tokens   = len(sas.sas_code) // 4
-        py_tokens    = len(python_out.python_code) // 4
+        sas_tokens = len(sas.sas_code) // 4
+        py_tokens = len(python_out.python_code) // 4
         total_tokens = sas_tokens + py_tokens
 
         metrics = {
-            "gen_model":      self.gen_model,
-            "verify_model":   self.verify_model,
-            "provider":       self.provider,
-            "category":       category,
-            "complexity":     complexity,
-            "failure_mode":   failure_mode or "none",
-            "confidence":     confidence,
-            "equivalent":     verify.equivalent if verify else False,
-            "issues":         verify.issues if verify else [],
-            "t_prompt_a_s":   t_prompt_a,
-            "t_prompt_b_s":   t_prompt_b,
-            "t_prompt_c_s":   t_prompt_c,
-            "t_total_s":      round(time.perf_counter() - t_total, 2),
-            "sas_lines":      sas.sas_code.count("\n") + 1,
-            "py_lines":       python_out.python_code.count("\n") + 1,
+            "gen_model": self.gen_model,
+            "verify_model": self.verify_model,
+            "provider": self.provider,
+            "category": category,
+            "complexity": complexity,
+            "failure_mode": failure_mode or "none",
+            "confidence": confidence,
+            "equivalent": verify.equivalent if verify else False,
+            "issues": verify.issues if verify else [],
+            "t_prompt_a_s": t_prompt_a,
+            "t_prompt_b_s": t_prompt_b,
+            "t_prompt_c_s": t_prompt_c,
+            "t_total_s": round(time.perf_counter() - t_total, 2),
+            "sas_lines": sas.sas_code.count("\n") + 1,
+            "py_lines": python_out.python_code.count("\n") + 1,
             "sas_tokens_est": sas_tokens,
-            "py_tokens_est":  py_tokens,
+            "py_tokens_est": py_tokens,
             "total_tokens_est": total_tokens,
-            "imports":        python_out.imports_needed,
-            "notes":          python_out.notes,
-            "description":    sas.description,
+            "imports": python_out.imports_needed,
+            "notes": python_out.notes,
+            "description": sas.description,
         }
 
         if not verify or confidence < self.VERIFY_THRESHOLD:
-            logger.info("pair_rejected", **{k: v for k, v in metrics.items()
-                                            if k in ("category","confidence","issues","t_total_s")})
+            logger.info(
+                "pair_rejected",
+                **{
+                    k: v
+                    for k, v in metrics.items()
+                    if k in ("category", "confidence", "issues", "t_total_s")
+                },
+            )
             return None, confidence
 
-        logger.info("pair_verified", **{k: v for k, v in metrics.items()
-                                        if k not in ("issues", "imports", "notes", "description")})
+        logger.info(
+            "pair_verified",
+            **{
+                k: v
+                for k, v in metrics.items()
+                if k not in ("issues", "imports", "notes", "description")
+            },
+        )
 
         embedding = self._embedder.embed(sas.sas_code)
 
         pair = {
-            "example_id":          str(uuid.uuid4()),
-            "sas_code":            sas.sas_code,
-            "python_code":         python_out.python_code,
-            "embedding":           embedding,
-            "partition_type":      category,
-            "complexity_tier":     complexity,
-            "target_runtime":      python_out.target_runtime,
-            "verified":            True,
-            "source":              "llm_gen",
-            "failure_mode":        failure_mode,
+            "example_id": str(uuid.uuid4()),
+            "sas_code": sas.sas_code,
+            "python_code": python_out.python_code,
+            "embedding": embedding,
+            "partition_type": category,
+            "complexity_tier": complexity,
+            "target_runtime": python_out.target_runtime,
+            "verified": True,
+            "source": "llm_gen",
+            "failure_mode": failure_mode,
             "verification_method": "llm_crosscheck",
-            "verification_score":  confidence,
-            "category":            category,
-            "version":             1,
-            "superseded_by":       None,
-            "provider":            self.provider,
-            "gen_model":           self.gen_model,
-            "verify_model":        self.verify_model,
-            "latency_s":           metrics["t_total_s"],
-            "metrics":             metrics,
-            "created_at":          datetime.now(timezone.utc).isoformat(),
+            "verification_score": confidence,
+            "category": category,
+            "version": 1,
+            "superseded_by": None,
+            "provider": self.provider,
+            "gen_model": self.gen_model,
+            "verify_model": self.verify_model,
+            "latency_s": metrics["t_total_s"],
+            "metrics": metrics,
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
         return pair, confidence
 
@@ -512,9 +524,7 @@ class KBGenerator:
 
     # ── Prompt B: Convert SAS → Python ────────────────────────────────────
 
-    def _prompt_b(
-        self, sas: GeneratedSAS, failure_mode: str
-    ) -> Optional[ConvertedPython]:
+    def _prompt_b(self, sas: GeneratedSAS, failure_mode: str) -> Optional[ConvertedPython]:
         fm_rules = _FM_RULES.get(failure_mode, "")
 
         prompt = (
@@ -602,6 +612,7 @@ class KBGenerator:
 
 
 # ── Full KB generation ────────────────────────────────────────────────────────
+
 
 def generate_full_kb(
     target_runtime: str = "python",
@@ -694,26 +705,37 @@ def generate_full_kb(
                 pass
 
     valid_confs = [c for c in confidences if c > 0]
-    stats["avg_confidence"]  = round(sum(valid_confs) / max(len(valid_confs), 1), 4)
+    stats["avg_confidence"] = round(sum(valid_confs) / max(len(valid_confs), 1), 4)
     stats["acceptance_rate"] = round(stats["verified"] / max(stats["generated"], 1), 4)
-    stats["avg_latency_s"]   = round(sum(latencies) / max(len(latencies), 1), 2)
-    stats["min_confidence"]  = round(min(valid_confs, default=0), 4)
-    stats["max_confidence"]  = round(max(valid_confs, default=0), 4)
+    stats["avg_latency_s"] = round(sum(latencies) / max(len(latencies), 1), 2)
+    stats["min_confidence"] = round(min(valid_confs, default=0), 4)
+    stats["max_confidence"] = round(max(valid_confs, default=0), 4)
 
     if all_pairs:
         all_metrics = [p["metrics"] for p in all_pairs if "metrics" in p]
-        stats["avg_sas_lines"]   = round(sum(m["sas_lines"] for m in all_metrics) / len(all_metrics), 1)
-        stats["avg_py_lines"]    = round(sum(m["py_lines"] for m in all_metrics) / len(all_metrics), 1)
-        stats["avg_tokens_est"]  = round(sum(m["total_tokens_est"] for m in all_metrics) / len(all_metrics), 0)
-        stats["avg_t_prompt_a"]  = round(sum(m["t_prompt_a_s"] for m in all_metrics) / len(all_metrics), 2)
-        stats["avg_t_prompt_b"]  = round(sum(m["t_prompt_b_s"] for m in all_metrics) / len(all_metrics), 2)
-        stats["avg_t_prompt_c"]  = round(sum(m["t_prompt_c_s"] for m in all_metrics) / len(all_metrics), 2)
+        stats["avg_sas_lines"] = round(
+            sum(m["sas_lines"] for m in all_metrics) / len(all_metrics), 1
+        )
+        stats["avg_py_lines"] = round(sum(m["py_lines"] for m in all_metrics) / len(all_metrics), 1)
+        stats["avg_tokens_est"] = round(
+            sum(m["total_tokens_est"] for m in all_metrics) / len(all_metrics), 0
+        )
+        stats["avg_t_prompt_a"] = round(
+            sum(m["t_prompt_a_s"] for m in all_metrics) / len(all_metrics), 2
+        )
+        stats["avg_t_prompt_b"] = round(
+            sum(m["t_prompt_b_s"] for m in all_metrics) / len(all_metrics), 2
+        )
+        stats["avg_t_prompt_c"] = round(
+            sum(m["t_prompt_c_s"] for m in all_metrics) / len(all_metrics), 2
+        )
 
     logger.info("kb_generation_complete", **stats)
     return all_pairs, stats
 
 
 # ── Benchmark recorder ────────────────────────────────────────────────────────
+
 
 def record_benchmark(
     stats: dict,
@@ -752,40 +774,42 @@ def record_benchmark(
         for p in pairs:
             m = p.get("metrics", {})
             row = {
-                "run_id":           run_id,
-                "example_id":       p.get("example_id"),
-                "gen_model":        p.get("gen_model"),
-                "verify_model":     p.get("verify_model"),
-                "provider":         p.get("provider"),
-                "category":         p.get("category"),
-                "complexity":       p.get("complexity_tier"),
-                "failure_mode":     p.get("failure_mode") or "none",
-                "confidence":       p.get("verification_score"),
-                "equivalent":       m.get("equivalent"),
-                "issues":           m.get("issues", []),
-                "t_prompt_a_s":     m.get("t_prompt_a_s"),
-                "t_prompt_b_s":     m.get("t_prompt_b_s"),
-                "t_prompt_c_s":     m.get("t_prompt_c_s"),
-                "t_total_s":        p.get("latency_s"),
-                "sas_lines":        m.get("sas_lines"),
-                "py_lines":         m.get("py_lines"),
-                "sas_tokens_est":   m.get("sas_tokens_est"),
-                "py_tokens_est":    m.get("py_tokens_est"),
+                "run_id": run_id,
+                "example_id": p.get("example_id"),
+                "gen_model": p.get("gen_model"),
+                "verify_model": p.get("verify_model"),
+                "provider": p.get("provider"),
+                "category": p.get("category"),
+                "complexity": p.get("complexity_tier"),
+                "failure_mode": p.get("failure_mode") or "none",
+                "confidence": p.get("verification_score"),
+                "equivalent": m.get("equivalent"),
+                "issues": m.get("issues", []),
+                "t_prompt_a_s": m.get("t_prompt_a_s"),
+                "t_prompt_b_s": m.get("t_prompt_b_s"),
+                "t_prompt_c_s": m.get("t_prompt_c_s"),
+                "t_total_s": p.get("latency_s"),
+                "sas_lines": m.get("sas_lines"),
+                "py_lines": m.get("py_lines"),
+                "sas_tokens_est": m.get("sas_tokens_est"),
+                "py_tokens_est": m.get("py_tokens_est"),
                 "total_tokens_est": m.get("total_tokens_est"),
-                "imports":          m.get("imports", []),
-                "description":      m.get("description", ""),
+                "imports": m.get("imports", []),
+                "description": m.get("description", ""),
                 "sas_code_preview": p.get("sas_code", "")[:120].replace("\n", " "),
-                "py_code_preview":  p.get("python_code", "")[:120].replace("\n", " "),
+                "py_code_preview": p.get("python_code", "")[:120].replace("\n", " "),
             }
             f.write(json.dumps(row, default=str) + "\n")
 
     # Print comparison table
     print("\n-- Benchmark Results (all runs) ------------------------------")
-    print(f"{'Run':<8} {'Provider':<10} {'Model':<38} {'Ver':>4} {'Acc%':>5} {'Conf':>6} {'Lat':>6} {'Lines(SAS/PY)':>14} {'Tok':>6}")
+    print(
+        f"{'Run':<8} {'Provider':<10} {'Model':<38} {'Ver':>4} {'Acc%':>5} {'Conf':>6} {'Lat':>6} {'Lines(SAS/PY)':>14} {'Tok':>6}"
+    )
     print("-" * 105)
     for r in data["runs"]:
         sas_l = f"{r.get('avg_sas_lines','-')}"
-        py_l  = f"{r.get('avg_py_lines','-')}"
+        py_l = f"{r.get('avg_py_lines','-')}"
         print(
             f"{r.get('run_id','?'):<8} "
             f"{r.get('provider','?'):<10} "
@@ -817,11 +841,10 @@ if __name__ == "__main__":
         default=None,
         help="Override the default model for the chosen provider.",
     )
+    parser.add_argument("--runtime", choices=["python"], default="python")
     parser.add_argument(
-        "--runtime", choices=["python"], default="python"
-    )
-    parser.add_argument(
-        "--output", default=None,
+        "--output",
+        default=None,
         help="Output JSON file (default: knowledge_base/generated_pairs_{provider}.json)",
     )
     args = parser.parse_args()
@@ -846,6 +869,7 @@ if __name__ == "__main__":
         )
     except Exception as _exc:
         import traceback
+
         print("FATAL ERROR:")
         traceback.print_exc()
         sys.exit(1)
@@ -858,7 +882,7 @@ if __name__ == "__main__":
     # Record benchmark entry + per-pair detail log
     record_benchmark(stats, pairs=pairs, output_file=output)
 
-    print(f"\nKB Generation Complete:")
+    print("\nKB Generation Complete:")
     print(f"  Provider:   {stats['provider']}  ({stats['gen_model']})")
     print(f"  Generated:  {stats['generated']}")
     print(f"  Verified:   {stats['verified']}  (acceptance {stats['acceptance_rate']*100:.1f}%)")

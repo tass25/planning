@@ -13,7 +13,6 @@ import argparse
 import sys
 from collections import Counter
 
-import duckdb
 import lancedb
 import structlog
 
@@ -21,10 +20,22 @@ log = structlog.get_logger(__name__)
 
 # Categories to ensure coverage
 TARGET_CATEGORIES = [
-    "DATA_STEP", "PROC_MEANS", "PROC_FREQ", "PROC_SQL",
-    "PROC_SORT", "PROC_TRANSPOSE", "PROC_REG", "PROC_LOGISTIC",
-    "MACRO_DEF", "MACRO_CALL", "RETAIN", "ARRAY",
-    "MERGE", "DATE_ARITHMETIC", "FORMAT", "MISSING_VALUE",
+    "DATA_STEP",
+    "PROC_MEANS",
+    "PROC_FREQ",
+    "PROC_SQL",
+    "PROC_SORT",
+    "PROC_TRANSPOSE",
+    "PROC_REG",
+    "PROC_LOGISTIC",
+    "MACRO_DEF",
+    "MACRO_CALL",
+    "RETAIN",
+    "ARRAY",
+    "MERGE",
+    "DATE_ARITHMETIC",
+    "FORMAT",
+    "MISSING_VALUE",
 ]
 
 
@@ -38,9 +49,7 @@ def _get_current_distribution(table) -> Counter:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Expand KB to target pair count."
-    )
+    parser = argparse.ArgumentParser(description="Expand KB to target pair count.")
     parser.add_argument("--target", type=int, default=330, help="Target pair count")
     parser.add_argument("--batch_size", type=int, default=10, help="Pairs per batch")
     parser.add_argument("--kb_path", default="data/kb_lancedb", help="LanceDB path")

@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from uuid import UUID, uuid4
 from typing import Any, Optional, TypedDict
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from .enums import PartitionType, RiskLevel, ConversionStatus
+from .enums import ConversionStatus, PartitionType, RiskLevel
 
 
 class RAPTORNode(BaseModel):
@@ -40,9 +40,9 @@ class PartitionMetadata(TypedDict, total=False):
     """
 
     # Z3 formal verification
-    z3_result: str            # "verified" | "counterexample" | "unknown" | "skipped"
+    z3_result: str  # "verified" | "counterexample" | "unknown" | "skipped"
     z3_patterns_checked: list[str]
-    z3_repair_hint: str       # CEGAR repair prompt injected by TranslationPipeline
+    z3_repair_hint: str  # CEGAR repair prompt injected by TranslationPipeline
 
     # RAPTOR clustering
     raptor_cluster_id: str
@@ -57,7 +57,7 @@ class PartitionMetadata(TypedDict, total=False):
     reflexion_attempts: int
 
     # Test configuration
-    test_coverage_type: str   # "full" | "partial" | "none"
+    test_coverage_type: str  # "full" | "partial" | "none"
 
     # Catch-all for any extra keys agents may write
     extra: dict[str, Any]
@@ -82,6 +82,7 @@ class PartitionIR(BaseModel):
         metadata: Arbitrary key/value metadata for downstream agents.
         created_at: Timestamp.
     """
+
     block_id: UUID = Field(default_factory=uuid4)
     file_id: UUID
     partition_type: PartitionType

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from uuid import uuid4, UUID
-from functools import wraps
 import asyncio
+from abc import ABC, abstractmethod
+from functools import wraps
+from uuid import UUID, uuid4
 
 import structlog
 
@@ -21,6 +21,7 @@ def with_retry(max_retries: int = 3, base_delay: float = 1.0, fallback=None):
         base_delay: Base delay in seconds (doubled each attempt).
         fallback: Optional callable returning a fallback value on exhaustion.
     """
+
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -34,7 +35,7 @@ def with_retry(max_retries: int = 3, base_delay: float = 1.0, fallback=None):
                         if fallback is not None:
                             return fallback(*args, **kwargs)
                         raise
-                    delay = base_delay * (2 ** attempt)
+                    delay = base_delay * (2**attempt)
                     _log.warning(
                         "retry_attempt",
                         func=func.__qualname__,
@@ -45,7 +46,9 @@ def with_retry(max_retries: int = 3, base_delay: float = 1.0, fallback=None):
                         exc_info=True,
                     )
                     await asyncio.sleep(delay)
+
         return wrapper
+
     return decorator
 
 

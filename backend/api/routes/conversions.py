@@ -18,26 +18,33 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import structlog
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, BackgroundTasks
-from fastapi.responses import PlainTextResponse, StreamingResponse, HTMLResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
 
 _log = structlog.get_logger("codara.conversions")
 
+from config.constants import SSE_MAX_EVENTS, SSE_POLL_INTERVAL_S
+from config.settings import settings
+
 from api.core.auth import get_current_user
 from api.core.database import (
-    get_api_session, ConversionRow, ConversionStageRow,
-    UserRow, NotificationRow, CorrectionRow,
+    ConversionRow,
+    ConversionStageRow,
+    CorrectionRow,
+    get_api_session,
 )
 from api.core.schemas import (
-    ConversionOut, PipelineStageInfo, SasFileOut, StartConversionRequest,
-    PartitionOut, CorrectionOut, CorrectionCreate,
+    ConversionOut,
+    CorrectionCreate,
+    CorrectionOut,
+    PartitionOut,
+    SasFileOut,
+    StartConversionRequest,
 )
-from api.services.conversion_service import conv_to_out, STAGES, STAGE_DISPLAY_MAP
-from api.services.pipeline_service import run_pipeline_sync
 from api.services.blob_service import blob_service
+from api.services.conversion_service import STAGES, conv_to_out
+from api.services.pipeline_service import run_pipeline_sync
 from api.services.queue_service import queue_service
-from config.settings import settings
-from config.constants import SSE_MAX_EVENTS, SSE_POLL_INTERVAL_S
 
 router = APIRouter(prefix="/conversions", tags=["conversions"])
 
@@ -50,15 +57,18 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 _PIPELINE_SEMAPHORE = asyncio.Semaphore(5)
 
 _MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
-_ALLOWED_CONTENT_TYPES = frozenset({
-    "text/plain",
-    "application/octet-stream",
-    "application/x-sas",
-    "",  # browsers sometimes omit content-type
-})
+_ALLOWED_CONTENT_TYPES = frozenset(
+    {
+        "text/plain",
+        "application/octet-stream",
+        "application/x-sas",
+        "",  # browsers sometimes omit content-type
+    }
+)
 
 
 # ── Upload ────────────────────────────────────────────────────────────────────
+
 
 @router.post("/upload", response_model=list[SasFileOut])
 async def upload_files(
@@ -83,18 +93,21 @@ async def upload_files(
                 detail=f"File {f.filename} exceeds maximum upload size of 50 MB.",
             )
         await blob_service.upload(file_id, f.filename, content)
-        results.append(SasFileOut(
-            id=file_id,
-            name=f.filename,
-            size=len(content),
-            modules=[],
-            estimatedComplexity="low",
-            uploadedAt=datetime.now(timezone.utc).isoformat(),
-        ))
+        results.append(
+            SasFileOut(
+                id=file_id,
+                name=f.filename,
+                size=len(content),
+                modules=[],
+                estimatedComplexity="low",
+                uploadedAt=datetime.now(timezone.utc).isoformat(),
+            )
+        )
     return results
 
 
 # ── Start conversion ──────────────────────────────────────────────────────────
+
 
 @router.post("/start", response_model=ConversionOut)
 async def start_conversion(
@@ -131,11 +144,13 @@ async def start_conversion(
         session.add(conv)
 
         for stg in STAGES:
-            session.add(ConversionStageRow(
-                conversion_id=conv_id,
-                stage=stg,
-                status="pending",
-            ))
+            session.add(
+                ConversionStageRow(
+                    conversion_id=conv_id,
+                    stage=stg,
+                    status="pending",
+                )
+            )
 
         session.commit()
         session.refresh(conv)
@@ -144,11 +159,13 @@ async def start_conversion(
         # Prefer durable Azure Queue; fall back to BackgroundTasks for local dev
         queued = queue_service.enqueue_job(conv_id, file_id, filename, settings.sqlite_path)
         if not queued:
+
             async def _guarded_pipeline():
                 async with _PIPELINE_SEMAPHORE:
                     await asyncio.to_thread(
                         run_pipeline_sync, conv_id, file_id, filename, settings.sqlite_path
                     )
+
             background_tasks.add_task(_guarded_pipeline)
 
         return result
@@ -157,6 +174,7 @@ async def start_conversion(
 
 
 # ── Ownership helper ──────────────────────────────────────────────────────────
+
 
 def _assert_owner(conv: ConversionRow, current_user: dict) -> None:
     """Raise 403 if the caller doesn't own this conversion (admins bypass)."""
@@ -168,9 +186,11 @@ def _assert_owner(conv: ConversionRow, current_user: dict) -> None:
 
 # ── List / Get ────────────────────────────────────────────────────────────────
 
+
 @router.get("", response_model=list[ConversionOut])
 def list_conversions(current_user: dict = Depends(get_current_user)):
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         q = session.query(ConversionRow).order_by(ConversionRow.created_at.desc())
@@ -185,6 +205,7 @@ def list_conversions(current_user: dict = Depends(get_current_user)):
 @router.get("/{conversion_id}", response_model=ConversionOut)
 def get_conversion(conversion_id: str, current_user: dict = Depends(get_current_user)):
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         conv = session.query(ConversionRow).get(conversion_id)
@@ -199,6 +220,7 @@ def get_conversion(conversion_id: str, current_user: dict = Depends(get_current_
 @router.get("/{conversion_id}/code", response_class=PlainTextResponse)
 def download_code(conversion_id: str, current_user: dict = Depends(get_current_user)):
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         conv = session.query(ConversionRow).get(conversion_id)
@@ -212,10 +234,12 @@ def download_code(conversion_id: str, current_user: dict = Depends(get_current_u
 
 # ── Partitions ────────────────────────────────────────────────────────────────
 
+
 @router.get("/{conversion_id}/partitions", response_model=list[PartitionOut])
 def get_partitions(conversion_id: str, current_user: dict = Depends(get_current_user)):
     """Get partitions from the pipeline DB for this conversion."""
     from api.main import engine as _engine
+
     _s = get_api_session(_engine)
     try:
         _conv = _s.query(ConversionRow).get(conversion_id)
@@ -230,9 +254,11 @@ def get_partitions(conversion_id: str, current_user: dict = Depends(get_current_
         return []
 
     try:
-        from partition.db.sqlite_manager import get_engine, PartitionIRRow
+        from partition.db.sqlite_manager import PartitionIRRow, get_engine
+
         pe = get_engine(str(pipeline_db))
         from sqlalchemy.orm import sessionmaker
+
         ps = sessionmaker(bind=pe)()
     except Exception as exc:
         _log.warning("partition_db_open_failed", conversion_id=conversion_id, error=str(exc))
@@ -267,6 +293,7 @@ def get_partitions(conversion_id: str, current_user: dict = Depends(get_current_
 
 # ── Corrections ───────────────────────────────────────────────────────────────
 
+
 @router.post("/{conversion_id}/corrections", response_model=CorrectionOut)
 def submit_correction(
     conversion_id: str,
@@ -274,6 +301,7 @@ def submit_correction(
     current_user: dict = Depends(get_current_user),
 ):
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         conv = session.query(ConversionRow).get(conversion_id)
@@ -308,10 +336,12 @@ def submit_correction(
 
 # ── Download endpoints ────────────────────────────────────────────────────────
 
+
 @router.get("/{conversion_id}/download/py")
 def download_py(conversion_id: str, current_user: dict = Depends(get_current_user)):
     """Download the converted Python code as a .py file."""
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         conv = session.query(ConversionRow).get(conversion_id)
@@ -333,6 +363,7 @@ def download_py(conversion_id: str, current_user: dict = Depends(get_current_use
 def download_md(conversion_id: str, current_user: dict = Depends(get_current_user)):
     """Download the conversion report as a Markdown file."""
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         conv = session.query(ConversionRow).get(conversion_id)
@@ -386,6 +417,7 @@ def download_md(conversion_id: str, current_user: dict = Depends(get_current_use
 def download_html(conversion_id: str, current_user: dict = Depends(get_current_user)):
     """Download the conversion report as an HTML file."""
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         conv = session.query(ConversionRow).get(conversion_id)
@@ -405,13 +437,13 @@ def download_html(conversion_id: str, current_user: dict = Depends(get_current_u
         )
 
         # HTML-escape all user-supplied content to prevent XSS
-        safe_file_name   = html_mod.escape(conv.file_name or "unknown")
-        safe_status      = html_mod.escape(conv.status or "")
-        safe_runtime     = html_mod.escape(conv.runtime or "")
-        safe_val_report  = html_mod.escape(conv.validation_report) if conv.validation_report else ""
+        safe_file_name = html_mod.escape(conv.file_name or "unknown")
+        safe_status = html_mod.escape(conv.status or "")
+        safe_runtime = html_mod.escape(conv.runtime or "")
+        safe_val_report = html_mod.escape(conv.validation_report) if conv.validation_report else ""
         safe_merge_report = html_mod.escape(conv.merge_report) if conv.merge_report else ""
-        safe_sas         = html_mod.escape(conv.sas_code) if conv.sas_code else ""
-        safe_python      = html_mod.escape(conv.python_code) if conv.python_code else ""
+        safe_sas = html_mod.escape(conv.sas_code) if conv.sas_code else ""
+        safe_python = html_mod.escape(conv.python_code) if conv.python_code else ""
 
         html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Conversion Report — {safe_file_name}</title>
@@ -435,8 +467,12 @@ th{{background:#f5f3ff}}pre{{background:#f5f5f5;padding:1rem;border-radius:8px;o
 {"<h2>Converted Python Code</h2><pre>" + safe_python + "</pre>" if safe_python else ""}
 </body></html>"""
 
-        filename = conv.file_name.replace(".sas", "_report.html") if conv.file_name else "report.html"
-        return HTMLResponse(content=html, headers={"Content-Disposition": f"attachment; filename={filename}"})
+        filename = (
+            conv.file_name.replace(".sas", "_report.html") if conv.file_name else "report.html"
+        )
+        return HTMLResponse(
+            content=html, headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
     finally:
         session.close()
 
@@ -445,6 +481,7 @@ th{{background:#f5f3ff}}pre{{background:#f5f5f5;padding:1rem;border-radius:8px;o
 def download_zip(conversion_id: str, current_user: dict = Depends(get_current_user)):
     """Download everything as a ZIP bundle."""
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         conv = session.query(ConversionRow).get(conversion_id)
@@ -485,6 +522,7 @@ def download_zip(conversion_id: str, current_user: dict = Depends(get_current_us
 
 # ── SSE status stream ─────────────────────────────────────────────────────────
 
+
 @router.get("/{conversion_id}/stream")
 async def stream_conversion_status(
     conversion_id: str,
@@ -498,8 +536,10 @@ async def stream_conversion_status(
     Event format:
         data: {"id": "...", "status": "running", "progress": 42, "stage": "..."}
     """
+
     async def _event_generator():
         from api.main import engine
+
         # Open one session for the lifetime of this SSE connection — not one per tick.
         session = get_api_session(engine)
         last_status: str | None = None

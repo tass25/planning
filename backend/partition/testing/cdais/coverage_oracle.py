@@ -28,14 +28,13 @@ import structlog
 from partition.testing.cdais.synthesizer import SynthesisResult
 from partition.translation.semantic_validator import (
     _compare_frames,
-    _oracle_proc_sort,
-    _oracle_proc_means,
-    _oracle_proc_freq,
-    _oracle_retain,
-    _oracle_lag,
     _oracle_first_last,
+    _oracle_lag,
     _oracle_merge,
-    _normalize,
+    _oracle_proc_freq,
+    _oracle_proc_means,
+    _oracle_proc_sort,
+    _oracle_retain,
 )
 
 logger = structlog.get_logger(__name__)
@@ -46,9 +45,10 @@ _EXEC_TIMEOUT_S = 5.0
 @dataclass
 class CoverageResult:
     """Result of running the coverage oracle for one error class."""
+
     error_class: str
     passed: bool
-    certificate: str = ""    # formal certificate text (when passed)
+    certificate: str = ""  # formal certificate text (when passed)
     failure_details: list[str] = field(default_factory=list)
     oracle_repr: str = ""
     actual_repr: str = ""
@@ -125,14 +125,15 @@ class CoverageOracle:
             return CoverageResult(
                 error_class=ec,
                 passed=False,
-                failure_details=["Translated Python crashed on CDAIS witness (exec timeout/error)."],
+                failure_details=[
+                    "Translated Python crashed on CDAIS witness (exec timeout/error)."
+                ],
                 oracle_repr=oracle_df.head(5).to_string(index=False),
                 witness_rows=len(witness),
             )
 
-        actual_df = (
-            actual_frames.get(out_names[0])
-            or (next(iter(actual_frames.values())) if actual_frames else None)
+        actual_df = actual_frames.get(out_names[0]) or (
+            next(iter(actual_frames.values())) if actual_frames else None
         )
 
         if actual_df is None:
@@ -171,13 +172,19 @@ class CoverageOracle:
 
     # ── helpers ───────────────────────────────────────────────────────────────
 
-    def _build_input_frames(
-        self, ec: str, witness: pd.DataFrame
-    ) -> dict[str, pd.DataFrame]:
+    def _build_input_frames(self, ec: str, witness: pd.DataFrame) -> dict[str, pd.DataFrame]:
         """Convert witness DataFrame to the input_frames dict expected by oracles."""
         if ec == "JOIN_TYPE":
-            left  = witness[witness["__table__"] == "left"].drop(columns=["__table__"]).reset_index(drop=True)
-            right = witness[witness["__table__"] == "right"].drop(columns=["__table__"]).reset_index(drop=True)
+            left = (
+                witness[witness["__table__"] == "left"]
+                .drop(columns=["__table__"])
+                .reset_index(drop=True)
+            )
+            right = (
+                witness[witness["__table__"] == "right"]
+                .drop(columns=["__table__"])
+                .reset_index(drop=True)
+            )
             return {"left": left, "right": right}
         # For all other error classes, the witness is a single input table
         return {"input": witness.copy()}
@@ -191,8 +198,7 @@ class CoverageOracle:
                 if result is not None:
                     return result
             except Exception as exc:
-                logger.debug("coverage_oracle_fn_error",
-                             fn=oracle_fn.__name__, error=str(exc))
+                logger.debug("coverage_oracle_fn_error", fn=oracle_fn.__name__, error=str(exc))
         return None
 
     def _exec_python(
@@ -202,12 +208,28 @@ class CoverageOracle:
         expected_names: list[str],
     ) -> Optional[dict[str, pd.DataFrame]]:
         namespace: dict = {
-            "pd": pd, "np": np,
-            "__builtins__": {
-                k: v for k, v in __builtins__.items()  # type: ignore[union-attr]
-                if k not in {"open", "__import__", "exec", "eval", "compile",
-                             "exit", "quit", "input", "breakpoint"}
-            } if isinstance(__builtins__, dict) else __builtins__,
+            "pd": pd,
+            "np": np,
+            "__builtins__": (
+                {
+                    k: v
+                    for k, v in __builtins__.items()  # type: ignore[union-attr]
+                    if k
+                    not in {
+                        "open",
+                        "__import__",
+                        "exec",
+                        "eval",
+                        "compile",
+                        "exit",
+                        "quit",
+                        "input",
+                        "breakpoint",
+                    }
+                }
+                if isinstance(__builtins__, dict)
+                else __builtins__
+            ),
         }
         for name, df in input_frames.items():
             namespace[name] = df.copy()
@@ -215,7 +237,7 @@ class CoverageOracle:
             namespace["df"] = next(iter(input_frames.values())).copy()
         # Also inject table-specific names for MERGE witness
         if "left" in input_frames:
-            namespace["left"]  = input_frames["left"].copy()
+            namespace["left"] = input_frames["left"].copy()
             namespace["right"] = input_frames["right"].copy()
 
         result_holder: list[Optional[dict]] = [None]
@@ -229,10 +251,12 @@ class CoverageOracle:
                         outputs[name] = namespace[name].copy()
                 if not outputs:
                     for k, v in namespace.items():
-                        if (isinstance(v, pd.DataFrame)
-                                and k not in input_frames
-                                and not k.startswith("_")
-                                and k not in ("pd", "np")):
+                        if (
+                            isinstance(v, pd.DataFrame)
+                            and k not in input_frames
+                            and not k.startswith("_")
+                            and k not in ("pd", "np")
+                        ):
                             outputs[k] = v.copy()
                 result_holder[0] = outputs
             except Exception:

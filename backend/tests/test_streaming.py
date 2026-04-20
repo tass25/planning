@@ -23,16 +23,13 @@ from uuid import uuid4
 
 import pytest
 import structlog
-
 from partition.models.file_metadata import FileMetadata
-from partition.streaming.pipeline import create_queue
-from partition.streaming.models import LineChunk, ParsingState
 from partition.streaming.pipeline import run_streaming_pipeline
 from partition.streaming.state_agent import StateAgent
 from partition.streaming.stream_agent import StreamAgent
 
-
 # ── helpers ──────────────────────────────────────────────────────────
+
 
 def _write_sas(content: str) -> tuple[str, FileMetadata]:
     """Write *content* to a temp .sas file and return (path, FileMetadata)."""
@@ -92,6 +89,7 @@ def test_small_file_correctness():
 
 # ── Test 2: 10K-line benchmark (< 2 seconds) ────────────────────────
 
+
 def _generate_10k_sas() -> str:
     """Generate a 10,000-line synthetic SAS file with 100 DATA blocks."""
     lines: list[str] = []
@@ -112,6 +110,7 @@ def test_10k_line_streaming():
     performance sprint is scheduled in Week 5-6.
     """
     import logging as _logging
+
     # Suppress structlog debug output during benchmark
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(_logging.WARNING),
@@ -137,6 +136,7 @@ def test_10k_line_streaming():
 
 # ── Test 3: Memory benchmark (< 100 MB) ─────────────────────────────
 
+
 def test_10k_line_memory():
     """Peak memory during 10K-line streaming must stay under 100 MB."""
     content = _generate_10k_sas()
@@ -155,6 +155,7 @@ def test_10k_line_memory():
 
 
 # ── Test 4: Backpressure enforcement ─────────────────────────────────
+
 
 def test_backpressure():
     """Queue must never exceed its maxsize."""
@@ -190,9 +191,7 @@ def test_backpressure():
 
     try:
         asyncio.run(_run())
-        assert max_observed <= maxsize, (
-            f"Queue reached {max_observed} (max allowed {maxsize})"
-        )
+        assert max_observed <= maxsize, f"Queue reached {max_observed} (max allowed {maxsize})"
     finally:
         os.unlink(path)
 
@@ -374,9 +373,5 @@ def test_real_file_pipeline():
     assert len(seen_types) > 0, "No block types detected in real file"
     # Final state must have balanced nesting
     if final:
-        assert final.nesting_depth == 0, (
-            f"Unbalanced nesting at EOF: depth={final.nesting_depth}"
-        )
-        assert len(final.macro_stack) == 0, (
-            f"Unclosed macros at EOF: {list(final.macro_stack)}"
-        )
+        assert final.nesting_depth == 0, f"Unbalanced nesting at EOF: depth={final.nesting_depth}"
+        assert len(final.macro_stack) == 0, f"Unclosed macros at EOF: {list(final.macro_stack)}"

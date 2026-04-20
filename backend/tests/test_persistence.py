@@ -12,17 +12,13 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import networkx as nx
-import pytest
-
-from partition.index.index_agent import IndexAgent
-from partition.index.graph_builder import NetworkXGraphBuilder
-from partition.db.duckdb_manager import init_all_duckdb_tables
 from partition.config.config_manager import ProjectConfigManager
-
+from partition.db.duckdb_manager import init_all_duckdb_tables
+from partition.index.graph_builder import NetworkXGraphBuilder
+from partition.index.index_agent import IndexAgent
 
 # =====================================================================
 # Helpers
@@ -221,11 +217,13 @@ class TestIndexAgent:
         agent = IndexAgent()
         fid = str(uuid.uuid4())
         p1 = _mock_partition(
-            partition_id="p1", file_id=fid,
+            partition_id="p1",
+            file_id=fid,
             variable_scope={"outputs": ["SALES"]},
         )
         p2 = _mock_partition(
-            partition_id="p2", file_id=fid,
+            partition_id="p2",
+            file_id=fid,
             dependency_refs=["SALES"],
         )
         dag = agent._build_dag([p1, p2], {})
@@ -255,9 +253,7 @@ class TestNetworkXGraphBuilder:
 
     def test_add_partitions(self, tmp_path):
         """Adding partitions should increase node count."""
-        builder = NetworkXGraphBuilder(
-            persist_path=str(tmp_path / "test.gpickle")
-        )
+        builder = NetworkXGraphBuilder(persist_path=str(tmp_path / "test.gpickle"))
         partitions = [_mock_partition(partition_id=f"p{i}") for i in range(3)]
         added = builder.add_partitions(partitions)
         assert added == 3
@@ -265,9 +261,7 @@ class TestNetworkXGraphBuilder:
 
     def test_add_edges(self, tmp_path):
         """Adding a DAG's edges should increase edge count."""
-        builder = NetworkXGraphBuilder(
-            persist_path=str(tmp_path / "test.gpickle")
-        )
+        builder = NetworkXGraphBuilder(persist_path=str(tmp_path / "test.gpickle"))
         partitions = [_mock_partition(partition_id=f"p{i}") for i in range(3)]
         builder.add_partitions(partitions)
 
@@ -280,9 +274,7 @@ class TestNetworkXGraphBuilder:
 
     def test_multi_hop_traversal(self, tmp_path):
         """Multi-hop traversal should return transitive dependencies."""
-        builder = NetworkXGraphBuilder(
-            persist_path=str(tmp_path / "test.gpickle")
-        )
+        builder = NetworkXGraphBuilder(persist_path=str(tmp_path / "test.gpickle"))
         # Build A → B → C chain
         for nid in ["A", "B", "C"]:
             builder.graph.add_node(nid, partition_type="DATA_STEP", risk_level="LOW", scc_id="")
@@ -308,9 +300,7 @@ class TestNetworkXGraphBuilder:
 
     def test_scc_members_query(self, tmp_path):
         """query_scc_members should return all members of an SCC group."""
-        builder = NetworkXGraphBuilder(
-            persist_path=str(tmp_path / "test.gpickle")
-        )
+        builder = NetworkXGraphBuilder(persist_path=str(tmp_path / "test.gpickle"))
         builder.graph.add_node("A", scc_id="scc_0")
         builder.graph.add_node("B", scc_id="scc_0")
         builder.graph.add_node("C", scc_id="scc_1")

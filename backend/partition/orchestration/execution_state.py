@@ -41,29 +41,28 @@ import structlog
 
 logger = structlog.get_logger()
 
-_MAX_COLS_IN_CONTEXT = 20   # avoid bloating the prompt
-_MAX_ROWS_SHOWN      = 3    # sample rows shown in context
+_MAX_COLS_IN_CONTEXT = 20  # avoid bloating the prompt
+_MAX_ROWS_SHOWN = 3  # sample rows shown in context
 
 
 # ── data models ───────────────────────────────────────────────────────────────
 
+
 @dataclass
 class TableState:
-    table_name:   str
-    trust_level:  str                          # "materialized" | "inferred"
-    cols:         list[str]  = field(default_factory=list)
-    nb_rows:      int        = 0
-    sorted_by:    list[str]  = field(default_factory=list)
-    dtypes:       dict[str, str] = field(default_factory=dict)
-    frame:        Optional[pd.DataFrame] = field(default=None, repr=False)
-    produced_by:  Optional[uuid.UUID] = None   # block_id that created this table
+    table_name: str
+    trust_level: str  # "materialized" | "inferred"
+    cols: list[str] = field(default_factory=list)
+    nb_rows: int = 0
+    sorted_by: list[str] = field(default_factory=list)
+    dtypes: dict[str, str] = field(default_factory=dict)
+    frame: Optional[pd.DataFrame] = field(default=None, repr=False)
+    produced_by: Optional[uuid.UUID] = None  # block_id that created this table
 
     def describe(self) -> str:
         trust_tag = "✓" if self.trust_level == "materialized" else "~"
-        return (
-            f"{self.table_name}[{trust_tag}] "
-            f"rows={self.nb_rows} cols={self.cols[:6]}"
-            + (f" sorted_by={self.sorted_by}" if self.sorted_by else "")
+        return f"{self.table_name}[{trust_tag}] " f"rows={self.nb_rows} cols={self.cols[:6]}" + (
+            f" sorted_by={self.sorted_by}" if self.sorted_by else ""
         )
 
     def context_summary(self) -> str:
@@ -72,9 +71,7 @@ class TableState:
         if self.cols:
             lines.append(f"  columns : {self.cols[:_MAX_COLS_IN_CONTEXT]}")
         if self.dtypes:
-            dtype_str = ", ".join(
-                f"{c}:{t}" for c, t in list(self.dtypes.items())[:10]
-            )
+            dtype_str = ", ".join(f"{c}:{t}" for c, t in list(self.dtypes.items())[:10])
             lines.append(f"  dtypes  : {dtype_str}")
         lines.append(f"  rows    : {self.nb_rows}")
         if self.sorted_by:
@@ -87,12 +84,13 @@ class TableState:
 
 @dataclass
 class CommittedStep:
-    block_id:      uuid.UUID
-    input_tables:  list[str]
+    block_id: uuid.UUID
+    input_tables: list[str]
     output_tables: list[str]
 
 
 # ── tracker ───────────────────────────────────────────────────────────────────
+
 
 class ExecutionStateTracker:
     """Tracks live DataFrame state across all translated partitions.
@@ -102,8 +100,8 @@ class ExecutionStateTracker:
     """
 
     def __init__(self) -> None:
-        self._tables:  dict[str, TableState] = {}
-        self._history: list[CommittedStep]   = []
+        self._tables: dict[str, TableState] = {}
+        self._history: list[CommittedStep] = []
 
     # ── write ──────────────────────────────────────────────────────────────────
 
@@ -113,7 +111,7 @@ class ExecutionStateTracker:
         frame: pd.DataFrame,
         *,
         produced_by: Optional[uuid.UUID] = None,
-        sorted_by:   Optional[list[str]] = None,
+        sorted_by: Optional[list[str]] = None,
     ) -> TableState:
         """Register a successfully executed output DataFrame.
 
@@ -131,14 +129,14 @@ class ExecutionStateTracker:
         work.columns = [str(c).lower() for c in work.columns]
 
         state = TableState(
-            table_name  = name,
-            trust_level = "materialized",
-            cols        = list(work.columns),
-            nb_rows     = len(work),
-            sorted_by   = sorted_by or [],
-            dtypes      = {c: str(t) for c, t in work.dtypes.items()},
-            frame       = work,
-            produced_by = produced_by,
+            table_name=name,
+            trust_level="materialized",
+            cols=list(work.columns),
+            nb_rows=len(work),
+            sorted_by=sorted_by or [],
+            dtypes={c: str(t) for c, t in work.dtypes.items()},
+            frame=work,
+            produced_by=produced_by,
         )
         self._tables[name] = state
         logger.info(
@@ -154,8 +152,8 @@ class ExecutionStateTracker:
         table_name: str,
         cols: list[str],
         *,
-        sorted_by:   Optional[list[str]] = None,
-        dtypes:      Optional[dict[str, str]] = None,
+        sorted_by: Optional[list[str]] = None,
+        dtypes: Optional[dict[str, str]] = None,
         produced_by: Optional[uuid.UUID] = None,
     ) -> TableState:
         """Register a schema-only (no real data) placeholder.
@@ -164,14 +162,14 @@ class ExecutionStateTracker:
         """
         name = self._norm(table_name)
         state = TableState(
-            table_name  = name,
-            trust_level = "inferred",
-            cols        = [c.lower() for c in cols],
-            nb_rows     = 0,
-            sorted_by   = sorted_by or [],
-            dtypes      = dtypes or {},
-            frame       = None,
-            produced_by = produced_by,
+            table_name=name,
+            trust_level="inferred",
+            cols=[c.lower() for c in cols],
+            nb_rows=0,
+            sorted_by=sorted_by or [],
+            dtypes=dtypes or {},
+            frame=None,
+            produced_by=produced_by,
         )
         # Only register if not already materialized
         if name not in self._tables or self._tables[name].trust_level == "inferred":
@@ -180,15 +178,17 @@ class ExecutionStateTracker:
 
     def record_step(
         self,
-        block_id:      uuid.UUID,
-        input_tables:  list[str],
+        block_id: uuid.UUID,
+        input_tables: list[str],
         output_tables: list[str],
     ) -> None:
-        self._history.append(CommittedStep(
-            block_id      = block_id,
-            input_tables  = [self._norm(n) for n in input_tables],
-            output_tables = [self._norm(n) for n in output_tables],
-        ))
+        self._history.append(
+            CommittedStep(
+                block_id=block_id,
+                input_tables=[self._norm(n) for n in input_tables],
+                output_tables=[self._norm(n) for n in output_tables],
+            )
+        )
 
     # ── read ───────────────────────────────────────────────────────────────────
 
@@ -221,15 +221,12 @@ class ExecutionStateTracker:
         if not sections:
             return ""
 
-        header = f"## Upstream table state for chunk (trust=materialized where ✓):\n"
+        header = "## Upstream table state for chunk (trust=materialized where ✓):\n"
         return header + "\n\n".join(sections)
 
     def materialized_names(self) -> list[str]:
         """Return all table names that have real committed DataFrames."""
-        return [
-            name for name, state in self._tables.items()
-            if state.trust_level == "materialized"
-        ]
+        return [name for name, state in self._tables.items() if state.trust_level == "materialized"]
 
     def summary(self) -> str:
         lines = [

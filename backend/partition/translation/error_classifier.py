@@ -14,30 +14,28 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Optional
-
 
 # ── Category constants ────────────────────────────────────────────────────────
 
-SYNTAX              = "SYNTAX"
-TIMEOUT             = "TIMEOUT"
-NAME_ERROR          = "NAME_ERROR"
-IMPORT_ERROR        = "IMPORT_ERROR"
-KEY_ERROR           = "KEY_ERROR"           # column / key missing
-TYPE_ERROR          = "TYPE_ERROR"
-VALUE_ERROR         = "VALUE_ERROR"
-ATTRIBUTE_ERROR     = "ATTRIBUTE_ERROR"
-DTYPE_MISMATCH      = "DTYPE_MISMATCH"      # object instead of numeric
-COL_MISSING         = "COL_MISSING"         # column not found (KeyError on df col)
-COL_EXTRA           = "COL_EXTRA"           # unexpected output column
-MERGE_CONTRACT      = "MERGE_CONTRACT"      # join semantics wrong
-SORT_ORDER          = "SORT_ORDER"          # wrong sort / unstable
-RETAIN_SEQUENCE     = "RETAIN_SEQUENCE"     # RETAIN / cumsum reset wrong
-LAG_SEQUENCE        = "LAG_SEQUENCE"        # LAG / shift semantics wrong
-GROUP_BOUNDARY      = "GROUP_BOUNDARY"      # FIRST. / LAST. logic wrong
-EMPTY_SUSPICIOUS    = "EMPTY_SUSPICIOUS"    # output is empty but shouldn't be
-OUTPUT_MISSING      = "OUTPUT_MISSING"      # final DataFrame not assigned / returned
-RUNTIME_GENERAL     = "RUNTIME_GENERAL"     # catch-all runtime
+SYNTAX = "SYNTAX"
+TIMEOUT = "TIMEOUT"
+NAME_ERROR = "NAME_ERROR"
+IMPORT_ERROR = "IMPORT_ERROR"
+KEY_ERROR = "KEY_ERROR"  # column / key missing
+TYPE_ERROR = "TYPE_ERROR"
+VALUE_ERROR = "VALUE_ERROR"
+ATTRIBUTE_ERROR = "ATTRIBUTE_ERROR"
+DTYPE_MISMATCH = "DTYPE_MISMATCH"  # object instead of numeric
+COL_MISSING = "COL_MISSING"  # column not found (KeyError on df col)
+COL_EXTRA = "COL_EXTRA"  # unexpected output column
+MERGE_CONTRACT = "MERGE_CONTRACT"  # join semantics wrong
+SORT_ORDER = "SORT_ORDER"  # wrong sort / unstable
+RETAIN_SEQUENCE = "RETAIN_SEQUENCE"  # RETAIN / cumsum reset wrong
+LAG_SEQUENCE = "LAG_SEQUENCE"  # LAG / shift semantics wrong
+GROUP_BOUNDARY = "GROUP_BOUNDARY"  # FIRST. / LAST. logic wrong
+EMPTY_SUSPICIOUS = "EMPTY_SUSPICIOUS"  # output is empty but shouldn't be
+OUTPUT_MISSING = "OUTPUT_MISSING"  # final DataFrame not assigned / returned
+RUNTIME_GENERAL = "RUNTIME_GENERAL"  # catch-all runtime
 
 
 # ── Repair hints per category ─────────────────────────────────────────────────
@@ -145,6 +143,7 @@ REPAIR_HINTS: dict[str, str] = {
 
 # ── Classification rules ──────────────────────────────────────────────────────
 
+
 @dataclass
 class ErrorReport:
     primary_category: str
@@ -171,8 +170,8 @@ def classify_error(
         ``ErrorReport`` with ``primary_category``, ``all_categories``,
         and a targeted ``repair_hint``.
     """
-    msg   = error_message.lower()
-    tb    = traceback_str.lower()
+    msg = error_message.lower()
+    tb = traceback_str.lower()
     combined = msg + " " + tb
 
     categories: list[str] = []
@@ -187,7 +186,11 @@ def classify_error(
         categories.append(TIMEOUT)
 
     # ── Import ──
-    if "importerror" in combined or "modulenotfounderror" in combined or "no module named" in combined:
+    if (
+        "importerror" in combined
+        or "modulenotfounderror" in combined
+        or "no module named" in combined
+    ):
         categories.append(IMPORT_ERROR)
 
     # ── NameError ──
@@ -260,11 +263,11 @@ def classify_error(
         categories.append(RUNTIME_GENERAL)
 
     primary = categories[0]
-    hint    = REPAIR_HINTS.get(primary, REPAIR_HINTS[RUNTIME_GENERAL])
+    hint = REPAIR_HINTS.get(primary, REPAIR_HINTS[RUNTIME_GENERAL])
 
     return ErrorReport(
         primary_category=primary,
-        all_categories=list(dict.fromkeys(categories)),   # deduplicated, order preserved
+        all_categories=list(dict.fromkeys(categories)),  # deduplicated, order preserved
         error_message=error_message,
         traceback=traceback_str,
         affected_columns=affected_cols,

@@ -32,10 +32,11 @@ logger = structlog.get_logger()
 @dataclass
 class DeterministicResult:
     code: str
-    reason: str   # which rule matched
+    reason: str  # which rule matched
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _strip_comments(sas: str) -> str:
     """Remove /* ... */ and * ...; comments."""
@@ -74,10 +75,10 @@ def _try_proc_sort(sas: str) -> Optional[DeterministicResult]:
     if not m:
         return None
 
-    data_ds  = _name(m.group("data") or "df")
-    out_ds   = _name(m.group("out") or m.group("data") or "df")
-    opts     = (m.group("opts") or "").lower()
-    by_raw   = m.group("by").strip()
+    data_ds = _name(m.group("data") or "df")
+    out_ds = _name(m.group("out") or m.group("data") or "df")
+    opts = (m.group("opts") or "").lower()
+    by_raw = m.group("by").strip()
     nodupkey = "nodupkey" in opts
     noduprec = "noduprec" in opts
 
@@ -96,15 +97,17 @@ def _try_proc_sort(sas: str) -> Optional[DeterministicResult]:
         return None
 
     ascending_flags = ascending[: len(by_vars)]
-    by_list   = str(by_vars)
-    asc_list  = str(ascending_flags)
+    by_list = str(by_vars)
+    asc_list = str(ascending_flags)
 
     lines = [
         "import pandas as pd  # noqa",
         f"{out_ds} = {data_ds}.sort_values({by_list}, ascending={asc_list}, kind='mergesort').reset_index(drop=True)",
     ]
     if nodupkey:
-        lines.append(f"{out_ds} = {out_ds}.drop_duplicates(subset={by_list}).reset_index(drop=True)")
+        lines.append(
+            f"{out_ds} = {out_ds}.drop_duplicates(subset={by_list}).reset_index(drop=True)"
+        )
     elif noduprec:
         lines.append(f"{out_ds} = {out_ds}.drop_duplicates().reset_index(drop=True)")
 
@@ -130,8 +133,8 @@ def _try_proc_import(sas: str) -> Optional[DeterministicResult]:
         return None
 
     filepath = (m.group("file") or "input_file.csv").strip()
-    out_ds   = _name(m.group("out"))
-    dbms     = (m.group("dbms") or "csv").lower().strip()
+    out_ds = _name(m.group("out"))
+    dbms = (m.group("dbms") or "csv").lower().strip()
 
     if dbms in ("csv", "dlm", "tab"):
         sep = "\\t" if dbms == "tab" else ","
@@ -143,14 +146,14 @@ def _try_proc_import(sas: str) -> Optional[DeterministicResult]:
     elif dbms in ("xlsx", "excel", "xls", "excelcs"):
         # Check for getnames / sheet options
         sheet_m = re.search(r"sheet\s*=\s*['\"]?([^'\";\s]+)", sas, re.IGNORECASE)
-        sheet   = f", sheet_name='{sheet_m.group(1)}'" if sheet_m else ""
+        sheet = f", sheet_name='{sheet_m.group(1)}'" if sheet_m else ""
         code = (
             f"import pandas as pd  # noqa\n"
             f"{out_ds} = pd.read_excel('{filepath}'{sheet})\n"
             f"{out_ds}.columns = {out_ds}.columns.str.lower().str.strip()"
         )
     else:
-        return None   # unknown DBMS — let LLM handle
+        return None  # unknown DBMS — let LLM handle
 
     return DeterministicResult(code=code, reason=f"PROC IMPORT ({dbms.upper()})")
 
@@ -172,9 +175,9 @@ def _try_proc_export(sas: str) -> Optional[DeterministicResult]:
     if not m:
         return None
 
-    data_ds  = _name(m.group("data"))
+    data_ds = _name(m.group("data"))
     filepath = m.group("file").strip()
-    dbms     = m.group("dbms").lower().strip()
+    dbms = m.group("dbms").lower().strip()
 
     # Use forward slashes so the path is valid Python on all platforms
     filepath_safe = filepath.replace("\\", "/")
@@ -206,7 +209,7 @@ def _try_datalines(sas: str) -> Optional[DeterministicResult]:
     if not m:
         return None
 
-    out_ds   = _name(m.group("out"))
+    out_ds = _name(m.group("out"))
     vars_raw = m.group("vars").strip()
     rows_raw = m.group("rows").strip()
 
@@ -245,11 +248,9 @@ _SIMPLE_DATA_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 
-_RENAME_RE = re.compile(
-    r"rename\s+(?P<pairs>[^;]+);", re.IGNORECASE
-)
-_KEEP_RE   = re.compile(r"keep\s+(?P<cols>[^;]+);", re.IGNORECASE)
-_DROP_RE   = re.compile(r"drop\s+(?P<cols>[^;]+);", re.IGNORECASE)
+_RENAME_RE = re.compile(r"rename\s+(?P<pairs>[^;]+);", re.IGNORECASE)
+_KEEP_RE = re.compile(r"keep\s+(?P<cols>[^;]+);", re.IGNORECASE)
+_DROP_RE = re.compile(r"drop\s+(?P<cols>[^;]+);", re.IGNORECASE)
 
 
 def _try_simple_data_step(sas: str) -> Optional[DeterministicResult]:
@@ -297,7 +298,9 @@ def _try_simple_data_step(sas: str) -> Optional[DeterministicResult]:
         if mapping:
             lines.append(f"{out_ds} = {out_ds}.rename(columns={mapping})")
 
-    return DeterministicResult(code="\n".join(lines), reason="Simple DATA SET (copy/keep/drop/rename)")
+    return DeterministicResult(
+        code="\n".join(lines), reason="Simple DATA SET (copy/keep/drop/rename)"
+    )
 
 
 # ── PROC PRINT ────────────────────────────────────────────────────────────────
@@ -316,7 +319,7 @@ def _try_proc_print(sas: str) -> Optional[DeterministicResult]:
         return None
 
     data_ds = _name(m.group("data"))
-    obs     = m.group("obs")
+    obs = m.group("obs")
 
     if obs:
         code = f"print({data_ds}.head({obs}))"
@@ -374,7 +377,7 @@ def _try_proc_format_value(sas: str) -> Optional[DeterministicResult]:
         mapping: dict[str, str] = {}
         for pair_m in _DISCRETE_PAIR_RE.finditer(pairs_raw):
             keys_str = pair_m.group(1).strip()
-            label    = pair_m.group(2).strip()
+            label = pair_m.group(2).strip()
             for k in re.split(r"\s*,\s*", keys_str):
                 k = k.strip().strip("'\"")
                 if k:
@@ -451,11 +454,11 @@ def _try_proc_sql_simple(sas: str) -> Optional[DeterministicResult]:
     if not stmt_m:
         return None
 
-    out_ds   = stmt_m.group("out").lower()
+    out_ds = stmt_m.group("out").lower()
     cols_raw = stmt_m.group("cols").strip()
-    tbl      = stmt_m.group("tbl").lower()
-    where    = (stmt_m.group("where") or "").strip()
-    orderby  = (stmt_m.group("orderby") or "").strip()
+    tbl = stmt_m.group("tbl").lower()
+    where = (stmt_m.group("where") or "").strip()
+    orderby = (stmt_m.group("orderby") or "").strip()
 
     lines = ["import pandas as pd  # noqa"]
 
@@ -491,10 +494,10 @@ def _try_proc_sql_simple(sas: str) -> Optional[DeterministicResult]:
             return None
 
         col_name = where_m.group(1).lower()
-        op       = where_m.group(2).replace("<>", "!=")
+        op = where_m.group(2).replace("<>", "!=")
         if op == "=":
             op = "=="
-        val_raw  = where_m.group(3).strip().strip("'\"")
+        val_raw = where_m.group(3).strip().strip("'\"")
         try:
             float(val_raw)
             py_val = val_raw

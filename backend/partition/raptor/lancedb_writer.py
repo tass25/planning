@@ -22,10 +22,10 @@ RAPTOR_SCHEMA = pa.schema(
         pa.field("summary", pa.string()),
         pa.field("summary_tier", pa.string()),
         pa.field("embedding", pa.list_(pa.float32(), 768)),
-        pa.field("child_ids", pa.string()),        # JSON array
+        pa.field("child_ids", pa.string()),  # JSON array
         pa.field("cluster_label", pa.int32()),
         pa.field("file_id", pa.string()),
-        pa.field("partition_ids", pa.string()),    # JSON array
+        pa.field("partition_ids", pa.string()),  # JSON array
         pa.field("created_at", pa.string()),
     ]
 )
@@ -66,9 +66,7 @@ class RAPTORLanceDBWriter:
                     "summary_tier": node.summary_tier,
                     "embedding": node.embedding,
                     "child_ids": json.dumps([str(c) for c in node.child_ids]),
-                    "cluster_label": (
-                        node.cluster_label if node.cluster_label is not None else -1
-                    ),
+                    "cluster_label": (node.cluster_label if node.cluster_label is not None else -1),
                     "file_id": str(node.file_id),
                     "partition_ids": json.dumps(node.partition_ids),
                     "created_at": datetime.now(timezone.utc).isoformat(),

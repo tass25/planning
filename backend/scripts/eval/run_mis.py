@@ -20,13 +20,14 @@ if str(_root) not in sys.path:
 def _load_benchmark_pairs(output_dir: Path) -> list[tuple[str, str]]:
     """Load (sas_code, python_code) pairs from benchmark JSON files in knowledge_base/output/."""
     import json
+
     pairs: list[tuple[str, str]] = []
     for f in sorted(output_dir.glob("benchmark_crossProvider_*.json")):
         try:
             d = json.loads(f.read_text("utf-8"))
             for r in d.get("results", []):
                 sas = r.get("sas_code", "")
-                py  = r.get("python_code", "")
+                py = r.get("python_code", "")
                 if sas and py and r.get("equivalent", False):
                     pairs.append((sas, py))
         except Exception:
@@ -47,7 +48,9 @@ def main() -> None:
         help="Path to benchmark output dir with crossProvider JSON pairs",
     )
     parser.add_argument(
-        "--max-pairs", type=int, default=200,
+        "--max-pairs",
+        type=int,
+        default=200,
         help="Maximum number of corpus pairs to process (default: 200)",
     )
     args = parser.parse_args()

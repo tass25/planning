@@ -1,13 +1,10 @@
 """Tests for Week 10 — Translation Layer (L3)."""
 
-import pytest
-
 from partition.translation.failure_mode_detector import (
     FailureMode,
     detect_failure_mode,
     get_failure_mode_rules,
 )
-
 
 # ── Failure Mode Detector ─────────────────────────────────────────────
 
@@ -93,6 +90,7 @@ class TestValidationAgent:
     def test_sandbox_has_required_keys(self):
         """Verify the sandbox function provides pd/np/df and blocks dangerous builtins."""
         import multiprocessing
+
         from partition.translation.validation_agent import _sandbox_exec
 
         q = multiprocessing.Queue()
@@ -103,6 +101,7 @@ class TestValidationAgent:
     def test_sandbox_no_import(self):
         """Verify __import__ is blocked inside sandbox."""
         import multiprocessing
+
         from partition.translation.validation_agent import _sandbox_exec
 
         q = multiprocessing.Queue()
@@ -135,9 +134,7 @@ class TestValidationAgent:
         from partition.translation.validation_agent import ValidationAgent
 
         agent = ValidationAgent()
-        ok, err, output, _states, _stdout = agent._execute_with_timeout(
-            "result = 1 / 0"
-        )
+        ok, err, output, _states, _stdout = agent._execute_with_timeout("result = 1 / 0")
         assert ok is False
         assert "division by zero" in err
 
@@ -154,6 +151,7 @@ class TestValidationAgent:
     def test_sandbox_df_columns(self):
         """Verify sandbox df has expected columns."""
         import multiprocessing
+
         from partition.translation.validation_agent import _sandbox_exec
 
         q = multiprocessing.Queue()
@@ -189,6 +187,7 @@ class TestKBQueryClient:
 class TestConversionResult:
     def test_create_conversion_result(self):
         import uuid
+
         from partition.models.conversion_result import ConversionResult
         from partition.models.enums import ConversionStatus
 
@@ -208,6 +207,7 @@ class TestConversionResult:
 
     def test_default_fields(self):
         import uuid
+
         from partition.models.conversion_result import ConversionResult
 
         result = ConversionResult(

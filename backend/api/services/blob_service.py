@@ -24,7 +24,6 @@ import tempfile
 from pathlib import Path
 
 import structlog
-
 from config.settings import settings
 
 _log = structlog.get_logger("codara.blob")
@@ -46,10 +45,14 @@ class BlobStorageService:
     def _init(self) -> None:
         conn_str = settings.azure_storage_connection_string
         if not conn_str:
-            _log.info("blob_storage_disabled", reason="AZURE_STORAGE_CONNECTION_STRING not set — using local disk")
+            _log.info(
+                "blob_storage_disabled",
+                reason="AZURE_STORAGE_CONNECTION_STRING not set — using local disk",
+            )
             return
         try:
             from azure.storage.blob import BlobServiceClient
+
             self._client = BlobServiceClient.from_connection_string(conn_str)
             # Ensure container exists (idempotent)
             container = self._client.get_container_client(self._container)
@@ -129,10 +132,7 @@ class BlobStorageService:
     def _list_sync(self, file_id: str) -> list[str]:
         prefix = f"{file_id}/"
         container = self._client.get_container_client(self._container)
-        return [
-            blob.name[len(prefix):]
-            for blob in container.list_blobs(name_starts_with=prefix)
-        ]
+        return [blob.name[len(prefix) :] for blob in container.list_blobs(name_starts_with=prefix)]
 
     # ── Delete ────────────────────────────────────────────────────────────────
 
@@ -142,6 +142,7 @@ class BlobStorageService:
             await asyncio.to_thread(self._delete_sync, file_id)
         else:
             import shutil
+
             folder = _LOCAL_UPLOAD_DIR / file_id
             if folder.exists():
                 shutil.rmtree(folder)

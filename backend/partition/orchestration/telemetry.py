@@ -42,28 +42,33 @@ def _init_once() -> None:
     # stays importable from partition/ without a circular dependency on api/.
     try:
         from config.settings import settings as _s
+
         conn_str = _s.applicationinsights_connection_string
     except Exception:
         conn_str = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING", "")
 
     if not conn_str:
-        logger.info("telemetry_disabled", reason="no connection string — set APPLICATIONINSIGHTS_CONNECTION_STRING")
+        logger.info(
+            "telemetry_disabled",
+            reason="no connection string — set APPLICATIONINSIGHTS_CONNECTION_STRING",
+        )
         return
 
     try:
         from azure.monitor.opentelemetry import configure_azure_monitor
-        from opentelemetry import trace, metrics
+        from opentelemetry import metrics, trace
 
         configure_azure_monitor(connection_string=conn_str)
 
         _tracer = trace.get_tracer("codara.pipeline")
-        _meter  = metrics.get_meter("codara.pipeline")
+        _meter = metrics.get_meter("codara.pipeline")
         logger.info("telemetry_enabled", backend="azure_monitor")
     except Exception as exc:
         logger.warning("telemetry_init_failed", error=str(exc))
 
 
 # ── Public API ────────────────────────────────────────────────────────
+
 
 def track_event(
     name: str,

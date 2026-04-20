@@ -7,13 +7,12 @@ LLM pass:           Azure OpenAI GPT-4o-mini for ambiguous blocks (~20%).
 
 from __future__ import annotations
 
-import asyncio
 import re as _re
 from uuid import UUID
 
 import structlog
 
-from partition.base_agent import BaseAgent, with_retry
+from partition.base_agent import BaseAgent
 from partition.models.enums import PartitionType
 from partition.streaming.models import LineChunk, ParsingState
 from partition.utils.retry import azure_breaker, azure_limiter
@@ -21,23 +20,22 @@ from partition.utils.retry import azure_breaker, azure_limiter
 # Extracts the PROC name from the first line of a PROC block for metadata.
 _PROC_NAME_RE = _re.compile(r"^\s*PROC\s+(\w+)", _re.IGNORECASE)
 
-from .models import COVERAGE_MAP, BlockBoundaryEvent
 from .llm_boundary_resolver import LLMBoundaryResolver
-
+from .models import COVERAGE_MAP, BlockBoundaryEvent
 
 logger = structlog.get_logger()
 
 # ── StateAgent block_type string → PartitionType ──────────────────────────────
 
 _TYPE_MAP: dict[str, PartitionType] = {
-    "DATA_STEP":         PartitionType.DATA_STEP,
-    "PROC_BLOCK":        PartitionType.PROC_BLOCK,
-    "SQL_BLOCK":         PartitionType.SQL_BLOCK,
-    "MACRO_DEFINITION":  PartitionType.MACRO_DEFINITION,
-    "MACRO_INVOCATION":  PartitionType.MACRO_INVOCATION,
+    "DATA_STEP": PartitionType.DATA_STEP,
+    "PROC_BLOCK": PartitionType.PROC_BLOCK,
+    "SQL_BLOCK": PartitionType.SQL_BLOCK,
+    "MACRO_DEFINITION": PartitionType.MACRO_DEFINITION,
+    "MACRO_INVOCATION": PartitionType.MACRO_INVOCATION,
     "CONDITIONAL_BLOCK": PartitionType.CONDITIONAL_BLOCK,
-    "LOOP_BLOCK":        PartitionType.LOOP_BLOCK,
-    "GLOBAL_STATEMENT":  PartitionType.GLOBAL_STATEMENT,
+    "LOOP_BLOCK": PartitionType.LOOP_BLOCK,
+    "GLOBAL_STATEMENT": PartitionType.GLOBAL_STATEMENT,
     "INCLUDE_REFERENCE": PartitionType.INCLUDE_REFERENCE,
 }
 
@@ -52,9 +50,7 @@ import re as _re
 # Regex that matches a line containing only a %PUT NOTE/WARNING/ERROR: statement
 # (i.e. the %PUT is the sole content).  Used to filter out standalone
 # %PUT-banner GLOBAL_STATEMENTs that should belong to the following macro call.
-_PUT_ONLY_LINE = _re.compile(
-    r"^\s*%PUT\s+(?:NOTE|WARNING|ERROR)\s*:", _re.IGNORECASE
-)
+_PUT_ONLY_LINE = _re.compile(r"^\s*%PUT\s+(?:NOTE|WARNING|ERROR)\s*:", _re.IGNORECASE)
 
 
 def _is_put_only(raw_code: str) -> bool:
@@ -88,7 +84,7 @@ def _merge_global_statements(
     """
     result: list[BlockBoundaryEvent] = []
     pending: BlockBoundaryEvent | None = None
-    pending_has_core: bool = False   # True if pending contains a non-PUT line
+    pending_has_core: bool = False  # True if pending contains a non-PUT line
 
     for ev in events:
         if ev.partition_type != PartitionType.GLOBAL_STATEMENT:
@@ -138,9 +134,9 @@ def _merge_global_statements(
 
 
 # Patterns for %MEND and %PUT NOTE:%PUT WARNING: after a block close
-_MEND_RE    = _re.compile(r"^\s*%MEND\b", _re.IGNORECASE)
+_MEND_RE = _re.compile(r"^\s*%MEND\b", _re.IGNORECASE)
 _PUT_LOG_RE = _re.compile(r"^\s*%PUT\s+(NOTE|WARNING|ERROR)\s*:", _re.IGNORECASE)
-_LET_RE     = _re.compile(r"^\s*%LET\b", _re.IGNORECASE)
+_LET_RE = _re.compile(r"^\s*%LET\b", _re.IGNORECASE)
 # Block types whose end can be extended when trailing %MEND is nearby
 _EXTEND_TYPES = {
     PartitionType.DATA_STEP,
@@ -286,7 +282,7 @@ def _extend_to_mend(
         last_put_line = None
         for li in range(ev.line_end + 1, ev.line_end + _MEND_LOOKAHEAD + 1):
             lc = line_content.get(li, "")
-            if not lc:          # blank line
+            if not lc:  # blank line
                 continue
             if _MEND_RE.match(lc):
                 mend_line = li
@@ -362,41 +358,44 @@ class BoundaryDetector:
         block_start: int | None = None
         prev_state: ParsingState | None = None
 
-        def _emit(pt_str: str, start: int, end: int,
-                  lines: list[str], ref: ParsingState | None) -> None:
+        def _emit(
+            pt_str: str, start: int, end: int, lines: list[str], ref: ParsingState | None
+        ) -> None:
             pt = _TYPE_MAP.get(pt_str)
             if pt is None or not lines:
                 return
-            scope      = dict(ref.variable_scope)      if ref else {}
-            deps       = list(ref.active_dependencies) if ref else []
-            depth      = ref.nesting_depth             if ref else 0
+            scope = dict(ref.variable_scope) if ref else {}
+            deps = list(ref.active_dependencies) if ref else []
+            depth = ref.nesting_depth if ref else 0
             # Extract specific PROC name (e.g. "SORT", "MEANS") for metadata
             extra: dict = {}
             if pt == PartitionType.PROC_BLOCK and lines:
                 m = _PROC_NAME_RE.match(lines[0])
                 if m:
                     extra["proc_type"] = m.group(1).upper()
-            events.append(BlockBoundaryEvent(
-                file_id=file_id,
-                partition_type=pt,
-                line_start=start,
-                line_end=end,
-                raw_code="\n".join(lines),
-                boundary_method="lark",
-                confidence=1.0,
-                is_ambiguous=len(lines) > _AMBIGUOUS_THRESHOLD,
-                nesting_depth=depth,
-                macro_scope={},
-                variable_scope=scope,
-                dependency_refs=deps,
-                test_coverage_type=COVERAGE_MAP.get(pt, "full"),
-                trace_id=trace_id,
-                extra_metadata=extra,
-            ))
+            events.append(
+                BlockBoundaryEvent(
+                    file_id=file_id,
+                    partition_type=pt,
+                    line_start=start,
+                    line_end=end,
+                    raw_code="\n".join(lines),
+                    boundary_method="lark",
+                    confidence=1.0,
+                    is_ambiguous=len(lines) > _AMBIGUOUS_THRESHOLD,
+                    nesting_depth=depth,
+                    macro_scope={},
+                    variable_scope=scope,
+                    dependency_refs=deps,
+                    test_coverage_type=COVERAGE_MAP.get(pt, "full"),
+                    trace_id=trace_id,
+                    extra_metadata=extra,
+                )
+            )
 
         for chunk, state in chunks_with_states:
-            lcb       = state.last_closed_block   # (type, start, end) | None
-            after_bt  = state.current_block_type  # block type AFTER this chunk
+            lcb = state.last_closed_block  # (type, start, end) | None
+            after_bt = state.current_block_type  # block type AFTER this chunk
 
             # ── Primary close signal ─────────────────────────────────────
             if lcb is not None:
@@ -410,8 +409,8 @@ class BoundaryDetector:
                         current_lines.append(chunk.content)
                     _emit(current_type, block_start, lcb_end, current_lines, state)  # type: ignore[arg-type]
                     current_lines = []
-                    current_type  = None
-                    block_start   = None
+                    current_type = None
+                    block_start = None
 
                 elif current_type is None:
                     # Single-line block (open+close in this chunk): emit directly.
@@ -429,15 +428,15 @@ class BoundaryDetector:
                 line_end = chunk.line_number
                 _emit(current_type, block_start, line_end, current_lines, state)  # type: ignore[arg-type]
                 current_lines = []
-                current_type  = None
-                block_start   = None
+                current_type = None
+                block_start = None
 
             # ── Track ongoing open block ─────────────────────────────────
             if after_bt and after_bt != "IDLE":
                 if current_type is None:
                     # New block just became active
                     current_type = after_bt
-                    block_start  = state.block_start_line or chunk.line_number
+                    block_start = state.block_start_line or chunk.line_number
                     current_lines = []
                 # Add chunk to open block.
                 # Skip when lcb was just handled AND it was an implicit close
@@ -451,27 +450,29 @@ class BoundaryDetector:
         if current_type is not None and current_lines:
             pt = _TYPE_MAP.get(current_type)
             if pt is not None:
-                raw_code  = "\n".join(current_lines)
+                raw_code = "\n".join(current_lines)
                 last_line = chunks_with_states[-1][0].line_number if chunks_with_states else 0
                 scope = dict(prev_state.variable_scope) if prev_state else {}
-                deps  = list(prev_state.active_dependencies) if prev_state else []
+                deps = list(prev_state.active_dependencies) if prev_state else []
                 depth = prev_state.nesting_depth if prev_state else 0
-                events.append(BlockBoundaryEvent(
-                    file_id=file_id,
-                    partition_type=pt,
-                    line_start=block_start,   # type: ignore[arg-type]
-                    line_end=last_line,
-                    raw_code=raw_code,
-                    boundary_method="lark_fallback",
-                    confidence=0.5,
-                    is_ambiguous=True,
-                    nesting_depth=depth,
-                    macro_scope={},
-                    variable_scope=scope,
-                    dependency_refs=deps,
-                    test_coverage_type=COVERAGE_MAP.get(pt, "full"),
-                    trace_id=trace_id,
-                ))
+                events.append(
+                    BlockBoundaryEvent(
+                        file_id=file_id,
+                        partition_type=pt,
+                        line_start=block_start,  # type: ignore[arg-type]
+                        line_end=last_line,
+                        raw_code=raw_code,
+                        boundary_method="lark_fallback",
+                        confidence=0.5,
+                        is_ambiguous=True,
+                        nesting_depth=depth,
+                        macro_scope={},
+                        variable_scope=scope,
+                        dependency_refs=deps,
+                        test_coverage_type=COVERAGE_MAP.get(pt, "full"),
+                        trace_id=trace_id,
+                    )
+                )
 
         events.sort(key=lambda e: e.line_start)
         events = _merge_global_statements(events, file_id, trace_id)
@@ -481,6 +482,7 @@ class BoundaryDetector:
 
 
 # ── Agent ─────────────────────────────────────────────────────────────────────
+
 
 class BoundaryDetectorAgent(BaseAgent):
     """Orchestrates deterministic + LLM boundary detection.
@@ -557,8 +559,8 @@ class BoundaryDetectorAgent(BaseAgent):
         # Step 3: final sort
         resolved.sort(key=lambda e: e.line_start)
 
-        lark_count    = sum(1 for e in resolved if e.boundary_method == "lark")
-        llm_count     = sum(1 for e in resolved if e.boundary_method == "llm_8b")
+        lark_count = sum(1 for e in resolved if e.boundary_method == "lark")
+        llm_count = sum(1 for e in resolved if e.boundary_method == "llm_8b")
         fallback_count = sum(1 for e in resolved if e.boundary_method == "lark_fallback")
 
         self.logger.info(

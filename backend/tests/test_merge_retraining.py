@@ -4,10 +4,8 @@ import ast
 import tempfile
 
 import duckdb
-import pytest
 
 # ── Import Consolidator ──────────────────────────────────────────────
-
 from partition.merge.import_consolidator import consolidate_imports
 
 
@@ -20,9 +18,7 @@ class TestImportConsolidator:
         result = consolidate_imports(imports)
         lines = result.split("\n")
         # stdlib first
-        assert lines[0].startswith("import datetime") or lines[0].startswith(
-            "import os"
-        )
+        assert lines[0].startswith("import datetime") or lines[0].startswith("import os")
         # pandas appears exactly once
         assert result.count("import pandas as pd") == 1
 
@@ -79,9 +75,7 @@ class TestDependencyInjector:
 
     def test_cross_file_stubs(self):
         code = "df = work_temp"
-        result = add_cross_file_stubs(
-            code, ["WORK.EXT"], {"WORK.EXT": "other.sas"}
-        )
+        result = add_cross_file_stubs(code, ["WORK.EXT"], {"WORK.EXT": "other.sas"})
         assert "# NOTE: 'WORK.EXT' expected from external file 'other.sas'" in result
 
     def test_no_stubs_when_empty(self):
@@ -117,7 +111,12 @@ class TestScriptMerger:
             {"python_code": "", "imports_detected": [], "status": "HUMAN_REVIEW"},
         ]
         parts = [
-            {"raw_code": "DATA complex; RUN;", "line_start": 1, "line_end": 3, "partition_type": "DATA_STEP"},
+            {
+                "raw_code": "DATA complex; RUN;",
+                "line_start": 1,
+                "line_end": 3,
+                "partition_type": "DATA_STEP",
+            },
         ]
         with tempfile.TemporaryDirectory() as tmpdir:
             result = merge_script(crs, parts, "f-002", "complex.sas", output_dir=tmpdir)
@@ -140,7 +139,11 @@ class TestScriptMerger:
 
     def test_partial_status(self):
         crs = [
-            {"python_code": "# PARTIAL: failed\nx = 1", "imports_detected": [], "status": "PARTIAL"},
+            {
+                "python_code": "# PARTIAL: failed\nx = 1",
+                "imports_detected": [],
+                "status": "PARTIAL",
+            },
         ]
         parts = [
             {"raw_code": "x=1;", "line_start": 1, "line_end": 1},
@@ -181,6 +184,7 @@ class TestReportAgent:
             assert report["total_blocks"] == 2
             assert report["success_count"] == 1
             from pathlib import Path
+
             assert Path(report["report_md_path"]).exists()
             assert Path(report["report_html_path"]).exists()
 

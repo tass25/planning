@@ -6,18 +6,16 @@ Run with:
     cd backend
     python -m pytest tests/test_rag.py -v
 """
+
 from __future__ import annotations
 
-from pathlib import Path
 from uuid import uuid4
 
 import pytest
-
 from partition.models.enums import PartitionType, RiskLevel
 from partition.models.partition_ir import PartitionIR
 from partition.prompts import PromptManager
-from partition.rag import RAGRouter, StaticRAG, GraphRAG, AgenticRAG
-
+from partition.rag import AgenticRAG, GraphRAG, RAGRouter, StaticRAG
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -63,6 +61,7 @@ def _make_partition(
 # ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║  PromptManager tests                                                     ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
+
 
 class TestPromptManager:
     """Tests for template loading and rendering."""
@@ -152,6 +151,7 @@ class TestPromptManager:
 # ║  RAGRouter.select_paradigm tests                                         ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 
+
 class TestRAGRouterSelect:
     """Test paradigm selection logic."""
 
@@ -222,6 +222,7 @@ class TestRAGRouterSelect:
 # ║  StaticRAG tests                                                         ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 
+
 class TestStaticRAG:
     """Tests for StaticRAG.build_context."""
 
@@ -246,7 +247,11 @@ class TestStaticRAG:
     def test_returns_required_keys(self, embedder, kb_client):
         ctx = self._build(embedder, kb_client)
         assert set(ctx.keys()) == {
-            "prompt", "kb_examples", "paradigm", "retrieval_k", "raptor_level",
+            "prompt",
+            "kb_examples",
+            "paradigm",
+            "retrieval_k",
+            "raptor_level",
         }
 
     def test_paradigm_is_static(self, embedder, kb_client):
@@ -291,6 +296,7 @@ class TestStaticRAG:
 # ║  GraphRAG tests                                                          ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 
+
 class TestGraphRAG:
     """Tests for GraphRAG.build_context."""
 
@@ -320,8 +326,13 @@ class TestGraphRAG:
     def test_returns_required_keys(self, embedder, kb_client, real_graph):
         ctx = self._build(embedder, kb_client, real_graph)
         assert set(ctx.keys()) == {
-            "prompt", "kb_examples", "graph_context", "scc_siblings",
-            "paradigm", "retrieval_k", "raptor_level",
+            "prompt",
+            "kb_examples",
+            "graph_context",
+            "scc_siblings",
+            "paradigm",
+            "retrieval_k",
+            "raptor_level",
         }
 
     def test_paradigm_is_graph(self, embedder, kb_client, real_graph):
@@ -343,18 +354,20 @@ class TestGraphRAG:
 
     def test_upstream_translation_injected(self, embedder, kb_client, real_graph):
         ctx = self._build(
-            embedder, kb_client, real_graph,
+            embedder,
+            kb_client,
+            real_graph,
             translations={"dep-1": "import pandas as pd"},
         )
         # Find dep-1 in graph_context and check its python_code
-        dep1_entries = [
-            e for e in ctx["graph_context"] if e["partition_id"] == "dep-1"
-        ]
+        dep1_entries = [e for e in ctx["graph_context"] if e["partition_id"] == "dep-1"]
         assert len(dep1_entries) >= 1
         assert dep1_entries[0]["python_code"] == "import pandas as pd"
 
     def test_scc_siblings_excludes_self(self, embedder, kb_client, real_graph):
-        ctx = self._build(embedder, kb_client, real_graph, partition_id="scc-a", scc_id="scc-group-7")
+        ctx = self._build(
+            embedder, kb_client, real_graph, partition_id="scc-a", scc_id="scc-group-7"
+        )
         sibling_ids = [s["partition_id"] for s in ctx["scc_siblings"]]
         assert "scc-a" not in sibling_ids
 
@@ -370,6 +383,7 @@ class TestGraphRAG:
 # ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║  AgenticRAG tests                                                        ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
+
 
 class TestAgenticRAG:
     """Tests for AgenticRAG.build_context."""
@@ -404,8 +418,13 @@ class TestAgenticRAG:
     def test_returns_required_keys(self, embedder, kb_client, real_graph):
         ctx = self._build(embedder, kb_client, real_graph)
         assert set(ctx.keys()) == {
-            "prompt", "kb_examples", "graph_context",
-            "paradigm", "retrieval_k", "raptor_level", "attempt_number",
+            "prompt",
+            "kb_examples",
+            "graph_context",
+            "paradigm",
+            "retrieval_k",
+            "raptor_level",
+            "attempt_number",
         }
 
     def test_paradigm_is_agentic(self, embedder, kb_client, real_graph):
@@ -482,6 +501,7 @@ class TestAgenticRAG:
 # ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║  RAGRouter.build_context integration tests                               ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
+
 
 class TestRAGRouterBuildContext:
     """Integration tests: Router → paradigm → context dict."""

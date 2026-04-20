@@ -16,7 +16,6 @@ from __future__ import annotations
 import uuid
 
 import pytest
-
 from partition.testing.cdais.cdais_runner import CDAISReport, CDAISRunner
 from partition.testing.cdais.constraint_catalog import (
     ALL_ERROR_CLASSES,
@@ -26,8 +25,8 @@ from partition.testing.cdais.constraint_catalog import (
 )
 from partition.testing.cdais.synthesizer import CDASISynthesizer
 
-
 # ── fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(scope="module")
 def runner() -> CDAISRunner:
@@ -97,10 +96,10 @@ run;
 
 BAD_RETAIN_RESET = "df['total'] = df['amount'].cumsum()"
 BAD_LAG_QUEUE = "df['prev_amount'] = df['amount'].shift(1)"
-BAD_SORT_STABLE = "df = df.sort_values('status')"         # missing kind='mergesort'
+BAD_SORT_STABLE = "df = df.sort_values('status')"  # missing kind='mergesort'
 BAD_NULL_ARITHMETIC = "df['running_sum'] = df['value'].cumsum()"  # NaN propagation
 BAD_JOIN_TYPE = "df = pd.merge(customers, accounts, on='customer_id', how='inner')"
-BAD_GROUP_BOUNDARY = "df = df.head(1)"                    # whole-DF head, not per-group
+BAD_GROUP_BOUNDARY = "df = df.head(1)"  # whole-DF head, not per-group
 
 # Correct Python translations (should pass or be certified)
 GOOD_RETAIN_RESET = """
@@ -115,6 +114,7 @@ GOOD_GROUP_BOUNDARY = "df = df.groupby('region').first().reset_index()"
 
 
 # ── Tests: applicable_classes() ───────────────────────────────────────────────
+
 
 class TestApplicableClasses:
     def test_retain_reset_detected(self):
@@ -163,6 +163,7 @@ class TestApplicableClasses:
 
 # ── Tests: CDASISynthesizer ────────────────────────────────────────────────────
 
+
 class TestCDASISynthesizer:
     @pytest.mark.parametrize("class_name", [ec.name for ec in ALL_ERROR_CLASSES])
     def test_synthesis_produces_sat_witness(self, synthesizer, cfg, class_name):
@@ -180,12 +181,13 @@ class TestCDASISynthesizer:
         result = synthesizer.synthesize(ec, cfg)
         if result.sat and result.witness_df is not None:
             max_rows = cfg.n_groups * cfg.n_rows_per_group * 2
-            assert len(result.witness_df) <= max_rows, (
-                f"{class_name}: witness has {len(result.witness_df)} rows > {max_rows}"
-            )
+            assert (
+                len(result.witness_df) <= max_rows
+            ), f"{class_name}: witness has {len(result.witness_df)} rows > {max_rows}"
 
 
 # ── Tests: CDAISRunner.run_on_code() ──────────────────────────────────────────
+
 
 class TestCDAISRunnerOnCode:
     def test_retain_reset_bad_translation_flagged(self, runner):
@@ -230,6 +232,7 @@ class TestCDAISRunnerOnCode:
 
 # ── Tests: CDAISReport ────────────────────────────────────────────────────────
 
+
 class TestCDAISReport:
     def test_to_prompt_block_all_passed(self):
         report = CDAISReport(
@@ -252,7 +255,7 @@ class TestCDAISReport:
         report = runner.run_on_code(SAS_JOIN_TYPE, BAD_JOIN_TYPE)
         summary = report.summary()
         assert "CDAIS" in summary
-        assert "/" in summary      # "X/Y error classes certified"
+        assert "/" in summary  # "X/Y error classes certified"
         assert "ms" in summary
 
     def test_summary_all_passed(self):
@@ -269,10 +272,11 @@ class TestCDAISReport:
 
 # ── Tests: CDAISRunner.run() with PartitionIR ─────────────────────────────────
 
+
 class TestCDAISRunnerWithPartitionIR:
     def test_run_with_partition_ir(self, runner):
-        from partition.models.partition_ir import PartitionIR
         from partition.models.enums import PartitionType, RiskLevel
+        from partition.models.partition_ir import PartitionIR
 
         p = PartitionIR(
             block_id=uuid.uuid4(),
@@ -289,8 +293,8 @@ class TestCDAISRunnerWithPartitionIR:
         assert report.n_classes_checked >= 1
 
     def test_run_returns_report_even_on_empty_code(self, runner):
-        from partition.models.partition_ir import PartitionIR
         from partition.models.enums import PartitionType, RiskLevel
+        from partition.models.partition_ir import PartitionIR
 
         p = PartitionIR(
             block_id=uuid.uuid4(),
@@ -309,6 +313,7 @@ class TestCDAISRunnerWithPartitionIR:
 
 
 # ── Tests: skipped classes handling ───────────────────────────────────────────
+
 
 class TestSkippedClasses:
     def test_non_applicable_classes_are_skipped(self, runner):

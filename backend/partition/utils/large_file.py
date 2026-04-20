@@ -27,6 +27,7 @@ MEMORY_LIMIT_MB = 100
 
 # ── File Size Strategy ────────────────────────────────────────────────────────
 
+
 def detect_file_size_strategy(file_path: str) -> str:
     """Determine processing strategy based on file line count.
 
@@ -75,6 +76,7 @@ def checkpoint_interval(strategy: str) -> int:
 
 
 # ── Memory Guards ─────────────────────────────────────────────────────────────
+
 
 def configure_memory_guards() -> None:
     """Set environment variables for memory management.

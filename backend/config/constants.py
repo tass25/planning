@@ -8,7 +8,7 @@ from __future__ import annotations
 
 # ── LLM generation limits ─────────────────────────────────────────────────────
 AZURE_MAX_COMPLETION_TOKENS: int = 16_384
-GROQ_MAX_TOKENS: int = 4_096   # Groq free-tier: input+output must stay ~6k tokens total
+GROQ_MAX_TOKENS: int = 4_096  # Groq free-tier: input+output must stay ~6k tokens total
 LLM_TRANSLATION_TEMPERATURE: float = 0.1
 
 # ── Health-check timeouts (seconds) ──────────────────────────────────────────
@@ -20,9 +20,9 @@ SSE_MAX_EVENTS: int = 600
 SSE_POLL_INTERVAL_S: float = 1.0
 
 # ── Pipeline ──────────────────────────────────────────────────────────────────
-CHECKPOINT_INTERVAL_BLOCKS: int = 50   # Redis checkpoint every N blocks
+CHECKPOINT_INTERVAL_BLOCKS: int = 50  # Redis checkpoint every N blocks
 MAX_VALIDATION_RETRIES: int = 2
 PARTITION_TIMEOUT_S: int = 120
 
 # ── File upload ───────────────────────────────────────────────────────────────
-UPLOAD_FILE_ID_HEX_LEN: int = 8       # f"file-{uuid4().hex[:N]}"
+UPLOAD_FILE_ID_HEX_LEN: int = 8  # f"file-{uuid4().hex[:N]}"

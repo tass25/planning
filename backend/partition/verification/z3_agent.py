@@ -71,10 +71,10 @@ logger = structlog.get_logger(__name__)
 
 
 class VerificationStatus(str, Enum):
-    PROVED        = "formal_proof"
-    UNKNOWN       = "unverifiable"
+    PROVED = "formal_proof"
+    UNKNOWN = "unverifiable"
     COUNTEREXAMPLE = "counterexample"
-    SKIPPED       = "skipped"
+    SKIPPED = "skipped"
 
 
 @dataclass
@@ -90,19 +90,24 @@ class VerificationResult:
 
 _SAS_OP_NORM = {"=": "==", "^=": "!=", "~=": "!=", "¬=": "!="}
 
+
 def _norm_op(op: str) -> str:
     return _SAS_OP_NORM.get(op.strip(), op.strip())
 
+
 def _z3_cmp(x, op: str, val):
-    import z3
     return {
-        "<":  x < val,  ">":  x > val,
-        "<=": x <= val, ">=": x >= val,
-        "==": x == val, "!=": x != val,
+        "<": x < val,
+        ">": x > val,
+        "<=": x <= val,
+        ">=": x >= val,
+        "==": x == val,
+        "!=": x != val,
     }.get(op)
 
 
 # ── main agent ────────────────────────────────────────────────────────────────
+
 
 class Z3VerificationAgent:
     """Formal equivalence checker. Runs all 8 patterns; returns worst result."""
@@ -127,26 +132,26 @@ class Z3VerificationAgent:
         t0 = time.monotonic()
         patterns = [
             ("conditional_assignment", self._verify_conditional_assignment),
-            ("sort_direction",         self._verify_sort_direction),
-            ("sort_nodupkey",          self._verify_sort_nodupkey),
-            ("proc_means_groupby",     self._verify_proc_means_groupby),
-            ("boolean_filter",         self._verify_boolean_filter),
-            ("format_display_only",    self._verify_format_display_only),
-            ("left_join",              self._verify_left_join),
-            ("merge_indicator",        self._verify_merge_indicator),
-            ("stepwise_regression",    self._verify_stepwise_regression),
-            ("simple_assignment",      self._verify_simple_assignment),
+            ("sort_direction", self._verify_sort_direction),
+            ("sort_nodupkey", self._verify_sort_nodupkey),
+            ("proc_means_groupby", self._verify_proc_means_groupby),
+            ("boolean_filter", self._verify_boolean_filter),
+            ("format_display_only", self._verify_format_display_only),
+            ("left_join", self._verify_left_join),
+            ("merge_indicator", self._verify_merge_indicator),
+            ("stepwise_regression", self._verify_stepwise_regression),
+            ("simple_assignment", self._verify_simple_assignment),
         ]
 
-        best_proved:      Optional[tuple[str, VerificationResult]] = None
-        first_counterex:  Optional[tuple[str, VerificationResult]] = None
+        best_proved: Optional[tuple[str, VerificationResult]] = None
+        first_counterex: Optional[tuple[str, VerificationResult]] = None
         matched_patterns: list[str] = []
 
         for name, checker in patterns:
             try:
                 res = checker(sas_code, python_code)
                 if res is None:
-                    continue          # pattern not applicable to this block
+                    continue  # pattern not applicable to this block
                 matched_patterns.append(name)
                 if res.status == VerificationStatus.COUNTEREXAMPLE:
                     if first_counterex is None:
@@ -163,8 +168,9 @@ class Z3VerificationAgent:
             name, res = first_counterex
             res.latency_ms = elapsed
             res.pattern = name
-            logger.warning("z3_counterexample", pattern=name,
-                           issue=res.counterexample.get("issue", ""))
+            logger.warning(
+                "z3_counterexample", pattern=name, issue=res.counterexample.get("issue", "")
+            )
             return res
 
         if best_proved:
@@ -176,17 +182,12 @@ class Z3VerificationAgent:
 
         status = VerificationStatus.UNKNOWN
         pattern = matched_patterns[0] if matched_patterns else ""
-        logger.debug("z3_unknown", patterns_tried=len(patterns),
-                     matched=len(matched_patterns))
-        return VerificationResult(
-            status=status, latency_ms=elapsed, pattern=pattern
-        )
+        logger.debug("z3_unknown", patterns_tried=len(patterns), matched=len(matched_patterns))
+        return VerificationResult(status=status, latency_ms=elapsed, pattern=pattern)
 
     # ── Pattern 1: IF/THEN/ELSE → np.select / np.where ───────────────────────
 
-    def _verify_conditional_assignment(
-        self, sas: str, py: str
-    ) -> Optional[VerificationResult]:
+    def _verify_conditional_assignment(self, sas: str, py: str) -> Optional[VerificationResult]:
         """Prove SAS multi-branch IF/ELSE ≡ Python np.select/np.where.
 
         Z3 proves: for symbolic x, first SAS condition ↔ first Python condition.
@@ -216,13 +217,14 @@ class Z3VerificationAgent:
         # ── Python must use vectorized conditional ──
         py_vectorized = bool(
             re.search(r"np\.(select|where)\s*\(", py)
-            or re.search(r"\.apply\s*\(", py)   # apply acceptable (not ideal but correct)
+            or re.search(r"\.apply\s*\(", py)  # apply acceptable (not ideal but correct)
         )
 
         # ── Extract first SAS condition: IF <var> <op> <val> ──
         cond_m = re.search(
             r"\bIF\s+([\w.]+)\s*(<|>|<=|>=|=|[^=!<>]=[^=]|!=)\s*(-?[\d.]+)",
-            sas, re.IGNORECASE,
+            sas,
+            re.IGNORECASE,
         )
         if cond_m is None:
             # IF with string or complex condition — can't parse, but check vectorized
@@ -232,16 +234,17 @@ class Z3VerificationAgent:
 
         raw_var = cond_m.group(1).strip()
         # Strip table alias: a.balance → balance
-        var   = raw_var.split(".")[-1].strip()
-        op    = _norm_op(cond_m.group(2))
-        val   = float(cond_m.group(3))
+        var = raw_var.split(".")[-1].strip()
+        op = _norm_op(cond_m.group(2))
+        val = float(cond_m.group(3))
 
         # ── Find matching Python condition ──
         # Match any DataFrame accessor: df['col'], orders['col'], or bare col
         py_cond_m = re.search(
             rf"(?:\w+\[[\'\"]?{re.escape(var.lower())}[\'\"]?\]|{re.escape(var.lower())})"
             r"\s*(<|>|<=|>=|==|!=)\s*(-?[\d.]+(?:e[+-]?\d+)?)",
-            py, re.IGNORECASE,
+            py,
+            re.IGNORECASE,
         )
 
         if py_cond_m is None:
@@ -249,20 +252,20 @@ class Z3VerificationAgent:
                 return VerificationResult(status=VerificationStatus.PROVED)
             return VerificationResult(status=VerificationStatus.UNKNOWN)
 
-        py_op  = py_cond_m.group(1).strip()
+        py_op = py_cond_m.group(1).strip()
         py_val = float(py_cond_m.group(2))
 
         # ── Z3: prove cond_sas(x) ↔ cond_py(x) ──
         x = z3.Real("x")
-        sas_f = _z3_cmp(x, op,    z3.RealVal(val))
-        py_f  = _z3_cmp(x, py_op, z3.RealVal(py_val))
+        sas_f = _z3_cmp(x, op, z3.RealVal(val))
+        py_f = _z3_cmp(x, py_op, z3.RealVal(py_val))
 
         if sas_f is None or py_f is None:
             return VerificationResult(status=VerificationStatus.UNKNOWN)
 
         solver = z3.Solver()
         solver.set("timeout", 5000)
-        solver.add(sas_f != py_f)          # negate equivalence
+        solver.add(sas_f != py_f)  # negate equivalence
         res = solver.check()
 
         if res == z3.unsat:
@@ -285,9 +288,7 @@ class Z3VerificationAgent:
 
     # ── Pattern 2: PROC SORT direction ───────────────────────────────────────
 
-    def _verify_sort_direction(
-        self, sas: str, py: str
-    ) -> Optional[VerificationResult]:
+    def _verify_sort_direction(self, sas: str, py: str) -> Optional[VerificationResult]:
         """Prove BY col DESCENDING col2 → ascending=[True, False].
 
         Z3 encodes direction as Bool variables and checks satisfiability
@@ -297,7 +298,8 @@ class Z3VerificationAgent:
 
         sort_m = re.search(
             r"\bPROC\s+SORT\b[^;]*;\s*BY\s+([^;]+);",
-            sas, re.IGNORECASE | re.DOTALL,
+            sas,
+            re.IGNORECASE | re.DOTALL,
         )
         if sort_m is None:
             return None
@@ -378,10 +380,7 @@ class Z3VerificationAgent:
             solver.add(z3_vars[i] == bval)
 
         # Negate: try to find that some variable contradicts the SAS spec
-        negated = z3.Or([
-            z3_vars[i] != ascending_spec[i]
-            for i in range(n)
-        ])
+        negated = z3.Or([z3_vars[i] != ascending_spec[i] for i in range(n)])
         solver.add(negated)
         res = solver.check()
 
@@ -404,10 +403,9 @@ class Z3VerificationAgent:
                     "issue": "Sort direction mismatch between SAS BY clause and Python ascending=",
                     "wrong_columns": wrong,
                     "expected": f"ascending={ascending_spec[:n]}",
-                    "got":      f"ascending={py_asc_bools[:n]}",
+                    "got": f"ascending={py_asc_bools[:n]}",
                     "hint": (
-                        "BY a DESCENDING b → ascending=[True, False], "
-                        "NEVER [False, False]"
+                        "BY a DESCENDING b → ascending=[True, False], " "NEVER [False, False]"
                     ),
                 },
             )
@@ -416,9 +414,7 @@ class Z3VerificationAgent:
 
     # ── Pattern 3: PROC MEANS → single groupby.agg ───────────────────────────
 
-    def _verify_proc_means_groupby(
-        self, sas: str, py: str
-    ) -> Optional[VerificationResult]:
+    def _verify_proc_means_groupby(self, sas: str, py: str) -> Optional[VerificationResult]:
         """Prove PROC MEANS with CLASS → single groupby(dropna=False).agg().
 
         Counterexample 1: multiple separate groupby calls (one per CLASS combination).
@@ -431,7 +427,7 @@ class Z3VerificationAgent:
 
         # Count groupby calls in Python
         groupby_calls = re.findall(r"\.groupby\s*\(", py)
-        agg_calls     = re.findall(r"\.agg\s*\(", py)
+        re.findall(r"\.agg\s*\(", py)
 
         if not groupby_calls:
             return VerificationResult(
@@ -444,8 +440,7 @@ class Z3VerificationAgent:
 
         # Multiple merged groupby results (anti-pattern)
         merge_after_groupby = bool(
-            len(groupby_calls) > 1
-            and re.search(r"pd\.merge|\.merge\s*\(", py)
+            len(groupby_calls) > 1 and re.search(r"pd\.merge|\.merge\s*\(", py)
         )
         if merge_after_groupby:
             return VerificationResult(
@@ -478,9 +473,7 @@ class Z3VerificationAgent:
 
     # ── Pattern 4: Boolean filter (WHERE / IF numeric condition) ─────────────
 
-    def _verify_boolean_filter(
-        self, sas: str, py: str
-    ) -> Optional[VerificationResult]:
+    def _verify_boolean_filter(self, sas: str, py: str) -> Optional[VerificationResult]:
         """Prove SAS WHERE/IF numeric condition ≡ Python boolean mask.
 
         Z3 proves: for symbolic x, filter_sas(x) ↔ filter_py(x).
@@ -490,10 +483,9 @@ class Z3VerificationAgent:
 
         # Find SAS WHERE or IF with a numeric comparator
         sas_m = re.search(
-            r"\b(?:WHERE|IF)\s+([\w.]+)\s*"
-            r"(<|>|<=|>=|=|!=)\s*"
-            r"(&?\w+|[-\d.]+)",
-            sas, re.IGNORECASE,
+            r"\b(?:WHERE|IF)\s+([\w.]+)\s*" r"(<|>|<=|>=|=|!=)\s*" r"(&?\w+|[-\d.]+)",
+            sas,
+            re.IGNORECASE,
         )
         if sas_m is None:
             return None
@@ -504,7 +496,7 @@ class Z3VerificationAgent:
             sas_m.group(3).strip(),
         )
         # Strip table alias: a.balance → balance
-        var    = raw_var.split(".")[-1].strip()
+        var = raw_var.split(".")[-1].strip()
         sas_op = _norm_op(sas_op_raw)
 
         # Resolve macro reference (%LET threshold = 5000 → 5000)
@@ -512,7 +504,8 @@ class Z3VerificationAgent:
             macro_name = val_tok.lstrip("&")
             macro_m = re.search(
                 rf"%LET\s+{re.escape(macro_name)}\s*=\s*(-?[\d.]+)",
-                sas, re.IGNORECASE,
+                sas,
+                re.IGNORECASE,
             )
             if macro_m is None:
                 return VerificationResult(status=VerificationStatus.UNKNOWN)
@@ -528,28 +521,30 @@ class Z3VerificationAgent:
         py_m = re.search(
             rf"(?:\w+\[[\'\"]?{re.escape(var.lower())}[\'\"]?\]|{re.escape(var.lower())})"
             r"\s*(<|>|<=|>=|==|!=)\s*(-?[\d.]+(?:e[+-]?\d+)?)",
-            py, re.IGNORECASE,
+            py,
+            re.IGNORECASE,
         )
         if py_m is None:
             # Check query() style
             py_q = re.search(
                 rf"query\(['\"].*{re.escape(var.lower())}\s*"
                 r"(<|>|<=|>=|==|!=)\s*(-?[\d.]+)['\"]",
-                py, re.IGNORECASE,
+                py,
+                re.IGNORECASE,
             )
             if py_q:
-                py_op  = py_q.group(1)
+                py_op = py_q.group(1)
                 py_val = float(py_q.group(2))
             else:
                 return VerificationResult(status=VerificationStatus.UNKNOWN)
         else:
-            py_op  = py_m.group(1)
+            py_op = py_m.group(1)
             py_val = float(py_m.group(2))
 
         # Z3: for all x, sas_cond(x) ↔ py_cond(x)
-        x      = z3.Real("x")
-        sas_f  = _z3_cmp(x, sas_op, z3.RealVal(val))
-        py_f   = _z3_cmp(x, py_op,  z3.RealVal(py_val))
+        x = z3.Real("x")
+        sas_f = _z3_cmp(x, sas_op, z3.RealVal(val))
+        py_f = _z3_cmp(x, py_op, z3.RealVal(py_val))
 
         if sas_f is None or py_f is None:
             return VerificationResult(status=VerificationStatus.UNKNOWN)
@@ -562,8 +557,8 @@ class Z3VerificationAgent:
         if res == z3.unsat:
             return VerificationResult(status=VerificationStatus.PROVED)
         if res == z3.sat:
-            model  = solver.model()
-            wit    = model.eval(x)
+            model = solver.model()
+            wit = model.eval(x)
             return VerificationResult(
                 status=VerificationStatus.COUNTEREXAMPLE,
                 counterexample={
@@ -572,21 +567,15 @@ class Z3VerificationAgent:
                         f"!= Python filter '{var} {py_op} {py_val}'"
                     ),
                     "witness_x": str(wit),
-                    "sas_result_at_witness": str(
-                        z3.simplify(z3.substitute(sas_f, (x, wit)))
-                    ),
-                    "py_result_at_witness": str(
-                        z3.simplify(z3.substitute(py_f, (x, wit)))
-                    ),
+                    "sas_result_at_witness": str(z3.simplify(z3.substitute(sas_f, (x, wit)))),
+                    "py_result_at_witness": str(z3.simplify(z3.substitute(py_f, (x, wit)))),
                 },
             )
         return VerificationResult(status=VerificationStatus.UNKNOWN)
 
     # ── Pattern 5: PROC FORMAT display-only ──────────────────────────────────
 
-    def _verify_format_display_only(
-        self, sas: str, py: str
-    ) -> Optional[VerificationResult]:
+    def _verify_format_display_only(self, sas: str, py: str) -> Optional[VerificationResult]:
         """Prove FORMAT is display-only: original column must NOT be overwritten.
 
         SAS FORMAT never mutates the underlying column — it is presentation only.
@@ -616,9 +605,9 @@ class Z3VerificationAgent:
         for col in fmt_cols:
             # Pattern: df['col'] = ... (overwrite) where col matches fmt col
             overwrite_m = re.search(
-                rf"df\[[\'\"]?{re.escape(col)}[\'\"]?\]\s*="
-                r"\s*df\[.+\]\.map\s*\(",
-                py, re.IGNORECASE,
+                rf"df\[[\'\"]?{re.escape(col)}[\'\"]?\]\s*=" r"\s*df\[.+\]\.map\s*\(",
+                py,
+                re.IGNORECASE,
             )
             if overwrite_m:
                 return VerificationResult(
@@ -629,10 +618,7 @@ class Z3VerificationAgent:
                             "must NOT be overwritten by .map()"
                         ),
                         "wrong": overwrite_m.group(0).strip(),
-                        "fix": (
-                            f"df['{col}_fmt'] = df['{col}'].map(fmt_dict)"
-                            ".fillna('Other')"
-                        ),
+                        "fix": (f"df['{col}_fmt'] = df['{col}'].map(fmt_dict)" ".fillna('Other')"),
                     },
                 )
 
@@ -645,9 +631,7 @@ class Z3VerificationAgent:
 
     # ── Pattern 6: LEFT JOIN preservation ────────────────────────────────────
 
-    def _verify_left_join(
-        self, sas: str, py: str
-    ) -> Optional[VerificationResult]:
+    def _verify_left_join(self, sas: str, py: str) -> Optional[VerificationResult]:
         """Prove PROC SQL LEFT JOIN → pd.merge how='left'.
 
         All rows from the left table must be preserved.
@@ -687,8 +671,7 @@ class Z3VerificationAgent:
                 status=VerificationStatus.COUNTEREXAMPLE,
                 counterexample={
                     "issue": (
-                        f"SAS LEFT JOIN requires how='left', "
-                        f"but Python uses how='{actual_how}'"
+                        f"SAS LEFT JOIN requires how='left', " f"but Python uses how='{actual_how}'"
                     ),
                     "hint": "Change to how='left' in pd.merge()",
                 },
@@ -698,9 +681,7 @@ class Z3VerificationAgent:
 
     # ── Pattern 7: DATA MERGE with IN= subsetting ────────────────────────────
 
-    def _verify_merge_indicator(
-        self, sas: str, py: str
-    ) -> Optional[VerificationResult]:
+    def _verify_merge_indicator(self, sas: str, py: str) -> Optional[VerificationResult]:
         """Prove MERGE (IN=a) + IF a → left join + indicator=True + drop _merge.
 
         Three sub-checks:
@@ -712,9 +693,7 @@ class Z3VerificationAgent:
             return None
 
         has_indicator = bool(re.search(r"indicator\s*=\s*True", py))
-        references_merge_col = bool(
-            re.search(r"['\"]_merge['\"]|_merge\b", py)
-        )
+        references_merge_col = bool(re.search(r"['\"]_merge['\"]|_merge\b", py))
         drops_merge_col = bool(
             re.search(
                 r"drop\s*\(\s*['\"]?_merge['\"]?\s*"
@@ -757,9 +736,7 @@ class Z3VerificationAgent:
 
     # ── Pattern 8: PROC REG STEPWISE ─────────────────────────────────────────
 
-    def _verify_stepwise_regression(
-        self, sas: str, py: str
-    ) -> Optional[VerificationResult]:
+    def _verify_stepwise_regression(self, sas: str, py: str) -> Optional[VerificationResult]:
         """Prove PROC REG SELECTION=STEPWISE → statsmodels p-value loop.
 
         SAS uses F-statistic p-value thresholds (SLE=0.15, SLS=0.15), NOT BIC/AIC.
@@ -852,9 +829,7 @@ class Z3VerificationAgent:
 
     # ── Pattern 9: PROC SORT NODUPKEY → drop_duplicates ──────────────────────
 
-    def _verify_sort_nodupkey(
-        self, sas: str, py: str
-    ) -> Optional[VerificationResult]:
+    def _verify_sort_nodupkey(self, sas: str, py: str) -> Optional[VerificationResult]:
         """Prove PROC SORT NODUPKEY → sort_values + drop_duplicates.
 
         NODUPKEY in SAS removes duplicate BY-key observations.
@@ -880,9 +855,7 @@ class Z3VerificationAgent:
                         "PROC SORT NODUPKEY found but neither sort_values() "
                         "nor drop_duplicates() in Python translation"
                     ),
-                    "hint": (
-                        "df = df.sort_values(['key']).drop_duplicates(subset=['key'])"
-                    ),
+                    "hint": ("df = df.sort_values(['key']).drop_duplicates(subset=['key'])"),
                 },
             )
 
@@ -902,9 +875,7 @@ class Z3VerificationAgent:
 
     # ── Pattern 10: DATA step arithmetic assignment ───────────────────────────
 
-    def _verify_simple_assignment(
-        self, sas: str, py: str
-    ) -> Optional[VerificationResult]:
+    def _verify_simple_assignment(self, sas: str, py: str) -> Optional[VerificationResult]:
         """Prove DATA step y = x * coeff + offset matches Python coefficient.
 
         Z3 checks: for symbolic x, sas_expr(x) == py_expr(x).
@@ -920,8 +891,7 @@ class Z3VerificationAgent:
 
         # SAS: new_var = old_var * coeff (+ offset)?
         sas_m = re.search(
-            r"\b(\w+)\s*=\s*(\w+)\s*\*\s*(-?[\d.]+)"
-            r"(?:\s*([+\-])\s*([\d.]+))?",
+            r"\b(\w+)\s*=\s*(\w+)\s*\*\s*(-?[\d.]+)" r"(?:\s*([+\-])\s*([\d.]+))?",
             sas,
             re.IGNORECASE,
         )
@@ -937,8 +907,7 @@ class Z3VerificationAgent:
 
         # Python: df['col'] = df['col'] * coeff (+ offset)?
         py_m = re.search(
-            r"\[[\'\"]?\w+[\'\"]?\]\s*=\s*[^\n=]*?\*\s*(-?[\d.]+)"
-            r"(?:\s*([+\-])\s*([\d.]+))?",
+            r"\[[\'\"]?\w+[\'\"]?\]\s*=\s*[^\n=]*?\*\s*(-?[\d.]+)" r"(?:\s*([+\-])\s*([\d.]+))?",
             py,
         )
         if py_m is None:
@@ -954,7 +923,7 @@ class Z3VerificationAgent:
         # Z3: prove sas_coeff * x + sas_offset == py_coeff * x + py_offset for all x
         x = z3.Real("x")
         sas_expr = z3.RealVal(sas_coeff) * x + z3.RealVal(sas_offset)
-        py_expr  = z3.RealVal(py_coeff)  * x + z3.RealVal(py_offset)
+        py_expr = z3.RealVal(py_coeff) * x + z3.RealVal(py_offset)
 
         solver = z3.Solver()
         solver.set("timeout", 3000)
@@ -975,10 +944,9 @@ class Z3VerificationAgent:
                     ),
                     "witness_x": str(wit),
                     "expected": f"*{sas_coeff} + {sas_offset}",
-                    "got":      f"*{py_coeff} + {py_offset}",
+                    "got": f"*{py_coeff} + {py_offset}",
                     "hint": (
-                        f"Change Python coefficient to {sas_coeff} "
-                        f"and offset to {sas_offset}"
+                        f"Change Python coefficient to {sas_coeff} " f"and offset to {sas_offset}"
                     ),
                 },
             )
@@ -990,6 +958,7 @@ class Z3VerificationAgent:
         if self._z3_ok is None:
             try:
                 import z3  # noqa: F401
+
                 self._z3_ok = True
             except ImportError:
                 self._z3_ok = False

@@ -54,8 +54,7 @@ class RetrainTrigger:
             return RetrainDecision(
                 should_retrain=True,
                 trigger_reason=(
-                    f"KB grew by {kb_growth} examples "
-                    f"(threshold: {self.kb_growth_threshold})"
+                    f"KB grew by {kb_growth} examples " f"(threshold: {self.kb_growth_threshold})"
                 ),
             )
 
@@ -86,9 +85,7 @@ class RetrainTrigger:
             log.info("retrain_trigger_kb_gap", mode=gap_mode)
             return RetrainDecision(
                 should_retrain=True,
-                trigger_reason=(
-                    f"KB gap: '{gap_mode}' accounts for >40% of PARTIAL conversions"
-                ),
+                trigger_reason=(f"KB gap: '{gap_mode}' accounts for >40% of PARTIAL conversions"),
                 targeted_category=gap_mode,
             )
 
@@ -100,11 +97,9 @@ class RetrainTrigger:
     def _check_kb_growth(self) -> int:
         """Get KB examples added since last training."""
         try:
-            result = self.duckdb_conn.execute(
-                """
+            result = self.duckdb_conn.execute("""
                 SELECT COUNT(*) FROM kb_changelog WHERE action = 'insert'
-                """
-            ).fetchone()
+                """).fetchone()
             return result[0] if result and result[0] else 0
         except Exception as exc:
             log.warning("check_kb_growth_failed", error=str(exc))
@@ -113,12 +108,10 @@ class RetrainTrigger:
     def _get_latest_ece(self) -> Optional[float]:
         """Get the most recent ECE score."""
         try:
-            result = self.duckdb_conn.execute(
-                """
+            result = self.duckdb_conn.execute("""
                 SELECT ece_score FROM calibration_log
                 ORDER BY created_at DESC LIMIT 1
-                """
-            ).fetchone()
+                """).fetchone()
             return result[0] if result else None
         except Exception as exc:
             log.warning("get_latest_ece_failed", error=str(exc))
@@ -127,12 +120,10 @@ class RetrainTrigger:
     def _check_consecutive_low_success(self) -> int:
         """Count recent consecutive batches with success_rate < threshold."""
         try:
-            rows = self.duckdb_conn.execute(
-                """
+            rows = self.duckdb_conn.execute("""
                 SELECT success_rate FROM quality_metrics
                 ORDER BY created_at DESC LIMIT 5
-                """
-            ).fetchall()
+                """).fetchall()
             streak = 0
             for row in rows:
                 if row[0] < self.success_threshold:
@@ -147,12 +138,10 @@ class RetrainTrigger:
     def _check_kb_gap(self) -> Optional[str]:
         """Check the latest quality_metrics for a KB gap."""
         try:
-            result = self.duckdb_conn.execute(
-                """
+            result = self.duckdb_conn.execute("""
                 SELECT failure_mode_dist FROM quality_metrics
                 ORDER BY created_at DESC LIMIT 1
-                """
-            ).fetchone()
+                """).fetchone()
             if not result or not result[0]:
                 return None
             dist = json.loads(result[0])

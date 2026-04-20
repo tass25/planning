@@ -2,18 +2,25 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 from sqlalchemy import (
-    Column, String, Integer, Float, Boolean, Text, ForeignKey, Index,
-    create_engine, event,
+    Boolean,
+    Column,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    create_engine,
+    event,
 )
-from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
+from sqlalchemy.orm import Session, declarative_base, relationship, sessionmaker
 
 ApiBase = declarative_base()
 
 
 # ── Users ─────────────────────────────────────────────────────────────────────
+
 
 class UserRow(ApiBase):
     __tablename__ = "users"
@@ -21,9 +28,9 @@ class UserRow(ApiBase):
     id = Column(String, primary_key=True)
     email = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=False)
-    hashed_password = Column(String, nullable=True)       # nullable for OAuth users
-    role = Column(String, default="user")         # admin | user | viewer
-    status = Column(String, default="active")     # active | inactive | suspended
+    hashed_password = Column(String, nullable=True)  # nullable for OAuth users
+    role = Column(String, default="user")  # admin | user | viewer
+    status = Column(String, default="active")  # active | inactive | suspended
     conversion_count = Column(Integer, default=0)
     default_runtime = Column(String, default="python")
     email_notifications = Column(Boolean, default=True)
@@ -35,13 +42,14 @@ class UserRow(ApiBase):
 
 # ── Conversions ───────────────────────────────────────────────────────────────
 
+
 class ConversionRow(ApiBase):
     __tablename__ = "conversions"
 
     id = Column(String, primary_key=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     file_name = Column(String, nullable=False)
-    status = Column(String, default="queued")     # queued | running | completed | partial | failed
+    status = Column(String, default="queued")  # queued | running | completed | partial | failed
     runtime = Column(String, default="python")
     duration = Column(Float, default=0.0)
     accuracy = Column(Float, default=0.0)
@@ -50,16 +58,16 @@ class ConversionRow(ApiBase):
     validation_report = Column(Text, nullable=True)
     merge_report = Column(Text, nullable=True)
     created_at = Column(String, nullable=False)
-    updated_at = Column(String, nullable=True)    # set on every status transition
+    updated_at = Column(String, nullable=True)  # set on every status transition
 
-    stages = relationship("ConversionStageRow", back_populates="conversion", cascade="all, delete-orphan")
+    stages = relationship(
+        "ConversionStageRow", back_populates="conversion", cascade="all, delete-orphan"
+    )
 
 
 class ConversionStageRow(ApiBase):
     __tablename__ = "conversion_stages"
-    __table_args__ = (
-        Index("idx_stages_conversion_stage", "conversion_id", "stage"),
-    )
+    __table_args__ = (Index("idx_stages_conversion_stage", "conversion_id", "stage"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     conversion_id = Column(String, ForeignKey("conversions.id"), nullable=False, index=True)
@@ -67,7 +75,7 @@ class ConversionStageRow(ApiBase):
     status = Column(String, default="pending")
     latency = Column(Float, nullable=True)
     retry_count = Column(Integer, default=0)
-    warnings = Column(Text, default="[]")         # JSON array
+    warnings = Column(Text, default="[]")  # JSON array
     description = Column(String, nullable=True)
     started_at = Column(String, nullable=True)
     completed_at = Column(String, nullable=True)
@@ -76,6 +84,7 @@ class ConversionStageRow(ApiBase):
 
 
 # ── Knowledge Base ────────────────────────────────────────────────────────────
+
 
 class KBEntryRow(ApiBase):
     __tablename__ = "kb_entries"
@@ -94,13 +103,14 @@ class KBChangelogRow(ApiBase):
 
     id = Column(String, primary_key=True)
     entry_id = Column(String, ForeignKey("kb_entries.id", ondelete="CASCADE"), nullable=False)
-    action = Column(String, nullable=False)       # add | edit | rollback | delete
+    action = Column(String, nullable=False)  # add | edit | rollback | delete
     user = Column(String, nullable=False)
     timestamp = Column(String, nullable=False)
     description = Column(String, nullable=False)
 
 
 # ── Audit Logs ────────────────────────────────────────────────────────────────
+
 
 class AuditLogRow(ApiBase):
     __tablename__ = "audit_logs"
@@ -120,11 +130,14 @@ class AuditLogRow(ApiBase):
 
 # ── Corrections ───────────────────────────────────────────────────────────────
 
+
 class CorrectionRow(ApiBase):
     __tablename__ = "corrections"
 
     id = Column(String, primary_key=True)
-    conversion_id = Column(String, ForeignKey("conversions.id", ondelete="CASCADE"), nullable=False, index=True)
+    conversion_id = Column(
+        String, ForeignKey("conversions.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     corrected_code = Column(Text, nullable=False)
     explanation = Column(Text, nullable=False)
     category = Column(String, nullable=False)
@@ -132,6 +145,7 @@ class CorrectionRow(ApiBase):
 
 
 # ── Notifications ─────────────────────────────────────────────────────────────
+
 
 class NotificationRow(ApiBase):
     __tablename__ = "notifications"
@@ -144,15 +158,17 @@ class NotificationRow(ApiBase):
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     title = Column(String, nullable=False)
     message = Column(Text, nullable=False)
-    type = Column(String, default="info")         # info | success | warning | error
+    type = Column(String, default="info")  # info | success | warning | error
     read = Column(Boolean, default=False)
     created_at = Column(String, nullable=False)
 
 
 # ── Engine helpers ────────────────────────────────────────────────────────────
 
+
 def get_api_engine(db_path: str = "data/codara_api.db"):
     from pathlib import Path
+
     abs_path = str(Path(db_path).resolve())
     engine = create_engine(f"sqlite:///{abs_path}", echo=False)
 

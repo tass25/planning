@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime, timezone
-from typing import Optional
 from uuid import uuid4
 
 import structlog
@@ -14,8 +13,8 @@ from partition.db.sqlite_manager import (
     FileRegistryRow,
     PartitionIRRow,
     get_engine,
-    init_db,
     get_session,
+    init_db,
 )
 
 logger = structlog.get_logger()
@@ -23,12 +22,12 @@ logger = structlog.get_logger()
 
 def _pid(p) -> str:
     """Extract partition ID string from a PartitionIR-like object."""
-    return str(getattr(p, 'partition_id', None) or getattr(p, 'block_id', uuid4()))
+    return str(getattr(p, "partition_id", None) or getattr(p, "block_id", uuid4()))
 
 
 def _fid(p) -> str:
     """Extract file ID string from a PartitionIR-like object."""
-    return str(getattr(p, 'source_file_id', None) or getattr(p, 'file_id', ''))
+    return str(getattr(p, "source_file_id", None) or getattr(p, "file_id", ""))
 
 
 class PersistenceAgent(BaseAgent):
@@ -52,12 +51,16 @@ class PersistenceAgent(BaseAgent):
         super().__init__(trace_id)
         # Accept either "sqlite:///path" or plain path
         if db_url and db_url.startswith("sqlite"):
-            self.engine = get_engine.__wrapped__(db_url) if hasattr(get_engine, '__wrapped__') else self._engine_from_url(db_url)
+            self.engine = (
+                get_engine.__wrapped__(db_url)
+                if hasattr(get_engine, "__wrapped__")
+                else self._engine_from_url(db_url)
+            )
         else:
             db_path = db_url or "data/file_registry.db"
             # Strip sqlite:/// prefix if accidentally doubled
             if db_path.startswith("sqlite:///"):
-                db_path = db_path[len("sqlite:///"):]
+                db_path = db_path[len("sqlite:///") :]
             self.engine = get_engine(db_path)
 
         init_db(self.engine)
@@ -66,7 +69,9 @@ class PersistenceAgent(BaseAgent):
     @staticmethod
     def _engine_from_url(url: str):
         """Create an engine directly from a full SQLAlchemy URL."""
-        from sqlalchemy import create_engine as _ce, event as _ev
+        from sqlalchemy import create_engine as _ce
+        from sqlalchemy import event as _ev
+
         engine = _ce(url, echo=False)
 
         @_ev.listens_for(engine, "connect")
@@ -119,13 +124,15 @@ class PersistenceAgent(BaseAgent):
                 if fid and fid not in seen_file_ids:
                     existing = session.query(FileRegistryRow).filter_by(file_id=fid).first()
                     if not existing:
-                        session.add(FileRegistryRow(
-                            file_id=fid,
-                            file_path=str(getattr(p, 'file_path', f'unknown/{fid}.sas')),
-                            encoding='utf-8',
-                            content_hash=fid,
-                            created_at=datetime.now(timezone.utc).isoformat(),
-                        ))
+                        session.add(
+                            FileRegistryRow(
+                                file_id=fid,
+                                file_path=str(getattr(p, "file_path", f"unknown/{fid}.sas")),
+                                encoding="utf-8",
+                                content_hash=fid,
+                                created_at=datetime.now(timezone.utc).isoformat(),
+                            )
+                        )
                     seen_file_ids.add(fid)
             session.flush()  # Ensure FKs are available
 
@@ -138,28 +145,33 @@ class PersistenceAgent(BaseAgent):
                 row = PartitionIRRow(
                     partition_id=_pid(p),
                     source_file_id=_fid(p),
-                    partition_type=getattr(p.partition_type, 'value', str(p.partition_type)),
-                    risk_level=getattr(p.risk_level, 'value', str(getattr(p, 'risk_level', 'UNCERTAIN'))),
+                    partition_type=getattr(p.partition_type, "value", str(p.partition_type)),
+                    risk_level=getattr(
+                        p.risk_level, "value", str(getattr(p, "risk_level", "UNCERTAIN"))
+                    ),
                     conversion_status=getattr(
-                        getattr(p, 'conversion_status', None), 'value', 'HUMAN_REVIEW'
+                        getattr(p, "conversion_status", None), "value", "HUMAN_REVIEW"
                     ),
                     content_hash=content_hash,
-                    complexity_score=getattr(p, 'complexity_score', 0.0),
-                    calibration_confidence=getattr(p, 'calibration_confidence', 0.0),
+                    complexity_score=getattr(p, "complexity_score", 0.0),
+                    calibration_confidence=getattr(p, "calibration_confidence", 0.0),
                     strategy=getattr(
-                        getattr(p, 'strategy', None), 'value',
-                        str(getattr(p, 'strategy', 'FLAT_PARTITION'))
+                        getattr(p, "strategy", None),
+                        "value",
+                        str(getattr(p, "strategy", "FLAT_PARTITION")),
                     ),
-                    line_start=getattr(p, 'line_start', 0),
-                    line_end=getattr(p, 'line_end', 0),
-                    control_depth=getattr(p, 'control_depth', 0),
-                    has_macros=bool(getattr(p, 'has_macros', False)),
-                    has_nested_sql=bool(getattr(p, 'has_nested_sql', False)),
-                    raw_code=getattr(p, 'raw_code', getattr(p, 'source_code', '')),
-                    raptor_leaf_id=p.raptor_leaf_id if hasattr(p, 'raptor_leaf_id') else None,
-                    raptor_cluster_id=p.raptor_cluster_id if hasattr(p, 'raptor_cluster_id') else None,
-                    raptor_root_id=p.raptor_root_id if hasattr(p, 'raptor_root_id') else None,
-                    scc_id=getattr(p, 'scc_id', None),
+                    line_start=getattr(p, "line_start", 0),
+                    line_end=getattr(p, "line_end", 0),
+                    control_depth=getattr(p, "control_depth", 0),
+                    has_macros=bool(getattr(p, "has_macros", False)),
+                    has_nested_sql=bool(getattr(p, "has_nested_sql", False)),
+                    raw_code=getattr(p, "raw_code", getattr(p, "source_code", "")),
+                    raptor_leaf_id=p.raptor_leaf_id if hasattr(p, "raptor_leaf_id") else None,
+                    raptor_cluster_id=(
+                        p.raptor_cluster_id if hasattr(p, "raptor_cluster_id") else None
+                    ),
+                    raptor_root_id=p.raptor_root_id if hasattr(p, "raptor_root_id") else None,
+                    scc_id=getattr(p, "scc_id", None),
                     created_at=datetime.now(timezone.utc).isoformat(),
                 )
                 session.add(row)
@@ -189,7 +201,7 @@ class PersistenceAgent(BaseAgent):
     @staticmethod
     def _compute_hash(partition) -> str:
         """SHA-256 of the raw code content for dedup."""
-        code = getattr(partition, 'raw_code', None) or getattr(partition, 'source_code', '')
+        code = getattr(partition, "raw_code", None) or getattr(partition, "source_code", "")
         return hashlib.sha256(code.encode()).hexdigest()
 
     def _write_parquet(self, partitions: list) -> int:
@@ -208,29 +220,36 @@ class PersistenceAgent(BaseAgent):
             if content_hash in seen_hashes:
                 continue
             seen_hashes.add(content_hash)
-            records.append({
-                "partition_id": _pid(p),
-                "source_file_id": _fid(p),
-                "partition_type": getattr(p.partition_type, 'value', ''),
-                "risk_level": getattr(p.risk_level, 'value', str(getattr(p, 'risk_level', 'UNCERTAIN'))),
-                "conversion_status": getattr(
-                    getattr(p, 'conversion_status', None), 'value', 'HUMAN_REVIEW'
-                ),
-                "content_hash": content_hash,
-                "complexity_score": getattr(p, 'complexity_score', 0.0),
-                "calibration_confidence": getattr(p, 'calibration_confidence', 0.0),
-                "strategy": getattr(
-                    getattr(p, 'strategy', None), 'value',
-                    str(getattr(p, 'strategy', 'FLAT_PARTITION'))
-                ),
-                "line_start": getattr(p, 'line_start', 0),
-                "line_end": getattr(p, 'line_end', 0),
-                "raw_code": getattr(p, 'raw_code', getattr(p, 'source_code', '')),
-                "raptor_leaf_id": p.raptor_leaf_id if hasattr(p, 'raptor_leaf_id') else None,
-                "raptor_cluster_id": p.raptor_cluster_id if hasattr(p, 'raptor_cluster_id') else None,
-                "raptor_root_id": p.raptor_root_id if hasattr(p, 'raptor_root_id') else None,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-            })
+            records.append(
+                {
+                    "partition_id": _pid(p),
+                    "source_file_id": _fid(p),
+                    "partition_type": getattr(p.partition_type, "value", ""),
+                    "risk_level": getattr(
+                        p.risk_level, "value", str(getattr(p, "risk_level", "UNCERTAIN"))
+                    ),
+                    "conversion_status": getattr(
+                        getattr(p, "conversion_status", None), "value", "HUMAN_REVIEW"
+                    ),
+                    "content_hash": content_hash,
+                    "complexity_score": getattr(p, "complexity_score", 0.0),
+                    "calibration_confidence": getattr(p, "calibration_confidence", 0.0),
+                    "strategy": getattr(
+                        getattr(p, "strategy", None),
+                        "value",
+                        str(getattr(p, "strategy", "FLAT_PARTITION")),
+                    ),
+                    "line_start": getattr(p, "line_start", 0),
+                    "line_end": getattr(p, "line_end", 0),
+                    "raw_code": getattr(p, "raw_code", getattr(p, "source_code", "")),
+                    "raptor_leaf_id": p.raptor_leaf_id if hasattr(p, "raptor_leaf_id") else None,
+                    "raptor_cluster_id": (
+                        p.raptor_cluster_id if hasattr(p, "raptor_cluster_id") else None
+                    ),
+                    "raptor_root_id": p.raptor_root_id if hasattr(p, "raptor_root_id") else None,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
 
         out_path = "partition_ir_overflow.parquet"
         table = pa.table(records)

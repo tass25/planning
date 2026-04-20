@@ -17,16 +17,16 @@ import asyncio
 
 import structlog
 
-from partition.models.partition_ir import PartitionIR
 from partition.models.conversion_result import ConversionResult
 from partition.models.enums import ConversionStatus, RiskLevel, VerificationStatus
+from partition.models.partition_ir import PartitionIR
 from partition.orchestration.audit import _get_duckdb
-from partition.translation.translation_agent import TranslationAgent
-from partition.translation.validation_agent import ValidationAgent, ValidationResult
-from partition.translation.error_classifier import classify_error, SYNTAX
 from partition.translation.error_analyst import analyse_error
+from partition.translation.error_classifier import SYNTAX, classify_error
+from partition.translation.lineage_guard import build_internal_table_set, full_lineage_check
 from partition.translation.semantic_validator import SemanticValidator
-from partition.translation.lineage_guard import full_lineage_check, build_internal_table_set
+from partition.translation.translation_agent import TranslationAgent
+from partition.translation.validation_agent import ValidationAgent
 from partition.verification.z3_agent import Z3VerificationAgent
 
 logger = structlog.get_logger()
@@ -35,16 +35,16 @@ logger = structlog.get_logger()
 # CDAISRunner and InvariantSet are imported inside __init__ / methods
 
 # ── Retry budget constants ────────────────────────────────────────────────────
-_BASE_RETRIES          = 2    # default max validation retries
-_MACRO_SQL_BONUS       = 1    # extra retry for MACRO_DEFINITION / SQL_BLOCK
-_SEMANTIC_ERROR_BONUS  = 1    # extra retry when syntax passes but exec fails
-_MAX_STAGNANT          = 2    # stop if code unchanged for this many consecutive retries
+_BASE_RETRIES = 2  # default max validation retries
+_MACRO_SQL_BONUS = 1  # extra retry for MACRO_DEFINITION / SQL_BLOCK
+_SEMANTIC_ERROR_BONUS = 1  # extra retry when syntax passes but exec fails
+_MAX_STAGNANT = 2  # stop if code unchanged for this many consecutive retries
 
 
 def _retry_budget(partition: PartitionIR) -> int:
     """Compute the retry budget for a partition based on its type."""
     budget = _BASE_RETRIES
-    ptype  = partition.partition_type.value
+    ptype = partition.partition_type.value
     if ptype in ("MACRO_DEFINITION", "MACRO_INVOCATION", "SQL_BLOCK"):
         budget += _MACRO_SQL_BONUS
     return budget
@@ -67,17 +67,19 @@ class TranslationPipeline:
         invariant_set: object | None = None,
     ):
         from partition.testing.cdais.cdais_runner import CDAISRunner
-        self.translator    = translator    or TranslationAgent(target_runtime=target_runtime)
-        self.validator     = validator     or ValidationAgent()
-        self.z3            = z3            or Z3VerificationAgent()
+
+        self.translator = translator or TranslationAgent(target_runtime=target_runtime)
+        self.validator = validator or ValidationAgent()
+        self.z3 = z3 or Z3VerificationAgent()
         self.sem_validator = sem_validator or SemanticValidator()
-        self.cdais         = cdais         or CDAISRunner()
+        self.cdais = cdais or CDAISRunner()
         self.invariant_set = invariant_set  # None = MIS disabled; call load_invariants() to enable
-        self.duckdb_path   = duckdb_path
+        self.duckdb_path = duckdb_path
 
     def load_invariants(self, gold_dir: str | None = None) -> None:
         """Synthesize MIS invariants from the gold corpus (blocking — call in a thread)."""
         from partition.invariant.invariant_synthesizer import MigrationInvariantSynthesizer
+
         synth = MigrationInvariantSynthesizer(gold_standard_dir=gold_dir)
         self.invariant_set = synth.synthesize()
         logger.info(
@@ -91,9 +93,7 @@ class TranslationPipeline:
     # stalled partition from blocking the entire pipeline.
     PARTITION_TIMEOUT_S: int = 120
 
-    async def translate_partition(
-        self, partition: PartitionIR
-    ) -> ConversionResult:
+    async def translate_partition(self, partition: PartitionIR) -> ConversionResult:
         """Full translate → validate → retry loop for one partition."""
         try:
             return await asyncio.wait_for(
@@ -106,8 +106,10 @@ class TranslationPipeline:
                 block_id=str(partition.block_id),
                 timeout_s=self.PARTITION_TIMEOUT_S,
             )
-            from partition.models.enums import ConversionStatus
             import uuid
+
+            from partition.models.enums import ConversionStatus
+
             return ConversionResult(
                 conversion_id=uuid.uuid4(),
                 block_id=partition.block_id,
@@ -117,9 +119,7 @@ class TranslationPipeline:
                 model_used="timeout",
             )
 
-    async def _translate_partition_inner(
-        self, partition: PartitionIR
-    ) -> ConversionResult:
+    async def _translate_partition_inner(self, partition: PartitionIR) -> ConversionResult:
         """Inner translate → validate → retry loop (no timeout guard here).
 
         Retry behaviour:
@@ -137,17 +137,17 @@ class TranslationPipeline:
             return conversion
 
         # Validate
-        test_type  = partition.metadata.get("test_coverage_type", "full")
+        test_type = partition.metadata.get("test_coverage_type", "full")
         validation = await self.validator.validate(conversion, test_type)
 
-        max_retries  = _retry_budget(partition)
-        retry_count  = 0
-        stagnant     = 0
-        last_code    = conversion.python_code
+        max_retries = _retry_budget(partition)
+        retry_count = 0
+        stagnant = 0
+        last_code = conversion.python_code
 
         while not validation.passed and retry_count < max_retries:
             # Classify and analyse the error
-            err_report   = classify_error(
+            err_report = classify_error(
                 validation.error_msg,
                 getattr(validation, "traceback", ""),
                 conversion.python_code,
@@ -180,11 +180,11 @@ class TranslationPipeline:
 
             # Build repair hint: structured error analysis + EGS execution state
             hint_parts = [err_analysis.to_prompt_block()]
-            egs_block  = validation.egs_context_block()
+            egs_block = validation.egs_context_block()
             if egs_block:
                 hint_parts.append(egs_block)
             partition.metadata["error_analysis_hint"] = "\n\n".join(hint_parts)
-            partition.metadata["error_category"]      = err_report.primary_category
+            partition.metadata["error_category"] = err_report.primary_category
 
             prev_conversion = conversion
             try:
@@ -209,7 +209,7 @@ class TranslationPipeline:
                     conversion = prev_conversion
                     break
             else:
-                stagnant  = 0
+                stagnant = 0
                 last_code = conversion.python_code
 
             validation = await self.validator.validate(conversion, test_type)
@@ -217,17 +217,14 @@ class TranslationPipeline:
         if not validation.passed:
             conversion.status = ConversionStatus.PARTIAL
             conversion.python_code = (
-                f"# PARTIAL: Validation failed ({validation.error_msg})\n"
-                + conversion.python_code
+                f"# PARTIAL: Validation failed ({validation.error_msg})\n" + conversion.python_code
             )
         else:
             conversion.validation_passed = True
 
             # ── Lineage guard (static, cheap — no LLM call unless violations found)
             internal_tables = build_internal_table_set(partition.source_code or "")
-            lin_report, mac_report = full_lineage_check(
-                conversion.python_code, internal_tables
-            )
+            lin_report, mac_report = full_lineage_check(conversion.python_code, internal_tables)
             lineage_hint_parts: list[str] = []
             if not lin_report.ok:
                 lineage_hint_parts.append(lin_report.to_prompt_block())
@@ -240,15 +237,15 @@ class TranslationPipeline:
                     n_violations=len(lin_report.violations) + len(mac_report.violations),
                 )
                 partition.metadata["error_analysis_hint"] = "\n\n".join(lineage_hint_parts)
-                partition.metadata["error_category"]      = "LINEAGE"
+                partition.metadata["error_category"] = "LINEAGE"
                 try:
                     repaired = await self.translator.process(partition)
                     if repaired.status != ConversionStatus.PARTIAL:
-                        conversion  = repaired
+                        conversion = repaired
                         retry_count += 1
                 finally:
                     partition.metadata.pop("error_analysis_hint", None)
-                    partition.metadata.pop("error_category",      None)
+                    partition.metadata.pop("error_category", None)
 
             # ── Semantic oracle check (oracle-computed expected vs actual output)
             sem_result = await asyncio.to_thread(
@@ -263,15 +260,15 @@ class TranslationPipeline:
                     error_type=sem_result.error_type,
                 )
                 partition.metadata["error_analysis_hint"] = sem_result.to_repair_hint()
-                partition.metadata["error_category"]      = sem_result.error_type
+                partition.metadata["error_category"] = sem_result.error_type
                 try:
                     repaired = await self.translator.process(partition)
                     if repaired.status != ConversionStatus.PARTIAL:
-                        conversion  = repaired
+                        conversion = repaired
                         retry_count += 1
                 finally:
                     partition.metadata.pop("error_analysis_hint", None)
-                    partition.metadata.pop("error_category",      None)
+                    partition.metadata.pop("error_category", None)
 
             # Z3 formal verification (only when validation passed, non-blocking)
             z3_result = await asyncio.to_thread(
@@ -304,9 +301,7 @@ class TranslationPipeline:
                     hint_parts.append(f"Fix             : {cx['hint']}")
                 if cx.get("fix"):
                     hint_parts.append(f"Fix             : {cx['fix']}")
-                hint_parts.append(
-                    "You MUST fix this specific bug. Do NOT change anything else."
-                )
+                hint_parts.append("You MUST fix this specific bug. Do NOT change anything else.")
                 z3_repair_hint = "\n".join(hint_parts)
 
                 logger.warning(
@@ -343,8 +338,8 @@ class TranslationPipeline:
             cdais_report = await asyncio.to_thread(
                 self.cdais.run, partition, conversion.python_code
             )
-            conversion.cdais_all_passed    = cdais_report.all_passed
-            conversion.cdais_certificates  = cdais_report.certificates
+            conversion.cdais_all_passed = cdais_report.all_passed
+            conversion.cdais_certificates = cdais_report.certificates
             conversion.cdais_failures_count = len(cdais_report.failures)
             if cdais_report.n_classes_checked > 0:
                 logger.info(
@@ -359,16 +354,16 @@ class TranslationPipeline:
                     n_failures=len(cdais_report.failures),
                 )
                 partition.metadata["error_analysis_hint"] = cdais_report.to_prompt_block()
-                partition.metadata["error_category"]      = "CDAIS"
+                partition.metadata["error_category"] = "CDAIS"
                 try:
                     repaired = await self.translator.process(partition)
                     if repaired.status != ConversionStatus.PARTIAL:
-                        conversion  = repaired
+                        conversion = repaired
                         retry_count += 1
                         conversion.cdais_all_passed = True
                 finally:
                     partition.metadata.pop("error_analysis_hint", None)
-                    partition.metadata.pop("error_category",      None)
+                    partition.metadata.pop("error_category", None)
             else:
                 partition.metadata["cdais_certificates"] = cdais_report.certificates
 
@@ -382,7 +377,8 @@ class TranslationPipeline:
                 conversion.mis_violations = inv_violations
                 # Namespace violations = column-schema invariants surfaced to UI
                 conversion.namespace_violations = [
-                    v for v in inv_violations
+                    v
+                    for v in inv_violations
                     if any(kw in v for kw in ("COLUMN", "DTYPE", "NAMESPACE", "SUPERSET"))
                 ]
                 if inv_violations:
@@ -397,23 +393,21 @@ class TranslationPipeline:
                         + "\n\nFix the translation to satisfy all confirmed migration invariants."
                     )
                     partition.metadata["error_analysis_hint"] = inv_hint
-                    partition.metadata["error_category"]      = "MIS_INVARIANT"
+                    partition.metadata["error_category"] = "MIS_INVARIANT"
                     try:
                         repaired = await self.translator.process(partition)
                         if repaired.status != ConversionStatus.PARTIAL:
-                            conversion  = repaired
+                            conversion = repaired
                             retry_count += 1
                     finally:
                         partition.metadata.pop("error_analysis_hint", None)
-                        partition.metadata.pop("error_category",      None)
+                        partition.metadata.pop("error_category", None)
 
         conversion.retry_count = retry_count
         self._log_quality(conversion)
         return conversion
 
-    async def translate_batch(
-        self, partitions: list[PartitionIR]
-    ) -> list[ConversionResult]:
+    async def translate_batch(self, partitions: list[PartitionIR]) -> list[ConversionResult]:
         """Translate a batch of partitions (sequential for rate limiting)."""
         results = []
         for partition in partitions:

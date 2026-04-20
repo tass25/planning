@@ -34,19 +34,30 @@ from __future__ import annotations
 
 import json
 import re
-import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Callable, Optional
 
-import numpy as np
 import pandas as pd
 import structlog
 
 from partition.translation.dummy_data_generator import DummyDataGenerator
 from partition.translation.semantic_validator import (
     _exec_with_inputs,
+    _normalize,
+    _oracle_first_last,
+    _oracle_lag,
+    _oracle_merge,
+    _oracle_proc_freq,
+    _oracle_proc_means,
+    _oracle_proc_sort,
+    _oracle_retain,
+)
+
+logger = structlog.get_logger(__name__)
+
+_ORACLE_FNS = [
     _oracle_proc_sort,
     _oracle_proc_means,
     _oracle_proc_freq,
@@ -54,30 +65,25 @@ from partition.translation.semantic_validator import (
     _oracle_lag,
     _oracle_first_last,
     _oracle_merge,
-    _normalize,
-)
-
-logger = structlog.get_logger(__name__)
-
-_ORACLE_FNS = [
-    _oracle_proc_sort, _oracle_proc_means, _oracle_proc_freq,
-    _oracle_retain, _oracle_lag, _oracle_first_last, _oracle_merge,
 ]
 
 
 # ── Invariant types ───────────────────────────────────────────────────────────
 
+
 @dataclass
 class CandidateInvariant:
     """One candidate migration invariant."""
+
     name: str
     description: str
-    sas_pattern: str              # regex that must match SAS code for this to apply
-    check: Callable               # check(input_df, oracle_df) → bool
+    sas_pattern: str  # regex that must match SAS code for this to apply
+    check: Callable  # check(input_df, oracle_df) → bool
     category: str = "structural"  # structural | relational | ordering | semantic
 
 
 # ── Invariant library — 18 candidates ─────────────────────────────────────────
+
 
 def _safe(fn, *args, default=False):
     try:
@@ -87,9 +93,7 @@ def _safe(fn, *args, default=False):
 
 
 INVARIANT_LIBRARY: list[CandidateInvariant] = [
-
     # ── Structural (row / column counts) ─────────────────────────────────────
-
     CandidateInvariant(
         name="ROW_PRESERVATION_NON_FILTER",
         description="Non-filter patterns must not drop rows (output rows ≥ input rows).",
@@ -123,33 +127,32 @@ INVARIANT_LIBRARY: list[CandidateInvariant] = [
         description="Data step output must contain at least all input columns.",
         sas_pattern=r"\bdata\b",
         check=lambda inp, out: (
-            set(c.lower() for c in inp.columns)
-            .issubset(set(c.lower() for c in out.columns))
+            set(c.lower() for c in inp.columns).issubset(set(c.lower() for c in out.columns))
         ),
         category="structural",
     ),
     CandidateInvariant(
         name="OUTPUT_NONEMPTY",
         description="Non-empty input must always produce non-empty output.",
-        sas_pattern=r".",   # matches everything
+        sas_pattern=r".",  # matches everything
         check=lambda inp, out: len(out) > 0 if len(inp) > 0 else True,
         category="structural",
     ),
-
     # ── Relational (value-based) ──────────────────────────────────────────────
-
     CandidateInvariant(
         name="SUM_PRESERVATION_NUMERIC",
         description="Data step without aggregation preserves sum of numeric columns.",
         sas_pattern=r"\bdata\b(?!.*\bproc\b)",
         check=lambda inp, out: _safe(
             lambda: all(
-                abs(pd.to_numeric(inp[c], errors="coerce").sum() -
-                    pd.to_numeric(out[c], errors="coerce").sum()) < 1e-3
-                for c in inp.columns
-                if c in out.columns and pd.api.types.is_numeric_dtype(
-                    pd.to_numeric(inp[c], errors="coerce")
+                abs(
+                    pd.to_numeric(inp[c], errors="coerce").sum()
+                    - pd.to_numeric(out[c], errors="coerce").sum()
                 )
+                < 1e-3
+                for c in inp.columns
+                if c in out.columns
+                and pd.api.types.is_numeric_dtype(pd.to_numeric(inp[c], errors="coerce"))
             ),
             default=True,
         ),
@@ -176,8 +179,10 @@ INVARIANT_LIBRARY: list[CandidateInvariant] = [
         sas_pattern=r"\blag\s*\(",
         check=lambda inp, out: _safe(
             lambda: any(
-                pd.to_numeric(out[c], errors="coerce").iloc[0] != pd.to_numeric(out[c], errors="coerce").iloc[0]
-                for c in out.columns if c not in inp.columns
+                pd.to_numeric(out[c], errors="coerce").iloc[0]
+                != pd.to_numeric(out[c], errors="coerce").iloc[0]
+                for c in out.columns
+                if c not in inp.columns
             ),
             default=True,
         ),
@@ -190,8 +195,8 @@ INVARIANT_LIBRARY: list[CandidateInvariant] = [
         check=lambda inp, out: _safe(
             lambda: all(
                 out[c].is_monotonic_increasing or out[c].is_monotonic_decreasing
-                for c in out.columns if c in inp.columns
-                and len(out[c].unique()) > 1
+                for c in out.columns
+                if c in inp.columns and len(out[c].unique()) > 1
             ),
             default=True,
         ),
@@ -211,7 +216,8 @@ INVARIANT_LIBRARY: list[CandidateInvariant] = [
         check=lambda inp, out: _safe(
             lambda: any(
                 abs(pd.to_numeric(out[c], errors="coerce").sum() - 100.0) < 0.1
-                for c in out.columns if "percent" in c.lower()
+                for c in out.columns
+                if "percent" in c.lower()
             ),
             default=True,
         ),
@@ -224,9 +230,8 @@ INVARIANT_LIBRARY: list[CandidateInvariant] = [
         check=lambda inp, out: _safe(
             lambda: all(
                 pd.to_numeric(out[c], errors="coerce").ge(0).all()
-                for c in out.columns if any(
-                    kw in c.lower() for kw in ("freq", "_n_", "count", "_type_")
-                )
+                for c in out.columns
+                if any(kw in c.lower() for kw in ("freq", "_n_", "count", "_type_"))
             ),
             default=True,
         ),
@@ -245,8 +250,11 @@ INVARIANT_LIBRARY: list[CandidateInvariant] = [
         sas_pattern=r".",
         check=lambda inp, out: _safe(
             lambda: all(
-                pd.api.types.is_numeric_dtype(pd.to_numeric(out[c], errors="coerce"))
-                if c in out.columns else True
+                (
+                    pd.api.types.is_numeric_dtype(pd.to_numeric(out[c], errors="coerce"))
+                    if c in out.columns
+                    else True
+                )
                 for c in inp.columns
                 if pd.api.types.is_numeric_dtype(pd.to_numeric(inp[c], errors="coerce"))
             ),
@@ -275,7 +283,8 @@ INVARIANT_LIBRARY: list[CandidateInvariant] = [
         check=lambda inp, out: _safe(
             lambda: not any(
                 out[c].duplicated().any()
-                for c in out.columns if c not in inp.columns and "group" in c.lower()
+                for c in out.columns
+                if c not in inp.columns and "group" in c.lower()
             ),
             default=True,
         ),
@@ -286,16 +295,18 @@ INVARIANT_LIBRARY: list[CandidateInvariant] = [
 
 # ── Observation collection ────────────────────────────────────────────────────
 
+
 @dataclass
 class Observation:
     """One (SAS, Python, input, oracle_output, actual_output) observation."""
+
     pair_id: str
     sas_code: str
     python_code: str
     input_df: pd.DataFrame
     oracle_df: Optional[pd.DataFrame]
     actual_df: Optional[pd.DataFrame]
-    oracle_pattern: str = ""     # which oracle fired
+    oracle_pattern: str = ""  # which oracle fired
 
 
 def _run_oracle(
@@ -317,7 +328,7 @@ def _collect_observation(
     python_code: str,
 ) -> Optional[Observation]:
     try:
-        gen    = DummyDataGenerator(sas_code=sas_code)
+        gen = DummyDataGenerator(sas_code=sas_code)
         frames = gen.generate()
         if not frames:
             return None
@@ -332,9 +343,9 @@ def _collect_observation(
         actual_frames = _exec_with_inputs(python_code, frames, out_names or ["output"])
         actual_df = None
         if actual_frames:
-            actual_df = (
-                actual_frames.get(out_names[0]) if out_names else None
-            ) or (next(iter(actual_frames.values())) if actual_frames else None)
+            actual_df = (actual_frames.get(out_names[0]) if out_names else None) or (
+                next(iter(actual_frames.values())) if actual_frames else None
+            )
 
         return Observation(
             pair_id=pair_id,
@@ -352,16 +363,18 @@ def _collect_observation(
 
 # ── Invariant evaluation ──────────────────────────────────────────────────────
 
+
 @dataclass
 class InvariantResult:
     """Evaluation of one candidate invariant across the corpus."""
+
     invariant_name: str
     description: str
     category: str
-    applicable_pairs: int     # pairs where sas_pattern matched
-    oracle_violations: int    # oracle outputs that violated this invariant
-    actual_violations: int    # actual (translated) outputs that violated it
-    confirmed: bool           # True if oracle_violations == 0
+    applicable_pairs: int  # pairs where sas_pattern matched
+    oracle_violations: int  # oracle outputs that violated this invariant
+    actual_violations: int  # actual (translated) outputs that violated it
+    confirmed: bool  # True if oracle_violations == 0
 
     @property
     def oracle_pass_rate(self) -> float:
@@ -379,6 +392,7 @@ class InvariantResult:
 @dataclass
 class InvariantSet:
     """Full set of discovered invariants with evaluation statistics."""
+
     confirmed: list[InvariantResult] = field(default_factory=list)
     rejected: list[InvariantResult] = field(default_factory=list)
     n_pairs_total: int = 0
@@ -395,11 +409,11 @@ class InvariantSet:
         Returns a list of violated invariant names (empty = all pass).
         """
         try:
-            gen    = DummyDataGenerator(sas_code=sas_code)
+            gen = DummyDataGenerator(sas_code=sas_code)
             frames = gen.generate()
             if not frames:
                 return []
-            input_df   = _normalize(next(iter(frames.values())))
+            input_df = _normalize(next(iter(frames.values())))
             oracle_df, _ = _run_oracle(sas_code, frames)
             if oracle_df is None:
                 return []
@@ -428,8 +442,9 @@ class InvariantSet:
             "| Invariant | Category | Applicable | Oracle Pass | Translation Pass | Status |",
             "|-----------|----------|------------|-------------|------------------|--------|",
         ]
-        for r in sorted(self.confirmed + self.rejected,
-                        key=lambda x: (-x.oracle_pass_rate, x.invariant_name)):
+        for r in sorted(
+            self.confirmed + self.rejected, key=lambda x: (-x.oracle_pass_rate, x.invariant_name)
+        ):
             status = "[+] Confirmed" if r.confirmed else "[-] Rejected"
             lines.append(
                 f"| {r.invariant_name} | {r.category} "
@@ -442,6 +457,7 @@ class InvariantSet:
 
 
 # ── Main synthesizer ──────────────────────────────────────────────────────────
+
 
 class MigrationInvariantSynthesizer:
     """Discovers migration invariants from a paired (SAS, Python) corpus.
@@ -456,8 +472,7 @@ class MigrationInvariantSynthesizer:
         gold_standard_dir: Optional[str] = None,
         candidates: Optional[list[CandidateInvariant]] = None,
     ) -> None:
-        self.gold_dir   = Path(gold_standard_dir or
-                               "backend/knowledge_base/gold_standard")
+        self.gold_dir = Path(gold_standard_dir or "backend/knowledge_base/gold_standard")
         self.candidates = candidates or INVARIANT_LIBRARY
 
     def synthesize(
@@ -470,7 +485,7 @@ class MigrationInvariantSynthesizer:
 
         pairs = self._load_pairs(max_pairs)
         if extra_pairs:
-            pairs.extend(extra_pairs[:max(0, max_pairs - len(pairs))])
+            pairs.extend(extra_pairs[: max(0, max_pairs - len(pairs))])
 
         logger.info("mis_start", n_pairs=len(pairs))
 
@@ -489,7 +504,7 @@ class MigrationInvariantSynthesizer:
             results.append(r)
 
         confirmed = [r for r in results if r.confirmed]
-        rejected  = [r for r in results if not r.confirmed]
+        rejected = [r for r in results if not r.confirmed]
 
         elapsed = (time.monotonic() - t0) * 1000
         logger.info(
@@ -525,8 +540,8 @@ class MigrationInvariantSynthesizer:
                     sas_code = sas_file.read_text(encoding="utf-8")
                 except UnicodeDecodeError:
                     sas_code = sas_file.read_text(encoding="utf-8", errors="replace")
-                gold     = json.loads(json_file.read_text(encoding="utf-8"))
-                py_code  = gold.get("python_code") or gold.get("expected_python")
+                gold = json.loads(json_file.read_text(encoding="utf-8"))
+                py_code = gold.get("python_code") or gold.get("expected_python")
                 if py_code:
                     pairs.append((sas_code, py_code))
             except Exception as exc:
@@ -539,13 +554,12 @@ class MigrationInvariantSynthesizer:
         candidate: CandidateInvariant,
         observations: list[Observation],
     ) -> InvariantResult:
-        applicable      = 0
-        oracle_viol     = 0
-        actual_viol     = 0
+        applicable = 0
+        oracle_viol = 0
+        actual_viol = 0
 
         for obs in observations:
-            if not re.search(candidate.sas_pattern, obs.sas_code,
-                             re.IGNORECASE | re.DOTALL):
+            if not re.search(candidate.sas_pattern, obs.sas_code, re.IGNORECASE | re.DOTALL):
                 continue
             applicable += 1
 

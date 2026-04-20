@@ -5,13 +5,11 @@ from __future__ import annotations
 import hashlib
 import re
 from pathlib import Path
-from uuid import UUID
 
 import chardet
 
 from ..base_agent import BaseAgent
 from ..models.file_metadata import FileMetadata
-
 
 # ── Minimal pre-validation ────────────────────────────────────────────────────
 # Instead of a full Lark grammar (Week 3–4), we do a lightweight regex-based
@@ -63,9 +61,7 @@ def _pre_validate(content: str) -> tuple[bool, list[str]]:
     macro_opens = len(_MACRO_OPEN.findall(cleaned))
     macro_closes = len(_MACRO_CLOSE.findall(cleaned))
     if macro_opens != macro_closes:
-        errors.append(
-            f"Macro imbalance: {macro_opens} %MACRO vs {macro_closes} %MEND."
-        )
+        errors.append(f"Macro imbalance: {macro_opens} %MACRO vs {macro_closes} %MEND.")
 
     return (len(errors) == 0, errors)
 
@@ -87,11 +83,14 @@ class FileAnalysisAgent(BaseAgent):
     async def process(self, project_root: Path) -> list[FileMetadata]:  # type: ignore[override]
         project_root = Path(project_root).resolve()
         sas_files = [
-            f for f in sorted(project_root.rglob("*.sas"))
+            f
+            for f in sorted(project_root.rglob("*.sas"))
             if f.resolve().is_relative_to(project_root)
         ]
 
-        self.logger.info("discovery_start", project_root=str(project_root), file_count=len(sas_files))
+        self.logger.info(
+            "discovery_start", project_root=str(project_root), file_count=len(sas_files)
+        )
 
         results: list[FileMetadata] = []
         for filepath in sas_files:

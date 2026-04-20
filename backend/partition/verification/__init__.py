@@ -7,6 +7,10 @@ Two-level verification:
 
 from __future__ import annotations
 
-from partition.verification.z3_agent import Z3VerificationAgent, VerificationResult, VerificationStatus
+from partition.verification.z3_agent import (
+    VerificationResult,
+    VerificationStatus,
+    Z3VerificationAgent,
+)
 
 __all__ = ["Z3VerificationAgent", "VerificationResult", "VerificationStatus"]

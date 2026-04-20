@@ -4,6 +4,7 @@ Run with:
     cd sas_converter
     ../venv/Scripts/python -m pytest tests/test_complexity_agent.py -v
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -12,7 +13,6 @@ from uuid import uuid4
 
 import numpy as np
 import pytest
-
 from partition.complexity.complexity_agent import ComplexityAgent, compute_ece
 from partition.complexity.features import extract
 from partition.models.enums import PartitionType, RiskLevel
@@ -45,6 +45,7 @@ def _make_partition(
 
 # ── Feature extraction ────────────────────────────────────────────────────────
 
+
 class TestFeatureExtraction:
 
     def test_line_count_normalised(self):
@@ -54,8 +55,10 @@ class TestFeatureExtraction:
 
     def test_call_execute_detected(self):
         p = _make_partition(
-            PartitionType.DATA_STEP, 1, 5,
-            source="data x; set y; call execute('%macro_call;'); run;"
+            PartitionType.DATA_STEP,
+            1,
+            5,
+            source="data x; set y; call execute('%macro_call;'); run;",
         )
         f = extract(p)
         assert f.has_call_execute == 1.0
@@ -83,6 +86,7 @@ class TestFeatureExtraction:
 
 # ── Rule-based predictions ────────────────────────────────────────────────────
 
+
 class TestRuleBasedPrediction:
 
     def test_short_data_step_is_low(self):
@@ -99,7 +103,9 @@ class TestRuleBasedPrediction:
 
     def test_call_execute_is_high(self):
         p = _make_partition(
-            PartitionType.DATA_STEP, 1, 5,
+            PartitionType.DATA_STEP,
+            1,
+            5,
             source="data _null_; call execute('%mymacro;'); run;",
         )
         agent = ComplexityAgent()
@@ -129,12 +135,13 @@ class TestRuleBasedPrediction:
 
 # ── ECE utility ───────────────────────────────────────────────────────────────
 
+
 class TestECE:
 
     def test_perfect_calibration_ece_zero(self):
         """A perfectly calibrated model has ECE ≈ 0."""
         # All confidence = 1.0 for the correct class (overconfident but correct)
-        y_true  = np.array([0, 1, 2, 0, 1, 2])
+        y_true = np.array([0, 1, 2, 0, 1, 2])
         y_proba = np.eye(3)[[0, 1, 2, 0, 1, 2]]  # one-hot → perfectly confident
         ece = compute_ece(y_true, y_proba)
         # With n=6 samples and perfect accuracy, ECE is nearly 0
@@ -143,8 +150,8 @@ class TestECE:
     def test_random_proba_ece_is_high(self):
         """Uniformly random probabilities → high ECE."""
         rng = np.random.default_rng(0)
-        y_true  = rng.integers(0, 3, size=300)
-        raw     = rng.random((300, 3))
+        y_true = rng.integers(0, 3, size=300)
+        raw = rng.random((300, 3))
         y_proba = raw / raw.sum(axis=1, keepdims=True)
         ece = compute_ece(y_true, y_proba)
         # Random model is poorly calibrated
@@ -152,6 +159,7 @@ class TestECE:
 
 
 # ── LogReg + Platt on gold data ───────────────────────────────────────────────
+
 
 @pytest.mark.skipif(
     not GOLD_DIR.exists(),
@@ -179,9 +187,7 @@ class TestComplexityFit:
         agent = ComplexityAgent()
         metrics = agent.fit(GOLD_DIR, test_size=0.20, seed=42)
         ece = metrics["ece"]
-        assert ece < 0.10, (
-            f"ECE={ece:.4f} exceeds 0.10 — check calibration or features"
-        )
+        assert ece < 0.10, f"ECE={ece:.4f} exceeds 0.10 — check calibration or features"
 
     def test_process_after_fit_uses_model(self):
         """After fit(), process() should mark blocks as fitted=True."""

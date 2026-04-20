@@ -10,11 +10,9 @@ Usage:
 
 from __future__ import annotations
 
-import asyncio
 import os
 import sys
 import time
-import uuid
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
@@ -24,30 +22,31 @@ while not (BACKEND_DIR / "partition").exists():
 sys.path.insert(0, str(BACKEND_DIR))
 
 from dotenv import load_dotenv
+
 load_dotenv(BACKEND_DIR.parent / ".env")
 
 import instructor
-from openai import OpenAI
-from pydantic import BaseModel, Field
 import structlog
+from pydantic import BaseModel, Field
 
 structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(30))  # WARNING+
 
 # Force UTF-8 output on Windows
 if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
     import io
+
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 # ── Ollama client ────────────────────────────────────────────────────────────
 
 from partition.utils.llm_clients import get_ollama_client, get_ollama_model
 
-GREEN  = "\033[32m"
+GREEN = "\033[32m"
 YELLOW = "\033[33m"
-RED    = "\033[31m"
-CYAN   = "\033[36m"
-BOLD   = "\033[1m"
-RESET  = "\033[0m"
+RED = "\033[31m"
+CYAN = "\033[36m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
 
 
 class TranslationOutput(BaseModel):
@@ -110,12 +109,13 @@ def build_prompt(sas_code: str) -> str:
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
+
 def translate_block(client, model: str, sas_code: str) -> TranslationOutput:
     return client.chat.completions.create(
         model=model,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user",   "content": build_prompt(sas_code)},
+            {"role": "user", "content": build_prompt(sas_code)},
         ],
         response_model=TranslationOutput,
         max_retries=2,
@@ -130,17 +130,19 @@ def run() -> None:
 
     raw_client = get_ollama_client(async_client=False)
     if raw_client is None:
-        print(f"{RED}Ollama client unavailable — check OLLAMA_API_KEY and OLLAMA_BASE_URL in .env{RESET}")
+        print(
+            f"{RED}Ollama client unavailable — check OLLAMA_API_KEY and OLLAMA_BASE_URL in .env{RESET}"
+        )
         sys.exit(1)
 
     client = instructor.from_openai(raw_client)
-    model  = get_ollama_model()
+    model = get_ollama_model()
 
     blocks = parse_blocks(sas_path)
 
     sep = "=" * 72
     print(f"\n{CYAN}{BOLD}{sep}")
-    print(f"  Codara x Ollama -- qwen3-coder-next direct test")
+    print("  Codara x Ollama -- qwen3-coder-next direct test")
     print(f"  Model : {model}")
     print(f"  Base  : {os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434/v1')}")
     print(f"  Blocks: {len(blocks)}")
@@ -172,7 +174,7 @@ def run() -> None:
 
     total_elapsed = time.monotonic() - total_start
     success = sum(1 for *_, s, _ in results if s == "SUCCESS")
-    total   = len(results)
+    total = len(results)
 
     print(f"\n{CYAN}{'─'*72}")
     print(f"  Results: {GREEN}{success}/{total} SUCCESS{RESET}  ({success/total*100:.0f}%)")

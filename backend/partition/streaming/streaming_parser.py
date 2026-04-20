@@ -7,8 +7,6 @@ architecture is preserved for backpressure.
 
 from __future__ import annotations
 
-from uuid import UUID
-
 from partition.base_agent import BaseAgent
 from partition.models.file_metadata import FileMetadata
 from partition.streaming.models import LineChunk, ParsingState

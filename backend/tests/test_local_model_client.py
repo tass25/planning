@@ -33,7 +33,8 @@ class TestLocalModelClient:
     def test_singleton_returns_same_instance(self, monkeypatch):
         monkeypatch.delenv("LOCAL_MODEL_PATH", raising=False)
         import partition.utils.local_model_client as m
-        m._client = None   # reset singleton
+
+        m._client = None  # reset singleton
         c1 = get_local_model_client()
         c2 = get_local_model_client()
         assert c1 is c2

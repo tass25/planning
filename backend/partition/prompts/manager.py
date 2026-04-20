@@ -42,6 +42,4 @@ class PromptManager:
 
     def list_templates(self) -> list[str]:
         """Return available template names (without .j2 extension)."""
-        return sorted(
-            p.stem for p in self._dir.glob("*.j2")
-        )
+        return sorted(p.stem for p in self._dir.glob("*.j2"))

@@ -30,40 +30,152 @@ _SAFE_VALUE = re.compile(r"^[A-Za-z0-9_. -]+$")
 _db_connections: dict[str, lancedb.DBConnection] = {}
 
 # ── Hybrid retrieval weights ──────────────────────────────────────────────────
-KEYWORD_WEIGHT  = 0.40   # weight for SAS-keyword TF-cosine score
-SEMANTIC_WEIGHT = 0.60   # weight for Nomic embedding cosine score
+KEYWORD_WEIGHT = 0.40  # weight for SAS-keyword TF-cosine score
+SEMANTIC_WEIGHT = 0.60  # weight for Nomic embedding cosine score
 
 # ── SAS keyword vocabulary (91 tokens) ───────────────────────────────────────
 _SAS_KEYWORDS: list[str] = [
     # Data step
-    "data", "set", "merge", "by", "if", "then", "else", "end", "do", "while",
-    "until", "output", "retain", "keep", "drop", "rename", "length", "label",
-    "format", "informat", "attrib", "array", "input", "put", "file", "infile",
-    "datalines", "cards", "firstobs", "obs", "where", "delete", "return",
-    "stop", "abort", "call", "link", "goto",
+    "data",
+    "set",
+    "merge",
+    "by",
+    "if",
+    "then",
+    "else",
+    "end",
+    "do",
+    "while",
+    "until",
+    "output",
+    "retain",
+    "keep",
+    "drop",
+    "rename",
+    "length",
+    "label",
+    "format",
+    "informat",
+    "attrib",
+    "array",
+    "input",
+    "put",
+    "file",
+    "infile",
+    "datalines",
+    "cards",
+    "firstobs",
+    "obs",
+    "where",
+    "delete",
+    "return",
+    "stop",
+    "abort",
+    "call",
+    "link",
+    "goto",
     # FIRST / LAST
-    "first", "last",
+    "first",
+    "last",
     # Functions
-    "lag", "sum", "mean", "min", "max", "count", "n", "nmiss", "substr",
-    "scan", "trim", "strip", "upcase", "lowcase", "compress", "cat", "cats",
-    "catx", "today", "date", "mdy", "year", "month", "day", "intck", "intnx",
-    "input_fn", "put_fn", "abs", "round", "int", "log", "exp", "sqrt",
+    "lag",
+    "sum",
+    "mean",
+    "min",
+    "max",
+    "count",
+    "n",
+    "nmiss",
+    "substr",
+    "scan",
+    "trim",
+    "strip",
+    "upcase",
+    "lowcase",
+    "compress",
+    "cat",
+    "cats",
+    "catx",
+    "today",
+    "date",
+    "mdy",
+    "year",
+    "month",
+    "day",
+    "intck",
+    "intnx",
+    "input_fn",
+    "put_fn",
+    "abs",
+    "round",
+    "int",
+    "log",
+    "exp",
+    "sqrt",
     # Procs
-    "proc", "run", "quit",
-    "sort", "print", "means", "freq", "univariate", "reg", "logistic",
-    "glm", "mixed", "transpose", "export", "import", "sql", "report",
-    "tabulate", "format_proc", "contents", "datasets", "copy", "append",
-    "sgplot", "gplot", "chart",
+    "proc",
+    "run",
+    "quit",
+    "sort",
+    "print",
+    "means",
+    "freq",
+    "univariate",
+    "reg",
+    "logistic",
+    "glm",
+    "mixed",
+    "transpose",
+    "export",
+    "import",
+    "sql",
+    "report",
+    "tabulate",
+    "format_proc",
+    "contents",
+    "datasets",
+    "copy",
+    "append",
+    "sgplot",
+    "gplot",
+    "chart",
     # SQL
-    "select", "from", "join", "inner", "outer", "left", "right", "full",
-    "group", "having", "order", "create", "insert", "update", "delete_sql",
+    "select",
+    "from",
+    "join",
+    "inner",
+    "outer",
+    "left",
+    "right",
+    "full",
+    "group",
+    "having",
+    "order",
+    "create",
+    "insert",
+    "update",
+    "delete_sql",
     "where_sql",
     # Macro
-    "macro", "mend", "let", "global", "local", "put_macro", "if_macro",
-    "do_macro", "include",
+    "macro",
+    "mend",
+    "let",
+    "global",
+    "local",
+    "put_macro",
+    "if_macro",
+    "do_macro",
+    "include",
     # Misc
-    "libname", "filename", "options", "title", "footnote", "ods",
-    "nodupkey", "noduprec", "descending",
+    "libname",
+    "filename",
+    "options",
+    "title",
+    "footnote",
+    "ods",
+    "nodupkey",
+    "noduprec",
+    "descending",
 ]
 
 # Pre-build index for fast lookup
@@ -80,6 +192,7 @@ def _get_db(db_path: str) -> lancedb.DBConnection:
 
 # ── Keyword vectoriser ────────────────────────────────────────────────────────
 
+
 def _keyword_vector(sas_code: str) -> list[float]:
     """Compute a TF-normalised keyword frequency vector for ``sas_code``.
 
@@ -93,7 +206,7 @@ def _keyword_vector(sas_code: str) -> list[float]:
 
     tokens = re.split(r"[^A-Za-z0-9_]", code.lower())
     counts = [0.0] * _N_KW
-    total  = 0
+    total = 0
 
     for tok in tokens:
         tok = tok.strip("_")
@@ -164,7 +277,7 @@ class KBQueryClient:
     """Query the sas_python_examples KB in LanceDB using hybrid retrieval."""
 
     TABLE_NAME = "sas_python_examples"
-    MIN_RELEVANCE = 0.40   # lowered from 0.50 — keyword boost can lift lower-semantic items
+    MIN_RELEVANCE = 0.40  # lowered from 0.50 — keyword boost can lift lower-semantic items
 
     def __init__(self, db_path: str = "data/lancedb"):
         self.db = _get_db(db_path)
@@ -225,10 +338,7 @@ class KBQueryClient:
             # Over-fetch for hybrid re-ranking (3k candidates, then keep top k)
             prefetch_k = min(k * 3, 30)
             results = (
-                table.search(query_embedding)
-                .where(where_clause)
-                .limit(prefetch_k)
-                .to_pandas()
+                table.search(query_embedding).where(where_clause).limit(prefetch_k).to_pandas()
             )
 
             if results.empty:
@@ -245,9 +355,9 @@ class KBQueryClient:
             hybrid_scores: list[float] = []
             for _, row in results.iterrows():
                 kb_sas = row.get("sas_code", "") or ""
-                kb_kv  = _keyword_vector(kb_sas) if kb_sas else [0.0] * _N_KW
+                kb_kv = _keyword_vector(kb_sas) if kb_sas else [0.0] * _N_KW
                 kw_sim = _cosine(query_kv, kb_kv) if sas_code else 0.0
-                sem    = float(row["semantic_score"])
+                sem = float(row["semantic_score"])
                 hybrid = KEYWORD_WEIGHT * kw_sim + SEMANTIC_WEIGHT * sem
                 hybrid_scores.append(hybrid)
 
@@ -257,18 +367,20 @@ class KBQueryClient:
 
             examples = []
             for _, row in results.iterrows():
-                issues_raw  = row.get("issues_text", "") or ""
+                issues_raw = row.get("issues_text", "") or ""
                 issues_list = [i.strip() for i in issues_raw.split("|") if i.strip()]
-                examples.append({
-                    "example_id":     row["example_id"],
-                    "sas_code":       row["sas_code"],
-                    "python_code":    row["python_code"],
-                    "similarity":     row.get("hybrid_score", 0),
-                    "semantic_score": row.get("semantic_score", 0),
-                    "failure_mode":   row.get("failure_mode", ""),
-                    "category":       row.get("category", ""),
-                    "issues":         issues_list,
-                })
+                examples.append(
+                    {
+                        "example_id": row["example_id"],
+                        "sas_code": row["sas_code"],
+                        "python_code": row["python_code"],
+                        "similarity": row.get("hybrid_score", 0),
+                        "semantic_score": row.get("semantic_score", 0),
+                        "failure_mode": row.get("failure_mode", ""),
+                        "category": row.get("category", ""),
+                        "issues": issues_list,
+                    }
+                )
 
             # Deduplicate issues across examples
             examples = _deduplicate_issues(examples)

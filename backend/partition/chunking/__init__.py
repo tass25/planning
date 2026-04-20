@@ -11,9 +11,9 @@ Models:
     BlockBoundaryEvent     — detection event emitted per SAS block
 """
 
-from .models import BlockBoundaryEvent, COVERAGE_MAP
 from .boundary_detector import BoundaryDetector, BoundaryDetectorAgent
 from .llm_boundary_resolver import LLMBoundaryResolver
+from .models import COVERAGE_MAP, BlockBoundaryEvent
 from .partition_builder import PartitionBuilderAgent
 
 __all__ = [

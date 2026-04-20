@@ -14,7 +14,6 @@ import argparse
 
 import lancedb
 import structlog
-
 from partition.kb.kb_changelog import log_kb_change
 
 logger = structlog.get_logger()
@@ -42,9 +41,7 @@ def rollback(
 
     # LanceDB doesn't support complex queries — filter in pandas
     df = table.to_pandas()
-    target = df[
-        (df["example_id"] == example_id) & (df["version"] == to_version)
-    ]
+    target = df[(df["example_id"] == example_id) & (df["version"] == to_version)]
 
     if target.empty:
         logger.error(

@@ -182,7 +182,16 @@ def log_llm_call(
         INSERT INTO llm_audit
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         """,
-        [call_id, agent_name, model_name, prompt_hash,
-         response_hash, latency_ms, success, error_msg, tier],
+        [
+            call_id,
+            agent_name,
+            model_name,
+            prompt_hash,
+            response_hash,
+            latency_ms,
+            success,
+            error_msg,
+            tier,
+        ],
     )
     con.close()

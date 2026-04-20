@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 
 from ..base_agent import BaseAgent
+from ..db.sqlite_manager import FileRegistryRow, get_session
 from ..models.file_metadata import FileMetadata
-from ..db.sqlite_manager import get_session, FileRegistryRow
 
 
 class RegistryWriterAgent(BaseAgent):
@@ -36,11 +36,7 @@ class RegistryWriterAgent(BaseAgent):
             for fm in files:
                 # Dedup by file_id (primary key) — content_hash dedup would break FK
                 # references when the same file is re-uploaded with a new UUID.
-                existing = (
-                    session.query(FileRegistryRow)
-                    .filter_by(file_id=str(fm.file_id))
-                    .first()
-                )
+                existing = session.query(FileRegistryRow).filter_by(file_id=str(fm.file_id)).first()
                 if existing is not None:
                     self.logger.debug("skipping_duplicate", file_path=fm.file_path)
                     skipped += 1

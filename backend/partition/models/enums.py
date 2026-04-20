@@ -7,6 +7,7 @@ from enum import Enum
 
 class PartitionType(str, Enum):
     """SAS block types recognised by the partitioner."""
+
     DATA_STEP = "DATA_STEP"
     PROC_BLOCK = "PROC_BLOCK"
     MACRO_DEFINITION = "MACRO_DEFINITION"
@@ -21,6 +22,7 @@ class PartitionType(str, Enum):
 
 class RiskLevel(str, Enum):
     """Conversion risk assessment."""
+
     LOW = "LOW"
     MODERATE = "MODERATE"
     HIGH = "HIGH"
@@ -29,6 +31,7 @@ class RiskLevel(str, Enum):
 
 class ConversionStatus(str, Enum):
     """Status of a converted block or file."""
+
     SUCCESS = "SUCCESS"
     PARTIAL = "PARTIAL"
     FAILED = "FAILED"
@@ -37,6 +40,7 @@ class ConversionStatus(str, Enum):
 
 class PartitionStrategy(str, Enum):
     """Strategy used to partition a SAS file."""
+
     FLAT_PARTITION = "FLAT_PARTITION"
     MACRO_AWARE = "MACRO_AWARE"
     DEPENDENCY_PRESERVING = "DEPENDENCY_PRESERVING"
@@ -46,8 +50,9 @@ class PartitionStrategy(str, Enum):
 
 class VerificationStatus(str, Enum):
     """Semantic equivalence verification result (Z3 / Oracle)."""
-    FORMAL_PROOF = "formal_proof"       # Z3 proved equivalent
+
+    FORMAL_PROOF = "formal_proof"  # Z3 proved equivalent
     BEHAVIORALLY_VERIFIED = "behavioral_verified"  # Oracle passed (Month 2)
-    COUNTEREXAMPLE = "counterexample"   # Z3/Oracle found a difference → re-queue
-    UNVERIFIABLE = "unverifiable"       # Outside decidable scope
-    SKIPPED = "skipped"                 # Feature flag disabled
+    COUNTEREXAMPLE = "counterexample"  # Z3/Oracle found a difference → re-queue
+    UNVERIFIABLE = "unverifiable"  # Outside decidable scope
+    SKIPPED = "skipped"  # Feature flag disabled

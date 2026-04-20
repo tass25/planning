@@ -22,10 +22,28 @@ CANONICAL_ALIASES: dict[str, str] = {
 
 # Known stdlib modules (subset used by generated code)
 STDLIB_MODULES = {
-    "os", "sys", "re", "json", "csv", "datetime", "pathlib",
-    "collections", "itertools", "functools", "math", "uuid",
-    "typing", "dataclasses", "enum", "logging", "warnings",
-    "hashlib", "copy", "io", "textwrap", "contextlib",
+    "os",
+    "sys",
+    "re",
+    "json",
+    "csv",
+    "datetime",
+    "pathlib",
+    "collections",
+    "itertools",
+    "functools",
+    "math",
+    "uuid",
+    "typing",
+    "dataclasses",
+    "enum",
+    "logging",
+    "warnings",
+    "hashlib",
+    "copy",
+    "io",
+    "textwrap",
+    "contextlib",
 }
 
 SECTION_ORDER = ["stdlib", "third_party", "local"]

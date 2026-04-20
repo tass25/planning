@@ -34,12 +34,12 @@ random.seed(42)
 np.random.seed(42)
 
 # ── defaults ──────────────────────────────────────────────────────────────────
-_DEFAULT_N_ROWS   = 30      # total rows per table
-_NULL_RATE        = 0.08    # 8% of numeric cells are NaN
-_N_GROUPS         = 3       # distinct BY-group values
-_ROWS_PER_GROUP   = 10      # rows per group (N_GROUPS × ROWS_PER_GROUP = N_ROWS)
-_N_DUPLICATES     = 2       # extra exact-duplicate rows appended
-_CURRENCY_COL_MAX = 1       # at most 1 numeric col rendered as "$x,xxx.xx"
+_DEFAULT_N_ROWS = 30  # total rows per table
+_NULL_RATE = 0.08  # 8% of numeric cells are NaN
+_N_GROUPS = 3  # distinct BY-group values
+_ROWS_PER_GROUP = 10  # rows per group (N_GROUPS × ROWS_PER_GROUP = N_ROWS)
+_N_DUPLICATES = 2  # extra exact-duplicate rows appended
+_CURRENCY_COL_MAX = 1  # at most 1 numeric col rendered as "$x,xxx.xx"
 
 # ── SAS-aware column name lists ───────────────────────────────────────────────
 _NUMERIC_CONTEXTS = re.compile(
@@ -63,24 +63,51 @@ _STRING_CONTEXTS = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
-_BY_RE       = re.compile(r"\bby\s+([^;/\n]+?)(?:;|$|\n)", re.IGNORECASE)
-_SET_RE      = re.compile(r"\bset\s+([A-Za-z0-9_. ]+?)(?:;|$|\n)", re.IGNORECASE)
-_MERGE_RE    = re.compile(r"\bmerge\s+([A-Za-z0-9_. ()=\n\t]+?)(?:;|$)", re.IGNORECASE | re.DOTALL)
+_BY_RE = re.compile(r"\bby\s+([^;/\n]+?)(?:;|$|\n)", re.IGNORECASE)
+_SET_RE = re.compile(r"\bset\s+([A-Za-z0-9_. ]+?)(?:;|$|\n)", re.IGNORECASE)
+_MERGE_RE = re.compile(r"\bmerge\s+([A-Za-z0-9_. ()=\n\t]+?)(?:;|$)", re.IGNORECASE | re.DOTALL)
 _DATA_OUT_RE = re.compile(r"^\s*data\s+([\w.]+)", re.IGNORECASE | re.MULTILINE)
-_OUT_RE      = re.compile(r"\bout\s*=\s*([\w.]+)", re.IGNORECASE)
+_OUT_RE = re.compile(r"\bout\s*=\s*([\w.]+)", re.IGNORECASE)
 
-_SAS_RESERVED = frozenset({
-    "and", "by", "data", "do", "drop", "else", "end", "first", "if", "in",
-    "keep", "lag", "last", "like", "merge", "not", "or", "output", "retain",
-    "run", "set", "then", "to", "until", "when", "where", "while",
-})
+_SAS_RESERVED = frozenset(
+    {
+        "and",
+        "by",
+        "data",
+        "do",
+        "drop",
+        "else",
+        "end",
+        "first",
+        "if",
+        "in",
+        "keep",
+        "lag",
+        "last",
+        "like",
+        "merge",
+        "not",
+        "or",
+        "output",
+        "retain",
+        "run",
+        "set",
+        "then",
+        "to",
+        "until",
+        "when",
+        "where",
+        "while",
+    }
+)
 
-_GROUP_LABELS   = ["NORTH", "SOUTH", "EAST", "WEST", "CENTRAL"]
-_STATUS_LABELS  = ["ACTIVE", "CLOSED", "PENDING", "REVIEW", "HOLD"]
-_TYPE_LABELS    = ["TYPE_A", "TYPE_B", "TYPE_C"]
+_GROUP_LABELS = ["NORTH", "SOUTH", "EAST", "WEST", "CENTRAL"]
+_STATUS_LABELS = ["ACTIVE", "CLOSED", "PENDING", "REVIEW", "HOLD"]
+_TYPE_LABELS = ["TYPE_A", "TYPE_B", "TYPE_C"]
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def _clean_name(raw: str) -> str:
     """Strip libname prefix, lower-case."""
@@ -143,6 +170,7 @@ def _all_referenced_cols(sas_code: str) -> set[str]:
 
 # ── column generators ─────────────────────────────────────────────────────────
 
+
 def _gen_numeric_col(n: int, as_currency: bool = False) -> list:
     """Numeric column with NaN injection, zeros, negatives."""
     rng = np.random.default_rng(42)
@@ -165,10 +193,10 @@ def _gen_string_col(n: int, labels: list[str], mixed_case: bool = False) -> list
     cycle = (labels * ((n // len(labels)) + 1))[:n]
     if mixed_case:
         # Mix: all-caps, all-lower, title-case → exposes case-sensitivity bugs
-        variants = [cycle[i].upper() if i % 3 == 0 else
-                    cycle[i].lower() if i % 3 == 1 else
-                    cycle[i].title()
-                    for i in range(n)]
+        variants = [
+            cycle[i].upper() if i % 3 == 0 else cycle[i].lower() if i % 3 == 1 else cycle[i].title()
+            for i in range(n)
+        ]
         return variants
     return cycle
 
@@ -188,6 +216,7 @@ def _gen_by_col(n: int, n_groups: int, col_name: str) -> list:
 
 # ── main class ────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class DummyDataGenerator:
     """Generate adversarial input DataFrames from a SAS code block.
@@ -197,27 +226,24 @@ class DummyDataGenerator:
         n_rows:    Number of rows per generated table (default 30).
     """
 
-    sas_code:  str
-    n_rows:    int = _DEFAULT_N_ROWS
+    sas_code: str
+    n_rows: int = _DEFAULT_N_ROWS
 
     # populated by generate()
-    _input_tables:  list[str]    = field(default_factory=list, init=False)
-    _by_cols:       list[str]    = field(default_factory=list, init=False)
-    _numeric_cols:  set[str]     = field(default_factory=set,  init=False)
-    _string_cols:   set[str]     = field(default_factory=set,  init=False)
+    _input_tables: list[str] = field(default_factory=list, init=False)
+    _by_cols: list[str] = field(default_factory=list, init=False)
+    _numeric_cols: set[str] = field(default_factory=set, init=False)
+    _string_cols: set[str] = field(default_factory=set, init=False)
 
     def __post_init__(self) -> None:
         code = self.sas_code or ""
-        self._input_tables = (
-            _parse_table_names(code, _SET_RE) +
-            _parse_table_names(code, _MERGE_RE)
-        )
+        self._input_tables = _parse_table_names(code, _SET_RE) + _parse_table_names(code, _MERGE_RE)
         if not self._input_tables:
             self._input_tables = ["_input"]
 
-        self._by_cols      = _parse_by_columns(code)
+        self._by_cols = _parse_by_columns(code)
         self._numeric_cols = _infer_numeric_cols(code)
-        self._string_cols  = _infer_string_cols(code)
+        self._string_cols = _infer_string_cols(code)
 
         # Anything remaining that looks like a column but isn't classified
         all_refs = _all_referenced_cols(code)
@@ -271,8 +297,7 @@ class DummyDataGenerator:
         for ci, col in enumerate(sorted(self._numeric_cols)):
             if col in cols:
                 continue
-            as_currency = (not currency_used and ci == 0 and
-                           col not in (self._by_cols or []))
+            as_currency = not currency_used and ci == 0 and col not in (self._by_cols or [])
             cols[col] = _gen_numeric_col(n, as_currency=as_currency)
             if as_currency:
                 currency_used = True

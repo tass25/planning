@@ -198,9 +198,7 @@ class AblationRunner:
                 "hit_rate_delta": round(
                     summary["raptor"]["hit_rate_at_5"] - summary["flat"]["hit_rate_at_5"], 4
                 ),
-                "mrr_delta": round(
-                    summary["raptor"]["mrr"] - summary["flat"]["mrr"], 4
-                ),
+                "mrr_delta": round(summary["raptor"]["mrr"] - summary["flat"]["mrr"], 4),
             }
             for tier in ("LOW", "MODERATE", "HIGH"):
                 r_tier = summary["raptor"]["by_complexity"].get(tier, {})

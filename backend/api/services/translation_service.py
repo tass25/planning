@@ -162,8 +162,12 @@ def translate_sas_to_python(sas_code: str) -> str:
 
     Fallback chain: Nemotron (Ollama) → Azure OpenAI → Groq (key rotation) → stub.
     """
+    from config.constants import (
+        AZURE_MAX_COMPLETION_TOKENS,
+        GROQ_MAX_TOKENS,
+        LLM_TRANSLATION_TEMPERATURE,
+    )
     from config.settings import settings
-    from config.constants import AZURE_MAX_COMPLETION_TOKENS, GROQ_MAX_TOKENS, LLM_TRANSLATION_TEMPERATURE
 
     # Ensure backend package is on sys.path for partition imports
     pkg_root = str(Path(__file__).resolve().parent.parent.parent.parent)
@@ -173,7 +177,11 @@ def translate_sas_to_python(sas_code: str) -> str:
     # Detect failure modes for smarter prompts
     failure_guidance = ""
     try:
-        from partition.translation.failure_mode_detector import detect_failure_mode, get_failure_mode_rules
+        from partition.translation.failure_mode_detector import (
+            detect_failure_mode,
+            get_failure_mode_rules,
+        )
+
         fm = detect_failure_mode(sas_code)
         if fm:
             failure_guidance = get_failure_mode_rules(fm)
@@ -186,6 +194,7 @@ def translate_sas_to_python(sas_code: str) -> str:
     rendered_prompt = None
     try:
         from partition.prompts import PromptManager
+
         pm = PromptManager()
         rendered_prompt = pm.render(
             "translation_static",
@@ -229,6 +238,7 @@ def translate_sas_to_python(sas_code: str) -> str:
     if settings.ollama_base_url:
         try:
             from openai import OpenAI
+
             nem_client = OpenAI(
                 api_key=settings.ollama_api_key or "ollama",
                 base_url=settings.ollama_base_url,
@@ -253,6 +263,7 @@ def translate_sas_to_python(sas_code: str) -> str:
     if azure_key and azure_endpoint:
         try:
             from openai import AzureOpenAI
+
             client = AzureOpenAI(
                 azure_endpoint=azure_endpoint,
                 api_key=azure_key,
@@ -275,18 +286,24 @@ def translate_sas_to_python(sas_code: str) -> str:
     # --- Try Groq (fallback 2, key rotation: GROQ_API_KEY, GROQ_API_KEY_2, GROQ_API_KEY_3) ---
     try:
         from partition.utils.llm_clients import get_all_groq_keys
+
         groq_keys = get_all_groq_keys()
     except Exception:
-        groq_keys = [k for k in [
-            settings.groq_api_key,
-            settings.groq_api_key_2,
-            settings.groq_api_key_3,
-        ] if k]
+        groq_keys = [
+            k
+            for k in [
+                settings.groq_api_key,
+                settings.groq_api_key_2,
+                settings.groq_api_key_3,
+            ]
+            if k
+        ]
 
     last_groq_exc = None
     for groq_key in groq_keys:
         try:
             from openai import OpenAI
+
             client = OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
             resp = client.chat.completions.create(
                 model=settings.groq_model,
@@ -319,6 +336,5 @@ def translate_sas_to_python(sas_code: str) -> str:
         "# TRANSLATION UNAVAILABLE — no LLM API key configured\n"
         "# Configure AZURE_OPENAI_API_KEY or GROQ_API_KEY in .env\n"
         "#\n"
-        "# Original SAS code:\n"
-        + commented
+        "# Original SAS code:\n" + commented
     )

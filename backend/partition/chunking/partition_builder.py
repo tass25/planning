@@ -9,13 +9,12 @@ from __future__ import annotations
 
 import hashlib
 import re
-from uuid import UUID
 
 from partition.base_agent import BaseAgent
 
 # Regex to extract PROC subtype, e.g. PROC MEANS → "MEANS"
 _PROC_SUBTYPE_RE = re.compile(r"^\s*PROC\s+(\w+)", re.IGNORECASE | re.MULTILINE)
-from partition.models.enums import PartitionType, RiskLevel, ConversionStatus
+from partition.models.enums import ConversionStatus, PartitionType, RiskLevel
 from partition.models.partition_ir import PartitionIR
 
 from .models import BlockBoundaryEvent
@@ -55,9 +54,7 @@ class PartitionBuilderAgent(BaseAgent):
         partitions: list[PartitionIR] = []
 
         for event in events:
-            content_hash = hashlib.sha256(
-                event.raw_code.encode("utf-8")
-            ).hexdigest()
+            content_hash = hashlib.sha256(event.raw_code.encode("utf-8")).hexdigest()
 
             partition = PartitionIR(
                 file_id=event.file_id,
@@ -65,34 +62,33 @@ class PartitionBuilderAgent(BaseAgent):
                 source_code=event.raw_code,
                 line_start=event.line_start,
                 line_end=event.line_end,
-                risk_level=RiskLevel.UNCERTAIN,           # Week 4: ComplexityAgent
+                risk_level=RiskLevel.UNCERTAIN,  # Week 4: ComplexityAgent
                 conversion_status=ConversionStatus.HUMAN_REVIEW,
-                dependencies=[],                          # Week 7: IndexAgent
+                dependencies=[],  # Week 7: IndexAgent
                 metadata={
                     # ── Chunking provenance ──────────────────────────────────
-                    "content_hash":        content_hash,
-                    "boundary_method":     event.boundary_method,
-                    "confidence":          event.confidence,
-                    "is_ambiguous":        event.is_ambiguous,
-                    "nesting_depth":       event.nesting_depth,
-                    "macro_scope":         event.macro_scope,
-                    "variable_scope":      event.variable_scope,
-                    "dependency_refs":     event.dependency_refs,
-                    "test_coverage_type":  event.test_coverage_type,
-                    "trace_id":            str(event.trace_id) if event.trace_id else None,
+                    "content_hash": content_hash,
+                    "boundary_method": event.boundary_method,
+                    "confidence": event.confidence,
+                    "is_ambiguous": event.is_ambiguous,
+                    "nesting_depth": event.nesting_depth,
+                    "macro_scope": event.macro_scope,
+                    "variable_scope": event.variable_scope,
+                    "dependency_refs": event.dependency_refs,
+                    "test_coverage_type": event.test_coverage_type,
+                    "trace_id": str(event.trace_id) if event.trace_id else None,
                     # ── RAPTOR placeholders (Week 5-6) ───────────────────────
-                    "raptor_leaf_id":      None,
-                    "raptor_cluster_id":   None,
-                    "raptor_root_id":      None,
+                    "raptor_leaf_id": None,
+                    "raptor_cluster_id": None,
+                    "raptor_root_id": None,
                     "raptor_summary_tier": None,
                     # ── PROC sub-classification ──────────────────────────────
                     # Prefer boundary_detector's direct extraction; fall back to regex.
                     "proc_subtype": (
-                        event.extra_metadata.get("proc_type")
-                        or self._extract_proc_subtype(event)
+                        event.extra_metadata.get("proc_type") or self._extract_proc_subtype(event)
                     ),
                     # ── SCC / Graph placeholders (Week 7) ────────────────────
-                    "scc_id":              None,
+                    "scc_id": None,
                 },
             )
             partitions.append(partition)

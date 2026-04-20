@@ -1,7 +1,7 @@
 """Shared pytest fixtures and output-writing hooks for the Codara test suite."""
+
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -13,6 +13,7 @@ _ENV_PATH = _ROOT.parent / ".env"
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv(_ENV_PATH, override=False)
 except ImportError:
     pass  # python-dotenv not installed — env vars must be set externally
@@ -20,10 +21,12 @@ except ImportError:
 
 # ── Session-scoped fixtures ──────────────────────────────────────────────────
 
+
 @pytest.fixture(scope="session")
 def embedder():
     """Load NomicEmbedder once per session (slow: ~7s model load)."""
     from partition.raptor.embedder import NomicEmbedder
+
     return NomicEmbedder(device="cpu")
 
 
@@ -37,6 +40,7 @@ def lancedb_path():
 def kb_client(lancedb_path):
     """Session-scoped KBQueryClient pointing at the real LanceDB."""
     from partition.translation.kb_query import KBQueryClient
+
     return KBQueryClient(db_path=lancedb_path)
 
 

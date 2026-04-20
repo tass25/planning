@@ -28,6 +28,7 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class LocalCompletion:
     """Mirrors OpenAI ChatCompletion structure."""
+
     content: str
     prompt_tokens: int
     completion_tokens: int
@@ -58,6 +59,7 @@ class LocalModelClient:
 
     def __init__(self) -> None:
         from config.settings import settings
+
         self.model_path = settings.local_model_path or os.getenv("LOCAL_MODEL_PATH", "")
         self.n_threads = settings.local_model_threads
         self.n_ctx = settings.local_model_ctx
@@ -89,7 +91,7 @@ class LocalModelClient:
                 model_path=self.model_path,
                 n_ctx=self.n_ctx,
                 n_threads=self.n_threads,
-                n_gpu_layers=-1,   # -1 = use GPU if available, else CPU
+                n_gpu_layers=-1,  # -1 = use GPU if available, else CPU
                 verbose=False,
                 chat_format="chatml",  # Qwen2.5 uses ChatML format
             )
@@ -97,8 +99,7 @@ class LocalModelClient:
             logger.info("local_model_loaded", seconds=f"{elapsed:.1f}")
         except ImportError:
             raise RuntimeError(
-                "llama-cpp-python is not installed. "
-                "Run: pip install llama-cpp-python"
+                "llama-cpp-python is not installed. " "Run: pip install llama-cpp-python"
             )
 
     def _run_inference(

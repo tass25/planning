@@ -14,12 +14,12 @@ logger = structlog.get_logger()
 
 def _pid(p) -> str:
     """Extract partition ID string from a PartitionIR-like object."""
-    return str(getattr(p, 'partition_id', None) or getattr(p, 'block_id', ''))
+    return str(getattr(p, "partition_id", None) or getattr(p, "block_id", ""))
 
 
 def _fid(p) -> str:
     """Extract file ID string from a PartitionIR-like object."""
-    return str(getattr(p, 'source_file_id', None) or getattr(p, 'file_id', ''))
+    return str(getattr(p, "source_file_id", None) or getattr(p, "file_id", ""))
 
 
 class IndexAgent(BaseAgent):
@@ -95,23 +95,23 @@ class IndexAgent(BaseAgent):
             pid = _pid(p)
             dag.add_node(
                 pid,
-                partition_type=getattr(p.partition_type, 'value', str(p.partition_type)),
-                risk_level=getattr(p.risk_level, 'value', str(getattr(p, 'risk_level', ''))),
-                complexity_score=getattr(p, 'complexity_score', 0.0),
+                partition_type=getattr(p.partition_type, "value", str(p.partition_type)),
+                risk_level=getattr(p.risk_level, "value", str(getattr(p, "risk_level", ""))),
+                complexity_score=getattr(p, "complexity_score", 0.0),
                 file_id=_fid(p),
             )
             partition_lookup[pid] = p
 
             # Index by produced datasets
-            var_scope = getattr(p, 'variable_scope', None)
+            var_scope = getattr(p, "variable_scope", None)
             if isinstance(var_scope, dict):
-                for var_name in var_scope.get('outputs', []):
+                for var_name in var_scope.get("outputs", []):
                     partition_lookup[f"dataset:{var_name.upper()}"] = p
 
         # Add edges
         for p in partitions:
             pid = _pid(p)
-            dep_refs = getattr(p, 'dependency_refs', [])
+            dep_refs = getattr(p, "dependency_refs", [])
 
             for ref in dep_refs:
                 ref_upper = ref.upper()
@@ -133,17 +133,17 @@ class IndexAgent(BaseAgent):
                             break
 
             # Macro call edges
-            macro_scope = getattr(p, 'macro_scope', None)
+            macro_scope = getattr(p, "macro_scope", None)
             if isinstance(macro_scope, dict):
-                for macro_name in macro_scope.get('calls', []):
+                for macro_name in macro_scope.get("calls", []):
                     for op in partitions:
-                        op_macro = getattr(op, 'macro_scope', None)
-                        if (
-                            isinstance(op_macro, dict)
-                            and macro_name in op_macro.get('definitions', [])
+                        op_macro = getattr(op, "macro_scope", None)
+                        if isinstance(op_macro, dict) and macro_name in op_macro.get(
+                            "definitions", []
                         ):
                             dag.add_edge(
-                                pid, _pid(op),
+                                pid,
+                                _pid(op),
                                 dep_type="macro_call",
                                 macro_name=macro_name,
                             )

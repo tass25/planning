@@ -29,80 +29,88 @@ from typing import Optional
 
 _DISPLAY_FORMATS: dict[str, tuple[str, str, str]] = {
     # ── Date formats ──────────────────────────────────────────────────────────
-    "DATE9":       ("%d%b%Y",        "01JAN2024",   "strftime('%d%b%Y').str.upper()"),
-    "DATE7":       ("%d%b%y",        "01JAN24",     "strftime('%d%b%y').str.upper()"),
-    "DDMMYY10":    ("%d/%m/%Y",      "01/01/2024",  "strftime('%d/%m/%Y')"),
-    "DDMMYY8":     ("%d/%m/%y",      "01/01/24",    "strftime('%d/%m/%y')"),
-    "MMDDYY10":    ("%m/%d/%Y",      "01/31/2024",  "strftime('%m/%d/%Y')"),
-    "MMDDYY8":     ("%m/%d/%y",      "01/31/24",    "strftime('%m/%d/%y')"),
-    "YYMMDD10":    ("%Y-%m-%d",      "2024-01-31",  "strftime('%Y-%m-%d')"),
-    "YYMMDD8":     ("%y-%m-%d",      "24-01-31",    "strftime('%y-%m-%d')"),
-    "YYMMDDD8":    ("%Y%m%d",        "20240131",    "strftime('%Y%m%d')"),
-    "DATETIME20":  ("%d%b%Y:%H:%M:%S", "01JAN2024:00:00:00", "strftime('%d%b%Y:%H:%M:%S').str.upper()"),
-    "DATETIME18":  ("%d%b%Y:%H:%M:%S", "01JAN24:00:00:00",  "strftime('%d%b%y:%H:%M:%S').str.upper()"),
-    "TIME8":       ("%H:%M:%S",      "14:30:00",    "strftime('%H:%M:%S')"),
-    "TIME5":       ("%H:%M",         "14:30",       "strftime('%H:%M')"),
-    "MONYY7":      ("%b%Y",          "JAN2024",     "strftime('%b%Y').str.upper()"),
-    "MONYY5":      ("%b%y",          "JAN24",       "strftime('%b%y').str.upper()"),
-    "MONNAME":     ("%B",            "January",     "strftime('%B')"),
-    "WEEKDATE":    ("%A, %B %d, %Y", "Wednesday, January 01, 2024", "strftime('%A, %B %d, %Y')"),
-    "WEEKDATX":    ("%A, %d. %B %Y", "Wednesday, 01. January 2024","strftime('%A, %d. %B %Y')"),
-    "WEEKDAY":     ("%w",            "3 (Wednesday)","dt.dayofweek (0=Mon; SAS 1=Sun)"),
-    "DAY":         ("%d",            "01",          "dt.day"),
-    "MONTH":       ("%m",            "01",          "dt.month"),
-    "YEAR":        ("%Y",            "2024",        "dt.year"),
-    "QTR":         "quarter",        # special — handled below
-    "JULDAY":      "%j",             # day of year
-    "JULIAN":      ("%Y%j",          "2024001",     "strftime('%Y%j')"),
-    "DOWNAME":     ("%A",            "Wednesday",   "strftime('%A')"),
+    "DATE9": ("%d%b%Y", "01JAN2024", "strftime('%d%b%Y').str.upper()"),
+    "DATE7": ("%d%b%y", "01JAN24", "strftime('%d%b%y').str.upper()"),
+    "DDMMYY10": ("%d/%m/%Y", "01/01/2024", "strftime('%d/%m/%Y')"),
+    "DDMMYY8": ("%d/%m/%y", "01/01/24", "strftime('%d/%m/%y')"),
+    "MMDDYY10": ("%m/%d/%Y", "01/31/2024", "strftime('%m/%d/%Y')"),
+    "MMDDYY8": ("%m/%d/%y", "01/31/24", "strftime('%m/%d/%y')"),
+    "YYMMDD10": ("%Y-%m-%d", "2024-01-31", "strftime('%Y-%m-%d')"),
+    "YYMMDD8": ("%y-%m-%d", "24-01-31", "strftime('%y-%m-%d')"),
+    "YYMMDDD8": ("%Y%m%d", "20240131", "strftime('%Y%m%d')"),
+    "DATETIME20": (
+        "%d%b%Y:%H:%M:%S",
+        "01JAN2024:00:00:00",
+        "strftime('%d%b%Y:%H:%M:%S').str.upper()",
+    ),
+    "DATETIME18": (
+        "%d%b%Y:%H:%M:%S",
+        "01JAN24:00:00:00",
+        "strftime('%d%b%y:%H:%M:%S').str.upper()",
+    ),
+    "TIME8": ("%H:%M:%S", "14:30:00", "strftime('%H:%M:%S')"),
+    "TIME5": ("%H:%M", "14:30", "strftime('%H:%M')"),
+    "MONYY7": ("%b%Y", "JAN2024", "strftime('%b%Y').str.upper()"),
+    "MONYY5": ("%b%y", "JAN24", "strftime('%b%y').str.upper()"),
+    "MONNAME": ("%B", "January", "strftime('%B')"),
+    "WEEKDATE": ("%A, %B %d, %Y", "Wednesday, January 01, 2024", "strftime('%A, %B %d, %Y')"),
+    "WEEKDATX": ("%A, %d. %B %Y", "Wednesday, 01. January 2024", "strftime('%A, %d. %B %Y')"),
+    "WEEKDAY": ("%w", "3 (Wednesday)", "dt.dayofweek (0=Mon; SAS 1=Sun)"),
+    "DAY": ("%d", "01", "dt.day"),
+    "MONTH": ("%m", "01", "dt.month"),
+    "YEAR": ("%Y", "2024", "dt.year"),
+    "QTR": "quarter",  # special — handled below
+    "JULDAY": "%j",  # day of year
+    "JULIAN": ("%Y%j", "2024001", "strftime('%Y%j')"),
+    "DOWNAME": ("%A", "Wednesday", "strftime('%A')"),
     # ── Numeric formats ───────────────────────────────────────────────────────
-    "COMMA":       ("{:,.Nf}",       "1,234.56",    "apply(lambda x: f'{x:,.Nf}')"),
-    "DOLLAR":      ("${:,.Nf}",      "$1,234.56",   "apply(lambda x: f'${x:,.Nf}')"),
-    "EURO":        ("€{:,.Nf}",      "€1.234,56",   "apply(lambda x: f'€{x:,.Nf}')"),
-    "PERCENT":     ("{:.N%}",        "12.34%",      "apply(lambda x: f'{x:.N%}')"),
-    "BEST":        ("{}",            "auto",        "auto — use repr()"),
-    "F":           ("{:.Nf}",        "123.46",      "apply(lambda x: f'{x:.Nf}')"),
-    "E":           ("{:.Ne}",        "1.23e+02",    "apply(lambda x: f'{x:.Ne}')"),
-    "Z":           ("{:0Nd}",        "00123",       "apply(lambda x: f'{int(x):0Nd}')"),
-    "HEX":         ("{:NX}",         "0A1B",        "apply(lambda x: f'{int(x):NX}')"),
-    "BINARY":      ("{:0Nb}",        "01001011",    "apply(lambda x: f'{int(x):0Nb}')"),
-    "OCTAL":       ("{:0No}",        "0173",        "apply(lambda x: f'{int(x):0No}')"),
+    "COMMA": ("{:,.Nf}", "1,234.56", "apply(lambda x: f'{x:,.Nf}')"),
+    "DOLLAR": ("${:,.Nf}", "$1,234.56", "apply(lambda x: f'${x:,.Nf}')"),
+    "EURO": ("€{:,.Nf}", "€1.234,56", "apply(lambda x: f'€{x:,.Nf}')"),
+    "PERCENT": ("{:.N%}", "12.34%", "apply(lambda x: f'{x:.N%}')"),
+    "BEST": ("{}", "auto", "auto — use repr()"),
+    "F": ("{:.Nf}", "123.46", "apply(lambda x: f'{x:.Nf}')"),
+    "E": ("{:.Ne}", "1.23e+02", "apply(lambda x: f'{x:.Ne}')"),
+    "Z": ("{:0Nd}", "00123", "apply(lambda x: f'{int(x):0Nd}')"),
+    "HEX": ("{:NX}", "0A1B", "apply(lambda x: f'{int(x):NX}')"),
+    "BINARY": ("{:0Nb}", "01001011", "apply(lambda x: f'{int(x):0Nb}')"),
+    "OCTAL": ("{:0No}", "0173", "apply(lambda x: f'{int(x):0No}')"),
     # ── Character formats ─────────────────────────────────────────────────────
-    "$UPCASE":     (".str.upper()",  "HELLO",       ".str.upper()"),
-    "$LOWCASE":    (".str.lower()",  "hello",       ".str.lower()"),
-    "$QUOTE":      (".apply(lambda x: f'\\'{x}\\'')", "'hello'", ".apply(lambda x: f'\\'{x}\\'')"),
-    "$CHAR":       ("no-op",         "passthrough", "no transformation — char variable passthrough"),
-    "$VARYING":    ("no-op",         "passthrough", "variable-length character — use str dtype"),
+    "$UPCASE": (".str.upper()", "HELLO", ".str.upper()"),
+    "$LOWCASE": (".str.lower()", "hello", ".str.lower()"),
+    "$QUOTE": (".apply(lambda x: f'\\'{x}\\'')", "'hello'", ".apply(lambda x: f'\\'{x}\\'')"),
+    "$CHAR": ("no-op", "passthrough", "no transformation — char variable passthrough"),
+    "$VARYING": ("no-op", "passthrough", "variable-length character — use str dtype"),
     # ── Special ───────────────────────────────────────────────────────────────
-    "MISSING":     ("pd.isna()",     ".",           "pd.isna(col)"),
-    "NLDATE":      ("%d/%m/%Y",      "locale date", "strftime('%d/%m/%Y')"),
-    "NLMNY":       ("{:,.2f}",       "locale money","apply(lambda x: f'{x:,.2f}')"),
+    "MISSING": ("pd.isna()", ".", "pd.isna(col)"),
+    "NLDATE": ("%d/%m/%Y", "locale date", "strftime('%d/%m/%Y')"),
+    "NLMNY": ("{:,.2f}", "locale money", "apply(lambda x: f'{x:,.2f}')"),
 }
 
 # ── Informat map: SAS → pd.to_datetime / pd.to_timedelta kwargs ───────────────
 # Values are either a dict of kwargs for pd.to_datetime, or a special string.
 
 _INFORMAT_MAP: dict[str, dict] = {
-    "DATE":       {"format": "%d%b%Y"},
-    "DATE7":      {"format": "%d%b%y"},
-    "DDMMYY":     {"format": "%d/%m/%Y"},
-    "DDMMYY10":   {"format": "%d/%m/%Y"},
-    "DDMMYY8":    {"format": "%d/%m/%y"},
-    "MMDDYY":     {"format": "%m/%d/%Y"},
-    "MMDDYY10":   {"format": "%m/%d/%Y"},
-    "MMDDYY8":    {"format": "%m/%d/%y"},
-    "YYMMDD":     {"format": "%Y-%m-%d"},
-    "YYMMDD10":   {"format": "%Y-%m-%d"},
-    "ANYDTDTE":   {"infer_datetime_format": True},      # flexible
-    "ANYDTDTM":   {"infer_datetime_format": True},
-    "DATETIME":   {"format": "%d%b%Y:%H:%M:%S"},
+    "DATE": {"format": "%d%b%Y"},
+    "DATE7": {"format": "%d%b%y"},
+    "DDMMYY": {"format": "%d/%m/%Y"},
+    "DDMMYY10": {"format": "%d/%m/%Y"},
+    "DDMMYY8": {"format": "%d/%m/%y"},
+    "MMDDYY": {"format": "%m/%d/%Y"},
+    "MMDDYY10": {"format": "%m/%d/%Y"},
+    "MMDDYY8": {"format": "%m/%d/%y"},
+    "YYMMDD": {"format": "%Y-%m-%d"},
+    "YYMMDD10": {"format": "%Y-%m-%d"},
+    "ANYDTDTE": {"infer_datetime_format": True},  # flexible
+    "ANYDTDTM": {"infer_datetime_format": True},
+    "DATETIME": {"format": "%d%b%Y:%H:%M:%S"},
     "DATETIME20": {"format": "%d%b%Y:%H:%M:%S"},
-    "TIME":       {"format": "%H:%M:%S"},
-    "MONYY":      {"format": "%b%Y"},
-    "IS8601DA":   {"format": "%Y-%m-%d"},
-    "IS8601DT":   {"format": "%Y-%m-%dT%H:%M:%S"},
-    "E8601DA":    {"format": "%Y-%m-%d"},
-    "E8601DT":    {"format": "%Y-%m-%dT%H:%M:%S"},
+    "TIME": {"format": "%H:%M:%S"},
+    "MONYY": {"format": "%b%Y"},
+    "IS8601DA": {"format": "%Y-%m-%d"},
+    "IS8601DT": {"format": "%Y-%m-%dT%H:%M:%S"},
+    "E8601DA": {"format": "%Y-%m-%d"},
+    "E8601DT": {"format": "%Y-%m-%dT%H:%M:%S"},
 }
 
 # ── SAS date epoch ────────────────────────────────────────────────────────────
@@ -114,6 +122,7 @@ SAS_DATE_NOTE = (
 
 
 # ── Public helpers ────────────────────────────────────────────────────────────
+
 
 def _normalize_format_name(raw: str) -> str:
     """Strip width.dec suffix and uppercase: 'date9.' → 'DATE', 'comma10.2' → 'COMMA'."""
@@ -139,7 +148,8 @@ def _extract_format_statements(sas_code: str) -> list[tuple[str, str]]:
     results = []
     for m in re.finditer(
         r"\bformat\b\s+([A-Za-z_]\w*)\s+(\$?[A-Za-z_]\w*\d*\.?\d*)\s*;",
-        sas_code, re.IGNORECASE,
+        sas_code,
+        re.IGNORECASE,
     ):
         results.append((m.group(1).lower(), m.group(2)))
     return results
@@ -150,7 +160,8 @@ def _extract_informat_statements(sas_code: str) -> list[tuple[str, str]]:
     results = []
     for m in re.finditer(
         r"\binformat\b\s+([A-Za-z_]\w*)\s+(\$?[A-Za-z_]\w*\d*\.?\d*)\s*;",
-        sas_code, re.IGNORECASE,
+        sas_code,
+        re.IGNORECASE,
     ):
         results.append((m.group(1).lower(), m.group(2)))
     return results
@@ -225,7 +236,9 @@ def get_format_hint_block(sas_code: str) -> str:
                 if key in ("DATE", "DATE7", "DATE9", "DATETIME", "DATETIME20", "DATETIME18"):
                     has_date = True
             else:
-                lines.append(f"- `{var}` uses `{fmt_spec}` — translate display formatting appropriately")
+                lines.append(
+                    f"- `{var}` uses `{fmt_spec}` — translate display formatting appropriately"
+                )
         if has_date:
             lines.append(f"\n> ⚠ **SAS Date Note**: {SAS_DATE_NOTE}")
 
@@ -241,16 +254,22 @@ def get_format_hint_block(sas_code: str) -> str:
                 if "format" in inf_entry:
                     lines.append(f"- `{var}`: `pd.to_datetime(df['{var}'], format='{fmt_str}')`")
                 else:
-                    lines.append(f"- `{var}`: `pd.to_datetime(df['{var}'], infer_datetime_format=True)`")
+                    lines.append(
+                        f"- `{var}`: `pd.to_datetime(df['{var}'], infer_datetime_format=True)`"
+                    )
             else:
-                lines.append(f"- `{var}` informat `{inf_spec}`: use `pd.to_datetime()` with appropriate format")
+                lines.append(
+                    f"- `{var}` informat `{inf_spec}`: use `pd.to_datetime()` with appropriate format"
+                )
 
     # PROC FORMAT VALUE blocks
     proc_fmts = extract_proc_format_values(sas_code)
     if proc_fmts:
         lines.append("\n### User-Defined Formats (from PROC FORMAT)")
         for fmt_name, mapping in proc_fmts.items():
-            map_repr = "{" + ", ".join(f"{repr(k)}: {repr(v)}" for k, v in list(mapping.items())[:8]) + "}"
+            map_repr = (
+                "{" + ", ".join(f"{repr(k)}: {repr(v)}" for k, v in list(mapping.items())[:8]) + "}"
+            )
             if len(mapping) > 8:
                 map_repr = map_repr[:-1] + ", ...}"
             lines.append(

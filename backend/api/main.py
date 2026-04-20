@@ -27,31 +27,32 @@ if _pkg_root not in sys.path:
     sys.path.insert(0, _pkg_root)
 
 import structlog
+from config.settings import settings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from config.settings import settings
 
 # Catch weak JWT secrets before we accept a single request — better to crash
 # at startup than to sign tokens with a known default and silently expose the app
 settings.validate_production_secrets()
 
-from api.core.database import get_api_engine, init_api_db, get_api_session, UserRow, KBEntryRow
-from api.core.auth import hash_password
-from api.middleware.logging_middleware import LoggingMiddleware
-from api.middleware.error_handler import register_error_handlers
-
-from api.routes import auth, conversions, knowledge_base, admin, analytics, settings as settings_route, notifications
-
 # Telemetry spans must wrap everything that follows, so we init first.
 # When APPLICATIONINSIGHTS_CONNECTION_STRING is absent this is a no-op.
 from partition.orchestration.telemetry import _init_once as _init_telemetry
+
+from api.core.auth import hash_password
+from api.core.database import KBEntryRow, UserRow, get_api_engine, get_api_session, init_api_db
+from api.middleware.error_handler import register_error_handlers
+from api.middleware.logging_middleware import LoggingMiddleware
+from api.routes import admin, analytics, auth, conversions, knowledge_base, notifications
+from api.routes import settings as settings_route
+
 _init_telemetry()
 
 # Start the Azure Queue consumer thread if AZURE_QUEUE_NAME is configured.
 # In local dev this thread simply never picks up jobs (the queue is empty)
 # and BackgroundTasks handles pipeline execution instead.
 from api.services.queue_service import queue_service
+
 queue_service.start_worker()
 
 # ── Database ──────────────────────────────────────────────────────────────────
@@ -61,7 +62,11 @@ init_api_db(engine)
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 
-app = FastAPI(title="Codara API", version=settings.app_version, description="SAS→Python conversion accelerator")
+app = FastAPI(
+    title="Codara API",
+    version=settings.app_version,
+    description="SAS→Python conversion accelerator",
+)
 
 _log = structlog.get_logger("codara.api")
 
@@ -78,16 +83,17 @@ register_error_handlers(app)
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
-app.include_router(auth.router,                prefix="/api")
-app.include_router(conversions.router,         prefix="/api")
-app.include_router(knowledge_base.router,      prefix="/api")
-app.include_router(admin.router,               prefix="/api")
-app.include_router(analytics.router,           prefix="/api")
-app.include_router(settings_route.router,      prefix="/api")
-app.include_router(notifications.router,       prefix="/api")
+app.include_router(auth.router, prefix="/api")
+app.include_router(conversions.router, prefix="/api")
+app.include_router(knowledge_base.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
+app.include_router(analytics.router, prefix="/api")
+app.include_router(settings_route.router, prefix="/api")
+app.include_router(notifications.router, prefix="/api")
 
 
 # ── Seed data ─────────────────────────────────────────────────────────────────
+
 
 def _seed():
     """Populate the database with a default admin, a demo user, and a handful
@@ -127,53 +133,86 @@ def _seed():
             return pw
 
         admin_pw = _get_or_generate_password("CODARA_ADMIN_PASSWORD", "admin@codara.dev")
-        user_pw  = _get_or_generate_password("CODARA_USER_PASSWORD",  "user@codara.dev")
+        user_pw = _get_or_generate_password("CODARA_USER_PASSWORD", "user@codara.dev")
 
-        session.add(UserRow(
-            id="u-001",
-            email="admin@codara.dev",
-            name="Admin",
-            hashed_password=hash_password(admin_pw),
-            role="admin",
-            status="active",
-            email_verified=True,
-            created_at=now,
-        ))
+        session.add(
+            UserRow(
+                id="u-001",
+                email="admin@codara.dev",
+                name="Admin",
+                hashed_password=hash_password(admin_pw),
+                role="admin",
+                status="active",
+                email_verified=True,
+                created_at=now,
+            )
+        )
 
-        session.add(UserRow(
-            id="u-002",
-            email="user@codara.dev",
-            name="Demo User",
-            hashed_password=hash_password(user_pw),
-            role="user",
-            status="active",
-            email_verified=True,
-            created_at=now,
-        ))
+        session.add(
+            UserRow(
+                id="u-002",
+                email="user@codara.dev",
+                name="Demo User",
+                hashed_password=hash_password(user_pw),
+                role="user",
+                status="active",
+                email_verified=True,
+                created_at=now,
+            )
+        )
 
         # A few representative KB entries so the UI doesn't open to an empty
         # knowledge base on a fresh install
         kb_seeds = [
-            ("kb-001", "proc sort data=mydata; by var1 var2; run;",
-             "mydata = mydata.sort_values(['var1', 'var2'])", "data_manipulation", 0.98),
-            ("kb-002", "proc means data=mydata mean std; var income; run;",
-             "mydata['income'].agg(['mean', 'std'])", "statistics", 0.95),
-            ("kb-003", "proc freq data=mydata; tables var1*var2 / chisq; run;",
-             "pd.crosstab(mydata['var1'], mydata['var2'])\nfrom scipy.stats import chi2_contingency",
-             "statistics", 0.89),
-            ("kb-004", "data out; merge a(in=ina) b(in=inb); by id; if ina and inb; run;",
-             "out = pd.merge(a, b, on='id', how='inner')", "data_manipulation", 0.97),
-            ("kb-005", "%let threshold = 0.05;",
-             "threshold = 0.05", "macro", 0.99),
-            ("kb-006", "proc transpose data=long out=wide; by group; id time; var value; run;",
-             "wide = long.pivot(index='group', columns='time', values='value')",
-             "data_manipulation", 0.93),
+            (
+                "kb-001",
+                "proc sort data=mydata; by var1 var2; run;",
+                "mydata = mydata.sort_values(['var1', 'var2'])",
+                "data_manipulation",
+                0.98,
+            ),
+            (
+                "kb-002",
+                "proc means data=mydata mean std; var income; run;",
+                "mydata['income'].agg(['mean', 'std'])",
+                "statistics",
+                0.95,
+            ),
+            (
+                "kb-003",
+                "proc freq data=mydata; tables var1*var2 / chisq; run;",
+                "pd.crosstab(mydata['var1'], mydata['var2'])\nfrom scipy.stats import chi2_contingency",
+                "statistics",
+                0.89,
+            ),
+            (
+                "kb-004",
+                "data out; merge a(in=ina) b(in=inb); by id; if ina and inb; run;",
+                "out = pd.merge(a, b, on='id', how='inner')",
+                "data_manipulation",
+                0.97,
+            ),
+            ("kb-005", "%let threshold = 0.05;", "threshold = 0.05", "macro", 0.99),
+            (
+                "kb-006",
+                "proc transpose data=long out=wide; by group; id time; var value; run;",
+                "wide = long.pivot(index='group', columns='time', values='value')",
+                "data_manipulation",
+                0.93,
+            ),
         ]
         for kid, sas, py, cat, conf in kb_seeds:
-            session.add(KBEntryRow(
-                id=kid, sas_snippet=sas, python_translation=py,
-                category=cat, confidence=conf, created_at=now, updated_at=now,
-            ))
+            session.add(
+                KBEntryRow(
+                    id=kid,
+                    sas_snippet=sas,
+                    python_translation=py,
+                    category=cat,
+                    confidence=conf,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
 
         session.commit()
     finally:
@@ -193,14 +232,15 @@ except Exception as exc:
 # The endpoint always returns 200 — the "status" field in the body tells
 # Azure whether to route traffic here.
 
+
 @app.get("/api/health")
 async def health():
     import asyncio
 
     async def _check_sqlite() -> str:
         try:
-            from sqlalchemy import text
             from config.constants import HEALTH_CHECK_TIMEOUT_S
+            from sqlalchemy import text
 
             async def _do():
                 with engine.connect() as conn:
@@ -248,7 +288,9 @@ async def health():
             async def _do():
                 base = settings.ollama_base_url.replace("/v1", "")
                 async with httpx.AsyncClient() as client:
-                    resp = await client.get(f"{base}/api/tags", timeout=HEALTH_OLLAMA_HTTP_TIMEOUT_S)
+                    resp = await client.get(
+                        f"{base}/api/tags", timeout=HEALTH_OLLAMA_HTTP_TIMEOUT_S
+                    )
                     if resp.status_code == 200:
                         return "ok"
                 return "unavailable"
@@ -265,10 +307,7 @@ async def health():
     )
 
     # SQLite must be ok; Redis and LanceDB can be degraded without blocking traffic
-    all_ok = all(
-        s in ("ok", "degraded")
-        for s in [sqlite_status, redis_status, lancedb_status]
-    )
+    all_ok = all(s in ("ok", "degraded") for s in [sqlite_status, redis_status, lancedb_status])
 
     return {
         "status": "ok" if all_ok else "degraded",
@@ -285,4 +324,5 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=True)

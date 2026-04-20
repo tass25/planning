@@ -10,16 +10,14 @@ from __future__ import annotations
 import asyncio
 from uuid import uuid4
 
-import pytest
-
-from partition.chunking.boundary_detector import BoundaryDetector, BoundaryDetectorAgent
+from partition.chunking.boundary_detector import BoundaryDetector
 from partition.chunking.models import BlockBoundaryEvent
 from partition.chunking.partition_builder import PartitionBuilderAgent
 from partition.models.enums import PartitionType
 from partition.streaming.models import LineChunk, ParsingState
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _make_chunk(line_number: int, content: str, file_id=None) -> LineChunk:
     return LineChunk(
@@ -43,6 +41,7 @@ def _run(coro):
 
 # ── BoundaryDetector (unit tests) ─────────────────────────────────────────────
 
+
 class TestBoundaryDetector:
 
     def test_simple_data_step(self):
@@ -50,8 +49,8 @@ class TestBoundaryDetector:
         file_id = uuid4()
         pairs = [
             (_make_chunk(1, "DATA work.out;", file_id), _make_state("DATA_STEP")),
-            (_make_chunk(2, "  x = 1;",       file_id), _make_state("DATA_STEP")),
-            (_make_chunk(3, "RUN;",            file_id), _make_state("IDLE")),
+            (_make_chunk(2, "  x = 1;", file_id), _make_state("DATA_STEP")),
+            (_make_chunk(3, "RUN;", file_id), _make_state("IDLE")),
         ]
         detector = BoundaryDetector()
         events = detector.detect(pairs, file_id)
@@ -67,8 +66,8 @@ class TestBoundaryDetector:
         file_id = uuid4()
         pairs = [
             (_make_chunk(1, "PROC MEANS DATA=work.out;", file_id), _make_state("PROC_BLOCK")),
-            (_make_chunk(2, "  VAR x;",                 file_id), _make_state("PROC_BLOCK")),
-            (_make_chunk(3, "RUN;",                     file_id), _make_state("IDLE")),
+            (_make_chunk(2, "  VAR x;", file_id), _make_state("PROC_BLOCK")),
+            (_make_chunk(3, "RUN;", file_id), _make_state("IDLE")),
         ]
         events = BoundaryDetector().detect(pairs, file_id)
         assert len(events) == 1
@@ -77,9 +76,9 @@ class TestBoundaryDetector:
     def test_macro_definition(self):
         file_id = uuid4()
         pairs = [
-            (_make_chunk(1, "%MACRO foo;",  file_id), _make_state("MACRO_DEFINITION")),
-            (_make_chunk(2, "  %PUT hi;",   file_id), _make_state("MACRO_DEFINITION")),
-            (_make_chunk(3, "%MEND foo;",   file_id), _make_state("IDLE")),
+            (_make_chunk(1, "%MACRO foo;", file_id), _make_state("MACRO_DEFINITION")),
+            (_make_chunk(2, "  %PUT hi;", file_id), _make_state("MACRO_DEFINITION")),
+            (_make_chunk(3, "%MEND foo;", file_id), _make_state("IDLE")),
         ]
         events = BoundaryDetector().detect(pairs, file_id)
         assert len(events) == 1
@@ -90,7 +89,7 @@ class TestBoundaryDetector:
         file_id = uuid4()
         pairs = [
             (_make_chunk(1, "LIBNAME mylib '/data';", file_id), _make_state("GLOBAL_STATEMENT")),
-            (_make_chunk(2, "DATA work.x;",          file_id), _make_state("IDLE")),
+            (_make_chunk(2, "DATA work.x;", file_id), _make_state("IDLE")),
         ]
         events = BoundaryDetector().detect(pairs, file_id)
         assert len(events) == 1
@@ -100,10 +99,10 @@ class TestBoundaryDetector:
         """Two consecutive DATA steps emit two events."""
         file_id = uuid4()
         pairs = [
-            (_make_chunk(1, "DATA a;",  file_id), _make_state("DATA_STEP")),
-            (_make_chunk(2, "RUN;",     file_id), _make_state("IDLE")),
-            (_make_chunk(3, "DATA b;",  file_id), _make_state("DATA_STEP")),
-            (_make_chunk(4, "RUN;",     file_id), _make_state("IDLE")),
+            (_make_chunk(1, "DATA a;", file_id), _make_state("DATA_STEP")),
+            (_make_chunk(2, "RUN;", file_id), _make_state("IDLE")),
+            (_make_chunk(3, "DATA b;", file_id), _make_state("DATA_STEP")),
+            (_make_chunk(4, "RUN;", file_id), _make_state("IDLE")),
         ]
         events = BoundaryDetector().detect(pairs, file_id)
         assert len(events) == 2
@@ -115,7 +114,10 @@ class TestBoundaryDetector:
         file_id = uuid4()
         pairs = (
             [(_make_chunk(1, "DATA big;", file_id), _make_state("DATA_STEP"))]
-            + [(_make_chunk(i, f"  x{i}=1;", file_id), _make_state("DATA_STEP")) for i in range(2, 202)]
+            + [
+                (_make_chunk(i, f"  x{i}=1;", file_id), _make_state("DATA_STEP"))
+                for i in range(2, 202)
+            ]
             + [(_make_chunk(202, "RUN;", file_id), _make_state("IDLE"))]
         )
         events = BoundaryDetector().detect(pairs, file_id)
@@ -135,7 +137,7 @@ class TestBoundaryDetector:
         file_id = uuid4()
         pairs = [
             (_make_chunk(1, "DATA unclosed;", file_id), _make_state("DATA_STEP")),
-            (_make_chunk(2, "  x = 1;",       file_id), _make_state("DATA_STEP")),
+            (_make_chunk(2, "  x = 1;", file_id), _make_state("DATA_STEP")),
             # No RUN; — block never closes
         ]
         events = BoundaryDetector().detect(pairs, file_id)
@@ -148,9 +150,9 @@ class TestBoundaryDetector:
         file_id = uuid4()
         pairs = [
             (_make_chunk(5, "LIBNAME x '/foo';", file_id), _make_state("GLOBAL_STATEMENT")),
-            (_make_chunk(6, "DATA a;",           file_id), _make_state("IDLE")),
-            (_make_chunk(7, "DATA a;",           file_id), _make_state("DATA_STEP")),
-            (_make_chunk(8, "RUN;",              file_id), _make_state("IDLE")),
+            (_make_chunk(6, "DATA a;", file_id), _make_state("IDLE")),
+            (_make_chunk(7, "DATA a;", file_id), _make_state("DATA_STEP")),
+            (_make_chunk(8, "RUN;", file_id), _make_state("IDLE")),
         ]
         events = BoundaryDetector().detect(pairs, file_id)
         line_starts = [e.line_start for e in events]
@@ -158,6 +160,7 @@ class TestBoundaryDetector:
 
 
 # ── PartitionBuilderAgent ─────────────────────────────────────────────────────
+
 
 class TestPartitionBuilderAgent:
 
@@ -204,11 +207,15 @@ class TestPartitionBuilderAgent:
 
     def test_preserves_order(self):
         events = [
-            self._make_event(PartitionType.DATA_STEP,        line_start=1),
-            self._make_event(PartitionType.PROC_BLOCK,       line_start=5),
+            self._make_event(PartitionType.DATA_STEP, line_start=1),
+            self._make_event(PartitionType.PROC_BLOCK, line_start=5),
             self._make_event(PartitionType.MACRO_DEFINITION, line_start=10),
         ]
         agent = PartitionBuilderAgent()
         partitions = _run(agent.process(events))
         types = [p.partition_type for p in partitions]
-        assert types == [PartitionType.DATA_STEP, PartitionType.PROC_BLOCK, PartitionType.MACRO_DEFINITION]
+        assert types == [
+            PartitionType.DATA_STEP,
+            PartitionType.PROC_BLOCK,
+            PartitionType.MACRO_DEFINITION,
+        ]

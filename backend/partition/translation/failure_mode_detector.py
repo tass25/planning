@@ -27,43 +27,73 @@ class FailureMode(str, Enum):
 
 # Patterns applied to source_code (case-insensitive)
 DETECTION_RULES: list[tuple[FailureMode, list[re.Pattern]]] = [
-    (FailureMode.RETAIN, [
-        re.compile(r'\bRETAIN\b', re.IGNORECASE),
-    ]),
-    (FailureMode.FIRST_LAST, [
-        re.compile(r'\bFIRST\.\w+', re.IGNORECASE),
-        re.compile(r'\bLAST\.\w+', re.IGNORECASE),
-    ]),
-    (FailureMode.DATE_ARITHMETIC, [
-        re.compile(r'\b(INTNX|INTCK|MDY|TODAY\(\)|DATEPART)\b', re.IGNORECASE),
-    ]),
-    (FailureMode.MERGE_SEMANTICS, [
-        re.compile(r'\bMERGE\b.*\bBY\b', re.IGNORECASE | re.DOTALL),
-    ]),
-    (FailureMode.MISSING_VALUE_COMPARISON, [
-        re.compile(r'\b(NMISS|CMISS)\b', re.IGNORECASE),
-        re.compile(r'\.[\s]*[<>=]', re.IGNORECASE),
-    ]),
-    (FailureMode.PROC_MEANS_OUTPUT, [
-        re.compile(
-            r'PROC\s+MEANS\b.*OUTPUT\s+OUT\s*=', re.IGNORECASE | re.DOTALL
-        ),
-    ]),
-    (FailureMode.SORT_DIRECTION, [
-        re.compile(r'\bBY\b.*\bDESCENDING\b', re.IGNORECASE),
-        re.compile(r'\bPROC\s+SORT\b.*\bDESCENDING\b', re.IGNORECASE | re.DOTALL),
-    ]),
-    (FailureMode.PROC_FORMAT, [
-        re.compile(r'\bPROC\s+FORMAT\b', re.IGNORECASE),
-        re.compile(r'\bFORMAT\s+\w+\s+\$?\w+\.\s*;', re.IGNORECASE),
-    ]),
-    (FailureMode.COMPRESS_FUNCTION, [
-        re.compile(r'\bCOMPRESS\s*\(', re.IGNORECASE),
-    ]),
-    (FailureMode.PROC_REG_STEPWISE, [
-        re.compile(r'PROC\s+REG\b.*SELECTION\s*=\s*STEPWISE', re.IGNORECASE | re.DOTALL),
-        re.compile(r'PROC\s+REG\b.*SELECTION\s*=\s*(FORWARD|BACKWARD)', re.IGNORECASE | re.DOTALL),
-    ]),
+    (
+        FailureMode.RETAIN,
+        [
+            re.compile(r"\bRETAIN\b", re.IGNORECASE),
+        ],
+    ),
+    (
+        FailureMode.FIRST_LAST,
+        [
+            re.compile(r"\bFIRST\.\w+", re.IGNORECASE),
+            re.compile(r"\bLAST\.\w+", re.IGNORECASE),
+        ],
+    ),
+    (
+        FailureMode.DATE_ARITHMETIC,
+        [
+            re.compile(r"\b(INTNX|INTCK|MDY|TODAY\(\)|DATEPART)\b", re.IGNORECASE),
+        ],
+    ),
+    (
+        FailureMode.MERGE_SEMANTICS,
+        [
+            re.compile(r"\bMERGE\b.*\bBY\b", re.IGNORECASE | re.DOTALL),
+        ],
+    ),
+    (
+        FailureMode.MISSING_VALUE_COMPARISON,
+        [
+            re.compile(r"\b(NMISS|CMISS)\b", re.IGNORECASE),
+            re.compile(r"\.[\s]*[<>=]", re.IGNORECASE),
+        ],
+    ),
+    (
+        FailureMode.PROC_MEANS_OUTPUT,
+        [
+            re.compile(r"PROC\s+MEANS\b.*OUTPUT\s+OUT\s*=", re.IGNORECASE | re.DOTALL),
+        ],
+    ),
+    (
+        FailureMode.SORT_DIRECTION,
+        [
+            re.compile(r"\bBY\b.*\bDESCENDING\b", re.IGNORECASE),
+            re.compile(r"\bPROC\s+SORT\b.*\bDESCENDING\b", re.IGNORECASE | re.DOTALL),
+        ],
+    ),
+    (
+        FailureMode.PROC_FORMAT,
+        [
+            re.compile(r"\bPROC\s+FORMAT\b", re.IGNORECASE),
+            re.compile(r"\bFORMAT\s+\w+\s+\$?\w+\.\s*;", re.IGNORECASE),
+        ],
+    ),
+    (
+        FailureMode.COMPRESS_FUNCTION,
+        [
+            re.compile(r"\bCOMPRESS\s*\(", re.IGNORECASE),
+        ],
+    ),
+    (
+        FailureMode.PROC_REG_STEPWISE,
+        [
+            re.compile(r"PROC\s+REG\b.*SELECTION\s*=\s*STEPWISE", re.IGNORECASE | re.DOTALL),
+            re.compile(
+                r"PROC\s+REG\b.*SELECTION\s*=\s*(FORWARD|BACKWARD)", re.IGNORECASE | re.DOTALL
+            ),
+        ],
+    ),
 ]
 
 
@@ -175,7 +205,7 @@ CRITICAL PROC FORMAT RULES:
 - Create a NEW column (e.g. status_label, status_color, status_display) for formatted output.
 - Downstream logic (PROC FREQ, regression, WHERE clauses) must still use the ORIGINAL column.
 """,
-        FailureMode.COMPRESS_FUNCTION: """
+        FailureMode.COMPRESS_FUNCTION: r"""
 CRITICAL COMPRESS FUNCTION RULES:
 - SAS COMPRESS(str) — ONE argument: removes ALL characters that are not letters, digits,
   or underscore. Default removes spaces AND special characters.

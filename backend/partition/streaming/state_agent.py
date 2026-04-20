@@ -23,8 +23,14 @@ from partition.base_agent import BaseAgent
 from partition.streaming.models import LineChunk, ParsingState
 
 # Block types that end via an explicit keyword (RUN/QUIT/%MEND/%END).
-_EXPLICIT_CLOSE = {"DATA_STEP", "PROC_BLOCK", "SQL_BLOCK", "MACRO_DEFINITION",
-                   "CONDITIONAL_BLOCK", "LOOP_BLOCK"}
+_EXPLICIT_CLOSE = {
+    "DATA_STEP",
+    "PROC_BLOCK",
+    "SQL_BLOCK",
+    "MACRO_DEFINITION",
+    "CONDITIONAL_BLOCK",
+    "LOOP_BLOCK",
+}
 
 # Only these can be implicitly closed when a new top-level keyword arrives.
 # MACRO_DEFINITION, CONDITIONAL_BLOCK, LOOP_BLOCK are never implicitly closed —
@@ -35,7 +41,10 @@ _IMPLICIT_CLOSEABLE = {"DATA_STEP", "PROC_BLOCK", "SQL_BLOCK"}
 # GLOBAL_STATEMENT excluded so that %LET/%OPTIONS inside macros/DATA steps
 # do not prematurely close those blocks.
 _IMPLICIT_CLOSE_TRIGGERS = {
-    "DATA_STEP", "PROC_BLOCK", "SQL_BLOCK", "MACRO_DEFINITION",
+    "DATA_STEP",
+    "PROC_BLOCK",
+    "SQL_BLOCK",
+    "MACRO_DEFINITION",
     "INCLUDE_REFERENCE",
 }
 
@@ -45,57 +54,135 @@ class StateAgent(BaseAgent):
 
     agent_name = "StateAgent"
 
-    DATA_START  = re.compile(r"^\s*DATA\s+", re.IGNORECASE)
-    PROC_START  = re.compile(r"^\s*PROC\s+", re.IGNORECASE)
-    PROC_SQL    = re.compile(r"^\s*PROC\s+SQL\b", re.IGNORECASE)
+    DATA_START = re.compile(r"^\s*DATA\s+", re.IGNORECASE)
+    PROC_START = re.compile(r"^\s*PROC\s+", re.IGNORECASE)
+    PROC_SQL = re.compile(r"^\s*PROC\s+SQL\b", re.IGNORECASE)
     # Extracts the specific PROC name (e.g. "SORT", "MEANS", "REPORT") for metadata
-    PROC_NAME   = re.compile(r"^\s*PROC\s+(\w+)", re.IGNORECASE)
+    PROC_NAME = re.compile(r"^\s*PROC\s+(\w+)", re.IGNORECASE)
 
     # All known SAS PROC types — used for metadata enrichment in PartitionIR.
     # Any PROC not in this set is still parsed as PROC_BLOCK; the set is purely
     # informational (used by boundary_detector + complexity_agent).
-    KNOWN_PROC_TYPES: frozenset[str] = frozenset({
-        # Base SAS
-        "SORT", "MEANS", "FREQ", "PRINT", "CONTENTS", "DATASETS",
-        "APPEND", "COPY", "COMPARE", "TRANSPOSE", "FORMAT", "CATALOG",
-        "PRINTTO", "REPORT", "TABULATE", "UNIVARIATE", "CHART", "PLOT",
-        "TEMPLATE", "DELETE", "DISPLAY",
-        # SAS/STAT
-        "ANOVA", "GLM", "GLMSELECT", "MIXED", "GENMOD", "LOGISTIC",
-        "LIFETEST", "PHREG", "REG", "ARIMA", "AUTOREG", "FORECAST",
-        "ESM", "EXPAND", "FACTOR", "CANDISC", "DISCRIM", "CLUSTER",
-        "FASTCLUS", "ACECLUS", "DISTANCE", "CORRESP", "CATMOD",
-        "TTEST", "NPAR1WAY", "CORR", "STEPWISE", "GLIMMIX", "GEE",
-        "HPLOGISTIC", "HPSPLIT", "HPBIN", "LASSO", "PLS", "RIDGE",
-        "POWER", "SEVERITY", "COUNTREG", "LOESS", "DMINE", "DMREG",
-        # SAS/ACCESS
-        "SQL", "FEDSQL", "SDSQL", "DBLOAD", "DBF",
-        # SAS/CONNECT
-        "UPLOAD", "DOWNLOAD",
-        # SAS/GRAPH
-        "GCHART", "GPLOT", "G3D", "GANNO", "GINSIDE", "BOXPLOT",
-        # Import / Export
-        "IMPORT", "EXPORT", "CIMPORT", "CPORT",
-        # Analytics / Data Mining
-        "SURVEYSELECT", "CAPABILITY", "CHISQ", "INTERACT",
-        "OUTLIER", "KMEANS", "GRIDDED",
-        # Misc
-        "PRINTTO", "MACROS", "FCMP", "GEOCODE", "X11",
-        "CAS", "CASUTIL", "DATAMETRICS", "DATASET",
-    })
-    MACRO_DEF   = re.compile(r"^\s*%MACRO\s+(\w+)", re.IGNORECASE)
-    MACRO_END   = re.compile(r"^\s*%MEND\b", re.IGNORECASE)
-    MACRO_CALL  = re.compile(
+    KNOWN_PROC_TYPES: frozenset[str] = frozenset(
+        {
+            # Base SAS
+            "SORT",
+            "MEANS",
+            "FREQ",
+            "PRINT",
+            "CONTENTS",
+            "DATASETS",
+            "APPEND",
+            "COPY",
+            "COMPARE",
+            "TRANSPOSE",
+            "FORMAT",
+            "CATALOG",
+            "PRINTTO",
+            "REPORT",
+            "TABULATE",
+            "UNIVARIATE",
+            "CHART",
+            "PLOT",
+            "TEMPLATE",
+            "DELETE",
+            "DISPLAY",
+            # SAS/STAT
+            "ANOVA",
+            "GLM",
+            "GLMSELECT",
+            "MIXED",
+            "GENMOD",
+            "LOGISTIC",
+            "LIFETEST",
+            "PHREG",
+            "REG",
+            "ARIMA",
+            "AUTOREG",
+            "FORECAST",
+            "ESM",
+            "EXPAND",
+            "FACTOR",
+            "CANDISC",
+            "DISCRIM",
+            "CLUSTER",
+            "FASTCLUS",
+            "ACECLUS",
+            "DISTANCE",
+            "CORRESP",
+            "CATMOD",
+            "TTEST",
+            "NPAR1WAY",
+            "CORR",
+            "STEPWISE",
+            "GLIMMIX",
+            "GEE",
+            "HPLOGISTIC",
+            "HPSPLIT",
+            "HPBIN",
+            "LASSO",
+            "PLS",
+            "RIDGE",
+            "POWER",
+            "SEVERITY",
+            "COUNTREG",
+            "LOESS",
+            "DMINE",
+            "DMREG",
+            # SAS/ACCESS
+            "SQL",
+            "FEDSQL",
+            "SDSQL",
+            "DBLOAD",
+            "DBF",
+            # SAS/CONNECT
+            "UPLOAD",
+            "DOWNLOAD",
+            # SAS/GRAPH
+            "GCHART",
+            "GPLOT",
+            "G3D",
+            "GANNO",
+            "GINSIDE",
+            "BOXPLOT",
+            # Import / Export
+            "IMPORT",
+            "EXPORT",
+            "CIMPORT",
+            "CPORT",
+            # Analytics / Data Mining
+            "SURVEYSELECT",
+            "CAPABILITY",
+            "CHISQ",
+            "INTERACT",
+            "OUTLIER",
+            "KMEANS",
+            "GRIDDED",
+            # Misc
+            "PRINTTO",
+            "MACROS",
+            "FCMP",
+            "GEOCODE",
+            "X11",
+            "CAS",
+            "CASUTIL",
+            "DATAMETRICS",
+            "DATASET",
+        }
+    )
+    MACRO_DEF = re.compile(r"^\s*%MACRO\s+(\w+)", re.IGNORECASE)
+    MACRO_END = re.compile(r"^\s*%MEND\b", re.IGNORECASE)
+    MACRO_CALL = re.compile(
         r"%(?!MACRO\b|MEND\b|DO\b|END\b|IF\b|ELSE\b|LET\b|PUT\b|INCLUDE\b|GLOBAL\b|LOCAL\b)(\w+)\s*[\(;]",
         re.IGNORECASE,
     )
-    DO_START    = re.compile(r"%DO\b", re.IGNORECASE)
-    IF_START    = re.compile(r"%IF\b", re.IGNORECASE)
-    END_STMT    = re.compile(r"%END\b", re.IGNORECASE)
-    RUN_STMT    = re.compile(r"^\s*RUN\s*;", re.IGNORECASE)
-    QUIT_STMT   = re.compile(r"^\s*QUIT\s*;", re.IGNORECASE)
-    INCLUDE     = re.compile(r"%INCLUDE\s+", re.IGNORECASE)
-    GLOBAL      = re.compile(
+    DO_START = re.compile(r"%DO\b", re.IGNORECASE)
+    IF_START = re.compile(r"%IF\b", re.IGNORECASE)
+    END_STMT = re.compile(r"%END\b", re.IGNORECASE)
+    RUN_STMT = re.compile(r"^\s*RUN\s*;", re.IGNORECASE)
+    QUIT_STMT = re.compile(r"^\s*QUIT\s*;", re.IGNORECASE)
+    INCLUDE = re.compile(r"%INCLUDE\s+", re.IGNORECASE)
+    GLOBAL = re.compile(
         r"^\s*(?:"
         r"OPTIONS|LIBNAME|FILENAME|TITLE\d*|FOOTNOTE\d*"
         r"|%LET\b|%GLOBAL\b|%LOCAL\b"
@@ -118,20 +205,20 @@ class StateAgent(BaseAgent):
     )
     # %PUT NOTE/WARNING/ERROR: banner lines — trigger GLOBAL but are dropped post-merge
     # unless merged with a GLOBAL_CORE event.
-    PUT_LOG     = re.compile(r"^\s*%PUT\s+(?:NOTE|WARNING|ERROR)\s*:", re.IGNORECASE)
-    COMMENT_S   = re.compile(r"/\*")
-    COMMENT_E   = re.compile(r"\*/")
+    PUT_LOG = re.compile(r"^\s*%PUT\s+(?:NOTE|WARNING|ERROR)\s*:", re.IGNORECASE)
+    COMMENT_S = re.compile(r"/\*")
+    COMMENT_E = re.compile(r"\*/")
     # Strip from beginning of string through (and including) the first */
     # Used when in_comment=True to remove the comment-end prefix so that
     # code following the */ on the same chunk can still be processed.
     STRIP_TILL_COMMENT_E = re.compile(r"^.*?\*/", re.DOTALL)
-    STRIP_COMMENT      = re.compile(r"/\*.*?\*/", re.DOTALL)
+    STRIP_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
     STRIP_STAR_COMMENT = re.compile(r"^\s*\*[^;]*;", re.MULTILINE)
-    ASSIGN      = re.compile(r"\b(\w+)\s*=\s*")
+    ASSIGN = re.compile(r"\b(\w+)\s*=\s*")
     # Macro flow-control blocks
-    DO_STMT     = re.compile(r"^\s*%DO\b", re.IGNORECASE)   # loop start
-    COND_IF     = re.compile(r"^\s*%IF\b", re.IGNORECASE)   # conditional start
-    END_BLOCK   = re.compile(r"%END\s*;", re.IGNORECASE)     # LOOP/COND close
+    DO_STMT = re.compile(r"^\s*%DO\b", re.IGNORECASE)  # loop start
+    COND_IF = re.compile(r"^\s*%IF\b", re.IGNORECASE)  # conditional start
+    END_BLOCK = re.compile(r"%END\s*;", re.IGNORECASE)  # LOOP/COND close
     # %ELSE, %ELSE %IF, %ELSE %DO — all continue a CONDITIONAL_BLOCK chain
     ELSE_CLAUSE = re.compile(r"^\s*%ELSE\b", re.IGNORECASE)
 
@@ -161,19 +248,28 @@ class StateAgent(BaseAgent):
                 line = self.STRIP_TILL_COMMENT_E.sub("", line, count=1)
                 # If the line now has non-trivial content, fall through to process it.
                 if not line.strip():
-                    if self.state.current_block_type in (None, "IDLE") and self.state.pending_block_start is None:
+                    if (
+                        self.state.current_block_type in (None, "IDLE")
+                        and self.state.pending_block_start is None
+                    ):
                         self.state.pending_block_start = chunk_start_early
                     return self.state
                 # Fall through to process the remaining content after the comment end
             else:
                 # Still inside comment, nothing to process
-                if self.state.current_block_type in (None, "IDLE") and self.state.pending_block_start is None:
+                if (
+                    self.state.current_block_type in (None, "IDLE")
+                    and self.state.pending_block_start is None
+                ):
                     self.state.pending_block_start = chunk_start_early
                 return self.state
 
         if self.COMMENT_S.search(line) and not self.COMMENT_E.search(line):
             # Multi-line comment start: track for pending_block_start
-            if self.state.current_block_type in (None, "IDLE") and self.state.pending_block_start is None:
+            if (
+                self.state.current_block_type in (None, "IDLE")
+                and self.state.pending_block_start is None
+            ):
                 self.state.pending_block_start = chunk_start_early
             self.state.in_comment = True
             return self.state
@@ -201,7 +297,11 @@ class StateAgent(BaseAgent):
             or self.COND_IF.match(clean)
             or self.ELSE_CLAUSE.match(clean)
         )
-        if clean.strip() and not _is_block_opener and self.state.current_block_type not in (None, "IDLE"):
+        if (
+            clean.strip()
+            and not _is_block_opener
+            and self.state.current_block_type not in (None, "IDLE")
+        ):
             self.state.last_content_line = line_num
 
         # 3. Block transitions
@@ -215,15 +315,15 @@ class StateAgent(BaseAgent):
             #   • chunk whose raw content starts with "/*" or "*" → also update
             #   • other non-block lines         → reset (e.g. %let statements)
             leads_with_comment = (
-                not clean.strip()
-                or line.lstrip().startswith("/*")
-                or line.lstrip().startswith("*")
+                not clean.strip() or line.lstrip().startswith("/*") or line.lstrip().startswith("*")
             )
             if leads_with_comment:
                 if self.state.pending_block_start is None:
                     self.state.pending_block_start = chunk_start
                 else:
-                    self.state.pending_block_start = min(self.state.pending_block_start, chunk_start)
+                    self.state.pending_block_start = min(
+                        self.state.pending_block_start, chunk_start
+                    )
             else:
                 # Non-comment line — preserve pending_block_start only if this
                 # line is itself a block-opening trigger (so that the preceding
@@ -322,31 +422,46 @@ class StateAgent(BaseAgent):
     def _peek_block_type(self, clean: str) -> str | None:
         """Return what block type *clean* would open, without changing state."""
         for part in (p.strip() for p in clean.split(";") if p.strip()):
-            if self.DATA_START.match(part):    return "DATA_STEP"
-            if self.PROC_SQL.match(part):      return "SQL_BLOCK"
-            if self.PROC_START.match(part):    return "PROC_BLOCK"
-            if self.MACRO_DEF.match(part):     return "MACRO_DEFINITION"
-            if self.INCLUDE.search(part):      return "INCLUDE_REFERENCE"
-            if self.GLOBAL.match(part):        return "GLOBAL_STATEMENT"
-            if self.ELSE_CLAUSE.match(part):   return "CONDITIONAL_BLOCK"
-            if self.DO_STMT.match(part):       return "LOOP_BLOCK"
-            if self.COND_IF.match(part):       return "CONDITIONAL_BLOCK"
-            if self.MACRO_CALL.search(part + ";"):   return "MACRO_INVOCATION"
+            if self.DATA_START.match(part):
+                return "DATA_STEP"
+            if self.PROC_SQL.match(part):
+                return "SQL_BLOCK"
+            if self.PROC_START.match(part):
+                return "PROC_BLOCK"
+            if self.MACRO_DEF.match(part):
+                return "MACRO_DEFINITION"
+            if self.INCLUDE.search(part):
+                return "INCLUDE_REFERENCE"
+            if self.GLOBAL.match(part):
+                return "GLOBAL_STATEMENT"
+            if self.ELSE_CLAUSE.match(part):
+                return "CONDITIONAL_BLOCK"
+            if self.DO_STMT.match(part):
+                return "LOOP_BLOCK"
+            if self.COND_IF.match(part):
+                return "CONDITIONAL_BLOCK"
+            if self.MACRO_CALL.search(part + ";"):
+                return "MACRO_INVOCATION"
         return None
 
     def _detect_and_open(self, clean: str, line_num: int) -> None:
         """Scan sub-statements for a block-opening keyword."""
         for part in (p.strip() for p in clean.split(";") if p.strip()):
             if self.DATA_START.match(part):
-                self._open_block("DATA_STEP", line_num); return
+                self._open_block("DATA_STEP", line_num)
+                return
             elif self.PROC_SQL.match(part):
-                self._open_block("SQL_BLOCK", line_num); return
+                self._open_block("SQL_BLOCK", line_num)
+                return
             elif self.PROC_START.match(part):
-                self._open_block("PROC_BLOCK", line_num); return
+                self._open_block("PROC_BLOCK", line_num)
+                return
             elif self.MACRO_DEF.match(part):
-                self._open_block("MACRO_DEFINITION", line_num); return
+                self._open_block("MACRO_DEFINITION", line_num)
+                return
             elif self.INCLUDE.search(part):
-                self._open_block("INCLUDE_REFERENCE", line_num); return
+                self._open_block("INCLUDE_REFERENCE", line_num)
+                return
             elif self.GLOBAL.match(part):
                 # For %PUT NOTE/WARNING/ERROR: banner lines, open the GLOBAL block
                 # so the event is emitted (enabling merge with adjacent OPTIONS/etc.),
@@ -364,24 +479,25 @@ class StateAgent(BaseAgent):
                 else:
                     self._open_block("GLOBAL_STATEMENT", line_num)
                 return
-            elif self.ELSE_CLAUSE.match(part):    # %ELSE / %ELSE %IF / %ELSE %DO
+            elif self.ELSE_CLAUSE.match(part):  # %ELSE / %ELSE %IF / %ELSE %DO
                 # %ELSE %DO has an explicit %DO — needs %END; to close
                 has_do = bool(self.DO_START.search(part))
                 self._open_block("CONDITIONAL_BLOCK", line_num)
                 self.state.cond_has_do = has_do
                 return
-            elif self.DO_STMT.match(part):        # %DO loop (before MACRO_CALL)
+            elif self.DO_STMT.match(part):  # %DO loop (before MACRO_CALL)
                 self._open_block("LOOP_BLOCK", line_num)
                 self.state.cond_has_do = True  # %DO always needs %END;
                 return
-            elif self.COND_IF.match(part):         # %IF conditional (before MACRO_CALL)
+            elif self.COND_IF.match(part):  # %IF conditional (before MACRO_CALL)
                 # Check if this line contains %DO (single chunk %IF...%THEN %DO)
                 has_do = bool(self.DO_START.search(part))
                 self._open_block("CONDITIONAL_BLOCK", line_num)
                 self.state.cond_has_do = has_do
                 return
             elif self.MACRO_CALL.search(part + ";"):
-                self._open_block("MACRO_INVOCATION", line_num); return
+                self._open_block("MACRO_INVOCATION", line_num)
+                return
 
     def _open_block(self, block_type: str, line_num: int) -> None:
         # Use pending_block_start if within tolerance (leading section comments).
@@ -419,7 +535,9 @@ class StateAgent(BaseAgent):
             # If the current chunk has %DO, upgrade to do-block (needs %END)
             if self.DO_START.search(clean):
                 self.state.cond_has_do = True
-            elif ";" in clean and not self.COND_IF.match(clean) and not self.ELSE_CLAUSE.match(clean):
+            elif (
+                ";" in clean and not self.COND_IF.match(clean) and not self.ELSE_CLAUSE.match(clean)
+            ):
                 # Closing when we see any statement ending with ; that is not
                 # itself a new %IF or %ELSE (which would extend the chain)
                 self._close_block(line_num)
@@ -429,7 +547,7 @@ class StateAgent(BaseAgent):
             self._close_block(line_num)
 
     def _close_block(self, end_line: int) -> None:
-        bt    = self.state.current_block_type
+        bt = self.state.current_block_type
         start = self.state.block_start_line or end_line
         self.logger.debug("block_end", block_type=bt, started=start)
         self.state.last_closed_block = (bt, start, end_line)

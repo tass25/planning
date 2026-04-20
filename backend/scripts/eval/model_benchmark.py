@@ -38,7 +38,7 @@ import os
 import re
 import sys
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -55,6 +55,7 @@ while not (BACKEND_DIR / "partition").exists():
 sys.path.insert(0, str(BACKEND_DIR))
 
 from dotenv import load_dotenv
+
 load_dotenv(BACKEND_DIR.parent / ".env")
 
 
@@ -108,7 +109,7 @@ def _has_sas(text: str) -> bool:
 
 def parse_blocks(sas_path: Path) -> list[tuple[str, str]]:
     """Return [(label, sas_code), ...] from a SAS file."""
-    text  = sas_path.read_text(encoding="utf-8")
+    text = sas_path.read_text(encoding="utf-8")
     lines = text.splitlines()
     blocks: list[tuple[str, str]] = []
     cur_label = "block_0"
@@ -146,9 +147,11 @@ def _risk(src: str) -> str:
 # LLM call  -- raw OpenAI-compatible, captures usage
 # ==========================================================================
 
+
 def call_ollama(model: str, sas_code: str, api_key: str, base_url: str) -> dict:
     """Call Ollama and return raw dict with python_code, tokens, latency."""
     from openai import OpenAI
+
     client = OpenAI(api_key=api_key, base_url=base_url, timeout=300.0)
     t0 = time.monotonic()
     try:
@@ -156,7 +159,7 @@ def call_ollama(model: str, sas_code: str, api_key: str, base_url: str) -> dict:
             model=model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user",   "content": f"Translate this SAS code:\n\n```sas\n{sas_code}\n```"},
+                {"role": "user", "content": f"Translate this SAS code:\n\n```sas\n{sas_code}\n```"},
             ],
             temperature=0.1,
             max_tokens=2048,
@@ -165,14 +168,14 @@ def call_ollama(model: str, sas_code: str, api_key: str, base_url: str) -> dict:
         return {"error": str(exc), "latency_s": time.monotonic() - t0}
 
     latency = time.monotonic() - t0
-    raw     = resp.choices[0].message.content or ""
-    usage   = resp.usage
+    raw = resp.choices[0].message.content or ""
+    usage = resp.usage
     return {
-        "raw":               raw,
-        "latency_s":         latency,
-        "prompt_tokens":     usage.prompt_tokens     if usage else 0,
+        "raw": raw,
+        "latency_s": latency,
+        "prompt_tokens": usage.prompt_tokens if usage else 0,
         "completion_tokens": usage.completion_tokens if usage else 0,
-        "total_tokens":      usage.total_tokens      if usage else 0,
+        "total_tokens": usage.total_tokens if usage else 0,
     }
 
 
@@ -220,6 +223,7 @@ def parse_response(raw: str) -> tuple[str, list[str], float, str]:
 # Syntax check
 # ==========================================================================
 
+
 def check_syntax(code: str) -> tuple[bool, str]:
     try:
         ast.parse(code)
@@ -234,12 +238,14 @@ def check_syntax(code: str) -> tuple[bool, str]:
 # Z3 check
 # ==========================================================================
 
+
 def run_z3(sas_code: str, python_code: str) -> tuple[str, str, str, float]:
     """Return (status_value, pattern, issue, latency_ms)."""
     try:
         from partition.verification.z3_agent import Z3VerificationAgent
+
         agent = Z3VerificationAgent()
-        t0  = time.monotonic()
+        t0 = time.monotonic()
         res = agent.verify(sas_code, python_code)
         lat = (time.monotonic() - t0) * 1000
         issue = res.counterexample.get("issue", "") if res.counterexample else ""
@@ -252,88 +258,112 @@ def run_z3(sas_code: str, python_code: str) -> tuple[str, str, str, float]:
 # Data model
 # ==========================================================================
 
+
 @dataclass
 class BlockResult:
-    model:              str
-    block_index:        int
-    block_label:        str
-    risk:               str
-    sas_lines:          int
+    model: str
+    block_index: int
+    block_label: str
+    risk: str
+    sas_lines: int
     # timing & tokens
-    latency_s:          float = 0.0
-    prompt_tokens:      int   = 0
-    completion_tokens:  int   = 0
-    total_tokens:       int   = 0
-    tokens_per_second:  float = 0.0
+    latency_s: float = 0.0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    tokens_per_second: float = 0.0
     # quality
-    status:             str   = "PARTIAL"
-    confidence:         float = 0.0
-    python_loc:         int   = 0
-    import_count:       int   = 0
-    syntax_valid:       bool  = False
-    syntax_error:       str   = ""
+    status: str = "PARTIAL"
+    confidence: float = 0.0
+    python_loc: int = 0
+    import_count: int = 0
+    syntax_valid: bool = False
+    syntax_error: str = ""
     # Z3
-    z3_status:          str   = "skipped"
-    z3_pattern:         str   = ""
-    z3_issue:           str   = ""
-    z3_latency_ms:      float = 0.0
+    z3_status: str = "skipped"
+    z3_pattern: str = ""
+    z3_issue: str = ""
+    z3_latency_ms: float = 0.0
     # raw
-    python_code:        str   = ""
-    error_msg:          str   = ""
+    python_code: str = ""
+    error_msg: str = ""
 
 
 # ==========================================================================
 # Single block translation
 # ==========================================================================
 
-def translate_block(model: str, idx: int, label: str,
-                    sas: str, api_key: str, base_url: str) -> BlockResult:
-    risk      = _risk(sas)
+
+def translate_block(
+    model: str, idx: int, label: str, sas: str, api_key: str, base_url: str
+) -> BlockResult:
+    risk = _risk(sas)
     sas_lines = len([l for l in sas.splitlines() if l.strip()])
 
     data = call_ollama(model, sas, api_key, base_url)
 
     if "error" in data:
         return BlockResult(
-            model=model, block_index=idx, block_label=label,
-            risk=risk, sas_lines=sas_lines,
+            model=model,
+            block_index=idx,
+            block_label=label,
+            risk=risk,
+            sas_lines=sas_lines,
             latency_s=data.get("latency_s", 0.0),
-            status="PARTIAL", error_msg=data["error"],
+            status="PARTIAL",
+            error_msg=data["error"],
         )
 
     python_code, imports, confidence, _ = parse_response(data["raw"])
-    lat  = data["latency_s"]
+    lat = data["latency_s"]
     ptok = data["prompt_tokens"]
     ctok = data["completion_tokens"]
     ttok = data["total_tokens"]
-    tps  = ctok / lat if lat > 0 and ctok > 0 else 0.0
+    tps = ctok / lat if lat > 0 and ctok > 0 else 0.0
 
     if not python_code:
         return BlockResult(
-            model=model, block_index=idx, block_label=label,
-            risk=risk, sas_lines=sas_lines,
-            latency_s=lat, prompt_tokens=ptok,
-            completion_tokens=ctok, total_tokens=ttok,
-            tokens_per_second=tps, confidence=confidence,
-            status="PARTIAL", error_msg="empty python_code after parse",
+            model=model,
+            block_index=idx,
+            block_label=label,
+            risk=risk,
+            sas_lines=sas_lines,
+            latency_s=lat,
+            prompt_tokens=ptok,
+            completion_tokens=ctok,
+            total_tokens=ttok,
+            tokens_per_second=tps,
+            confidence=confidence,
+            status="PARTIAL",
+            error_msg="empty python_code after parse",
         )
 
     syntax_ok, syntax_err = check_syntax(python_code)
-    loc    = len([l for l in python_code.splitlines() if l.strip()])
+    loc = len([l for l in python_code.splitlines() if l.strip()])
     status = "SUCCESS" if syntax_ok and confidence >= 0.5 else "PARTIAL"
 
     z3_st, z3_pat, z3_issue, z3_lat = run_z3(sas, python_code)
 
     return BlockResult(
-        model=model, block_index=idx, block_label=label,
-        risk=risk, sas_lines=sas_lines,
+        model=model,
+        block_index=idx,
+        block_label=label,
+        risk=risk,
+        sas_lines=sas_lines,
         latency_s=lat,
-        prompt_tokens=ptok, completion_tokens=ctok,
-        total_tokens=ttok, tokens_per_second=tps,
-        status=status, confidence=confidence,
-        python_loc=loc, import_count=len(imports),
-        syntax_valid=syntax_ok, syntax_error=syntax_err,
-        z3_status=z3_st, z3_pattern=z3_pat, z3_issue=z3_issue,
+        prompt_tokens=ptok,
+        completion_tokens=ctok,
+        total_tokens=ttok,
+        tokens_per_second=tps,
+        status=status,
+        confidence=confidence,
+        python_loc=loc,
+        import_count=len(imports),
+        syntax_valid=syntax_ok,
+        syntax_error=syntax_err,
+        z3_status=z3_st,
+        z3_pattern=z3_pat,
+        z3_issue=z3_issue,
         z3_latency_ms=z3_lat,
         python_code=python_code,
     )
@@ -343,25 +373,27 @@ def translate_block(model: str, idx: int, label: str,
 # Per-model translation file
 # ==========================================================================
 
+
 def _safe(model: str) -> str:
     return re.sub(r"[^\w.-]", "_", model)
 
 
-def save_translation(model: str, results: list[BlockResult],
-                     blocks: list[tuple[str, str]], out_dir: Path) -> Path:
+def save_translation(
+    model: str, results: list[BlockResult], blocks: list[tuple[str, str]], out_dir: Path
+) -> Path:
     path = out_dir / f"translation_{_safe(model)}.py"
     run_ts = datetime.now(timezone.utc).isoformat()
 
     success = sum(1 for r in results if r.status == "SUCCESS")
-    proved  = sum(1 for r in results if r.z3_status == "formal_proof")
-    total   = len(results)
+    proved = sum(1 for r in results if r.z3_status == "formal_proof")
+    total = len(results)
     mean_lat = sum(r.latency_s for r in results) / total if total else 0
     total_tok = sum(r.total_tokens for r in results)
 
     lines = [
-        f'"""',
+        '"""',
         f"translation_{_safe(model)}.py",
-        f"",
+        "",
         f"Model        : {model}",
         f"Generated    : {run_ts}",
         f"Blocks       : {total}",
@@ -369,7 +401,7 @@ def save_translation(model: str, results: list[BlockResult],
         f"Z3 proved    : {proved}/{total}",
         f"Mean latency : {mean_lat:.1f}s",
         f"Total tokens : {total_tok:,}",
-        f'"""',
+        '"""',
         "",
     ]
 
@@ -415,11 +447,11 @@ def save_translation(model: str, results: list[BlockResult],
 # ==========================================================================
 
 _Z3_ICON = {
-    "formal_proof":       "PROVED",
-    "counterexample":     "!! COUNTEREX",
-    "unverifiable":       "unknown",
-    "error":              "error",
-    "skipped":            "skipped",
+    "formal_proof": "PROVED",
+    "counterexample": "!! COUNTEREX",
+    "unverifiable": "unknown",
+    "error": "error",
+    "skipped": "skipped",
 }
 
 
@@ -438,7 +470,8 @@ def write_benchmark_md(
             .replace("nemotron-3-super", "nemotron")
         )
 
-    def _pct(n, t):  return f"{n*100//t if t else 0}%"
+    def _pct(n, t):
+        return f"{n*100//t if t else 0}%"
 
     lines: list[str] = [
         "# Codara  --  Model Benchmark",
@@ -457,23 +490,23 @@ def write_benchmark_md(
     summaries = {}
     for model in models:
         rs = all_results.get(model, [])
-        n  = len(rs)
+        n = len(rs)
         summaries[model] = {
-            "n":            n,
-            "success":      sum(1 for r in rs if r.status == "SUCCESS"),
-            "syntax":       sum(1 for r in rs if r.syntax_valid),
-            "total_lat":    sum(r.latency_s for r in rs),
-            "mean_lat":     sum(r.latency_s for r in rs) / n if n else 0,
-            "p95_lat":      sorted(r.latency_s for r in rs)[int(n*0.95)] if rs else 0,
-            "prompt_tok":   sum(r.prompt_tokens for r in rs),
-            "compl_tok":    sum(r.completion_tokens for r in rs),
-            "total_tok":    sum(r.total_tokens for r in rs),
-            "mean_tps":     sum(r.tokens_per_second for r in rs if r.tokens_per_second>0)
-                            / max(1, sum(1 for r in rs if r.tokens_per_second>0)),
-            "mean_conf":    sum(r.confidence for r in rs) / n if n else 0,
-            "z3_proved":    sum(1 for r in rs if r.z3_status == "formal_proof"),
+            "n": n,
+            "success": sum(1 for r in rs if r.status == "SUCCESS"),
+            "syntax": sum(1 for r in rs if r.syntax_valid),
+            "total_lat": sum(r.latency_s for r in rs),
+            "mean_lat": sum(r.latency_s for r in rs) / n if n else 0,
+            "p95_lat": sorted(r.latency_s for r in rs)[int(n * 0.95)] if rs else 0,
+            "prompt_tok": sum(r.prompt_tokens for r in rs),
+            "compl_tok": sum(r.completion_tokens for r in rs),
+            "total_tok": sum(r.total_tokens for r in rs),
+            "mean_tps": sum(r.tokens_per_second for r in rs if r.tokens_per_second > 0)
+            / max(1, sum(1 for r in rs if r.tokens_per_second > 0)),
+            "mean_conf": sum(r.confidence for r in rs) / n if n else 0,
+            "z3_proved": sum(1 for r in rs if r.z3_status == "formal_proof"),
             "z3_counterex": sum(1 for r in rs if r.z3_status == "counterexample"),
-            "z3_unknown":   sum(1 for r in rs if r.z3_status == "unverifiable"),
+            "z3_unknown": sum(1 for r in rs if r.z3_status == "unverifiable"),
         }
 
     # Aggregate table
@@ -488,19 +521,19 @@ def write_benchmark_md(
         return f"| {label} | {vals} |"
 
     lines += [
-        _row("Success rate",           lambda s: _pct(s['success'], s['n'])),
-        _row("Syntax valid",           lambda s: _pct(s['syntax'], s['n'])),
-        _row("Mean confidence",        lambda s: f"{s['mean_conf']:.2f}"),
-        _row("Mean latency (s)",       lambda s: f"{s['mean_lat']:.1f}"),
-        _row("p95 latency (s)",        lambda s: f"{s['p95_lat']:.1f}"),
-        _row("Total time (s)",         lambda s: f"{s['total_lat']:.0f}"),
-        _row("Prompt tokens (total)",  lambda s: f"{s['prompt_tok']:,}"),
-        _row("Completion tokens",      lambda s: f"{s['compl_tok']:,}"),
-        _row("Total tokens",           lambda s: f"{s['total_tok']:,}"),
-        _row("Mean tok/s",             lambda s: f"{s['mean_tps']:.0f}"),
-        _row("Z3 formally proved",     lambda s: f"{s['z3_proved']}/{s['n']}"),
-        _row("Z3 counterexamples",     lambda s: f"{s['z3_counterex']}/{s['n']}"),
-        _row("Z3 unknown",             lambda s: f"{s['z3_unknown']}/{s['n']}"),
+        _row("Success rate", lambda s: _pct(s["success"], s["n"])),
+        _row("Syntax valid", lambda s: _pct(s["syntax"], s["n"])),
+        _row("Mean confidence", lambda s: f"{s['mean_conf']:.2f}"),
+        _row("Mean latency (s)", lambda s: f"{s['mean_lat']:.1f}"),
+        _row("p95 latency (s)", lambda s: f"{s['p95_lat']:.1f}"),
+        _row("Total time (s)", lambda s: f"{s['total_lat']:.0f}"),
+        _row("Prompt tokens (total)", lambda s: f"{s['prompt_tok']:,}"),
+        _row("Completion tokens", lambda s: f"{s['compl_tok']:,}"),
+        _row("Total tokens", lambda s: f"{s['total_tok']:,}"),
+        _row("Mean tok/s", lambda s: f"{s['mean_tps']:.0f}"),
+        _row("Z3 formally proved", lambda s: f"{s['z3_proved']}/{s['n']}"),
+        _row("Z3 counterexamples", lambda s: f"{s['z3_counterex']}/{s['n']}"),
+        _row("Z3 unknown", lambda s: f"{s['z3_unknown']}/{s['n']}"),
         "",
         "---",
         "",
@@ -525,17 +558,19 @@ def write_benchmark_md(
             return f"| {lbl} | {' | '.join(vals)} |"
 
         lines += [
-            _brow("Status",          lambda r: r.status),
-            _brow("Latency (s)",     lambda r: f"{r.latency_s:.1f}"),
-            _brow("Prompt tokens",   lambda r: str(r.prompt_tokens)),
-            _brow("Compl. tokens",   lambda r: str(r.completion_tokens)),
-            _brow("tok/s",           lambda r: f"{r.tokens_per_second:.0f}"),
-            _brow("Confidence",      lambda r: f"{r.confidence:.2f}"),
-            _brow("Python LOC",      lambda r: str(r.python_loc)),
-            _brow("Syntax valid",    lambda r: "yes" if r.syntax_valid else f"NO: {r.syntax_error[:40]}"),
-            _brow("Z3 result",       lambda r: _Z3_ICON.get(r.z3_status, r.z3_status)),
-            _brow("Z3 pattern",      lambda r: r.z3_pattern or "-"),
-            _brow("Z3 lat (ms)",     lambda r: f"{r.z3_latency_ms:.1f}"),
+            _brow("Status", lambda r: r.status),
+            _brow("Latency (s)", lambda r: f"{r.latency_s:.1f}"),
+            _brow("Prompt tokens", lambda r: str(r.prompt_tokens)),
+            _brow("Compl. tokens", lambda r: str(r.completion_tokens)),
+            _brow("tok/s", lambda r: f"{r.tokens_per_second:.0f}"),
+            _brow("Confidence", lambda r: f"{r.confidence:.2f}"),
+            _brow("Python LOC", lambda r: str(r.python_loc)),
+            _brow(
+                "Syntax valid", lambda r: "yes" if r.syntax_valid else f"NO: {r.syntax_error[:40]}"
+            ),
+            _brow("Z3 result", lambda r: _Z3_ICON.get(r.z3_status, r.z3_status)),
+            _brow("Z3 pattern", lambda r: r.z3_pattern or "-"),
+            _brow("Z3 lat (ms)", lambda r: f"{r.z3_latency_ms:.1f}"),
         ]
         lines.append("")
 
@@ -567,10 +602,11 @@ def write_benchmark_md(
 # Main
 # ==========================================================================
 
+
 def run(sas_path: Path, models: list[str]) -> None:
-    api_key  = os.getenv("OLLAMA_API_KEY", "")
+    api_key = os.getenv("OLLAMA_API_KEY", "")
     base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
-    run_ts   = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    run_ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     if not api_key:
         print("ERROR: OLLAMA_API_KEY not set in .env")
@@ -584,7 +620,7 @@ def run(sas_path: Path, models: list[str]) -> None:
     out_dir = BACKEND_DIR / "output" / "benchmark"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"\nCodara Model Benchmark")
+    print("\nCodara Model Benchmark")
     print(f"  SAS    : {sas_path.name}  ({len(blocks)} blocks)")
     print(f"  Models : {', '.join(models)}")
     print(f"  Output : {out_dir}\n")
@@ -605,7 +641,12 @@ def run(sas_path: Path, models: list[str]) -> None:
 
             s_icon = "OK" if r.status == "SUCCESS" else "--"
             x_icon = "ok" if r.syntax_valid else "!!"
-            z_icon = {"formal_proof":"proved","counterexample":"!! COUNTEREX","unverifiable":"unknown","skipped":"skip"}.get(r.z3_status,"?")
+            z_icon = {
+                "formal_proof": "proved",
+                "counterexample": "!! COUNTEREX",
+                "unverifiable": "unknown",
+                "skipped": "skip",
+            }.get(r.z3_status, "?")
             tok = f"{r.total_tokens}tok" if r.total_tokens else "?tok"
             print(
                 f" {s_icon}  {r.latency_s:5.1f}s  {tok:>7}"
@@ -621,11 +662,13 @@ def run(sas_path: Path, models: list[str]) -> None:
         all_results[model] = results
 
         success = sum(1 for r in results if r.status == "SUCCESS")
-        proved  = sum(1 for r in results if r.z3_status == "formal_proof")
-        ttok    = sum(r.total_tokens for r in results)
-        print(f"\n  => {model}: {success}/{len(results)} success  "
-              f"{proved}/{len(results)} z3-proved  "
-              f"{ttok} tokens  {model_elapsed:.0f}s total")
+        proved = sum(1 for r in results if r.z3_status == "formal_proof")
+        ttok = sum(r.total_tokens for r in results)
+        print(
+            f"\n  => {model}: {success}/{len(results)} success  "
+            f"{proved}/{len(results)} z3-proved  "
+            f"{ttok} tokens  {model_elapsed:.0f}s total"
+        )
 
         py_path = save_translation(model, results, blocks, out_dir)
         print(f"     saved: {py_path.name}")
@@ -637,15 +680,15 @@ def run(sas_path: Path, models: list[str]) -> None:
     # benchmark.json
     json_path = out_dir / "benchmark.json"
     json_path.write_text(
-        json.dumps({
-            "run_timestamp": run_ts,
-            "sas_file": str(sas_path),
-            "models": models,
-            "results": {
-                model: [asdict(r) for r in rs]
-                for model, rs in all_results.items()
+        json.dumps(
+            {
+                "run_timestamp": run_ts,
+                "sas_file": str(sas_path),
+                "models": models,
+                "results": {model: [asdict(r) for r in rs] for model, rs in all_results.items()},
             },
-        }, indent=2),
+            indent=2,
+        ),
         encoding="utf-8",
     )
 
@@ -665,21 +708,40 @@ def run(sas_path: Path, models: list[str]) -> None:
         print(row)
 
     total = len(blocks)
-    _cmp("Success rate",         lambda rs: f"{sum(1 for r in rs if r.status=='SUCCESS')*100//total if total else 0}%")
-    _cmp("Syntax valid",         lambda rs: f"{sum(1 for r in rs if r.syntax_valid)*100//total if total else 0}%")
-    _cmp("Mean confidence",      lambda rs: f"{sum(r.confidence for r in rs)/len(rs):.2f}" if rs else "N/A")
-    _cmp("Mean latency (s)",     lambda rs: f"{sum(r.latency_s for r in rs)/len(rs):.1f}" if rs else "N/A")
-    _cmp("Total tokens",         lambda rs: f"{sum(r.total_tokens for r in rs):,}")
-    _cmp("Mean tok/s",           lambda rs: f"{sum(r.tokens_per_second for r in rs if r.tokens_per_second>0)/max(1,sum(1 for r in rs if r.tokens_per_second>0)):.0f}")
-    _cmp("Z3 proved",            lambda rs: f"{sum(1 for r in rs if r.z3_status=='formal_proof')}/{total}")
-    _cmp("Z3 counterexamples",   lambda rs: f"{sum(1 for r in rs if r.z3_status=='counterexample')}/{total}")
+    _cmp(
+        "Success rate",
+        lambda rs: f"{sum(1 for r in rs if r.status=='SUCCESS')*100//total if total else 0}%",
+    )
+    _cmp(
+        "Syntax valid",
+        lambda rs: f"{sum(1 for r in rs if r.syntax_valid)*100//total if total else 0}%",
+    )
+    _cmp(
+        "Mean confidence",
+        lambda rs: f"{sum(r.confidence for r in rs)/len(rs):.2f}" if rs else "N/A",
+    )
+    _cmp(
+        "Mean latency (s)",
+        lambda rs: f"{sum(r.latency_s for r in rs)/len(rs):.1f}" if rs else "N/A",
+    )
+    _cmp("Total tokens", lambda rs: f"{sum(r.total_tokens for r in rs):,}")
+    _cmp(
+        "Mean tok/s",
+        lambda rs: f"{sum(r.tokens_per_second for r in rs if r.tokens_per_second>0)/max(1,sum(1 for r in rs if r.tokens_per_second>0)):.0f}",
+    )
+    _cmp("Z3 proved", lambda rs: f"{sum(1 for r in rs if r.z3_status=='formal_proof')}/{total}")
+    _cmp(
+        "Z3 counterexamples",
+        lambda rs: f"{sum(1 for r in rs if r.z3_status=='counterexample')}/{total}",
+    )
     print()
 
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("--sas", type=Path,
-                   default=BACKEND_DIR / "tests" / "fixtures" / "torture_test.sas")
+    p.add_argument(
+        "--sas", type=Path, default=BACKEND_DIR / "tests" / "fixtures" / "torture_test.sas"
+    )
     p.add_argument("--models", type=str, default=",".join(MODELS))
     args = p.parse_args()
 

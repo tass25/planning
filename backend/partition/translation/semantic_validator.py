@@ -27,7 +27,6 @@ Architecture:
 
 from __future__ import annotations
 
-import ast
 import re
 import threading
 from dataclasses import dataclass, field
@@ -42,19 +41,20 @@ from partition.translation.dummy_data_generator import DummyDataGenerator
 
 logger = structlog.get_logger()
 
-_EXEC_TIMEOUT_S = 5.0          # max seconds to run translated Python for semantic check
-_COMPARE_TOL    = 1e-4         # float comparison tolerance
-_MAX_ROWS_SHOWN = 5            # rows shown in repair hint diff
+_EXEC_TIMEOUT_S = 5.0  # max seconds to run translated Python for semantic check
+_COMPARE_TOL = 1e-4  # float comparison tolerance
+_MAX_ROWS_SHOWN = 5  # rows shown in repair hint diff
 
 # ── result type ───────────────────────────────────────────────────────────────
 
+
 @dataclass
 class SemanticValidationResult:
-    passed:      bool
-    error_type:  str = ""
-    details:     list[str] = field(default_factory=list)
-    oracle_repr: str = ""     # first N rows of expected DataFrame
-    actual_repr: str = ""     # first N rows of actual DataFrame
+    passed: bool
+    error_type: str = ""
+    details: list[str] = field(default_factory=list)
+    oracle_repr: str = ""  # first N rows of expected DataFrame
+    actual_repr: str = ""  # first N rows of actual DataFrame
 
     def to_repair_hint(self) -> str:
         """Render as a Markdown block for injection into the repair LLM prompt."""
@@ -79,6 +79,7 @@ class SemanticValidationResult:
 
 
 # ── SAS regex helpers ─────────────────────────────────────────────────────────
+
 
 def _by_cols(sas: str) -> list[str]:
     m = re.search(r"\bby\s+([^;/\n]+?)(?:;|$)", sas, re.IGNORECASE)
@@ -136,6 +137,7 @@ def _df_repr(df: Optional[pd.DataFrame], n: int = _MAX_ROWS_SHOWN) -> str:
 
 # ── frame comparison ──────────────────────────────────────────────────────────
 
+
 def _compare_frames(
     oracle: pd.DataFrame,
     actual: pd.DataFrame,
@@ -150,13 +152,11 @@ def _compare_frames(
 
     # Row count
     if len(oracle) != len(actual):
-        return False, [
-            f"Row count mismatch: oracle={len(oracle)}, actual={len(actual)}"
-        ]
+        return False, [f"Row count mismatch: oracle={len(oracle)}, actual={len(actual)}"]
 
     # Column presence
     missing = [c for c in oracle.columns if c not in actual.columns]
-    extra   = [c for c in actual.columns  if c not in oracle.columns]
+    extra = [c for c in actual.columns if c not in oracle.columns]
     if missing:
         return False, [f"Missing columns in output: {missing}"]
     if extra:
@@ -182,8 +182,11 @@ def _compare_frames(
             a_num = _coerce_numeric(a_col)
             if o_num.notna().any() and a_num.notna().any():
                 if not np.allclose(
-                    o_num.fillna(0), a_num.fillna(0),
-                    atol=tol, rtol=tol, equal_nan=False,
+                    o_num.fillna(0),
+                    a_num.fillna(0),
+                    atol=tol,
+                    rtol=tol,
+                    equal_nan=False,
                 ):
                     return False, [
                         f"Column `{col}` values differ.",
@@ -193,8 +196,10 @@ def _compare_frames(
                 continue
         except Exception:
             pass
-        if not o_col.astype(str).reset_index(drop=True).equals(
-            a_col.astype(str).reset_index(drop=True)
+        if (
+            not o_col.astype(str)
+            .reset_index(drop=True)
+            .equals(a_col.astype(str).reset_index(drop=True))
         ):
             return False, [
                 f"Column `{col}` string values differ.",
@@ -207,6 +212,7 @@ def _compare_frames(
 
 # ── oracle computations ───────────────────────────────────────────────────────
 
+
 def _oracle_proc_sort(
     sas: str,
     frames: dict[str, pd.DataFrame],
@@ -218,8 +224,8 @@ def _oracle_proc_sort(
         return None
     # Find input table (DATA= or first table in BY context)
     m_data = re.search(r"\bdata\s*=\s*([\w.]+)", sas, re.IGNORECASE)
-    m_out  = re.search(r"\bout\s*=\s*([\w.]+)", sas, re.IGNORECASE)
-    in_name  = m_data.group(1).split(".")[-1].lower() if m_data else None
+    m_out = re.search(r"\bout\s*=\s*([\w.]+)", sas, re.IGNORECASE)
+    in_name = m_data.group(1).split(".")[-1].lower() if m_data else None
     out_name = m_out.group(1).split(".")[-1].lower() if m_out else None
 
     input_df = None
@@ -252,7 +258,7 @@ def _oracle_proc_means(
         return None
 
     class_c = _class_cols(sas)
-    var_c   = _var_cols(sas)
+    var_c = _var_cols(sas)
 
     input_df = None
     if frames:
@@ -263,7 +269,8 @@ def _oracle_proc_means(
     # Parse OUTPUT OUT= spec
     output_spec_m = re.search(
         r"\boutput\s+out\s*=\s*[\w.]+\s+(.*?);",
-        sas, re.IGNORECASE | re.DOTALL,
+        sas,
+        re.IGNORECASE | re.DOTALL,
     )
     out_name_m = re.search(r"\boutput\s+out\s*=\s*([\w.]+)", sas, re.IGNORECASE)
     out_name = out_name_m.group(1).split(".")[-1].lower() if out_name_m else "output"
@@ -274,7 +281,8 @@ def _oracle_proc_means(
         body = output_spec_m.group(1)
         for stat_m in re.finditer(
             r"\b(sum|mean|n|min|max)\s*=\s*(.+?)(?=\s+\b(?:sum|mean|n|min|max)\b\s*=|$)",
-            body, re.IGNORECASE | re.DOTALL,
+            body,
+            re.IGNORECASE | re.DOTALL,
         ):
             aliases = re.findall(r"[A-Za-z_]\w*", stat_m.group(2))
             stats_map.append((stat_m.group(1).lower(), [a.lower() for a in aliases]))
@@ -292,7 +300,7 @@ def _oracle_proc_means(
 
     if valid_class:
         grouped = work.groupby(valid_class, dropna=False, sort=False)
-        result  = grouped.size().reset_index(name="_freq_")
+        result = grouped.size().reset_index(name="_freq_")
         result["_type_"] = (2 ** len(valid_class)) - 1
         for stat, aliases in stats_map:
             for idx, vc in enumerate(valid_var):
@@ -338,7 +346,7 @@ def _oracle_proc_freq(
         return None
 
     table_m = re.search(r"\btables\s+([A-Za-z_]\w*)", sas, re.IGNORECASE)
-    out_m   = re.search(r"/.*?out\s*=\s*([\w.]+)", sas, re.IGNORECASE)
+    out_m = re.search(r"/.*?out\s*=\s*([\w.]+)", sas, re.IGNORECASE)
     if not table_m:
         return None
 
@@ -352,11 +360,7 @@ def _oracle_proc_freq(
         return None
 
     include_missing = bool(re.search(r"\bmissing\b", sas, re.IGNORECASE))
-    counts = (
-        input_df[freq_col]
-        .value_counts(dropna=not include_missing)
-        .reset_index()
-    )
+    counts = input_df[freq_col].value_counts(dropna=not include_missing).reset_index()
     counts.columns = [freq_col, "count"]
     counts["percent"] = (counts["count"] / counts["count"].sum() * 100).round(2)
     return {out_name: counts}
@@ -373,12 +377,14 @@ def _oracle_retain(
     sum_specs: list[tuple[str, str]] = []
     for m in re.finditer(
         r"^\s*([A-Za-z_]\w*)\s*\+\s*([A-Za-z_]\w*|\d+(?:\.\d+)?)\s*;",
-        sas, re.IGNORECASE | re.MULTILINE,
+        sas,
+        re.IGNORECASE | re.MULTILINE,
     ):
         sum_specs.append((m.group(1).lower(), m.group(2).lower()))
     for m in re.finditer(
         r"^\s*([A-Za-z_]\w*)\s*=\s*\1\s*\+\s*([A-Za-z_]\w*|\d+(?:\.\d+)?)\s*;",
-        sas, re.IGNORECASE | re.MULTILINE,
+        sas,
+        re.IGNORECASE | re.MULTILINE,
     ):
         spec = (m.group(1).lower(), m.group(2).lower())
         if spec not in sum_specs:
@@ -398,8 +404,12 @@ def _oracle_retain(
         re.search(r"\bif\s+first\.\w+\s+then\s+do\s*;", sas, re.IGNORECASE)
         or re.search(r"\bif\s+first\.\w+\s+then\s+[A-Za-z_]\w+\s*=\s*(?:0|\.)", sas, re.IGNORECASE)
     )
-    keep_first = bool(re.search(r"\bif\s+first\.\w+\s*;|\bif\s+first\.\w+\s+then\s+output\b", sas, re.IGNORECASE))
-    keep_last  = bool(re.search(r"\bif\s+last\.\w+\s*;|\bif\s+last\.\w+\s+then\s+output\b", sas, re.IGNORECASE))
+    keep_first = bool(
+        re.search(r"\bif\s+first\.\w+\s*;|\bif\s+first\.\w+\s+then\s+output\b", sas, re.IGNORECASE)
+    )
+    keep_last = bool(
+        re.search(r"\bif\s+last\.\w+\s*;|\bif\s+last\.\w+\s+then\s+output\b", sas, re.IGNORECASE)
+    )
 
     work = input_df.copy()
     valid_by = [c for c in by if c in work.columns]
@@ -423,9 +433,13 @@ def _oracle_retain(
     if keep_first and valid_by:
         work = work.loc[work.groupby(valid_by, dropna=False, sort=False).cumcount() == 0].copy()
     if keep_last and valid_by:
-        last_mask = work.iloc[::-1].groupby(
-            [work[c] for c in valid_by], dropna=False, sort=False
-        ).cumcount().iloc[::-1] == 0
+        last_mask = (
+            work.iloc[::-1]
+            .groupby([work[c] for c in valid_by], dropna=False, sort=False)
+            .cumcount()
+            .iloc[::-1]
+            == 0
+        )
         work = work.loc[last_mask].copy()
 
     out_name = _output_name(sas) or "output"
@@ -438,7 +452,8 @@ def _oracle_lag(
 ) -> Optional[dict[str, pd.DataFrame]]:
     m = re.search(
         r"\b([A-Za-z_]\w*)\s*=\s*lag\s*\(\s*([A-Za-z_]\w*)\s*\)\s*;",
-        sas, re.IGNORECASE,
+        sas,
+        re.IGNORECASE,
     )
     if not m:
         return None
@@ -460,7 +475,8 @@ def _oracle_lag(
     valid_by = [c for c in by if c in work.columns]
     if valid_by and re.search(
         rf"\bif\s+first\.\w+\s+then\s+{re.escape(target_col)}\s*=\s*\.",
-        sas, re.IGNORECASE,
+        sas,
+        re.IGNORECASE,
     ):
         first_mask = work.groupby(valid_by, dropna=False, sort=False).cumcount() == 0
         work.loc[first_mask, target_col] = np.nan
@@ -476,7 +492,7 @@ def _oracle_first_last(
     if not re.search(r"\bfirst\.\w+|\blast\.\w+", sas, re.IGNORECASE):
         return None
     if re.search(r"\bretain\b|\blag\s*\(", sas, re.IGNORECASE):
-        return None   # handled by _oracle_retain/_oracle_lag
+        return None  # handled by _oracle_retain/_oracle_lag
 
     by = _by_cols(sas)
     if not by:
@@ -485,7 +501,7 @@ def _oracle_first_last(
     keep_first = bool(
         re.search(r"\bif\s+first\.\w+\s*;|\bif\s+first\.\w+\s+then\s+output\b", sas, re.IGNORECASE)
     )
-    keep_last  = bool(
+    keep_last = bool(
         re.search(r"\bif\s+last\.\w+\s*;|\bif\s+last\.\w+\s+then\s+output\b", sas, re.IGNORECASE)
     )
     if not keep_first and not keep_last:
@@ -502,10 +518,12 @@ def _oracle_first_last(
         return None
 
     first_mask = input_df.groupby(valid_by, dropna=False, sort=False).cumcount() == 0
-    last_mask  = (
+    last_mask = (
         input_df.iloc[::-1]
         .groupby([input_df[c] for c in valid_by], dropna=False, sort=False)
-        .cumcount().iloc[::-1] == 0
+        .cumcount()
+        .iloc[::-1]
+        == 0
     )
     mask = pd.Series(False, index=input_df.index)
     if keep_first:
@@ -530,18 +548,19 @@ def _oracle_merge(
 
     sources = re.findall(
         r"([\w.]+)(?:\s*\(\s*in\s*=\s*([A-Za-z_]\w*)\s*\))?",
-        merge_m.group(1), re.IGNORECASE,
+        merge_m.group(1),
+        re.IGNORECASE,
     )
     if len(sources) < 2:
         return None
 
-    left_name  = sources[0][0].split(".")[-1].lower()
+    left_name = sources[0][0].split(".")[-1].lower()
     right_name = sources[1][0].split(".")[-1].lower()
     left_alias = (sources[0][1] or "").lower()
-    right_alias= (sources[1][1] or "").lower()
+    right_alias = (sources[1][1] or "").lower()
     by = _by_cols(sas)
 
-    left_df  = _normalize(frames.get(left_name, pd.DataFrame()))
+    left_df = _normalize(frames.get(left_name, pd.DataFrame()))
     right_df = _normalize(frames.get(right_name, pd.DataFrame()))
     if left_df.empty or right_df.empty or not by:
         return None
@@ -561,9 +580,11 @@ def _oracle_merge(
         how = "left"
     elif right_alias and if_expr == right_alias:
         how = "right"
-    elif left_alias and right_alias and if_expr in {
-        f"{left_alias} and {right_alias}", f"{right_alias} and {left_alias}"
-    }:
+    elif (
+        left_alias
+        and right_alias
+        and if_expr in {f"{left_alias} and {right_alias}", f"{right_alias} and {left_alias}"}
+    ):
         how = "inner"
 
     result = left_df.merge(right_df, on=valid_by, how=how, sort=False, suffixes=("_x", "_y"))
@@ -572,6 +593,7 @@ def _oracle_merge(
 
 
 # ── translated Python executor ────────────────────────────────────────────────
+
 
 def _exec_with_inputs(
     python_code: str,
@@ -587,11 +609,26 @@ def _exec_with_inputs(
     namespace: dict = {
         "pd": pd,
         "np": np,
-        "__builtins__": {
-            k: v for k, v in __builtins__.items()  # type: ignore[union-attr]
-            if k not in {"open", "__import__", "exec", "eval", "compile",
-                         "exit", "quit", "input", "breakpoint"}
-        } if isinstance(__builtins__, dict) else __builtins__,
+        "__builtins__": (
+            {
+                k: v
+                for k, v in __builtins__.items()  # type: ignore[union-attr]
+                if k
+                not in {
+                    "open",
+                    "__import__",
+                    "exec",
+                    "eval",
+                    "compile",
+                    "exit",
+                    "quit",
+                    "input",
+                    "breakpoint",
+                }
+            }
+            if isinstance(__builtins__, dict)
+            else __builtins__
+        ),
     }
     # Inject input frames under their names and common aliases
     for name, df in input_frames.items():
@@ -603,7 +640,7 @@ def _exec_with_inputs(
             namespace["df_in"] = df.copy()
 
     result_holder: list[Optional[dict[str, pd.DataFrame]]] = [None]
-    error_holder:  list[str] = []
+    error_holder: list[str] = []
 
     def _run() -> None:
         try:
@@ -630,13 +667,14 @@ def _exec_with_inputs(
     t.start()
     t.join(timeout=timeout_s)
     if t.is_alive():
-        return None   # timed out
+        return None  # timed out
     if error_holder:
-        return None   # crashed — already caught by ValidationAgent
+        return None  # crashed — already caught by ValidationAgent
     return result_holder[0]
 
 
 # ── main class ────────────────────────────────────────────────────────────────
+
 
 class SemanticValidator:
     """Oracle-based semantic correctness check for translated SAS partitions.
@@ -671,9 +709,9 @@ class SemanticValidator:
 
         try:
             # 1. Generate adversarial inputs
-            gen        = DummyDataGenerator(sas_code=sas_code)
+            gen = DummyDataGenerator(sas_code=sas_code)
             input_frames = gen.generate()
-            out_names  = gen.output_table_names()
+            out_names = gen.output_table_names()
 
             # 2. Compute oracle (first applicable pattern)
             oracle_frames: Optional[dict[str, pd.DataFrame]] = None
@@ -699,9 +737,8 @@ class SemanticValidator:
 
             # 4. Compare oracle vs actual for each expected output
             for out_name, oracle_df in oracle_frames.items():
-                actual_df = (
-                    actual_frames.get(out_name)
-                    or (next(iter(actual_frames.values())) if actual_frames else None)
+                actual_df = actual_frames.get(out_name) or (
+                    next(iter(actual_frames.values())) if actual_frames else None
                 )
                 if actual_df is None:
                     return SemanticValidationResult(
@@ -716,7 +753,8 @@ class SemanticValidator:
                     )
 
                 matched, details = _compare_frames(
-                    oracle_df, actual_df,
+                    oracle_df,
+                    actual_df,
                     sort_cols=_by_cols(sas_code) or None,
                     check_order=bool(re.search(r"\bproc\s+sort\b", sas_code, re.IGNORECASE)),
                 )
@@ -735,12 +773,12 @@ class SemanticValidator:
 
         except Exception as exc:
             logger.warning("semantic_validator_error", error=str(exc))
-            return SemanticValidationResult(passed=True)   # fail open
+            return SemanticValidationResult(passed=True)  # fail open
 
 
 def _classify_semantic_error(sas_code: str, details: list[str]) -> str:
     """Map SAS pattern + diff details to a named error type."""
-    sas_lower = sas_code.lower()
+    sas_code.lower()
     detail_str = " ".join(details).lower()
 
     if "row count" in detail_str:

@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import hashlib
 import json
 import os
 import re
@@ -34,6 +33,7 @@ while not (BACKEND_DIR / "partition").exists():
 sys.path.insert(0, str(BACKEND_DIR))
 
 from dotenv import load_dotenv  # noqa: E402
+
 load_dotenv(BACKEND_DIR.parent / ".env")
 
 import structlog
@@ -47,6 +47,7 @@ SYSTEM_PROMPT = (
     "Preserve all semantics exactly: variable naming, missing value handling, "
     "BY-group processing, RETAIN behaviour, and PROC equivalents."
 )
+
 
 def to_training_example(sas_code: str, python_code: str, category: str = "") -> dict:
     """Format a pair into the Alpaca training format expected by unsloth."""
@@ -71,7 +72,9 @@ def load_gold_standard(gold_dir: Path) -> Iterator[dict]:
             sas_code = sas_file.read_text(encoding="utf-8")
             python_code = gold.get("python_translation", "")
             if sas_code.strip() and python_code.strip():
-                yield to_training_example(sas_code, python_code, gold.get("category", "gold_standard"))
+                yield to_training_example(
+                    sas_code, python_code, gold.get("category", "gold_standard")
+                )
         except Exception as exc:
             logger.warning("gold_standard_load_error", file=str(gold_file), error=str(exc))
 
@@ -81,6 +84,7 @@ def load_lancedb_pairs(lancedb_path: str) -> Iterator[dict]:
     """Load verified pairs from the LanceDB knowledge base."""
     try:
         import lancedb
+
         db = lancedb.connect(lancedb_path)
         table = db.open_table("sas_python_examples")
         df = table.to_pandas()
@@ -109,6 +113,7 @@ async def distill_with_gemini(
 
     try:
         import google.generativeai as genai
+
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel("gemini-2.0-flash")
     except ImportError:
@@ -153,6 +158,7 @@ def load_the_stack(max_samples: int = 300) -> Iterator[dict]:
     """
     try:
         from datasets import load_dataset  # type: ignore[import]
+
         ds = load_dataset(
             "bigcode/the-stack-v2-train-smol-ids",
             data_files={"train": "data/sas/*.parquet"},
@@ -205,6 +211,7 @@ def load_dpo_pairs(db_path: str) -> list[dict]:
     """Build DPO preference pairs from human corrections in SQLite."""
     try:
         import sqlite3
+
         conn = sqlite3.connect(db_path)
         rows = conn.execute("""
             SELECT c.conversion_id, c.corrected_code, c.explanation,
@@ -220,11 +227,13 @@ def load_dpo_pairs(db_path: str) -> list[dict]:
         pairs = []
         for _, corrected, _, sas_code, bad_translation in rows:
             if sas_code and corrected and bad_translation:
-                pairs.append({
-                    "prompt": f"Convert this SAS code to Python:\n\n```sas\n{sas_code.strip()}\n```",
-                    "chosen": f"```python\n{corrected.strip()}\n```",
-                    "rejected": f"```python\n{bad_translation.strip()}\n```",
-                })
+                pairs.append(
+                    {
+                        "prompt": f"Convert this SAS code to Python:\n\n```sas\n{sas_code.strip()}\n```",
+                        "chosen": f"```python\n{corrected.strip()}\n```",
+                        "rejected": f"```python\n{bad_translation.strip()}\n```",
+                    }
+                )
         logger.info("dpo_pairs_loaded", count=len(pairs))
         return pairs
     except Exception as exc:
@@ -289,7 +298,7 @@ async def main(args: argparse.Namespace) -> None:
         val=len(val_examples),
         output=str(output_path),
     )
-    print(f"\nDataset ready:")
+    print("\nDataset ready:")
     print(f"  Train: {len(train_examples)} examples → {output_path}")
     print(f"  Val:   {len(val_examples)} examples → {val_path}")
 
@@ -306,6 +315,5 @@ async def main(args: argparse.Namespace) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build fine-tuning dataset")
     parser.add_argument("--output", default="data/sft_train.jsonl")
-    parser.add_argument("--target", type=int, default=1000,
-                        help="Target number of training pairs")
+    parser.add_argument("--target", type=int, default=1000, help="Target number of training pairs")
     asyncio.run(main(parser.parse_args()))

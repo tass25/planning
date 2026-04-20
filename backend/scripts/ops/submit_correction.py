@@ -14,7 +14,6 @@ from pathlib import Path
 import duckdb
 import lancedb
 import structlog
-
 from partition.retraining.feedback_ingestion import FeedbackIngestionAgent
 
 log = structlog.get_logger(__name__)
@@ -59,6 +58,7 @@ def main() -> int:
 
     def cross_verify(sas: str, py: str) -> dict:
         import asyncio
+
         result = asyncio.run(ta._cross_verify(sas, py))
         return {"confidence": result.confidence}
 

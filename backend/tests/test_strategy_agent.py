@@ -4,12 +4,11 @@ Run with:
     cd sas_converter
     ../venv/Scripts/python -m pytest tests/test_strategy_agent.py -v
 """
+
 from __future__ import annotations
 
 import asyncio
 from uuid import uuid4
-
-import pytest
 
 from partition.complexity.strategy_agent import StrategyAgent
 from partition.models.enums import PartitionType, RiskLevel
@@ -41,6 +40,7 @@ def _make_partition(
 
 
 # ── Strategy routing ──────────────────────────────────────────────────────────
+
 
 class TestStrategyRouting:
 
@@ -107,15 +107,16 @@ class TestStrategyRouting:
 
 # ── Batch processing ──────────────────────────────────────────────────────────
 
+
 class TestStrategyBatch:
 
     def test_all_blocks_get_strategy(self):
         blocks = [
-            _make_partition(PartitionType.DATA_STEP,        RiskLevel.LOW),
+            _make_partition(PartitionType.DATA_STEP, RiskLevel.LOW),
             _make_partition(PartitionType.MACRO_DEFINITION, RiskLevel.HIGH),
-            _make_partition(PartitionType.SQL_BLOCK,        RiskLevel.MODERATE),
+            _make_partition(PartitionType.SQL_BLOCK, RiskLevel.MODERATE),
             _make_partition(PartitionType.GLOBAL_STATEMENT, RiskLevel.LOW),
-            _make_partition(PartitionType.PROC_BLOCK,       RiskLevel.MODERATE),
+            _make_partition(PartitionType.PROC_BLOCK, RiskLevel.MODERATE),
         ]
         agent = StrategyAgent()
         result = _run(agent.process(blocks))
@@ -138,7 +139,7 @@ class TestStrategyBatch:
     def test_original_blocks_not_mutated_in_place(self):
         """process() should return new objects, not mutate the originals."""
         original = _make_partition(PartitionType.DATA_STEP, RiskLevel.LOW)
-        before_meta = dict(original.metadata)
+        dict(original.metadata)
         agent = StrategyAgent()
         result = _run(agent.process([original]))
         # The returned block must have strategy

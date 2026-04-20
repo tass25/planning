@@ -21,9 +21,11 @@ if _pkg not in sys.path:
     sys.path.insert(0, _pkg)
 
 from dotenv import load_dotenv
+
 load_dotenv(Path(_pkg).parent / ".env")
 
 import structlog
+
 structlog.configure()
 
 _log = structlog.get_logger("codara.kb.ingest")
@@ -59,11 +61,11 @@ _PAIRS = [
             "run;"
         ),
         "python_code": (
-            "tr35 = pd.read_sql(\"\"\"\n"
+            'tr35 = pd.read_sql("""\n'
             "SELECT comax, liclag, codcsp, cosexe, sgrpid, copost, mctota, qtagcl\n"
             "FROM AID.METN__V15TR35__ciblage\n"
             "WHERE (cesitc='1') AND (qtagcl>17) AND (qtagcl<76)\n"
-            "\"\"\", connect)\n"
+            '""", connect)\n'
             "tr35['Code_d_partement'] = tr35['COPOST'].str[:2]"
         ),
         "category": "DATA_STEP_FILTER",
@@ -164,22 +166,18 @@ _PAIRS = [
             "run;"
         ),
         "python_code": (
-            "email = pd.read_sql(\"\"\"\n"
+            'email = pd.read_sql("""\n'
             "SELECT COMAX, LIADELPV\n"
             "FROM AID.met1__v1trdd__ciblage\n"
             "WHERE (COETB='009') AND (CESITC='1')\n"
-            "\"\"\", connect)\n"
+            '""", connect)\n'
             "email = email.sort_values(by='COMAX')"
         ),
         "category": "DATA_STEP_FILTER",
     },
     {
         "sas_code": (
-            "data part;\n"
-            "merge part(in=a) email(in=b);\n"
-            "by comax;\n"
-            "if a and b;\n"
-            "run;"
+            "data part;\n" "merge part(in=a) email(in=b);\n" "by comax;\n" "if a and b;\n" "run;"
         ),
         "python_code": "merged_data = pd.merge(part, email, on='COMAX', how='inner')",
         "category": "DATA_STEP_MERGE",
@@ -197,19 +195,13 @@ _PAIRS = [
         "category": "DATA_STEP_KEEP",
     },
     {
-        "sas_code": (
-            "proc sort data=part_ech;\n"
-            "by codcsp liclag intensite mctota_r;\n"
-            "run;"
-        ),
+        "sas_code": ("proc sort data=part_ech;\n" "by codcsp liclag intensite mctota_r;\n" "run;"),
         "python_code": "part_ech = part_ech.sort_values(by=['CODCSP','LICLAG','intensite','MCTOTA_R'])",
         "category": "PROC_SORT",
     },
     {
         "sas_code": (
-            "proc freq data=echantillonage;\n"
-            "table codcsp liclag intensite MCTOTA_R;\n"
-            "run;"
+            "proc freq data=echantillonage;\n" "table codcsp liclag intensite MCTOTA_R;\n" "run;"
         ),
         "python_code": (
             "codcsp_freq = echantillonage['CODCSP'].value_counts()\n"
@@ -278,13 +270,12 @@ _PAIRS = [
     {
         "sas_code": (
             "proc export data = swork.echantillonage\n"
-            "outfile = \"&chem.\\part.xlsx\"\n"
+            'outfile = "&chem.\\part.xlsx"\n'
             "dbms=xlsx replace;\n"
             "run;"
         ),
         "python_code": (
-            "outfile = chem + '\\\\part.xlsx'\n"
-            "echantillonage.to_excel(outfile, index=False)"
+            "outfile = chem + '\\\\part.xlsx'\n" "echantillonage.to_excel(outfile, index=False)"
         ),
         "category": "PROC_EXPORT",
     },
@@ -294,8 +285,8 @@ _PAIRS = [
             "data date;\n"
             "date_fin_annee='31dec2022'd;\n"
             "date_debut_annee_N1='01jan2021'd;\n"
-            "call symput(\"date_fin_annee\", date_fin_annee);\n"
-            "call symput(\"date_debut_annee_N1\", date_debut_annee_N1);\n"
+            'call symput("date_fin_annee", date_fin_annee);\n'
+            'call symput("date_debut_annee_N1", date_debut_annee_N1);\n'
             "run;\n"
             "endrsubmit;"
         ),
@@ -311,10 +302,10 @@ _PAIRS = [
             "rsubmit;\n"
             "data date;\n"
             "set date;\n"
-            "date_sql_fin_annee = \"'\"||put(date_fin_annee, yymmdd10.)||\"'\";\n"
-            "call symput(\"date_sql_fin_annee\", date_sql_fin_annee);\n"
-            "date_sql_debut_annee_N1 = \"'\"||put(date_debut_annee_N1, yymmdd10.)||\"'\";\n"
-            "call symput(\"date_sql_debut_annee_N1\", date_sql_debut_annee_N1);\n"
+            'date_sql_fin_annee = "\'"||put(date_fin_annee, yymmdd10.)||"\'";\n'
+            'call symput("date_sql_fin_annee", date_sql_fin_annee);\n'
+            'date_sql_debut_annee_N1 = "\'"||put(date_debut_annee_N1, yymmdd10.)||"\'";\n'
+            'call symput("date_sql_debut_annee_N1", date_sql_debut_annee_N1);\n'
             "run;\n"
             "endrsubmit;"
         ),
@@ -327,7 +318,7 @@ _PAIRS = [
     {
         "sas_code": (
             "proc export data = swork.commissions_commercants\n"
-            "outfile = \"C:\\temp\\xfo_testey\\res_alteryx\\commissions_commercants.xlsx\"\n"
+            'outfile = "C:\\temp\\xfo_testey\\res_alteryx\\commissions_commercants.xlsx"\n'
             "dbms = EXCEL2010 replace;\n"
             "run;"
         ),
@@ -445,12 +436,14 @@ def main() -> None:
     _log.info("loading_embedder")
     try:
         from partition.raptor.embedder import NomicEmbedder
+
         embedder = NomicEmbedder()
     except Exception as exc:
         _log.error("embedder_load_failed", error=str(exc))
         sys.exit(1)
 
     from partition.kb.kb_writer import KBWriter
+
     writer = KBWriter(db_path=db_path)
     before = writer.count()
     _log.info("kb_before", count=before)
@@ -458,8 +451,11 @@ def main() -> None:
     now = datetime.now(timezone.utc).isoformat()
     records = []
 
-    valid_pairs = [(p["sas_code"], p["python_code"], p.get("category", "GENERAL"))
-                   for p in _PAIRS if p.get("python_code", "").strip()]
+    valid_pairs = [
+        (p["sas_code"], p["python_code"], p.get("category", "GENERAL"))
+        for p in _PAIRS
+        if p.get("python_code", "").strip()
+    ]
 
     _log.info("pairs_to_ingest", count=len(valid_pairs))
 
@@ -472,25 +468,27 @@ def main() -> None:
         sys.exit(1)
 
     for (sas, py, category), emb in zip(valid_pairs, embeddings):
-        records.append({
-            "example_id":          f"custom-{uuid.uuid4().hex[:12]}",
-            "sas_code":            sas,
-            "python_code":         py,
-            "embedding":           emb if isinstance(emb, list) else list(emb),
-            "partition_type":      _classify(sas),
-            "complexity_tier":     "LOW",
-            "target_runtime":      "python",
-            "verified":            True,
-            "source":              "custom_pairs_v1",
-            "failure_mode":        "",
-            "verification_method": "human",
-            "verification_score":  1.0,
-            "category":            category,
-            "version":             1,
-            "superseded_by":       "",
-            "created_at":          now,
-            "issues_text":         "",
-        })
+        records.append(
+            {
+                "example_id": f"custom-{uuid.uuid4().hex[:12]}",
+                "sas_code": sas,
+                "python_code": py,
+                "embedding": emb if isinstance(emb, list) else list(emb),
+                "partition_type": _classify(sas),
+                "complexity_tier": "LOW",
+                "target_runtime": "python",
+                "verified": True,
+                "source": "custom_pairs_v1",
+                "failure_mode": "",
+                "verification_method": "human",
+                "verification_score": 1.0,
+                "category": category,
+                "version": 1,
+                "superseded_by": "",
+                "created_at": now,
+                "issues_text": "",
+            }
+        )
 
     inserted = writer.insert_pairs(records)
     after = writer.count()

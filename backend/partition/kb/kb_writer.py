@@ -23,26 +23,28 @@ logger = structlog.get_logger()
 
 # ── KB PyArrow schema ─────────────────────────────────────────────────────────
 
-KB_SCHEMA = pa.schema([
-    pa.field("example_id",          pa.string()),
-    pa.field("sas_code",            pa.string()),
-    pa.field("python_code",         pa.string()),
-    pa.field("embedding",           pa.list_(pa.float32(), 768)),
-    pa.field("partition_type",      pa.string()),
-    pa.field("complexity_tier",     pa.string()),
-    pa.field("target_runtime",      pa.string()),
-    pa.field("verified",            pa.bool_()),
-    pa.field("source",              pa.string()),
-    pa.field("failure_mode",        pa.string()),
-    pa.field("verification_method", pa.string()),
-    pa.field("verification_score",  pa.float32()),
-    pa.field("category",            pa.string()),
-    pa.field("version",             pa.int32()),
-    pa.field("superseded_by",       pa.string()),
-    pa.field("created_at",          pa.string()),
-    # pipe-separated list of pattern-specific pitfalls (from teammate KB issues field)
-    pa.field("issues_text",         pa.string()),
-])
+KB_SCHEMA = pa.schema(
+    [
+        pa.field("example_id", pa.string()),
+        pa.field("sas_code", pa.string()),
+        pa.field("python_code", pa.string()),
+        pa.field("embedding", pa.list_(pa.float32(), 768)),
+        pa.field("partition_type", pa.string()),
+        pa.field("complexity_tier", pa.string()),
+        pa.field("target_runtime", pa.string()),
+        pa.field("verified", pa.bool_()),
+        pa.field("source", pa.string()),
+        pa.field("failure_mode", pa.string()),
+        pa.field("verification_method", pa.string()),
+        pa.field("verification_score", pa.float32()),
+        pa.field("category", pa.string()),
+        pa.field("version", pa.int32()),
+        pa.field("superseded_by", pa.string()),
+        pa.field("created_at", pa.string()),
+        # pipe-separated list of pattern-specific pitfalls (from teammate KB issues field)
+        pa.field("issues_text", pa.string()),
+    ]
+)
 
 
 class KBWriter:
@@ -87,9 +89,7 @@ class KBWriter:
             table = self.db.open_table(self.TABLE_NAME)
             table.add(pairs)
         else:
-            table = self.db.create_table(
-                self.TABLE_NAME, data=pairs, schema=KB_SCHEMA
-            )
+            table = self.db.create_table(self.TABLE_NAME, data=pairs, schema=KB_SCHEMA)
 
         # Rebuild IVF index when there are enough rows
         try:

@@ -57,7 +57,5 @@ def test_raptor_advantage_moderate_high(conn):
 
 def test_ablation_query_count(conn):
     """Must have at least 500 query pairs (50 files x 10 queries x 2 indexes)."""
-    result = conn.execute(
-        "SELECT COUNT(*) FROM ablation_results"
-    ).fetchone()
+    result = conn.execute("SELECT COUNT(*) FROM ablation_results").fetchone()
     assert result[0] >= 1000, f"Expected >= 1000 rows, got {result[0]}"

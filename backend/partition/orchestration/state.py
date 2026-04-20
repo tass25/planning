@@ -44,44 +44,44 @@ class PipelineState(TypedDict):
     """
 
     # ---- Input ----
-    input_paths: list[str]           # SAS file paths to process
-    target_runtime: str              # always "python"
+    input_paths: list[str]  # SAS file paths to process
+    target_runtime: str  # always "python"
 
     # ---- Current stage ----
-    stage: str                       # PipelineStage value
-    current_file_idx: int            # Index into input_paths
+    stage: str  # PipelineStage value
+    current_file_idx: int  # Index into input_paths
 
     # ---- L2-A outputs ----
-    file_metas: list                 # list[FileMetadata] objects
-    file_ids: list[str]              # UUIDs from FileRegistry
-    cross_file_deps: dict            # {ref_raw: target_file_id}
+    file_metas: list  # list[FileMetadata] objects
+    file_ids: list[str]  # UUIDs from FileRegistry
+    cross_file_deps: dict  # {ref_raw: target_file_id}
 
     # ---- L2-B / L2-C outputs ----
-    chunks_by_file: dict             # {file_id: list[tuple[LineChunk, ParsingState]]}
-    partitions: list                 # PartitionIR objects (all files combined)
+    chunks_by_file: dict  # {file_id: list[tuple[LineChunk, ParsingState]]}
+    partitions: list  # PartitionIR objects (all files combined)
     partition_count: int
 
     # ---- L2-C RAPTOR outputs ----
-    raptor_nodes: list               # RAPTORNode objects
+    raptor_nodes: list  # RAPTORNode objects
 
     # ---- L2-D outputs (annotated on partitions) ----
     complexity_computed: bool
 
     # ---- L2-E outputs ----
     persisted_count: int
-    scc_groups: list                 # SCC group sets
-    max_hop: int                     # Dynamic hop cap
+    scc_groups: list  # SCC group sets
+    max_hop: int  # Dynamic hop cap
 
     # ---- L3 outputs ----
-    conversion_results: list         # ConversionResult objects
-    validation_passed: int           # Number of conversions passing validation
+    conversion_results: list  # ConversionResult objects
+    validation_passed: int  # Number of conversions passing validation
     namespace_violations: list[str]  # Column/schema violations detected by MIS
 
     # ---- L4 outputs ----
-    merge_results: list              # Per-file merge outputs from MergeAgent
+    merge_results: list  # Per-file merge outputs from MergeAgent
 
     # ---- Checkpointing ----
-    last_checkpoint_block: int       # Last checkpointed block number
+    last_checkpoint_block: int  # Last checkpointed block number
     checkpoint_key: Optional[str]
 
     # ---- Error tracking ----

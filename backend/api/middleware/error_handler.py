@@ -10,7 +10,7 @@ from __future__ import annotations
 import traceback
 
 import structlog
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 log = structlog.get_logger("codara.errors")

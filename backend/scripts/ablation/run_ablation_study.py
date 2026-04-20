@@ -13,6 +13,7 @@ Steps
 Run from backend/:
     venv\\Scripts\\python.exe scripts\\run_ablation_study.py
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -31,6 +32,7 @@ sys.path.insert(0, str(BACKEND_DIR))
 # Load .env (best-effort — LLMs are not required for this script)
 try:
     from dotenv import load_dotenv
+
     load_dotenv(BACKEND_DIR.parent / ".env", override=False)
 except ImportError:
     pass
@@ -49,9 +51,9 @@ import structlog
 
 log = structlog.get_logger()
 
-LANCEDB_PATH    = str(_ROOT / "data/lancedb")
-ABLATION_DB     = str(_ROOT / "data/ablation.db")
-GOLD_DIR        = _ROOT / "knowledge_base" / "gold_standard"
+LANCEDB_PATH = str(_ROOT / "data/lancedb")
+ABLATION_DB = str(_ROOT / "data/ablation.db")
+GOLD_DIR = _ROOT / "knowledge_base" / "gold_standard"
 QUERIES_PER_FILE = 10
 
 
@@ -68,10 +70,11 @@ async def _process_file(sas_path: Path, embedder, clusterer, summarizer) -> tupl
     """Stream → chunk → RAPTOR one SAS file. Returns (partitions, raptor_nodes)."""
     import hashlib
     import uuid as _uuid
-    from partition.models.file_metadata import FileMetadata
-    from partition.streaming.pipeline import run_streaming_pipeline
+
     from partition.chunking.chunking_agent import ChunkingAgent
+    from partition.models.file_metadata import FileMetadata
     from partition.raptor.tree_builder import RAPTORTreeBuilder
+    from partition.streaming.pipeline import run_streaming_pipeline
 
     # Build FileMetadata
     try:
@@ -160,6 +163,7 @@ def _write_raptor_nodes(all_nodes) -> int:
 
 def _build_flat_index() -> dict:
     from partition.evaluation.flat_index import build_flat_index
+
     result = build_flat_index(
         lancedb_path=LANCEDB_PATH,
         raptor_table="raptor_nodes",
@@ -195,23 +199,26 @@ def _generate_queries(all_partitions: list) -> list[dict]:
         risk = getattr(p, "risk_level", None)
         risk_val = risk.value if hasattr(risk, "value") else None
         if risk_val and risk_val != "UNCERTAIN":
-            tier = {"LOW": "LOW", "MOD": "MODERATE",
-                    "MODERATE": "MODERATE", "HIGH": "HIGH"}.get(risk_val, "LOW")
+            tier = {"LOW": "LOW", "MOD": "MODERATE", "MODERATE": "MODERATE", "HIGH": "HIGH"}.get(
+                risk_val, "LOW"
+            )
         else:
             # ComplexityAgent not run in ablation — infer from partition type.
             tier = _PTYPE_DEFAULT_TIER.get(ptype_str, "LOW")
 
         source_code = getattr(p, "source_code", "") or ""
 
-        part_dicts.append({
-            "partition_id":   str(getattr(p, "block_id", "")),
-            "block_id":       str(getattr(p, "block_id", "")),
-            "source_file_id": str(getattr(p, "file_id", "")),
-            "file_id":        str(getattr(p, "file_id", "")),
-            "partition_type": ptype_str,
-            "complexity_tier": tier,
-            "source_code":    source_code[:500],
-        })
+        part_dicts.append(
+            {
+                "partition_id": str(getattr(p, "block_id", "")),
+                "block_id": str(getattr(p, "block_id", "")),
+                "source_file_id": str(getattr(p, "file_id", "")),
+                "file_id": str(getattr(p, "file_id", "")),
+                "partition_type": ptype_str,
+                "complexity_tier": tier,
+                "source_code": source_code[:500],
+            }
+        )
 
     queries = generate_queries(part_dicts, n_per_file=QUERIES_PER_FILE)
     log.info("queries_generated", count=len(queries))
@@ -221,7 +228,8 @@ def _generate_queries(all_partitions: list) -> list[dict]:
 def _run_ablation(queries: list[dict], embedder) -> dict:
     from partition.evaluation.ablation_runner import AblationRunner
 
-    embed_fn = lambda text: embedder.embed_query(text)
+    def embed_fn(text):
+        return embedder.embed_query(text)
 
     runner = AblationRunner(
         lancedb_path=LANCEDB_PATH,
@@ -239,15 +247,15 @@ def _run_ablation(queries: list[dict], embedder) -> dict:
 
 
 async def main():
-    from partition.raptor.embedder import NomicEmbedder
     from partition.raptor.clustering import GMMClusterer
+    from partition.raptor.embedder import NomicEmbedder
     from partition.raptor.summarizer import ClusterSummarizer
 
     log.info("ablation_study_start", lancedb=LANCEDB_PATH, duckdb=ABLATION_DB)
 
     # Load shared components once
     log.info("loading_embedder")
-    embedder  = NomicEmbedder(device="cpu")
+    embedder = NomicEmbedder(device="cpu")
     clusterer = GMMClusterer()
     summarizer = ClusterSummarizer()
 
@@ -257,22 +265,21 @@ async def main():
         sys.exit(1)
 
     all_partitions = []
-    all_nodes      = []
+    all_nodes = []
 
     # ── Step 1: process each SAS file ────────────────────────────────────────
     for i, sas_path in enumerate(sas_files, 1):
         log.info("processing_file", i=i, total=len(sas_files), name=sas_path.name)
-        partitions, nodes = await _process_file(
-            sas_path, embedder, clusterer, summarizer
-        )
+        partitions, nodes = await _process_file(sas_path, embedder, clusterer, summarizer)
         all_partitions.extend(partitions)
         all_nodes.extend(nodes)
-        log.info("file_done", name=sas_path.name,
-                 partitions=len(partitions), nodes=len(nodes))
+        log.info("file_done", name=sas_path.name, partitions=len(partitions), nodes=len(nodes))
 
-    log.info("all_files_processed",
-             total_partitions=len(all_partitions),
-             total_raptor_nodes=len(all_nodes))
+    log.info(
+        "all_files_processed",
+        total_partitions=len(all_partitions),
+        total_raptor_nodes=len(all_nodes),
+    )
 
     if not all_nodes:
         log.error("no_raptor_nodes_produced — check chunking pipeline")
@@ -329,7 +336,7 @@ async def main():
     # Weighted average by sample count so a tier with n=47 doesn't pull down
     # a tier with n=128 equally.
     by_c = summary.get("raptor", {}).get("by_complexity", {})
-    adv  = summary.get("advantage", {})
+    adv = summary.get("advantage", {})
     weighted_num = sum(
         adv.get(f"{t}_hit_rate_delta", 0) * by_c.get(t, {}).get("count", 0)
         for t in ("MODERATE", "HIGH")

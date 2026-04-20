@@ -2,29 +2,30 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 from sqlalchemy import (
-    Column,
-    String,
-    Integer,
-    Float,
     Boolean,
-    Text,
+    Column,
+    Float,
     ForeignKey,
+    Integer,
+    String,
+    Text,
     create_engine,
     event,
 )
-from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 Base = declarative_base()
 
 
 # ── ORM Models ────────────────────────────────────────────────────────────────
 
+
 class FileRegistryRow(Base):
     """Stores one row per discovered .sas file."""
+
     __tablename__ = "file_registry"
 
     file_id = Column(String, primary_key=True)
@@ -42,15 +43,16 @@ class FileRegistryRow(Base):
 
 class CrossFileDependencyRow(Base):
     """Stores one row per cross-file reference found during scanning."""
+
     __tablename__ = "cross_file_deps"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     source_file_id = Column(String, ForeignKey("file_registry.file_id"), nullable=False)
-    ref_type = Column(String, nullable=False)          # INCLUDE | LIBNAME
-    raw_reference = Column(String, nullable=False)      # original text matched
+    ref_type = Column(String, nullable=False)  # INCLUDE | LIBNAME
+    raw_reference = Column(String, nullable=False)  # original text matched
     resolved = Column(Boolean, default=False)
     target_file_id = Column(String, ForeignKey("file_registry.file_id"), nullable=True)
-    target_path = Column(String, nullable=True)         # resolved absolute path
+    target_path = Column(String, nullable=True)  # resolved absolute path
 
 
 class DataLineageRow(Base):
@@ -60,22 +62,24 @@ class DataLineageRow(Base):
         TABLE_READ  — block reads from source_dataset (SET, MERGE, FROM)
         TABLE_WRITE — block writes to target_dataset  (DATA, CREATE TABLE, INSERT INTO)
     """
+
     __tablename__ = "data_lineage"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     source_file_id = Column(String, ForeignKey("file_registry.file_id"), nullable=False)
-    lineage_type = Column(String, nullable=False)       # TABLE_READ | TABLE_WRITE
-    source_dataset = Column(String, nullable=True)      # e.g. 'staging.clean'
-    target_dataset = Column(String, nullable=True)      # e.g. 'tgt.summary'
-    source_columns = Column(Text, nullable=True)        # JSON list: ["unit_price", "qty"]
-    target_column = Column(String, nullable=True)       # e.g. 'revenue'
-    transform_expr = Column(String, nullable=True)      # e.g. 'SUM(unit_price * quantity)'
-    block_line_start = Column(Integer, nullable=True)   # line in source file
+    lineage_type = Column(String, nullable=False)  # TABLE_READ | TABLE_WRITE
+    source_dataset = Column(String, nullable=True)  # e.g. 'staging.clean'
+    target_dataset = Column(String, nullable=True)  # e.g. 'tgt.summary'
+    source_columns = Column(Text, nullable=True)  # JSON list: ["unit_price", "qty"]
+    target_column = Column(String, nullable=True)  # e.g. 'revenue'
+    transform_expr = Column(String, nullable=True)  # e.g. 'SUM(unit_price * quantity)'
+    block_line_start = Column(Integer, nullable=True)  # line in source file
     block_line_end = Column(Integer, nullable=True)
 
 
 class PartitionIRRow(Base):
     """Stores one row per partitioned SAS code block."""
+
     __tablename__ = "partition_ir"
 
     partition_id = Column(String, primary_key=True)
@@ -102,6 +106,7 @@ class PartitionIRRow(Base):
 
 class ConversionResultRow(Base):
     """Stores one row per completed block conversion."""
+
     __tablename__ = "conversion_results"
 
     conversion_id = Column(String, primary_key=True)
@@ -118,6 +123,7 @@ class ConversionResultRow(Base):
 
 class MergedScriptRow(Base):
     """Stores one row per merged output script."""
+
     __tablename__ = "merged_scripts"
 
     script_id = Column(String, primary_key=True)
@@ -129,6 +135,7 @@ class MergedScriptRow(Base):
 
 
 # ── Engine / Session helpers ──────────────────────────────────────────────────
+
 
 def get_engine(db_path: str = "data/file_registry.db"):
     """Create a SQLAlchemy engine for the given SQLite database.
@@ -164,9 +171,7 @@ def init_db(engine) -> None:
             )
         )
         row = conn.execute(
-            __import__("sqlalchemy").text(
-                "SELECT MAX(version) FROM schema_version"
-            )
+            __import__("sqlalchemy").text("SELECT MAX(version) FROM schema_version")
         ).scalar()
         current = row or 0
         if current < SCHEMA_VERSION:

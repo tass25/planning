@@ -21,13 +21,13 @@ Novel contribution:
 from __future__ import annotations
 
 import ast
-import re
-import json
 import asyncio
+import json
+import re
 import textwrap
 from dataclasses import dataclass, field
-from typing import Optional
 from enum import Enum
+from typing import Optional
 
 import structlog
 
@@ -36,24 +36,25 @@ log = structlog.get_logger()
 
 # ── Semantic Transformation Graph (STG) ──────────────────────────────────────
 
+
 class OpType(str, Enum):
-    READ       = "READ"
-    FILTER     = "FILTER"
-    SORT       = "SORT"
-    GROUP      = "GROUP"
-    AGGREGATE  = "AGGREGATE"
-    COMPUTE    = "COMPUTE"    # new column derivation
-    MERGE      = "MERGE"
-    DEDUP      = "DEDUP"
-    TRANSPOSE  = "TRANSPOSE"
-    WRITE      = "WRITE"
+    READ = "READ"
+    FILTER = "FILTER"
+    SORT = "SORT"
+    GROUP = "GROUP"
+    AGGREGATE = "AGGREGATE"
+    COMPUTE = "COMPUTE"  # new column derivation
+    MERGE = "MERGE"
+    DEDUP = "DEDUP"
+    TRANSPOSE = "TRANSPOSE"
+    WRITE = "WRITE"
 
 
 @dataclass
 class STGNode:
     op: OpType
     datasets: list[str] = field(default_factory=list)
-    columns: list[str]  = field(default_factory=list)
+    columns: list[str] = field(default_factory=list)
     conditions: list[str] = field(default_factory=list)
     params: dict = field(default_factory=dict)
 
@@ -214,7 +215,12 @@ def extract_stg_from_python(python_code: str) -> SemanticTransformGraph:
 
     # cumsum / cummax / shift → RETAIN equivalent
     for node in ast.walk(tree):
-        if isinstance(node, ast.Attribute) and node.attr in ("cumsum", "cummax", "shift", "expanding"):
+        if isinstance(node, ast.Attribute) and node.attr in (
+            "cumsum",
+            "cummax",
+            "shift",
+            "expanding",
+        ):
             nodes.append(STGNode(op=OpType.COMPUTE, params={"pattern": "retain"}))
             break
 
@@ -222,6 +228,7 @@ def extract_stg_from_python(python_code: str) -> SemanticTransformGraph:
 
 
 # ── L3: Contract Score ────────────────────────────────────────────────────────
+
 
 def score_contract(sas_stg: SemanticTransformGraph, py_stg: SemanticTransformGraph) -> float:
     """Compare two STGs and return a similarity score 0.0 – 1.0.
@@ -231,10 +238,10 @@ def score_contract(sas_stg: SemanticTransformGraph, py_stg: SemanticTransformGra
     the same transformation in different orders.
     """
     sas_ops = set(sas_stg.ops())
-    py_ops  = set(py_stg.ops())
+    py_ops = set(py_stg.ops())
 
     if not sas_ops and not py_ops:
-        return 1.0   # both empty → trivially equivalent
+        return 1.0  # both empty → trivially equivalent
     if not sas_ops or not py_ops:
         return 0.0
 
@@ -246,7 +253,7 @@ def score_contract(sas_stg: SemanticTransformGraph, py_stg: SemanticTransformGra
     # Bonus: if SAS has RETAIN and Python has cumsum/shift → explicit credit
     retain_bonus = 0.0
     sas_retain = any(n.params.get("pattern") == "retain" for n in sas_stg.nodes)
-    py_retain  = any(n.params.get("pattern") == "retain" for n in py_stg.nodes)
+    py_retain = any(n.params.get("pattern") == "retain" for n in py_stg.nodes)
     if sas_retain and py_retain:
         retain_bonus = 0.05
 
@@ -345,11 +352,43 @@ def _synthesize_witness_input(sas_code: str) -> dict:
 
     # Keep only plausible column names (not SAS keywords)
     sas_keywords = {
-        "data", "set", "merge", "by", "if", "then", "else", "end", "do",
-        "run", "proc", "where", "retain", "array", "output", "drop", "keep",
-        "rename", "length", "format", "label", "input", "put", "infile",
-        "file", "firstobs", "obs", "class", "var", "tables", "means", "freq",
-        "sort", "out", "nodupkey", "descending", "noprint",
+        "data",
+        "set",
+        "merge",
+        "by",
+        "if",
+        "then",
+        "else",
+        "end",
+        "do",
+        "run",
+        "proc",
+        "where",
+        "retain",
+        "array",
+        "output",
+        "drop",
+        "keep",
+        "rename",
+        "length",
+        "format",
+        "label",
+        "input",
+        "put",
+        "infile",
+        "file",
+        "firstobs",
+        "obs",
+        "class",
+        "var",
+        "tables",
+        "means",
+        "freq",
+        "sort",
+        "out",
+        "nodupkey",
+        "descending",
+        "noprint",
     }
     cols = [v for v in sorted(vars_seen)[:8] if v not in sas_keywords and len(v) > 1]
 
@@ -400,7 +439,6 @@ async def score_oracle(
 
     async def _ask(prompt: str) -> Optional[dict]:
         try:
-            from openai import OpenAI
             resp = await asyncio.wait_for(
                 asyncio.to_thread(
                     llm_client.chat.completions.create,
@@ -442,29 +480,44 @@ async def score_oracle(
 
     # Column agreement (weight 0.5) — do both predict similar output columns?
     sas_cols = {c.lower() for c in sas_pred.get("columns", [])}
-    py_cols  = {c.lower() for c in py_pred.get("columns", [])}
+    py_cols = {c.lower() for c in py_pred.get("columns", [])}
     if sas_cols or py_cols:
-        col_jaccard = len(sas_cols & py_cols) / len(sas_cols | py_cols) if (sas_cols | py_cols) else 1.0
+        col_jaccard = (
+            len(sas_cols & py_cols) / len(sas_cols | py_cols) if (sas_cols | py_cols) else 1.0
+        )
         score += 0.5 * col_jaccard
     weight_total += 0.5
 
     # Row count change agreement (weight 0.3)
     sas_rc = sas_pred.get("row_count_change", "unknown")
-    py_rc  = py_pred.get("row_count_change", "unknown")
+    py_rc = py_pred.get("row_count_change", "unknown")
     rc_match = 1.0 if sas_rc == py_rc else (0.5 if "unknown" in (sas_rc, py_rc) else 0.0)
     score += 0.3 * rc_match
     weight_total += 0.3
 
     # Transformation keyword overlap (weight 0.2)
     sas_transforms = " ".join(sas_pred.get("key_transformations", [])).lower()
-    py_transforms  = " ".join(py_pred.get("key_transformations", [])).lower()
+    py_transforms = " ".join(py_pred.get("key_transformations", [])).lower()
     semantic_keywords = {
-        "filter", "sort", "group", "aggregate", "merge", "join",
-        "cumulative", "running", "deduplicate", "transpose", "pivot",
-        "sum", "mean", "count", "max", "min",
+        "filter",
+        "sort",
+        "group",
+        "aggregate",
+        "merge",
+        "join",
+        "cumulative",
+        "running",
+        "deduplicate",
+        "transpose",
+        "pivot",
+        "sum",
+        "mean",
+        "count",
+        "max",
+        "min",
     }
     sas_kw = {k for k in semantic_keywords if k in sas_transforms}
-    py_kw  = {k for k in semantic_keywords if k in py_transforms}
+    py_kw = {k for k in semantic_keywords if k in py_transforms}
     if sas_kw or py_kw:
         kw_jaccard = len(sas_kw & py_kw) / len(sas_kw | py_kw) if (sas_kw | py_kw) else 1.0
         score += 0.2 * kw_jaccard
@@ -482,21 +535,23 @@ async def score_oracle(
 
 # ── SemantiCheck composite scorer ────────────────────────────────────────────
 
+
 @dataclass
 class SemantiCheckResult:
     """Full SemantiCheck report for one translation."""
+
     # Layer scores (None = not applicable / skipped)
-    z3_score:       Optional[float] = None   # L1
-    cdais_score:    Optional[float] = None   # L2
-    contract_score: Optional[float] = None   # L3 (always computed)
-    oracle_score:   Optional[float] = None   # L4
+    z3_score: Optional[float] = None  # L1
+    cdais_score: Optional[float] = None  # L2
+    contract_score: Optional[float] = None  # L3 (always computed)
+    oracle_score: Optional[float] = None  # L4
 
     # STGs produced by L3
     sas_stg: Optional[SemanticTransformGraph] = None
-    py_stg:  Optional[SemanticTransformGraph] = None
+    py_stg: Optional[SemanticTransformGraph] = None
 
     # Final composite
-    scs: float = 0.0   # SemantiCheck Score 0.0 – 1.0
+    scs: float = 0.0  # SemantiCheck Score 0.0 – 1.0
 
     # Human-readable verdict
     verdict: str = "unknown"
@@ -506,10 +561,10 @@ class SemantiCheckResult:
             "scs": self.scs,
             "verdict": self.verdict,
             "layers": {
-                "L1_formal_z3":    self.z3_score,
-                "L2_behavioral":   self.cdais_score,
-                "L3_contract":     self.contract_score,
-                "L4_oracle":       self.oracle_score,
+                "L1_formal_z3": self.z3_score,
+                "L2_behavioral": self.cdais_score,
+                "L3_contract": self.contract_score,
+                "L4_oracle": self.oracle_score,
             },
         }
 
@@ -517,10 +572,10 @@ class SemantiCheckResult:
 # Weights — tuned so that formal proof and behavioral testing dominate,
 # but contract and oracle still meaningfully shift the score.
 _WEIGHTS = {
-    "z3":      0.30,
-    "cdais":   0.30,
+    "z3": 0.30,
+    "cdais": 0.30,
     "contract": 0.20,
-    "oracle":  0.20,
+    "oracle": 0.20,
 }
 
 
@@ -551,9 +606,9 @@ async def semanticheck(
 
     # L3 — Contract (always runs, no LLM needed)
     sas_stg = extract_stg_from_sas(sas_code)
-    py_stg  = extract_stg_from_python(python_code)
+    py_stg = extract_stg_from_python(python_code)
     result.sas_stg = sas_stg
-    result.py_stg  = py_stg
+    result.py_stg = py_stg
     result.contract_score = score_contract(sas_stg, py_stg)
 
     # L4 — Oracle (needs LLM)

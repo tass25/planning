@@ -2,20 +2,18 @@
 
 import asyncio
 import sys
-import os
-import json
 import time
 from pathlib import Path
 
 # Ensure the sas_converter package is importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from partition.utils.logging_config import configure_logging
-from partition.entry.file_analysis_agent import FileAnalysisAgent
+from partition.db.sqlite_manager import get_engine, init_db
 from partition.entry.cross_file_dep_resolver import CrossFileDependencyResolver
 from partition.entry.data_lineage_extractor import DataLineageExtractor
+from partition.entry.file_analysis_agent import FileAnalysisAgent
 from partition.entry.registry_writer_agent import RegistryWriterAgent
-from partition.db.sqlite_manager import get_engine, init_db
+from partition.utils.logging_config import configure_logging
 
 
 async def main():
@@ -97,7 +95,8 @@ async def main():
     print(f"  Total edges   : {lin_result['total']}")
 
     # ── Show lineage details from DB ──────────────────────────────────────
-    from partition.db.sqlite_manager import get_session, DataLineageRow
+    from partition.db.sqlite_manager import DataLineageRow, get_session
+
     session = get_session(engine)
     rows = session.query(DataLineageRow).all()
     if rows:

@@ -10,7 +10,7 @@ from typing import Optional
 import structlog
 from sqlalchemy.orm import Session
 
-from api.core.database import KBEntryRow, KBChangelogRow
+from api.core.database import KBChangelogRow, KBEntryRow
 
 log = structlog.get_logger("codara.repo.kb")
 
@@ -24,16 +24,10 @@ class KBRepository:
     # ── Entries ───────────────────────────────────────────────────────────────
 
     def get_by_id(self, entry_id: str) -> Optional[KBEntryRow]:
-        return (
-            self.db.query(KBEntryRow).filter(KBEntryRow.id == entry_id).first()
-        )
+        return self.db.query(KBEntryRow).filter(KBEntryRow.id == entry_id).first()
 
     def list_all(self) -> list[KBEntryRow]:
-        return (
-            self.db.query(KBEntryRow)
-            .order_by(KBEntryRow.updated_at.desc())
-            .all()
-        )
+        return self.db.query(KBEntryRow).order_by(KBEntryRow.updated_at.desc()).all()
 
     def create(self, row: KBEntryRow) -> KBEntryRow:
         self.db.add(row)
@@ -60,11 +54,7 @@ class KBRepository:
     # ── Changelog ─────────────────────────────────────────────────────────────
 
     def list_changelog(self) -> list[KBChangelogRow]:
-        return (
-            self.db.query(KBChangelogRow)
-            .order_by(KBChangelogRow.timestamp.desc())
-            .all()
-        )
+        return self.db.query(KBChangelogRow).order_by(KBChangelogRow.timestamp.desc()).all()
 
     def add_changelog_entry(self, row: KBChangelogRow) -> KBChangelogRow:
         self.db.add(row)

@@ -10,7 +10,6 @@ a one-file change.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Optional
 
 import structlog
@@ -30,11 +29,7 @@ class ConversionRepository:
     # ── Conversions ───────────────────────────────────────────────────────────
 
     def get_by_id(self, conversion_id: str) -> Optional[ConversionRow]:
-        return (
-            self.db.query(ConversionRow)
-            .filter(ConversionRow.id == conversion_id)
-            .first()
-        )
+        return self.db.query(ConversionRow).filter(ConversionRow.id == conversion_id).first()
 
     def list_by_user(self, user_id: str) -> list[ConversionRow]:
         return (
@@ -45,11 +40,7 @@ class ConversionRepository:
         )
 
     def list_all(self) -> list[ConversionRow]:
-        return (
-            self.db.query(ConversionRow)
-            .order_by(ConversionRow.created_at.desc())
-            .all()
-        )
+        return self.db.query(ConversionRow).order_by(ConversionRow.created_at.desc()).all()
 
     def create(self, row: ConversionRow) -> ConversionRow:
         self.db.add(row)
@@ -88,9 +79,7 @@ class ConversionRepository:
 
     # ── Stages ────────────────────────────────────────────────────────────────
 
-    def get_stage(
-        self, conversion_id: str, stage_name: str
-    ) -> Optional[ConversionStageRow]:
+    def get_stage(self, conversion_id: str, stage_name: str) -> Optional[ConversionStageRow]:
         return (
             self.db.query(ConversionStageRow)
             .filter(

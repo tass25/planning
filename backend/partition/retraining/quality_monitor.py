@@ -34,14 +34,12 @@ class ConversionQualityMonitor:
 
     def evaluate(self, batch_id: str | None = None) -> dict:
         """Compute quality metrics for the last window_size conversions."""
-        rows = self.duckdb_conn.execute(
-            f"""
+        rows = self.duckdb_conn.execute(f"""
             SELECT status, llm_confidence, failure_mode_flagged
             FROM conversion_results
             ORDER BY rowid DESC
             LIMIT {self.window_size}
-            """
-        ).fetchall()
+            """).fetchall()
 
         if not rows:
             log.warning("no_conversion_results_found")
@@ -59,9 +57,7 @@ class ConversionQualityMonitor:
         success_rate = n_success / n_total
         partial_rate = n_partial / n_total
         human_review_rate = n_human / n_total
-        avg_confidence = (
-            sum(confidences) / len(confidences) if confidences else 0.0
-        )
+        avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
 
         failure_mode_dist = Counter(failure_modes)
 

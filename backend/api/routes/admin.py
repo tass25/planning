@@ -2,17 +2,22 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from api.core.auth import get_current_user
 from api.core.database import (
-    get_api_session, AuditLogRow, UserRow, ConversionRow, ConversionStageRow,
+    AuditLogRow,
+    ConversionRow,
+    UserRow,
+    get_api_session,
 )
 from api.core.schemas import (
-    AuditLogOut, SystemServiceOut, UserOut, UserUpdate,
-    PipelineConfigOut, FileRegistryEntryOut,
+    AuditLogOut,
+    FileRegistryEntryOut,
+    PipelineConfigOut,
+    SystemServiceOut,
+    UserOut,
+    UserUpdate,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -25,17 +30,24 @@ def _require_admin(current_user: dict):
 
 # ── Audit logs ────────────────────────────────────────────────────────────────
 
+
 @router.get("/audit-logs", response_model=list[AuditLogOut])
 def list_audit_logs(current_user: dict = Depends(get_current_user)):
     _require_admin(current_user)
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         rows = session.query(AuditLogRow).order_by(AuditLogRow.timestamp.desc()).all()
         return [
             AuditLogOut(
-                id=r.id, model=r.model, latency=r.latency, cost=r.cost,
-                promptHash=r.prompt_hash, success=r.success, timestamp=r.timestamp,
+                id=r.id,
+                model=r.model,
+                latency=r.latency,
+                cost=r.cost,
+                promptHash=r.prompt_hash,
+                success=r.success,
+                timestamp=r.timestamp,
             )
             for r in rows
         ]
@@ -44,6 +56,7 @@ def list_audit_logs(current_user: dict = Depends(get_current_user)):
 
 
 # ── System health ─────────────────────────────────────────────────────────────
+
 
 @router.get("/system-health", response_model=list[SystemServiceOut])
 def system_health(current_user: dict = Depends(get_current_user)):
@@ -56,58 +69,86 @@ def system_health(current_user: dict = Depends(get_current_user)):
     # Check API DB
     t0 = time.perf_counter()
     try:
-        from api.main import engine
         from sqlalchemy import text
+
+        from api.main import engine
+
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         lat = (time.perf_counter() - t0) * 1000
-        services.append(SystemServiceOut(name="SQLite (API DB)", status="online", latency=round(lat, 1), uptime=99.99))
+        services.append(
+            SystemServiceOut(
+                name="SQLite (API DB)", status="online", latency=round(lat, 1), uptime=99.99
+            )
+        )
     except Exception:
-        services.append(SystemServiceOut(name="SQLite (API DB)", status="offline", latency=0, uptime=0))
+        services.append(
+            SystemServiceOut(name="SQLite (API DB)", status="offline", latency=0, uptime=0)
+        )
 
     # Check pipeline agents importable
     t0 = time.perf_counter()
     try:
-        from partition.entry.file_analysis_agent import FileAnalysisAgent
         lat = (time.perf_counter() - t0) * 1000
-        services.append(SystemServiceOut(name="Pipeline Agents", status="online", latency=round(lat, 1), uptime=99.95))
+        services.append(
+            SystemServiceOut(
+                name="Pipeline Agents", status="online", latency=round(lat, 1), uptime=99.95
+            )
+        )
     except Exception:
-        services.append(SystemServiceOut(name="Pipeline Agents", status="offline", latency=0, uptime=0))
+        services.append(
+            SystemServiceOut(name="Pipeline Agents", status="offline", latency=0, uptime=0)
+        )
 
     # Check knowledge base dir
     from pathlib import Path
+
     kb_path = Path(__file__).resolve().parent.parent.parent / "knowledge_base"
-    services.append(SystemServiceOut(
-        name="Knowledge Base",
-        status="online" if kb_path.exists() else "degraded",
-        latency=1.0, uptime=99.9,
-    ))
+    services.append(
+        SystemServiceOut(
+            name="Knowledge Base",
+            status="online" if kb_path.exists() else "degraded",
+            latency=1.0,
+            uptime=99.9,
+        )
+    )
 
     # Check uploads dir
     from api.routes.conversions import UPLOAD_DIR
-    services.append(SystemServiceOut(
-        name="File Storage",
-        status="online" if UPLOAD_DIR.exists() else "offline",
-        latency=1.0, uptime=99.99,
-    ))
+
+    services.append(
+        SystemServiceOut(
+            name="File Storage",
+            status="online" if UPLOAD_DIR.exists() else "offline",
+            latency=1.0,
+            uptime=99.99,
+        )
+    )
 
     return services
 
 
 # ── Users ─────────────────────────────────────────────────────────────────────
 
+
 @router.get("/users", response_model=list[UserOut])
 def list_users(current_user: dict = Depends(get_current_user)):
     _require_admin(current_user)
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         rows = session.query(UserRow).order_by(UserRow.created_at.desc()).all()
         return [
             UserOut(
-                id=r.id, email=r.email, name=r.name, role=r.role,
-                conversionCount=r.conversion_count, status=r.status,
-                emailVerified=r.email_verified or False, createdAt=r.created_at,
+                id=r.id,
+                email=r.email,
+                name=r.name,
+                role=r.role,
+                conversionCount=r.conversion_count,
+                status=r.status,
+                emailVerified=r.email_verified or False,
+                createdAt=r.created_at,
             )
             for r in rows
         ]
@@ -119,6 +160,7 @@ def list_users(current_user: dict = Depends(get_current_user)):
 def update_user(user_id: str, body: UserUpdate, current_user: dict = Depends(get_current_user)):
     _require_admin(current_user)
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         user = session.query(UserRow).get(user_id)
@@ -131,9 +173,14 @@ def update_user(user_id: str, body: UserUpdate, current_user: dict = Depends(get
         session.commit()
         session.refresh(user)
         return UserOut(
-            id=user.id, email=user.email, name=user.name, role=user.role,
-            conversionCount=user.conversion_count, status=user.status,
-            emailVerified=user.email_verified or False, createdAt=user.created_at,
+            id=user.id,
+            email=user.email,
+            name=user.name,
+            role=user.role,
+            conversionCount=user.conversion_count,
+            status=user.status,
+            emailVerified=user.email_verified or False,
+            createdAt=user.created_at,
         )
     finally:
         session.close()
@@ -145,6 +192,7 @@ def delete_user(user_id: str, current_user: dict = Depends(get_current_user)):
     if user_id == current_user.get("sub"):
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         user = session.query(UserRow).get(user_id)
@@ -156,8 +204,13 @@ def delete_user(user_id: str, current_user: dict = Depends(get_current_user)):
         except Exception as exc:
             session.rollback()
             import structlog as _sl
-            _sl.get_logger("codara.admin").error("delete_user_failed", user_id=user_id, error=str(exc))
-            raise HTTPException(status_code=500, detail="Failed to delete user — may have related records")
+
+            _sl.get_logger("codara.admin").error(
+                "delete_user_failed", user_id=user_id, error=str(exc)
+            )
+            raise HTTPException(
+                status_code=500, detail="Failed to delete user — may have related records"
+            )
         return {"deleted": user_id}
     finally:
         session.close()
@@ -184,10 +237,12 @@ def update_pipeline_config(body: PipelineConfigOut, current_user: dict = Depends
 
 # ── File registry (from pipeline DB) ─────────────────────────────────────────
 
+
 @router.get("/file-registry", response_model=list[FileRegistryEntryOut])
 def list_file_registry(current_user: dict = Depends(get_current_user)):
     _require_admin(current_user)
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         # Aggregate from conversions

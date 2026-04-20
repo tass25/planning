@@ -8,9 +8,9 @@ from typing import Optional
 import numpy as np
 import structlog
 
-from partition.models.partition_ir import RAPTORNode, PartitionIR
-from partition.raptor.embedder import NomicEmbedder
+from partition.models.partition_ir import PartitionIR, RAPTORNode
 from partition.raptor.clustering import GMMClusterer
+from partition.raptor.embedder import NomicEmbedder
 from partition.raptor.summarizer import ClusterSummarizer
 
 logger = structlog.get_logger()
@@ -131,9 +131,7 @@ class RAPTORTreeBuilder:
 
         # Root node
         if len(current_level_nodes) > 1:
-            root = self._create_root_node(
-                current_level_nodes, file_id, current_depth + 1
-            )
+            root = self._create_root_node(current_level_nodes, file_id, current_depth + 1)
             all_nodes.append(root)
         elif len(current_level_nodes) == 1:
             current_level_nodes[0].level = current_depth

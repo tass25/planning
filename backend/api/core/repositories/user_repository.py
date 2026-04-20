@@ -28,16 +28,10 @@ class UserRepository:
         return self.db.query(UserRow).filter(UserRow.email == email).first()
 
     def get_by_github_id(self, github_id: str) -> Optional[UserRow]:
-        return (
-            self.db.query(UserRow).filter(UserRow.github_id == github_id).first()
-        )
+        return self.db.query(UserRow).filter(UserRow.github_id == github_id).first()
 
     def get_by_verification_token(self, token: str) -> Optional[UserRow]:
-        return (
-            self.db.query(UserRow)
-            .filter(UserRow.verification_token == token)
-            .first()
-        )
+        return self.db.query(UserRow).filter(UserRow.verification_token == token).first()
 
     def list_all(self) -> list[UserRow]:
         return self.db.query(UserRow).order_by(UserRow.created_at.desc()).all()

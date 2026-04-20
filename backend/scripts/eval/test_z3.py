@@ -33,35 +33,36 @@ while not (BACKEND_DIR / "partition").exists():
 sys.path.insert(0, str(BACKEND_DIR))
 
 from dotenv import load_dotenv
+
 load_dotenv(BACKEND_DIR.parent / ".env")
 
 import re as _re
 
+from partition.models.enums import ConversionStatus, PartitionType, RiskLevel
 from partition.models.partition_ir import PartitionIR
-from partition.models.enums import PartitionType, RiskLevel, ConversionStatus
 from partition.translation.translation_pipeline import TranslationPipeline
-from partition.verification.z3_agent import Z3VerificationAgent, VerificationStatus
+from partition.verification.z3_agent import Z3VerificationAgent
 
 # ── colour helpers ────────────────────────────────────────────────────────────
 
-GREEN  = "\033[32m"
+GREEN = "\033[32m"
 YELLOW = "\033[33m"
-RED    = "\033[31m"
-CYAN   = "\033[36m"
-BOLD   = "\033[1m"
-RESET  = "\033[0m"
+RED = "\033[31m"
+CYAN = "\033[36m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
 
 STATUS_COLOR = {
-    "formal_proof":   GREEN,
+    "formal_proof": GREEN,
     "counterexample": RED,
-    "unverifiable":   YELLOW,
-    "skipped":        YELLOW,
+    "unverifiable": YELLOW,
+    "skipped": YELLOW,
 }
 
 CONV_COLOR = {
-    ConversionStatus.SUCCESS:      GREEN,
-    ConversionStatus.PARTIAL:      YELLOW,
-    ConversionStatus.FAILED:       RED,
+    ConversionStatus.SUCCESS: GREEN,
+    ConversionStatus.PARTIAL: YELLOW,
+    ConversionStatus.FAILED: RED,
     ConversionStatus.HUMAN_REVIEW: YELLOW,
 }
 
@@ -72,11 +73,13 @@ _SAS_CODE_RE = _re.compile(
     _re.IGNORECASE | _re.MULTILINE,
 )
 
+
 def _has_sas_code(text: str) -> bool:
     return bool(_SAS_CODE_RE.search(text))
 
+
 def parse_blocks(sas_path: Path) -> list[tuple[str, str]]:
-    text  = sas_path.read_text(encoding="utf-8")
+    text = sas_path.read_text(encoding="utf-8")
     lines = text.splitlines()
 
     style_a = any(l.startswith("/* ──") and "──" in l for l in lines)
@@ -145,6 +148,7 @@ def make_partition(label: str, source: str, index: int) -> PartitionIR:
 
 # ── main ──────────────────────────────────────────────────────────────────────
 
+
 async def run() -> int:
     if len(sys.argv) > 1:
         sas_path = Path(sys.argv[1]).resolve()
@@ -161,7 +165,7 @@ async def run() -> int:
         return 1
 
     print(f"\n{BOLD}{CYAN}{'='*72}")
-    print(f"  Codara Z3 Verification Test")
+    print("  Codara Z3 Verification Test")
     print(f"  File  : {sas_path.name}")
     print(f"  Blocks: {len(blocks)}")
     print(f"{'='*72}{RESET}\n")
@@ -171,23 +175,23 @@ async def run() -> int:
         duckdb_path="data/analytics.duckdb",
     )
 
-    rows   = []
-    t_all  = time.monotonic()
+    rows = []
+    t_all = time.monotonic()
 
     for i, (label, source) in enumerate(blocks):
         part = make_partition(label, source, i)
         short_label = label[:52]
         print(
-            f"[{i+1:02d}/{len(blocks):02d}] {short_label:<52} "
-            f"risk={part.risk_level.value:<10}",
-            end="", flush=True,
+            f"[{i+1:02d}/{len(blocks):02d}] {short_label:<52} " f"risk={part.risk_level.value:<10}",
+            end="",
+            flush=True,
         )
-        t0  = time.monotonic()
+        t0 = time.monotonic()
         res = await pipeline.translate_partition(part)
-        dt  = time.monotonic() - t0
+        dt = time.monotonic() - t0
 
-        z3_status  = res.z3_status.value
-        z3_color   = STATUS_COLOR.get(z3_status, RESET)
+        z3_status = res.z3_status.value
+        z3_color = STATUS_COLOR.get(z3_status, RESET)
         conv_color = CONV_COLOR.get(res.status, RESET)
 
         z3_tag = (
@@ -225,16 +229,16 @@ async def run() -> int:
     elapsed = time.monotonic() - t_all
 
     # ── summary ───────────────────────────────────────────────────────────────
-    success     = sum(1 for _, r, _ in rows if r.status == ConversionStatus.SUCCESS)
-    partial     = sum(1 for _, r, _ in rows if r.status == ConversionStatus.PARTIAL)
-    proved      = sum(1 for _, r, _ in rows if r.z3_status.value == "formal_proof")
-    counterexs  = sum(1 for _, r, _ in rows if r.z3_status.value == "counterexample")
-    unknown     = sum(1 for _, r, _ in rows if r.z3_status.value == "unverifiable")
-    no_match    = sum(1 for _, r, _ in rows if not r.z3_pattern)
-    total       = len(rows)
+    success = sum(1 for _, r, _ in rows if r.status == ConversionStatus.SUCCESS)
+    partial = sum(1 for _, r, _ in rows if r.status == ConversionStatus.PARTIAL)
+    proved = sum(1 for _, r, _ in rows if r.z3_status.value == "formal_proof")
+    counterexs = sum(1 for _, r, _ in rows if r.z3_status.value == "counterexample")
+    unknown = sum(1 for _, r, _ in rows if r.z3_status.value == "unverifiable")
+    no_match = sum(1 for _, r, _ in rows if not r.z3_pattern)
+    total = len(rows)
 
     print(f"\n{BOLD}{CYAN}{'='*72}")
-    print(f"  Z3 Verification Summary")
+    print("  Z3 Verification Summary")
     print(f"{'='*72}{RESET}")
     print(f"  Blocks total          : {total}")
     print(f"  Translation SUCCESS   : {GREEN}{success}{RESET} / {YELLOW}{partial} PARTIAL{RESET}")
@@ -264,9 +268,7 @@ async def run() -> int:
     stem = sas_path.stem
     for i, (label, res, _) in enumerate(rows):
         safe = _re.sub(r"[^\w]+", "_", label).strip("_")[:40]
-        (out_dir / f"{stem}_block{i+1:02d}_{safe}.py").write_text(
-            res.python_code, encoding="utf-8"
-        )
+        (out_dir / f"{stem}_block{i+1:02d}_{safe}.py").write_text(res.python_code, encoding="utf-8")
     print(f"  Output saved to: {out_dir}/\n")
 
     return 1 if counterexs > 0 else 0

@@ -7,9 +7,9 @@ into a single ``process()`` call: merge → report.
 from __future__ import annotations
 
 from partition.base_agent import BaseAgent
-from partition.merge.script_merger import merge_script
-from partition.merge.report_agent import ReportAgent
 from partition.merge.namespace_checker import check_namespace
+from partition.merge.report_agent import ReportAgent
+from partition.merge.script_merger import merge_script
 
 
 class MergeAgent(BaseAgent):
@@ -50,7 +50,7 @@ class MergeAgent(BaseAgent):
 
         # ── Namespace safety check on final merged Python ─────────────────────
         merged_code = merged.get("python_code", "") or ""
-        ns_result   = check_namespace(merged_code)
+        ns_result = check_namespace(merged_code)
         if ns_result.has_errors or ns_result.has_warnings:
             self.logger.warning(
                 "namespace_violations",
@@ -59,9 +59,9 @@ class MergeAgent(BaseAgent):
                 warnings=len(ns_result.warnings),
             )
             merged["namespace_check"] = {
-                "errors":   [str(e) for e in ns_result.errors],
+                "errors": [str(e) for e in ns_result.errors],
                 "warnings": [str(w) for w in ns_result.warnings],
-                "report":   ns_result.to_report_block(),
+                "report": ns_result.to_report_block(),
             }
         else:
             merged["namespace_check"] = {"errors": [], "warnings": [], "report": ""}

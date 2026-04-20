@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import pickle
 from pathlib import Path
-from typing import Optional
 
 import networkx as nx
 import structlog
@@ -78,15 +77,15 @@ class NetworkXGraphBuilder:
         """Add partition nodes to the NetworkX graph."""
         added = 0
         for p in partitions:
-            pid = str(getattr(p, 'partition_id', None) or getattr(p, 'block_id', ''))
+            pid = str(getattr(p, "partition_id", None) or getattr(p, "block_id", ""))
             try:
                 self.graph.add_node(
                     pid,
-                    partition_type=getattr(p.partition_type, 'value', str(p.partition_type)),
-                    risk_level=getattr(p.risk_level, 'value', str(getattr(p, 'risk_level', ''))),
-                    complexity_score=getattr(p, 'complexity_score', 0.0),
-                    file_id=str(getattr(p, 'source_file_id', None) or getattr(p, 'file_id', '')),
-                    scc_id=getattr(p, 'scc_id', None) or "",
+                    partition_type=getattr(p.partition_type, "value", str(p.partition_type)),
+                    risk_level=getattr(p.risk_level, "value", str(getattr(p, "risk_level", ""))),
+                    complexity_score=getattr(p, "complexity_score", 0.0),
+                    file_id=str(getattr(p, "source_file_id", None) or getattr(p, "file_id", "")),
+                    scc_id=getattr(p, "scc_id", None) or "",
                 )
                 added += 1
             except Exception as exc:
@@ -102,13 +101,15 @@ class NetworkXGraphBuilder:
             try:
                 if dep_type == "macro_call":
                     self.graph.add_edge(
-                        src, tgt,
+                        src,
+                        tgt,
                         edge_type="MACRO_CALLS",
                         macro_name=data.get("macro_name", ""),
                     )
                 else:
                     self.graph.add_edge(
-                        src, tgt,
+                        src,
+                        tgt,
                         edge_type="DEPENDS_ON",
                         dep_type=dep_type,
                     )
@@ -147,20 +148,19 @@ class NetworkXGraphBuilder:
         rows: list[dict] = []
         for nid in visited:
             attrs = self.graph.nodes[nid]
-            rows.append({
-                "partition_id": nid,
-                "partition_type": attrs.get("partition_type", ""),
-                "risk_level": attrs.get("risk_level", ""),
-                "scc_id": attrs.get("scc_id", ""),
-            })
+            rows.append(
+                {
+                    "partition_id": nid,
+                    "partition_type": attrs.get("partition_type", ""),
+                    "risk_level": attrs.get("risk_level", ""),
+                    "scc_id": attrs.get("scc_id", ""),
+                }
+            )
         return rows
 
     def query_scc_members(self, scc_id: str) -> list[str]:
         """Get all partition IDs in a given SCC group."""
-        return [
-            nid for nid, attrs in self.graph.nodes(data=True)
-            if attrs.get("scc_id") == scc_id
-        ]
+        return [nid for nid, attrs in self.graph.nodes(data=True) if attrs.get("scc_id") == scc_id]
 
     def count_nodes(self) -> int:
         return self.graph.number_of_nodes()

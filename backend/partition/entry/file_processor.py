@@ -13,8 +13,8 @@ from partition.base_agent import BaseAgent
 from partition.db.sqlite_manager import get_engine, init_db
 from partition.models.file_metadata import FileMetadata
 
-from .file_analysis_agent import FileAnalysisAgent
 from .cross_file_dep_resolver import CrossFileDependencyResolver
+from .file_analysis_agent import FileAnalysisAgent
 from .registry_writer_agent import RegistryWriterAgent
 
 

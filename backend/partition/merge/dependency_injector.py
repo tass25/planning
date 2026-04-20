@@ -14,7 +14,7 @@ import structlog
 log = structlog.get_logger(__name__)
 
 SAS_DATASET_PATTERN = re.compile(
-    r'\b(?:DATA\s+|SET\s+|MERGE\s+)([\w.]+)',
+    r"\b(?:DATA\s+|SET\s+|MERGE\s+)([\w.]+)",
     re.IGNORECASE,
 )
 

@@ -11,23 +11,29 @@ from api.core.schemas import ConversionOut, PipelineStageInfo
 
 # Display stage names surfaced to the frontend (matches frontend/src/types/index.ts PipelineStage)
 STAGES: list[str] = [
-    "file_process", "sas_partition", "strategy_select", "translate",
-    "validate", "repair", "merge", "finalize",
+    "file_process",
+    "sas_partition",
+    "strategy_select",
+    "translate",
+    "validate",
+    "repair",
+    "merge",
+    "finalize",
 ]
 
 # Real orchestrator node name → frontend display name
 STAGE_DISPLAY_MAP: dict[str, str] = {
-    "file_process":  "file_process",
-    "streaming":     "sas_partition",
-    "chunking":      "sas_partition",
-    "raptor":        "strategy_select",
-    "risk_routing":  "strategy_select",
+    "file_process": "file_process",
+    "streaming": "sas_partition",
+    "chunking": "sas_partition",
+    "raptor": "strategy_select",
+    "risk_routing": "strategy_select",
     "persist_index": "translate",
-    "translation":   "translate",
-    "validation":    "validate",
-    "repair":        "repair",
-    "merge":         "merge",
-    "finalize":      "finalize",
+    "translation": "translate",
+    "validation": "validate",
+    "repair": "repair",
+    "merge": "merge",
+    "finalize": "finalize",
 }
 
 

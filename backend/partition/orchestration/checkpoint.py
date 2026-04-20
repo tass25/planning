@@ -24,8 +24,8 @@ class RedisCheckpointManager:
     becomes a safe no-op (degraded mode).
     """
 
-    CHECKPOINT_INTERVAL = 50   # blocks between checkpoints
-    TTL_SECONDS = 86400        # 24 hours
+    CHECKPOINT_INTERVAL = 50  # blocks between checkpoints
+    TTL_SECONDS = 86400  # 24 hours
 
     def __init__(self, redis_url: str = "redis://localhost:6379/0"):
         self.available = False
@@ -64,12 +64,14 @@ class RedisCheckpointManager:
 
         key = f"partition:{file_id}:checkpoint:{block_num}"
         try:
-            payload = json.dumps({
-                "file_id": file_id,
-                "block_num": block_num,
-                "partition_count": len(partition_data),
-                "partitions": partition_data,
-            })
+            payload = json.dumps(
+                {
+                    "file_id": file_id,
+                    "block_num": block_num,
+                    "partition_count": len(partition_data),
+                    "partitions": partition_data,
+                }
+            )
             self.client.setex(key, self.TTL_SECONDS, payload)
             logger.info(
                 "checkpoint_saved",

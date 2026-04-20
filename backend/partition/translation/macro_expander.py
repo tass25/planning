@@ -55,10 +55,11 @@ _MACRO_CALL_PATTERN = re.compile(r"%\w+\s*\([^)]*\)", re.IGNORECASE)
 @dataclass
 class MacroExpansionReport:
     """Summary of what was expanded and what was left unexpanded."""
-    substitutions: dict[str, str] = field(default_factory=dict)   # var → value
-    unexpanded: list[str]         = field(default_factory=list)    # vars we couldn't resolve
-    indirect_resolved: list[str]  = field(default_factory=list)    # &&var expansions
-    eval_resolved: list[str]      = field(default_factory=list)    # %eval() expansions
+
+    substitutions: dict[str, str] = field(default_factory=dict)  # var → value
+    unexpanded: list[str] = field(default_factory=list)  # vars we couldn't resolve
+    indirect_resolved: list[str] = field(default_factory=list)  # &&var expansions
+    eval_resolved: list[str] = field(default_factory=list)  # %eval() expansions
 
     @property
     def has_substitutions(self) -> bool:
@@ -101,12 +102,12 @@ def _build_scope(sas_code: str) -> dict[str, str]:
 
     # Pattern: %let varname = value; (value can be quoted or unquoted)
     let_pattern = re.compile(
-        r"%(?:let|global|local)\s+(\w+)\s*=\s*"   # %let var =
-        r"(['\"]?)([^;]*?)\2\s*;",                  # value (optionally quoted)
+        r"%(?:let|global|local)\s+(\w+)\s*=\s*"  # %let var =
+        r"(['\"]?)([^;]*?)\2\s*;",  # value (optionally quoted)
         re.IGNORECASE,
     )
     for m in let_pattern.finditer(sas_code):
-        var   = m.group(1).lower()
+        var = m.group(1).lower()
         value = m.group(3).strip()
 
         # Try to resolve %eval() expressions
@@ -137,7 +138,9 @@ def _substitute(code: str, scope: dict[str, str], report: MacroExpansionReport) 
             # The value of &&var is &(value_of_var) — resolve once more
             resolved_name = scope[var].lower()
             if resolved_name in scope and not scope[resolved_name].startswith("__UNEXPANDED__"):
-                report.indirect_resolved.append(f"&&{var} → &{resolved_name} → {scope[resolved_name]}")
+                report.indirect_resolved.append(
+                    f"&&{var} → &{resolved_name} → {scope[resolved_name]}"
+                )
                 return scope[resolved_name]
         return m.group(0)
 
@@ -198,7 +201,9 @@ def expand_macros(sas_code: str) -> tuple[str, MacroExpansionReport]:
     resolved_vars = {k for k, v in scope.items() if not v.startswith("__UNEXPANDED__")}
     if resolved_vars:
         expanded = re.sub(
-            r"%(?:let|global|local)\s+(" + "|".join(re.escape(v) for v in resolved_vars) + r")\s*=[^;]*;",
+            r"%(?:let|global|local)\s+("
+            + "|".join(re.escape(v) for v in resolved_vars)
+            + r")\s*=[^;]*;",
             "",
             expanded,
             flags=re.IGNORECASE,

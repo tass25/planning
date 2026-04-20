@@ -27,10 +27,11 @@ sys.path.insert(0, str(BACKEND_DIR))
 
 import structlog
 from dotenv import load_dotenv
+
 load_dotenv(BACKEND_DIR.parent / ".env")
 
-from partition.raptor.embedder import NomicEmbedder
 from partition.kb.kb_writer import KBWriter
+from partition.raptor.embedder import NomicEmbedder
 
 logger = structlog.get_logger()
 
@@ -40,7 +41,6 @@ logger = structlog.get_logger()
 #            failure_mode (may be empty), notes
 
 SEED_PAIRS = [
-
     # ── P1: Conditional assignment — IF/THEN/ELSE → np.select ────────────────
     {
         "category": "CONDITIONAL_ASSIGNMENT",
@@ -117,7 +117,6 @@ df['age_group'] = np.select(
 )
 df['dormant_flag'] = (df['days_inactive'] > 365).astype(int)""",
     },
-
     # ── P2: Sort direction — BY ... DESCENDING ────────────────────────────────
     {
         "category": "SORT_DIRECTION",
@@ -170,7 +169,6 @@ df = df.sort_values(
     ascending=[True, False]
 ).drop_duplicates(subset=['department', 'salary'])""",
     },
-
     # ── P3: PROC MEANS with CLASS → single groupby(dropna=False).agg ─────────
     {
         "category": "PROC_MEANS_GROUPBY",
@@ -226,7 +224,6 @@ stats = (
     .reset_index()
 )""",
     },
-
     # ── P4: Boolean filter — WHERE / IF numeric condition ─────────────────────
     {
         "category": "BOOLEAN_FILTER",
@@ -278,7 +275,6 @@ df = raw_ledger[
     (raw_ledger['balance'] > 0) & (raw_ledger['status'] == 'ACTIVE')
 ].copy()""",
     },
-
     # ── P5: PROC FORMAT display-only ──────────────────────────────────────────
     {
         "category": "FORMAT_DISPLAY_ONLY",
@@ -333,7 +329,6 @@ status_label_map = {
 }
 df['status_label'] = df['status'].map(status_label_map).fillna('Gray')""",
     },
-
     # ── P6: LEFT JOIN — PROC SQL LEFT JOIN ────────────────────────────────────
     {
         "category": "LEFT_JOIN",
@@ -436,7 +431,6 @@ final = pd.merge(
     how='left'
 ).sort_values('score', ascending=False)""",
     },
-
     # ── P7: DATA MERGE with IN= ───────────────────────────────────────────────
     {
         "category": "MERGE_INDICATOR",
@@ -507,7 +501,6 @@ merged = merged[merged['_merge'].isin(['left_only', 'both'])].copy()
 merged['corrected'] = (merged['_merge'] == 'both').astype(int)
 merged = merged.drop(columns=['_merge'])""",
     },
-
     # ── P8: PROC REG STEPWISE ─────────────────────────────────────────────────
     {
         "category": "STEPWISE_REGRESSION",
@@ -621,7 +614,6 @@ final = sm.OLS(y, sm.add_constant(X[selected])).fit()
 df['yhat'] = final.fittedvalues
 df['resid'] = final.resid""",
     },
-
     # ── RETAIN accumulator ────────────────────────────────────────────────────
     {
         "category": "RETAIN_ACCUMULATOR",
@@ -686,7 +678,6 @@ result = (
     .reset_index()
 )""",
     },
-
     # ── String manipulation ────────────────────────────────────────────────────
     {
         "category": "STRING_MANIPULATION",
@@ -733,7 +724,6 @@ df['clean_id'] = df['raw_id'].astype(str).apply(
 )
 df['padded'] = df['seq_num'].apply(lambda x: str(int(x)).zfill(5))""",
     },
-
     # ── Date arithmetic ───────────────────────────────────────────────────────
     {
         "category": "DATE_ARITHMETIC",
@@ -782,7 +772,6 @@ df['tenure_days'] = (today - df['hire_date']).dt.days
 df['tenure_years'] = (df['tenure_days'] / 365.25).astype(int)
 df['is_senior'] = (df['tenure_years'] >= 5).astype(int)""",
     },
-
     # ── PROC FREQ cross-tabulation ─────────────────────────────────────────────
     {
         "category": "PROC_FREQ",
@@ -804,7 +793,6 @@ freq_table = pd.crosstab(
 )
 print(freq_table)""",
     },
-
     # ── PROC EXPORT ───────────────────────────────────────────────────────────
     {
         "category": "PROC_EXPORT",
@@ -824,7 +812,6 @@ try:
 except IOError as e:
     raise IOError(f"Failed to write CSV output: {e}")""",
     },
-
     # ── Inline DATALINES ─────────────────────────────────────────────────────
     {
         "category": "DATALINES",
@@ -852,7 +839,6 @@ A003,500.00,BONUS\"\"\"
 df = pd.read_csv(io.StringIO(data))
 df['amount'] = df['amount'].astype(float)""",
     },
-
     # ── Missing value handling ────────────────────────────────────────────────
     {
         "category": "MISSING_VALUES",
@@ -885,29 +871,30 @@ df['flag'] = np.select(
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+
 def build_record(pair: dict, embedder: NomicEmbedder) -> dict:
     """Embed a SAS→Python pair and return a KB record dict."""
     # Embed SAS code as the query text (matches how retrieval works)
     embedding = embedder.embed(pair["sas_code"])
 
     return {
-        "example_id":          str(uuid.uuid4()),
-        "sas_code":            pair["sas_code"],
-        "python_code":         pair["python_code"],
-        "embedding":           embedding,
-        "partition_type":      pair["partition_type"],
-        "complexity_tier":     pair["complexity_tier"],
-        "target_runtime":      "python",
-        "verified":            True,
-        "source":              "seed_hand_crafted",
-        "failure_mode":        pair.get("failure_mode", ""),
+        "example_id": str(uuid.uuid4()),
+        "sas_code": pair["sas_code"],
+        "python_code": pair["python_code"],
+        "embedding": embedding,
+        "partition_type": pair["partition_type"],
+        "complexity_tier": pair["complexity_tier"],
+        "target_runtime": "python",
+        "verified": True,
+        "source": "seed_hand_crafted",
+        "failure_mode": pair.get("failure_mode", ""),
         "verification_method": "manual_review",
-        "verification_score":  1.0,
-        "category":            pair["category"],
-        "version":             1,
-        "superseded_by":       "",
-        "created_at":          datetime.now(timezone.utc).isoformat(),
-        "issues_text":         "",  # hand-crafted pairs have no issue list
+        "verification_score": 1.0,
+        "category": pair["category"],
+        "version": 1,
+        "superseded_by": "",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "issues_text": "",  # hand-crafted pairs have no issue list
     }
 
 
@@ -929,12 +916,13 @@ def main(args: argparse.Namespace) -> None:
 
     if args.clear:
         import lancedb
+
         db = lancedb.connect(db_path)
         if writer.TABLE_NAME in db.table_names():
             db.drop_table(writer.TABLE_NAME)
             print(f"Cleared table '{writer.TABLE_NAME}'.")
 
-    print(f"\nLoading NomicEmbedder (768-dim, CPU)...")
+    print("\nLoading NomicEmbedder (768-dim, CPU)...")
     embedder = NomicEmbedder()
 
     print(f"Embedding {len(SEED_PAIRS)} pairs...")
@@ -956,6 +944,6 @@ def main(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Seed the Codara Knowledge Base")
-    parser.add_argument("--clear",  action="store_true", help="Drop and recreate the table")
-    parser.add_argument("--stats",  action="store_true", help="Show coverage stats and exit")
+    parser.add_argument("--clear", action="store_true", help="Drop and recreate the table")
+    parser.add_argument("--stats", action="store_true", help="Show coverage stats and exit")
     main(parser.parse_args())

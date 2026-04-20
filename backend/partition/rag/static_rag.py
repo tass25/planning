@@ -12,8 +12,8 @@ from typing import Optional
 import structlog
 
 from partition.prompts import PromptManager
-from partition.translation.kb_query import KBQueryClient
 from partition.raptor.embedder import NomicEmbedder
+from partition.translation.kb_query import KBQueryClient
 
 logger = structlog.get_logger()
 

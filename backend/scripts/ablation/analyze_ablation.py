@@ -119,9 +119,7 @@ def analyze(db_path: str, run_id: str | None = None) -> dict:
     }
 
 
-def generate_markdown_report(
-    results: dict, output_path: str = "docs/ablation_results.md"
-) -> None:
+def generate_markdown_report(results: dict, output_path: str = "docs/ablation_results.md") -> None:
     """Generate a defense-ready Markdown report."""
     lines = [
         "# Ablation Study: RAPTOR vs Flat Retrieval",
@@ -141,9 +139,7 @@ def generate_markdown_report(
     ]
 
     for row in results["overall"]:
-        lines.append(
-            f"| {row[0]} | {row[1]} | {row[2]:.4f} | {row[3]:.4f} | {row[4]:.2f}ms |"
-        )
+        lines.append(f"| {row[0]} | {row[1]} | {row[2]:.4f} | {row[3]:.4f} | {row[4]:.2f}ms |")
 
     lines += [
         "",
@@ -153,9 +149,7 @@ def generate_markdown_report(
         "|------|-------|--:|------:|----:|",
     ]
     for row in results["stratified"]:
-        lines.append(
-            f"| {row[0]} | {row[1]} | {row[2]} | {row[3]:.4f} | {row[4]:.4f} |"
-        )
+        lines.append(f"| {row[0]} | {row[1]} | {row[2]} | {row[3]:.4f} | {row[4]:.4f} |")
 
     lines += [
         "",
@@ -167,9 +161,7 @@ def generate_markdown_report(
     for row in results["advantage"]:
         delta_pct = row[3] * 100
         check = "YES" if row[3] >= 0.10 else "NO"
-        lines.append(
-            f"| {row[0]} | {row[1]:.4f} | {row[2]:.4f} | {delta_pct:+.1f}% | {check} |"
-        )
+        lines.append(f"| {row[0]} | {row[1]:.4f} | {row[2]:.4f} | {delta_pct:+.1f}% | {check} |")
 
     lines += ["", "---", "", f"> *Ablation run: `{results['run_id']}`*"]
 
@@ -178,9 +170,7 @@ def generate_markdown_report(
     print(f"Report written to {output_path}")
 
 
-def generate_plots(
-    db_path: str, run_id: str, output_dir: str = "docs/ablation_plots"
-) -> None:
+def generate_plots(db_path: str, run_id: str, output_dir: str = "docs/ablation_plots") -> None:
     """Generate defense-ready plots (requires matplotlib)."""
     import matplotlib
 

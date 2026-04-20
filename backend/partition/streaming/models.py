@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -19,6 +19,7 @@ class LineChunk(BaseModel):
         is_continuation: True if the chunk was flushed at EOF without a
             terminating semicolon (incomplete statement).
     """
+
     file_id: UUID
     line_number: int
     content: str
@@ -41,6 +42,7 @@ class ParsingState(BaseModel):
         in_comment: Whether we are inside a ``/* … */`` block comment.
         in_string: Whether we are inside a multi-line string literal.
     """
+
     current_block_type: Optional[str] = None
     block_start_line: Optional[int] = None
     nesting_depth: int = 0

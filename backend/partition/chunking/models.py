@@ -2,27 +2,26 @@
 
 from __future__ import annotations
 
-from uuid import UUID, uuid4
 from typing import Optional
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
 from partition.models.enums import PartitionType
 
-
 # ── Coverage map: which partition types get exec()-tested vs structural only ──
 
 COVERAGE_MAP: dict[PartitionType, str] = {
-    PartitionType.DATA_STEP:          "full",
-    PartitionType.PROC_BLOCK:         "full",
-    PartitionType.MACRO_DEFINITION:   "full",
-    PartitionType.MACRO_INVOCATION:   "full",
-    PartitionType.SQL_BLOCK:          "full",
-    PartitionType.CONDITIONAL_BLOCK:  "structural_only",
-    PartitionType.LOOP_BLOCK:         "structural_only",
-    PartitionType.GLOBAL_STATEMENT:   "structural_only",
-    PartitionType.INCLUDE_REFERENCE:  "structural_only",
-    PartitionType.UNCLASSIFIED:       "structural_only",
+    PartitionType.DATA_STEP: "full",
+    PartitionType.PROC_BLOCK: "full",
+    PartitionType.MACRO_DEFINITION: "full",
+    PartitionType.MACRO_INVOCATION: "full",
+    PartitionType.SQL_BLOCK: "full",
+    PartitionType.CONDITIONAL_BLOCK: "structural_only",
+    PartitionType.LOOP_BLOCK: "structural_only",
+    PartitionType.GLOBAL_STATEMENT: "structural_only",
+    PartitionType.INCLUDE_REFERENCE: "structural_only",
+    PartitionType.UNCLASSIFIED: "structural_only",
 }
 
 
@@ -47,7 +46,7 @@ class BlockBoundaryEvent(BaseModel):
         variable_scope: DATA step / PROC variables at block entry.
         dependency_refs: %INCLUDE / LIBNAME references in this block.
         test_coverage_type: ``"full"`` or ``"structural_only"``.
-        trace_id: Pipeline trace UUID for end-to-end correlation. 
+        trace_id: Pipeline trace UUID for end-to-end correlation.
     """
 
     event_id: UUID = Field(default_factory=uuid4)
@@ -56,7 +55,7 @@ class BlockBoundaryEvent(BaseModel):
     line_start: int
     line_end: int
     raw_code: str
-    boundary_method: str = "lark"           # "lark" | "llm_8b" | "lark_fallback"
+    boundary_method: str = "lark"  # "lark" | "llm_8b" | "lark_fallback"
     confidence: float = 1.0
     is_ambiguous: bool = False
     nesting_depth: int = 0

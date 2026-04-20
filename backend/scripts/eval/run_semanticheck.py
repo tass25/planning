@@ -10,10 +10,11 @@ Usage:
 
 from __future__ import annotations
 
-import sys
-import os
 import asyncio
 import json
+import os
+import re
+import sys
 from pathlib import Path
 
 # Add backend to path
@@ -21,13 +22,20 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "backend"))
 os.chdir(Path(__file__).parent.parent.parent)
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 import structlog
+
 structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(30))  # WARNING+
 
-from partition.verification.semanticheck import semanticheck, SemantiCheckResult
-from partition.utils.llm_clients import get_ollama_client, get_ollama_model, get_azure_openai_client, get_deployment_name
+from partition.utils.llm_clients import (
+    get_azure_openai_client,
+    get_deployment_name,
+    get_ollama_client,
+    get_ollama_model,
+)
+from partition.verification.semanticheck import SemantiCheckResult, semanticheck
 
 # ── Load torture test blocks ─────────────────────────────────────────────────
 
@@ -161,25 +169,25 @@ async def run():
 
     for i in range(total):
         desc = BLOCK_DESCRIPTIONS[i] if i < len(BLOCK_DESCRIPTIONS) else f"Block {i+1}"
-        sas  = sas_blocks[i]
-        py   = py_blocks[i]
+        sas = sas_blocks[i]
+        py = py_blocks[i]
 
         is_partial = py.strip().startswith("# PARTIAL")
 
         result = await semanticheck(
             sas_code=sas,
             python_code=py,
-            z3_score=None,    # would come from z3_agent in full pipeline
-            cdais_score=None, # would come from CDAIS in full pipeline
+            z3_score=None,  # would come from z3_agent in full pipeline
+            cdais_score=None,  # would come from CDAIS in full pipeline
             llm_client=llm_client,
             llm_model=llm_model,
         )
         results.append(result)
 
         verdict_color = {
-            "VERIFIED":         "\033[32m",  # green
-            "LIKELY_CORRECT":   "\033[32m",
-            "UNCERTAIN":        "\033[33m",  # yellow
+            "VERIFIED": "\033[32m",  # green
+            "LIKELY_CORRECT": "\033[32m",
+            "UNCERTAIN": "\033[33m",  # yellow
             "LIKELY_INCORRECT": "\033[31m",  # red
         }.get(result.verdict, "")
         reset = "\033[0m"
@@ -188,11 +196,14 @@ async def run():
         scs_bar = "#" * filled + "-" * (20 - filled)
 
         print(f"[{i+1:2d}/10] {desc[:50]:<50}")
-        print(f"       SCS: {result.scs:.3f}  [{scs_bar}]  "
-              f"{verdict_color}{result.verdict}{reset}")
-        print(f"       L3(contract)={result.contract_score:.2f}  "
-              f"L4(oracle)={'N/A' if result.oracle_score is None else f'{result.oracle_score:.2f}'}"
-              + (" ⚠ PARTIAL" if is_partial else ""))
+        print(
+            f"       SCS: {result.scs:.3f}  [{scs_bar}]  " f"{verdict_color}{result.verdict}{reset}"
+        )
+        print(
+            f"       L3(contract)={result.contract_score:.2f}  "
+            f"L4(oracle)={'N/A' if result.oracle_score is None else f'{result.oracle_score:.2f}'}"
+            + (" ⚠ PARTIAL" if is_partial else "")
+        )
         print()
 
     # Summary
@@ -209,7 +220,9 @@ async def run():
     print(f"  UNCERTAIN              : {uncertain}/10")
     print(f"  LIKELY_INCORRECT       : {likely_wrong}/10")
     print()
-    print(f"  Avg L3 (Contract)      : {sum(r.contract_score or 0 for r in results)/len(results):.3f}")
+    print(
+        f"  Avg L3 (Contract)      : {sum(r.contract_score or 0 for r in results)/len(results):.3f}"
+    )
     oracle_scores = [r.oracle_score for r in results if r.oracle_score is not None]
     if oracle_scores:
         print(f"  Avg L4 (Oracle)        : {sum(oracle_scores)/len(oracle_scores):.3f}")
@@ -227,7 +240,9 @@ async def run():
         "blocks": [
             {
                 "block": i + 1,
-                "description": BLOCK_DESCRIPTIONS[i] if i < len(BLOCK_DESCRIPTIONS) else f"Block {i+1}",
+                "description": (
+                    BLOCK_DESCRIPTIONS[i] if i < len(BLOCK_DESCRIPTIONS) else f"Block {i+1}"
+                ),
                 **r.to_dict(),
             }
             for i, r in enumerate(results)

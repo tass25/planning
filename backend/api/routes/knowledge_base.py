@@ -5,13 +5,15 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from api.core.auth import get_current_user
-from api.core.database import get_api_session, KBEntryRow, KBChangelogRow
+from api.core.database import KBChangelogRow, KBEntryRow, get_api_session
 from api.core.schemas import (
-    KnowledgeBaseEntryOut, KBEntryCreate, KBEntryUpdate,
     KBChangelogEntryOut,
+    KBEntryCreate,
+    KBEntryUpdate,
+    KnowledgeBaseEntryOut,
 )
 
 router = APIRouter(prefix="/kb", tags=["knowledge-base"])
@@ -30,19 +32,22 @@ def _kb_to_out(row: KBEntryRow) -> KnowledgeBaseEntryOut:
 
 
 def _log_change(session, entry_id: str, action: str, user_email: str, description: str):
-    session.add(KBChangelogRow(
-        id=f"cl-{uuid.uuid4().hex[:8]}",
-        entry_id=entry_id,
-        action=action,
-        user=user_email,
-        timestamp=datetime.now(timezone.utc).isoformat(),
-        description=description,
-    ))
+    session.add(
+        KBChangelogRow(
+            id=f"cl-{uuid.uuid4().hex[:8]}",
+            entry_id=entry_id,
+            action=action,
+            user=user_email,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            description=description,
+        )
+    )
 
 
 @router.get("", response_model=list[KnowledgeBaseEntryOut])
 def list_entries(current_user: dict = Depends(get_current_user)):
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         rows = session.query(KBEntryRow).order_by(KBEntryRow.updated_at.desc()).all()
@@ -54,13 +59,18 @@ def list_entries(current_user: dict = Depends(get_current_user)):
 @router.get("/changelog", response_model=list[KBChangelogEntryOut])
 def get_changelog(current_user: dict = Depends(get_current_user)):
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         rows = session.query(KBChangelogRow).order_by(KBChangelogRow.timestamp.desc()).all()
         return [
             KBChangelogEntryOut(
-                id=r.id, entryId=r.entry_id, action=r.action,
-                user=r.user, timestamp=r.timestamp, description=r.description,
+                id=r.id,
+                entryId=r.entry_id,
+                action=r.action,
+                user=r.user,
+                timestamp=r.timestamp,
+                description=r.description,
             )
             for r in rows
         ]
@@ -71,6 +81,7 @@ def get_changelog(current_user: dict = Depends(get_current_user)):
 @router.get("/{entry_id}", response_model=KnowledgeBaseEntryOut)
 def get_entry(entry_id: str, current_user: dict = Depends(get_current_user)):
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         row = session.query(KBEntryRow).get(entry_id)
@@ -84,6 +95,7 @@ def get_entry(entry_id: str, current_user: dict = Depends(get_current_user)):
 @router.post("", response_model=KnowledgeBaseEntryOut)
 def create_entry(body: KBEntryCreate, current_user: dict = Depends(get_current_user)):
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         now = datetime.now(timezone.utc).isoformat()
@@ -97,11 +109,17 @@ def create_entry(body: KBEntryCreate, current_user: dict = Depends(get_current_u
             updated_at=now,
         )
         session.add(entry)
-        _log_change(session, entry.id, "add", current_user.get("email", "unknown"), f"Added {body.category} entry")
+        _log_change(
+            session,
+            entry.id,
+            "add",
+            current_user.get("email", "unknown"),
+            f"Added {body.category} entry",
+        )
         try:
             session.commit()
             session.refresh(entry)
-        except Exception as exc:
+        except Exception:
             session.rollback()
             raise HTTPException(status_code=500, detail="Failed to create KB entry")
         return _kb_to_out(entry)
@@ -110,8 +128,11 @@ def create_entry(body: KBEntryCreate, current_user: dict = Depends(get_current_u
 
 
 @router.put("/{entry_id}", response_model=KnowledgeBaseEntryOut)
-def update_entry(entry_id: str, body: KBEntryUpdate, current_user: dict = Depends(get_current_user)):
+def update_entry(
+    entry_id: str, body: KBEntryUpdate, current_user: dict = Depends(get_current_user)
+):
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         row = session.query(KBEntryRow).get(entry_id)
@@ -131,11 +152,17 @@ def update_entry(entry_id: str, body: KBEntryUpdate, current_user: dict = Depend
             row.confidence = body.confidence
             changes.append("confidence")
         row.updated_at = datetime.now(timezone.utc).isoformat()
-        _log_change(session, entry_id, "edit", current_user.get("email", "unknown"), f"Updated: {', '.join(changes)}")
+        _log_change(
+            session,
+            entry_id,
+            "edit",
+            current_user.get("email", "unknown"),
+            f"Updated: {', '.join(changes)}",
+        )
         try:
             session.commit()
             session.refresh(row)
-        except Exception as exc:
+        except Exception:
             session.rollback()
             raise HTTPException(status_code=500, detail="Failed to update KB entry")
         return _kb_to_out(row)
@@ -146,16 +173,23 @@ def update_entry(entry_id: str, body: KBEntryUpdate, current_user: dict = Depend
 @router.delete("/{entry_id}")
 def delete_entry(entry_id: str, current_user: dict = Depends(get_current_user)):
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         row = session.query(KBEntryRow).get(entry_id)
         if not row:
             raise HTTPException(status_code=404, detail="KB entry not found")
-        _log_change(session, entry_id, "delete", current_user.get("email", "unknown"), f"Deleted entry {entry_id}")
+        _log_change(
+            session,
+            entry_id,
+            "delete",
+            current_user.get("email", "unknown"),
+            f"Deleted entry {entry_id}",
+        )
         session.delete(row)
         try:
             session.commit()
-        except Exception as exc:
+        except Exception:
             session.rollback()
             raise HTTPException(status_code=500, detail="Failed to delete KB entry")
         return {"deleted": entry_id}

@@ -9,8 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 
-import yaml
 import structlog
+import yaml
 
 logger = structlog.get_logger()
 

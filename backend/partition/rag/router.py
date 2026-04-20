@@ -16,15 +16,15 @@ from typing import Optional
 
 import structlog
 
+from partition.index.graph_builder import NetworkXGraphBuilder
 from partition.models.partition_ir import PartitionIR
 from partition.prompts import PromptManager
-from partition.translation.kb_query import KBQueryClient
 from partition.raptor.embedder import NomicEmbedder
-from partition.index.graph_builder import NetworkXGraphBuilder
+from partition.translation.kb_query import KBQueryClient
 
-from .static_rag import StaticRAG
-from .graph_rag import GraphRAG
 from .agentic_rag import AgenticRAG
+from .graph_rag import GraphRAG
+from .static_rag import StaticRAG
 
 logger = structlog.get_logger()
 
@@ -53,7 +53,9 @@ class RAGRouter:
 
         self.static = StaticRAG(kb_client=kb, embedder=emb, prompt_manager=pm)
         self.graph = GraphRAG(kb_client=kb, embedder=emb, graph_builder=graph, prompt_manager=pm)
-        self.agentic = AgenticRAG(kb_client=kb, embedder=emb, graph_builder=graph, prompt_manager=pm)
+        self.agentic = AgenticRAG(
+            kb_client=kb, embedder=emb, graph_builder=graph, prompt_manager=pm
+        )
 
     def select_paradigm(
         self,
@@ -68,7 +70,6 @@ class RAGRouter:
         risk = partition.risk_level.value
         has_scc = bool(partition.metadata.get("scc_id"))
         has_deps = len(partition.dependencies) > 0
-        ptype = partition.partition_type.value
 
         # Agentic RAG: MOD/HIGH risk, failure mode, or retry
         if risk in ("MODERATE", "HIGH", "UNCERTAIN"):

@@ -10,18 +10,18 @@ Covers the five most dangerous untested scenarios identified in the audit:
 
 from __future__ import annotations
 
-import asyncio
 import inspect
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ── 1. start_conversion must be async ────────────────────────────────────────
+
 
 def test_start_conversion_is_async():
     """Regression: start_conversion must be async def so await works inside it."""
     from api.routes.conversions import start_conversion
+
     assert inspect.iscoroutinefunction(start_conversion), (
         "start_conversion must be 'async def' — 'asyncio.run()' inside a sync "
         "FastAPI endpoint raises RuntimeError when the event loop is running."
@@ -30,15 +30,16 @@ def test_start_conversion_is_async():
 
 # ── 2. All LLM tiers down → PARTIAL, no hang ─────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_all_llm_tiers_unavailable_returns_partial():
     """When Ollama, Azure, and Groq are all unavailable, TranslationAgent
     must return PARTIAL status rather than hanging or raising."""
-    from partition.translation.translation_agent import TranslationAgent
-    from partition.models.enums import ConversionStatus, RiskLevel
-    from partition.models.partition_ir import PartitionIR
-    from partition.models.enums import PartitionType
     import uuid
+
+    from partition.models.enums import ConversionStatus, PartitionType, RiskLevel
+    from partition.models.partition_ir import PartitionIR
+    from partition.translation.translation_agent import TranslationAgent
 
     agent = TranslationAgent.__new__(TranslationAgent)
     agent.target_runtime = "python"
@@ -50,15 +51,14 @@ async def test_all_llm_tiers_unavailable_returns_partial():
     agent._translations = {}
     agent._translation_cache = {}
 
-    from partition.raptor.embedder import get_embedder
     agent.embedder = MagicMock()
     agent.kb_client = MagicMock()
     agent.kb_client.query = AsyncMock(return_value=[])
     agent.prompt_manager = MagicMock()
     agent.rag_router = MagicMock()
-    agent.rag_router.build_context = MagicMock(return_value={
-        "prompt": "test", "kb_examples": [], "paradigm": "static"
-    })
+    agent.rag_router.build_context = MagicMock(
+        return_value={"prompt": "test", "kb_examples": [], "paradigm": "static"}
+    )
 
     partition = PartitionIR(
         block_id=uuid.uuid4(),
@@ -74,16 +74,16 @@ async def test_all_llm_tiers_unavailable_returns_partial():
     # All clients already set to None above — no LLM tier available
     result = await agent.process(partition)
 
-    assert result.status == ConversionStatus.PARTIAL, (
-        f"Expected PARTIAL when all LLM tiers fail, got {result.status}"
-    )
+    assert (
+        result.status == ConversionStatus.PARTIAL
+    ), f"Expected PARTIAL when all LLM tiers fail, got {result.status}"
 
 
 # ── 3. None duration does not crash downloads ─────────────────────────────────
 
+
 def test_download_zip_none_duration(tmp_path, monkeypatch):
     """conv.duration=None must not raise TypeError in the zip summary."""
-    from api.routes.conversions import download_zip
     from api.core.database import ConversionRow
 
     conv = ConversionRow(
@@ -92,7 +92,7 @@ def test_download_zip_none_duration(tmp_path, monkeypatch):
         file_name="test.sas",
         status="completed",
         runtime="python",
-        duration=None,      # the dangerous case
+        duration=None,  # the dangerous case
         accuracy=None,
         python_code="print('hello')",
         sas_code="data x; run;",
@@ -101,7 +101,7 @@ def test_download_zip_none_duration(tmp_path, monkeypatch):
     conv.stages = []
 
     # Verify the guard expression used in the route doesn't raise
-    duration_val = (conv.duration or 0.0)
+    duration_val = conv.duration or 0.0
     accuracy_val = conv.accuracy or 0
     summary = (
         f"Conversion: {conv.file_name}\n"
@@ -114,6 +114,7 @@ def test_download_zip_none_duration(tmp_path, monkeypatch):
 
 
 # ── 4. JWT weak secret raises in production ───────────────────────────────────
+
 
 def test_jwt_weak_secret_raises_in_production():
     """validate_production_secrets must raise when JWT default is used in prod."""
@@ -140,6 +141,7 @@ def test_jwt_custom_secret_does_not_raise_in_production():
 
 # ── 5. CircuitBreaker fast-fails when OPEN ────────────────────────────────────
 
+
 def test_circuit_breaker_fast_fails_when_open():
     """After threshold failures, circuit must reject requests immediately."""
     from partition.utils.retry import CircuitBreaker
@@ -157,6 +159,7 @@ def test_circuit_breaker_fast_fails_when_open():
 def test_circuit_breaker_half_open_after_timeout():
     """After reset_timeout, circuit must transition to HALF_OPEN."""
     import time
+
     from partition.utils.retry import CircuitBreaker
 
     breaker = CircuitBreaker(failure_threshold=1, reset_timeout=0.01, name="test_to")
@@ -171,14 +174,19 @@ def test_circuit_breaker_half_open_after_timeout():
 
 # ── 6. NomicEmbedder singleton returned consistently ─────────────────────────
 
+
 def test_nomic_embedder_singleton():
     """get_embedder() must always return the same instance."""
     from partition.raptor.embedder import get_embedder
-    with patch("partition.raptor.embedder._ST_AVAILABLE", True), \
-         patch("partition.raptor.embedder._SentenceTransformer") as MockST:
+
+    with (
+        patch("partition.raptor.embedder._ST_AVAILABLE", True),
+        patch("partition.raptor.embedder._SentenceTransformer") as MockST,
+    ):
         MockST.return_value = MagicMock()
 
         import partition.raptor.embedder as emb_mod
+
         emb_mod._embedder = None  # reset for test isolation
 
         a = get_embedder()

@@ -14,6 +14,7 @@ Usage::
     python scripts/benchmark_report.py
     python scripts/benchmark_report.py --output report.md
 """
+
 from __future__ import annotations
 
 import argparse
@@ -28,74 +29,73 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 MODEL_META: dict[str, dict] = {
     "mistralai/mistral-medium-3-instruct": {
-        "params":       "~22B active (MoE)",
+        "params": "~22B active (MoE)",
         "architecture": "Transformer MoE",
-        "context_k":    128,
+        "context_k": 128,
         "provider_tag": "Mistral AI / NVIDIA NIM",
-        "free_tier":    True,
-        "notes":        "Multimodal, strong at instruction following & code",
+        "free_tier": True,
+        "notes": "Multimodal, strong at instruction following & code",
         "pros": ["Fast verifier response", "High acceptance rate", "Reliable JSON output"],
         "cons": ["Slow Prompt B (~30-70s)", "Single key = one rate-limit bucket"],
     },
-
     "moonshotai/kimi-k2-instruct": {
-        "params":       "1T MoE (active ~32B est.)",
+        "params": "1T MoE (active ~32B est.)",
         "architecture": "MoE Transformer",
-        "context_k":    128,
+        "context_k": 128,
         "provider_tag": "Moonshot AI / NVIDIA NIM",
-        "free_tier":    True,
-        "notes":        "Very large capacity model, strong reasoning & agentic tasks",
-        "pros":         ["Massive parameter count", "Strong reasoning"],
-        "cons":         ["Potentially slower inference", "Less tested on SAS"],
+        "free_tier": True,
+        "notes": "Very large capacity model, strong reasoning & agentic tasks",
+        "pros": ["Massive parameter count", "Strong reasoning"],
+        "cons": ["Potentially slower inference", "Less tested on SAS"],
     },
     "qwen/qwen3.5-122b-a10b": {
-        "params":       "122B MoE (10B active)",
+        "params": "122B MoE (10B active)",
         "architecture": "MoE Transformer",
-        "context_k":    32,
+        "context_k": 32,
         "provider_tag": "Qwen / NVIDIA NIM",
-        "free_tier":    True,
-        "notes":        "Code + tool-calling specialist, low active params = fast",
-        "pros":         ["Low active params -> fast", "Code-optimized"],
-        "cons":         ["Tight free-tier token budget", "429 on bulk requests"],
+        "free_tier": True,
+        "notes": "Code + tool-calling specialist, low active params = fast",
+        "pros": ["Low active params -> fast", "Code-optimized"],
+        "cons": ["Tight free-tier token budget", "429 on bulk requests"],
     },
     "mistralai/devstral-2-123b-instruct-2512": {
-        "params":       "123B",
+        "params": "123B",
         "architecture": "Dense Transformer",
-        "context_k":    256,
+        "context_k": 256,
         "provider_tag": "Mistral AI / NVIDIA NIM",
-        "free_tier":    True,
-        "notes":        "Coding specialist, 256K context",
-        "pros":         ["Long context", "Code-first design"],
-        "cons":         ["Server errors during test period", "Heavy model"],
+        "free_tier": True,
+        "notes": "Coding specialist, 256K context",
+        "pros": ["Long context", "Code-first design"],
+        "cons": ["Server errors during test period", "Heavy model"],
     },
     "llama-3.3-70b-versatile": {
-        "params":       "70B",
+        "params": "70B",
         "architecture": "Dense Transformer",
-        "context_k":    128,
+        "context_k": 128,
         "provider_tag": "Meta / Groq",
-        "free_tier":    True,
-        "notes":        "Used as verifier — fast Groq inference",
-        "pros":         ["<1s verification latency on Groq", "Reliable JSON mode"],
-        "cons":         ["Free tier RPM limit", "Needs 3 keys for bulk runs"],
+        "free_tier": True,
+        "notes": "Used as verifier — fast Groq inference",
+        "pros": ["<1s verification latency on Groq", "Reliable JSON mode"],
+        "cons": ["Free tier RPM limit", "Needs 3 keys for bulk runs"],
     },
     "meta/llama-4-maverick-17b-128e-instruct": {
-        "params":       "17B × 128 experts MoE",
+        "params": "17B × 128 experts MoE",
         "architecture": "MoE Transformer",
-        "context_k":    1000,
+        "context_k": 1000,
         "provider_tag": "Meta / NVIDIA NIM",
-        "free_tier":    True,
-        "notes":        "Used as fallback verifier on NVIDIA NIM",
-        "pros":         ["1M context", "Free endpoint"],
-        "cons":         ["Less powerful than Groq llama-3.3-70b for verification"],
+        "free_tier": True,
+        "notes": "Used as fallback verifier on NVIDIA NIM",
+        "pros": ["1M context", "Free endpoint"],
+        "cons": ["Less powerful than Groq llama-3.3-70b for verification"],
     },
 }
 
 # Estimated cost per 1K tokens (free tier = $0, noted for reference)
 COST_PER_1K = {
-    "mistralai/mistral-medium-3-instruct":    0.0,
-    "moonshotai/kimi-k2-instruct":            0.0,
-    "qwen/qwen3.5-122b-a10b":                 0.0,
-    "llama-3.3-70b-versatile":                0.0,
+    "mistralai/mistral-medium-3-instruct": 0.0,
+    "moonshotai/kimi-k2-instruct": 0.0,
+    "qwen/qwen3.5-122b-a10b": 0.0,
+    "llama-3.3-70b-versatile": 0.0,
     "meta/llama-4-maverick-17b-128e-instruct": 0.0,
 }
 
@@ -173,7 +173,9 @@ def print_report(runs: list[dict], detail_rows: list[dict], out_lines: list[str]
     # ── 2. Performance breakdown ──────────────────────────────────────────
     p("\n[2] PERFORMANCE BREAKDOWN (avg per pair)")
     p("-" * 110)
-    p(f"{'Model':<42} {'PromptA':>9} {'PromptB':>9} {'PromptC':>9} {'Total':>8} {'SAS lines':>10} {'PY lines':>9} {'Tokens':>8}")
+    p(
+        f"{'Model':<42} {'PromptA':>9} {'PromptB':>9} {'PromptC':>9} {'Total':>8} {'SAS lines':>10} {'PY lines':>9} {'Tokens':>8}"
+    )
     p("-" * 110)
     for r in active_runs:
         model = r.get("gen_model", "?").split("/")[-1][:40]
@@ -202,7 +204,7 @@ def print_report(runs: list[dict], detail_rows: list[dict], out_lines: list[str]
         run_ids = list({r["run_id"] for r in detail_rows})
 
         # Header
-        run_labels = [r.get("run_id","?")[:8] for r in active_runs if r.get("run_id") in run_ids]
+        run_labels = [r.get("run_id", "?")[:8] for r in active_runs if r.get("run_id") in run_ids]
         p(f"{'Category':<30} " + "  ".join(f"{'['+rid+']':>14}" for rid in run_labels))
         p(f"{'':30} " + "  ".join(f"{'conf / lat':>14}" for _ in run_labels))
         p("-" * 110)
@@ -213,7 +215,9 @@ def print_report(runs: list[dict], detail_rows: list[dict], out_lines: list[str]
                 rows = by_run_cat[rid].get(cat, [])
                 if rows:
                     avg_conf = sum(r["confidence"] for r in rows) / len(rows)
-                    avg_lat  = sum(r["t_total_s"] for r in rows if r.get("t_total_s")) / max(len(rows),1)
+                    avg_lat = sum(r["t_total_s"] for r in rows if r.get("t_total_s")) / max(
+                        len(rows), 1
+                    )
                     row_parts.append(f"{avg_conf:.2f} / {avg_lat:4.0f}s")
                 else:
                     row_parts.append("      --      ")
@@ -228,7 +232,7 @@ def print_report(runs: list[dict], detail_rows: list[dict], out_lines: list[str]
             fm = row.get("failure_mode", "none") or "none"
             fm_counts[row["run_id"]][fm] += 1
 
-        all_fms = sorted({r.get("failure_mode","none") or "none" for r in detail_rows})
+        all_fms = sorted({r.get("failure_mode", "none") or "none" for r in detail_rows})
         run_ids_det = list({r["run_id"] for r in detail_rows})
         p(f"{'Failure Mode':<35} " + "  ".join(f"{rid[:8]:>8}" for rid in run_ids_det))
         p("-" * 80)
@@ -242,50 +246,67 @@ def print_report(runs: list[dict], detail_rows: list[dict], out_lines: list[str]
     seen_models = {r.get("gen_model") for r in active_runs}
     for model in seen_models:
         meta = MODEL_META.get(model, {})
-        short = model.split("/")[-1]
+        model.split("/")[-1]
         p(f"\n  MODEL : {model}")
-        p(f"  Params: {meta.get('params', 'unknown'):<25}  Architecture: {meta.get('architecture','?')}")
-        p(f"  Context: {meta.get('context_k','?')}K tokens        Provider: {meta.get('provider_tag','?')}")
+        p(
+            f"  Params: {meta.get('params', 'unknown'):<25}  Architecture: {meta.get('architecture','?')}"
+        )
+        p(
+            f"  Context: {meta.get('context_k','?')}K tokens        Provider: {meta.get('provider_tag','?')}"
+        )
         p(f"  Notes : {meta.get('notes','')}")
         pros = meta.get("pros", [])
         cons = meta.get("cons", [])
         if pros:
-            p(f"  PROS  : " + " | ".join(pros))
+            p("  PROS  : " + " | ".join(pros))
         if cons:
-            p(f"  CONS  : " + " | ".join(cons))
+            p("  CONS  : " + " | ".join(cons))
 
         # Find matching run stats
         run_stats = [r for r in active_runs if r.get("gen_model") == model]
         if run_stats:
             best = max(run_stats, key=lambda x: x.get("verified", 0))
-            p(f"  BEST RUN [{best.get('run_id','')}]: "
-              f"{best.get('verified',0)} pairs | "
-              f"acc={best.get('acceptance_rate',0)*100:.0f}% | "
-              f"conf={best.get('avg_confidence',0):.3f} | "
-              f"lat={best.get('avg_latency_s',0):.1f}s/pair")
+            p(
+                f"  BEST RUN [{best.get('run_id','')}]: "
+                f"{best.get('verified',0)} pairs | "
+                f"acc={best.get('acceptance_rate',0)*100:.0f}% | "
+                f"conf={best.get('avg_confidence',0):.3f} | "
+                f"lat={best.get('avg_latency_s',0):.1f}s/pair"
+            )
         p("  " + "-" * 80)
 
     # ── 6. Head-to-head comparison ────────────────────────────────────────
     p("\n[6] HEAD-TO-HEAD COMPARISON")
     p("=" * 110)
-    p(f"{'Metric':<35} " + "  ".join(f"{r.get('gen_model','?').split('/')[-1][:25]:>27}" for r in active_runs))
+    p(
+        f"{'Metric':<35} "
+        + "  ".join(f"{r.get('gen_model','?').split('/')[-1][:25]:>27}" for r in active_runs)
+    )
     p("-" * 110)
 
     metrics_map = [
-        ("Verified pairs",         lambda r: str(r.get("verified", 0))),
-        ("Acceptance rate",        lambda r: f"{r.get('acceptance_rate',0)*100:.0f}%"),
-        ("Avg confidence",         lambda r: f"{r.get('avg_confidence',0):.3f}"),
-        ("Min confidence",         lambda r: f"{r.get('min_confidence',r.get('avg_confidence',0)):.3f}"),
-        ("Avg total latency",      lambda r: f"{r.get('avg_latency_s',0):.1f}s"),
+        ("Verified pairs", lambda r: str(r.get("verified", 0))),
+        ("Acceptance rate", lambda r: f"{r.get('acceptance_rate',0)*100:.0f}%"),
+        ("Avg confidence", lambda r: f"{r.get('avg_confidence',0):.3f}"),
+        ("Min confidence", lambda r: f"{r.get('min_confidence',r.get('avg_confidence',0)):.3f}"),
+        ("Avg total latency", lambda r: f"{r.get('avg_latency_s',0):.1f}s"),
         ("Avg Prompt A (SAS gen)", lambda r: f"{r.get('avg_t_prompt_a',0):.1f}s"),
         ("Avg Prompt B (PY conv)", lambda r: f"{r.get('avg_t_prompt_b',0):.1f}s"),
-        ("Avg Prompt C (verify)",  lambda r: f"{r.get('avg_t_prompt_c',0):.2f}s"),
-        ("Avg SAS lines",          lambda r: f"{r.get('avg_sas_lines',0):.0f}"),
-        ("Avg Python lines",       lambda r: f"{r.get('avg_py_lines',0):.0f}"),
-        ("Avg tokens (est)",       lambda r: f"{int(r.get('avg_tokens_est',0))}"),
-        ("Model params",           lambda r: MODEL_META.get(r.get("gen_model",""),{}).get("params","?")),
-        ("Context window",         lambda r: f"{MODEL_META.get(r.get('gen_model',''),{}).get('context_k','?')}K"),
-        ("Free tier",              lambda r: "Yes" if MODEL_META.get(r.get("gen_model",""),{}).get("free_tier") else "No"),
+        ("Avg Prompt C (verify)", lambda r: f"{r.get('avg_t_prompt_c',0):.2f}s"),
+        ("Avg SAS lines", lambda r: f"{r.get('avg_sas_lines',0):.0f}"),
+        ("Avg Python lines", lambda r: f"{r.get('avg_py_lines',0):.0f}"),
+        ("Avg tokens (est)", lambda r: f"{int(r.get('avg_tokens_est',0))}"),
+        ("Model params", lambda r: MODEL_META.get(r.get("gen_model", ""), {}).get("params", "?")),
+        (
+            "Context window",
+            lambda r: f"{MODEL_META.get(r.get('gen_model',''),{}).get('context_k','?')}K",
+        ),
+        (
+            "Free tier",
+            lambda r: (
+                "Yes" if MODEL_META.get(r.get("gen_model", ""), {}).get("free_tier") else "No"
+            ),
+        ),
     ]
 
     for label, fn in metrics_map:
@@ -297,11 +318,17 @@ def print_report(runs: list[dict], detail_rows: list[dict], out_lines: list[str]
     p("=" * 110)
     if len(active_runs) >= 2:
         best_quality = max(active_runs, key=lambda r: r.get("avg_confidence", 0))
-        best_speed   = min(active_runs, key=lambda r: r.get("avg_latency_s", 999))
-        best_yield   = max(active_runs, key=lambda r: r.get("acceptance_rate", 0))
-        p(f"  Best quality (confidence) : {best_quality.get('gen_model','?')}  [{best_quality.get('avg_confidence',0):.3f}]")
-        p(f"  Best speed  (latency)     : {best_speed.get('gen_model','?')}  [{best_speed.get('avg_latency_s',0):.1f}s/pair]")
-        p(f"  Best yield  (acceptance%) : {best_yield.get('gen_model','?')}  [{best_yield.get('acceptance_rate',0)*100:.0f}%]")
+        best_speed = min(active_runs, key=lambda r: r.get("avg_latency_s", 999))
+        best_yield = max(active_runs, key=lambda r: r.get("acceptance_rate", 0))
+        p(
+            f"  Best quality (confidence) : {best_quality.get('gen_model','?')}  [{best_quality.get('avg_confidence',0):.3f}]"
+        )
+        p(
+            f"  Best speed  (latency)     : {best_speed.get('gen_model','?')}  [{best_speed.get('avg_latency_s',0):.1f}s/pair]"
+        )
+        p(
+            f"  Best yield  (acceptance%) : {best_yield.get('gen_model','?')}  [{best_yield.get('acceptance_rate',0)*100:.0f}%]"
+        )
     else:
         p("  Only one model benchmarked so far. Run Kimi to enable comparison.")
 

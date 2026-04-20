@@ -12,6 +12,7 @@ Usage::
 
 from __future__ import annotations
 
+import asyncio
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -75,6 +76,7 @@ class AzureBlobStorage(StorageBackend):
 
     def __init__(self) -> None:
         from azure.storage.blob import BlobServiceClient  # type: ignore
+
         conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
         self.container = os.getenv("AZURE_STORAGE_CONTAINER", "codara-uploads")
         if not conn_str:
@@ -89,9 +91,7 @@ class AzureBlobStorage(StorageBackend):
         log.info("azure_blob_storage_ready", container=self.container)
 
     async def save(self, key: str, data: bytes) -> str:
-        await asyncio.to_thread(
-            self._container_client.upload_blob, key, data, overwrite=True
-        )
+        await asyncio.to_thread(self._container_client.upload_blob, key, data, overwrite=True)
         return key
 
     async def load(self, key: str) -> bytes:

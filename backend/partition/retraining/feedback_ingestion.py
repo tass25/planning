@@ -87,9 +87,7 @@ class FeedbackIngestionAgent:
                 new_kb_id=new_kb_id,
             )
         else:
-            rejection_reason = (
-                f"confidence {confidence:.3f} < {self.confidence_threshold}"
-            )
+            rejection_reason = f"confidence {confidence:.3f} < {self.confidence_threshold}"
             log.warning(
                 "correction_rejected",
                 feedback_id=feedback_id,

@@ -13,7 +13,6 @@ Requires .env with AZURE_OPENAI_* and GROQ_API_KEY set.
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
 import time
 import uuid
@@ -33,16 +32,15 @@ while not (BACKEND_DIR / "partition").exists():
 sys.path.insert(0, str(BACKEND_DIR))
 
 from dotenv import load_dotenv
+
 load_dotenv(BACKEND_DIR.parent / ".env")
 
-from partition.models.partition_ir import PartitionIR
-from partition.models.enums import PartitionType, RiskLevel, ConversionStatus
-from partition.translation.translation_pipeline import TranslationPipeline
-
-
 # ── Parse SAS file into rough blocks (split on blank lines after run/quit) ──
-
 import re as _re
+
+from partition.models.enums import ConversionStatus, PartitionType, RiskLevel
+from partition.models.partition_ir import PartitionIR
+from partition.translation.translation_pipeline import TranslationPipeline
 
 # Patterns that only appear in real SAS code (not plain prose comments)
 _SAS_CODE_RE = _re.compile(
@@ -188,7 +186,11 @@ async def run() -> None:
 
     for i, (label, source) in enumerate(blocks):
         partition = make_partition(label, source, i)
-        print(f"[{i+1}/{len(blocks)}] {label[:55]:<55} risk={partition.risk_level.value:<10}", end="", flush=True)
+        print(
+            f"[{i+1}/{len(blocks)}] {label[:55]:<55} risk={partition.risk_level.value:<10}",
+            end="",
+            flush=True,
+        )
         t0 = time.monotonic()
         result = await pipeline.translate_partition(partition)
         elapsed = time.monotonic() - t0
@@ -208,7 +210,7 @@ async def run() -> None:
 
     # Summary table
     print(f"\n{CYAN}{'-'*70}")
-    print(f"  Summary")
+    print("  Summary")
     print(f"{'-'*70}{RESET}")
 
     success = sum(1 for _, r, _ in results if r.status == ConversionStatus.SUCCESS)
@@ -235,7 +237,9 @@ async def run() -> None:
         out_file.write_text(result.python_code, encoding="utf-8")
     merged_file = out_dir / f"{stem}_all.py"
     merged_file.write_text(
-        "\n\n# " + "="*70 + "\n\n".join(
+        "\n\n# "
+        + "=" * 70
+        + "\n\n".join(
             f"# Block {i+1}: {label}\n# {'='*70}\n\n{result.python_code}"
             for i, (label, result, _) in enumerate(results)
         ),

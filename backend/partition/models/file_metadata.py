@@ -22,6 +22,7 @@ class FileMetadata(BaseModel):
         lark_errors: List of error messages from the pre-validator.
         created_at: Timestamp when this metadata was generated.
     """
+
     file_id: UUID = Field(default_factory=uuid4)
     file_path: str
     encoding: str

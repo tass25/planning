@@ -15,18 +15,16 @@ Usage::
 
 from __future__ import annotations
 
-import ast
 import re
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
 class LineageViolation:
-    table_name: str       # the name that was reloaded
-    line_no: int          # 1-based line number in python_code
-    snippet: str          # the offending line
-    suggestion: str       # how to fix it
+    table_name: str  # the name that was reloaded
+    line_no: int  # 1-based line number in python_code
+    snippet: str  # the offending line
+    suggestion: str  # how to fix it
 
 
 @dataclass
@@ -118,16 +116,18 @@ def check_lineage(
                 )
 
                 if is_internal:
-                    violations.append(LineageViolation(
-                        table_name=table_name,
-                        line_no=line_no,
-                        snippet=line,
-                        suggestion=(
-                            f"Remove this read call. `{table_name}` is an internal "
-                            f"DataFrame produced by a prior step — use it directly "
-                            f"as a variable named `{table_name}`."
-                        ),
-                    ))
+                    violations.append(
+                        LineageViolation(
+                            table_name=table_name,
+                            line_no=line_no,
+                            snippet=line,
+                            suggestion=(
+                                f"Remove this read call. `{table_name}` is an internal "
+                                f"DataFrame produced by a prior step — use it directly "
+                                f"as a variable named `{table_name}`."
+                            ),
+                        )
+                    )
 
     if violations:
         table_list = ", ".join(f"`{v.table_name}`" for v in violations)
@@ -161,6 +161,7 @@ def _looks_internal(filepath: str, table_name: str) -> bool:
 
 
 # ── Convenience: extract referenced DataFrames from code ─────────────────────
+
 
 def extract_referenced_names(python_code: str) -> set[str]:
     """Return the set of variable names that look like DataFrame reads."""
@@ -200,16 +201,17 @@ def build_internal_table_set(sas_code: str) -> set[str]:
 
 # ── Macro reference check (new) ───────────────────────────────────────────────
 
+
 @dataclass
 class MacroViolation:
-    macro_name: str    # the &var_name that was not resolved
-    line_no:    int
-    snippet:    str
+    macro_name: str  # the &var_name that was not resolved
+    line_no: int
+    snippet: str
 
 
 @dataclass
 class MacroReport:
-    ok:         bool
+    ok: bool
     violations: list[MacroViolation] = field(default_factory=list)
 
     def to_prompt_block(self) -> str:
@@ -222,7 +224,9 @@ class MacroReport:
             "Replace each with its Python equivalent or a literal value:\n"
         )
         for v in self.violations:
-            lines.append(f"  - Line {v.line_no}: `{v.snippet.strip()}`  →  `&{v.macro_name}` not resolved")
+            lines.append(
+                f"  - Line {v.line_no}: `{v.snippet.strip()}`  →  `&{v.macro_name}` not resolved"
+            )
         return "\n".join(lines)
 
 
@@ -255,16 +259,18 @@ def check_macro_references(python_code: str) -> MacroReport:
             # Exclude legitimate Python bitwise AND: `a & b` (space on both sides)
             start = m.start()
             before = line[start - 1] if start > 0 else ""
-            after  = line[m.end()]   if m.end() < len(line) else ""
+            after = line[m.end()] if m.end() < len(line) else ""
             if before.strip() and after.strip():
                 # Looks like `a&b` — might be bitwise, but macro refs don't have a word char before &
                 if before.isalnum() or before in {")", "]", "_"}:
-                    continue   # skip — it's  a & b  bitwise
-            violations.append(MacroViolation(
-                macro_name = m.group(1),
-                line_no    = line_no,
-                snippet    = line,
-            ))
+                    continue  # skip — it's  a & b  bitwise
+            violations.append(
+                MacroViolation(
+                    macro_name=m.group(1),
+                    line_no=line_no,
+                    snippet=line,
+                )
+            )
 
     if violations:
         return MacroReport(ok=False, violations=violations)
@@ -281,5 +287,5 @@ def full_lineage_check(
         (LineageReport, MacroReport) — check .ok on each.
     """
     lineage = check_lineage(python_code, internal_table_names)
-    macros  = check_macro_references(python_code)
+    macros = check_macro_references(python_code)
     return lineage, macros

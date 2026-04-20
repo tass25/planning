@@ -62,7 +62,9 @@ class StreamAgent(BaseAgent):
             except (LookupError, ValueError):
                 self.logger.warning("invalid_encoding_fallback", encoding=encoding)
                 encoding = "utf-8"
-                fh_open = aiofiles.open(file_meta.file_path, mode="r", encoding=encoding, errors="replace")
+                fh_open = aiofiles.open(
+                    file_meta.file_path, mode="r", encoding=encoding, errors="replace"
+                )
 
             async with fh_open as fh:
                 async for raw_line in fh:

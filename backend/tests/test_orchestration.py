@@ -23,6 +23,7 @@ def _redis_reachable(url: str = "redis://localhost:6379/0") -> bool:
     """Return True if Redis responds to PING within 1 second."""
     try:
         import redis as _redis
+
         r = _redis.from_url(url, socket_connect_timeout=1)
         r.ping()
         return True
@@ -168,7 +169,6 @@ class TestLLMAuditLogger:
     def test_audit_context_manager_success(self, tmp_path):
         """Audit logs a successful LLM call to DuckDB."""
         import duckdb
-
         from partition.db.duckdb_manager import init_all_duckdb_tables
         from partition.orchestration.audit import LLMAuditLogger
 
@@ -183,14 +183,13 @@ class TestLLMAuditLogger:
         rows = con.execute("SELECT * FROM llm_audit").fetchall()
         assert len(rows) == 1
         assert rows[0][1] == "TestAgent"  # agent_name
-        assert rows[0][6] is True          # success
-        assert rows[0][7] is None          # error_msg
+        assert rows[0][6] is True  # success
+        assert rows[0][7] is None  # error_msg
         con.close()
 
     def test_audit_context_manager_failure(self, tmp_path):
         """Audit logs a failed LLM call."""
         import duckdb
-
         from partition.db.duckdb_manager import init_all_duckdb_tables
         from partition.orchestration.audit import LLMAuditLogger
 
@@ -199,14 +198,14 @@ class TestLLMAuditLogger:
         audit = LLMAuditLogger(db_path)
 
         with pytest.raises(ValueError, match="boom"):
-            with audit.log_call("FailAgent", "fail_model", "bad prompt") as call:
+            with audit.log_call("FailAgent", "fail_model", "bad prompt"):
                 raise ValueError("boom")
 
         con = duckdb.connect(db_path)
         rows = con.execute("SELECT * FROM llm_audit").fetchall()
         assert len(rows) == 1
         assert rows[0][1] == "FailAgent"
-        assert rows[0][6] is False   # success
+        assert rows[0][6] is False  # success
         assert "boom" in rows[0][7]  # error_msg
         con.close()
 

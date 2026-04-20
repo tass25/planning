@@ -12,10 +12,10 @@ from typing import Optional
 
 import structlog
 
-from partition.prompts import PromptManager
-from partition.translation.kb_query import KBQueryClient
-from partition.raptor.embedder import NomicEmbedder
 from partition.index.graph_builder import NetworkXGraphBuilder
+from partition.prompts import PromptManager
+from partition.raptor.embedder import NomicEmbedder
+from partition.translation.kb_query import KBQueryClient
 
 logger = structlog.get_logger()
 
@@ -55,12 +55,14 @@ class GraphRAG:
         context = []
         for dep in deps:
             pid = dep["partition_id"]
-            context.append({
-                "partition_id": pid,
-                "partition_type": dep.get("partition_type", ""),
-                "relation": "upstream",
-                "python_code": translations.get(pid, ""),
-            })
+            context.append(
+                {
+                    "partition_id": pid,
+                    "partition_type": dep.get("partition_type", ""),
+                    "relation": "upstream",
+                    "python_code": translations.get(pid, ""),
+                }
+            )
         return context
 
     def _get_scc_siblings(
@@ -77,12 +79,14 @@ class GraphRAG:
             if pid == current_partition_id:
                 continue
             node_data = self.graph.graph.nodes.get(pid, {})
-            siblings.append({
-                "partition_id": pid,
-                "partition_type": node_data.get("partition_type", ""),
-                "line_start": node_data.get("line_start", "?"),
-                "line_end": node_data.get("line_end", "?"),
-            })
+            siblings.append(
+                {
+                    "partition_id": pid,
+                    "partition_type": node_data.get("partition_type", ""),
+                    "line_start": node_data.get("line_start", "?"),
+                    "line_end": node_data.get("line_end", "?"),
+                }
+            )
         return siblings
 
     def build_context(
@@ -116,7 +120,9 @@ class GraphRAG:
         """
         # 1. Graph traversal — upstream translations + SCC siblings
         graph_context = self._get_graph_context(
-            partition_id, max_hop=hop_cap, translations=translations,
+            partition_id,
+            max_hop=hop_cap,
+            translations=translations,
         )
         scc_siblings = self._get_scc_siblings(scc_id, partition_id)
 

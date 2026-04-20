@@ -10,7 +10,7 @@ from partition.base_agent import BaseAgent
 from partition.models.partition_ir import PartitionIR
 
 from .complexity_agent import ComplexityAgent
-from .strategy_agent import StrategyAgent, _select_strategy
+from .strategy_agent import StrategyAgent
 
 
 class RiskRouter(BaseAgent):

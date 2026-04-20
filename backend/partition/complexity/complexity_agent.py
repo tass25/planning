@@ -21,10 +21,10 @@ Usage
 >>> partitions = await PartitionBuilderAgent().process(events)
 >>> labelled = await agent.process(partitions, gold_dir=GOLD_DIR)
 """
+
 from __future__ import annotations
 
 import json
-import logging
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -33,7 +33,6 @@ import numpy as np
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
 
 from partition.base_agent import BaseAgent
 from partition.models.enums import RiskLevel
@@ -45,7 +44,7 @@ from .features import BlockFeatures, extract
 _TIER_MAP: dict[str, RiskLevel] = {
     "simple": RiskLevel.LOW,
     "medium": RiskLevel.MODERATE,
-    "hard":   RiskLevel.HIGH,
+    "hard": RiskLevel.HIGH,
 }
 
 # Integer label → RiskLevel (for sklearn output)
@@ -57,13 +56,13 @@ _INT_LABEL: dict[int, RiskLevel] = {
 _RISK_INT: dict[RiskLevel, int] = {v: k for k, v in _INT_LABEL.items()}
 
 # Rule-based thresholds
-_LINE_NORM = 200   # divisor used when building BlockFeatures.line_count_norm
-_NEST_NORM = 5     # divisor used when building BlockFeatures.nesting_depth_norm
+_LINE_NORM = 200  # divisor used when building BlockFeatures.line_count_norm
+_NEST_NORM = 5  # divisor used when building BlockFeatures.nesting_depth_norm
 _HIGH_LINE = 50
 _HIGH_NEST = 3
 _HIGH_TYPE = 2.0
-_LOW_LINE  = 10
-_LOW_TYPE  = 1.0
+_LOW_LINE = 10
+_LOW_TYPE = 1.0
 
 
 class ComplexityAgent(BaseAgent):
@@ -114,30 +113,30 @@ class ComplexityAgent(BaseAgent):
             X_arr, y_arr, test_size=test_size, stratify=y_arr, random_state=seed
         )
 
-        base = LogisticRegression(
-            max_iter=1000, random_state=seed, class_weight="balanced", C=1.0
-        )
+        base = LogisticRegression(max_iter=1000, random_state=seed, class_weight="balanced", C=1.0)
         self._model = CalibratedClassifierCV(base, method="sigmoid", cv=5)
         self._model.fit(X_tr, y_tr)
         self._fitted = True
 
         train_acc = float(np.mean(self._model.predict(X_tr) == y_tr))
-        test_acc  = float(np.mean(self._model.predict(X_te) == y_te))
-        proba_te  = self._model.predict_proba(X_te)
-        ece       = _compute_ece(y_te, proba_te)
+        test_acc = float(np.mean(self._model.predict(X_te) == y_te))
+        proba_te = self._model.predict_proba(X_te)
+        ece = _compute_ece(y_te, proba_te)
 
         self.logger.info(
             "complexity_model_trained",
-            n_train=len(X_tr), n_test=len(X_te),
-            train_acc=round(train_acc, 3), test_acc=round(test_acc, 3),
+            n_train=len(X_tr),
+            n_test=len(X_te),
+            train_acc=round(train_acc, 3),
+            test_acc=round(test_acc, 3),
             ece=round(ece, 4),
         )
         return {
             "train_acc": train_acc,
-            "test_acc":  test_acc,
-            "ece":       ece,
-            "n_train":   len(X_tr),
-            "n_test":    len(X_te),
+            "test_acc": test_acc,
+            "ece": ece,
+            "n_train": len(X_tr),
+            "n_test": len(X_te),
         }
 
     async def process(  # type: ignore[override]
@@ -168,9 +167,7 @@ class ComplexityAgent(BaseAgent):
             updated_meta["complexity_confidence"] = round(conf, 4)
             updated_meta["complexity_features"] = feats.to_list()
 
-            results.append(
-                part.model_copy(update={"risk_level": risk, "metadata": updated_meta})
-            )
+            results.append(part.model_copy(update={"risk_level": risk, "metadata": updated_meta}))
 
         self.logger.info("complexity_scored", n_blocks=len(results), fitted=self._fitted)
         return results
@@ -184,7 +181,7 @@ class ComplexityAgent(BaseAgent):
         assert self._model is not None
         x = np.array([feats.to_list()])
         label = int(self._model.predict(x)[0])
-        conf  = float(np.max(self._model.predict_proba(x)[0]))
+        conf = float(np.max(self._model.predict_proba(x)[0]))
         return _INT_LABEL[label], conf
 
     def _predict_rules(self, feats: BlockFeatures) -> tuple[RiskLevel, float]:
@@ -199,8 +196,8 @@ class ComplexityAgent(BaseAgent):
            AND nesting_depth_norm == 0 → LOW (0.82)
         6. Otherwise → MODERATE (0.65)
         """
-        lc   = feats.line_count_norm * _LINE_NORM   # un-normalise
-        nd   = feats.nesting_depth_norm * _NEST_NORM
+        lc = feats.line_count_norm * _LINE_NORM  # un-normalise
+        nd = feats.nesting_depth_norm * _NEST_NORM
 
         if feats.has_call_execute:
             return RiskLevel.HIGH, 0.90
@@ -243,9 +240,7 @@ class ComplexityAgent(BaseAgent):
                 source = ""
                 if sas_path.exists():
                     try:
-                        lines = sas_path.read_text(
-                            encoding="utf-8", errors="replace"
-                        ).splitlines()
+                        lines = sas_path.read_text(encoding="utf-8", errors="replace").splitlines()
                         s, e = block["line_start"] - 1, block["line_end"]
                         source = "\n".join(lines[s:e])
                     except Exception:
@@ -260,7 +255,7 @@ class ComplexityAgent(BaseAgent):
                     line_end=block["line_end"],
                     metadata={
                         "nesting_depth": block.get("nesting_depth", 0),
-                        "is_ambiguous":  False,
+                        "is_ambiguous": False,
                     },
                 )
                 X.append(extract(dummy))
@@ -272,6 +267,7 @@ class ComplexityAgent(BaseAgent):
 # ---------------------------------------------------------------------------
 # ECE utility
 # ---------------------------------------------------------------------------
+
 
 def _compute_ece(y_true: np.ndarray, y_proba: np.ndarray, n_bins: int = 10) -> float:
     """Compute Expected Calibration Error (ECE) for a multi-class classifier.
@@ -301,7 +297,7 @@ def _compute_ece(y_true: np.ndarray, y_proba: np.ndarray, n_bins: int = 10) -> f
             if not mask.any():
                 continue
             conf_mean = float(prob_k[mask].mean())
-            acc_mean  = float(true_k[mask].mean())
+            acc_mean = float(true_k[mask].mean())
             ece += (mask.sum() / n_samples) * abs(conf_mean - acc_mean)
 
     return ece / n_classes

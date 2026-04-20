@@ -28,6 +28,7 @@ from .models import BlockBoundaryEvent
 
 class LLMBoundaryResponse(BaseModel):
     """Typed response from the LLM boundary resolver."""
+
     block_type: str
     line_end: int
     confidence: float
@@ -84,7 +85,7 @@ class LLMBoundaryResolver:
         groq_client = get_groq_client(async_client=True)
         model = get_groq_model()
         tokenizer = tiktoken.get_encoding("cl100k_base")
-        raw_code  = _truncate(event.raw_code, tokenizer, self.MAX_TOKENS - 500)
+        raw_code = _truncate(event.raw_code, tokenizer, self.MAX_TOKENS - 500)
 
         client = instructor.from_groq(groq_client, mode=instructor.Mode.JSON)
 
@@ -115,7 +116,7 @@ class LLMBoundaryResolver:
         deploy = get_deployment_name("mini")
 
         tokenizer = tiktoken.get_encoding("cl100k_base")
-        raw_code  = _truncate(event.raw_code, tokenizer, self.MAX_TOKENS - 500)
+        raw_code = _truncate(event.raw_code, tokenizer, self.MAX_TOKENS - 500)
 
         client = instructor.from_openai(azure_client)
 
@@ -130,6 +131,7 @@ class LLMBoundaryResolver:
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _truncate(code: str, tokenizer, max_tokens: int) -> str:
     tokens = tokenizer.encode(code)
@@ -170,8 +172,8 @@ def _apply_response(
         event.partition_type = PartitionType(resp.block_type)
     except ValueError:
         pass  # Keep original type if LLM returns unknown value
-    event.line_end        = resp.line_end
-    event.confidence      = resp.confidence
+    event.line_end = resp.line_end
+    event.confidence = resp.confidence
     event.boundary_method = method
-    event.is_ambiguous    = False
+    event.is_ambiguous = False
     return event

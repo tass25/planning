@@ -27,6 +27,7 @@ HIGH (any type)
 UNCERTAIN (any type)
       → HUMAN_REVIEW           (cannot auto-classify; escalate)
 """
+
 from __future__ import annotations
 
 from partition.base_agent import BaseAgent
@@ -118,7 +119,7 @@ class StrategyAgent(BaseAgent):
 
         for part in partitions:
             strat = _select_strategy(part.risk_level, part.partition_type)
-            key   = strat.value
+            key = strat.value
             strategy_counts[key] = strategy_counts.get(key, 0) + 1
 
             updated_meta = dict(part.metadata)

@@ -66,11 +66,7 @@ class ReportAgent:
             "report_id": str(uuid4()),
             "source_file_id": source_file_id,
             "total_blocks": merged_script.get("block_count", 0),
-            "success_count": sum(
-                1
-                for cr in conversion_results
-                if cr.get("status") == "SUCCESS"
-            ),
+            "success_count": sum(1 for cr in conversion_results if cr.get("status") == "SUCCESS"),
             "partial_count": merged_script.get("partial_count", 0),
             "human_review_count": merged_script.get("human_review_count", 0),
             "report_md_path": str(md_path),
@@ -93,9 +89,7 @@ class ReportAgent:
     ) -> list[str]:
         """Build Markdown report lines."""
         n_total = merged_script.get("block_count", 0)
-        n_success = sum(
-            1 for cr in conversion_results if cr.get("status") == "SUCCESS"
-        )
+        n_success = sum(1 for cr in conversion_results if cr.get("status") == "SUCCESS")
         n_partial = merged_script.get("partial_count", 0)
         n_hr = merged_script.get("human_review_count", 0)
         n_failed = n_total - n_success - n_partial - n_hr
@@ -105,9 +99,7 @@ class ReportAgent:
             for cr in conversion_results
             if cr.get("failure_mode_flagged")
         )
-        hr_blocks = [
-            cr for cr in conversion_results if cr.get("status") == "HUMAN_REVIEW"
-        ]
+        hr_blocks = [cr for cr in conversion_results if cr.get("status") == "HUMAN_REVIEW"]
 
         lines = [
             f"# Conversion Report: {source_path}",
@@ -202,9 +194,7 @@ class ReportAgent:
         try:
             import markdown2
 
-            return markdown2.markdown(
-                md_text, extras=["tables", "fenced-code-blocks"]
-            )
+            return markdown2.markdown(md_text, extras=["tables", "fenced-code-blocks"])
         except ImportError:
             # Basic fallback
             html = md_text.replace("\n", "<br>\n")

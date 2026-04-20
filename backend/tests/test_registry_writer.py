@@ -7,13 +7,12 @@ import hashlib
 from pathlib import Path
 
 import pytest
-
+from partition.db.sqlite_manager import FileRegistryRow, get_engine, get_session, init_db
 from partition.entry.registry_writer_agent import RegistryWriterAgent
 from partition.models.file_metadata import FileMetadata
-from partition.db.sqlite_manager import get_engine, init_db, get_session, FileRegistryRow
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _run(coro):
     return asyncio.run(coro)
@@ -40,6 +39,7 @@ def db_engine(tmp_path: Path):
 
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
+
 
 class TestRegistryWriterAgent:
 
@@ -100,10 +100,7 @@ class TestRegistryWriterAgent:
 
     def test_db_state_after_batch(self, db_engine):
         """After writing 3 files, the database should contain exactly 3 rows."""
-        files = [
-            _make_meta(f"/data/file_{i}.sas", f"DATA work.f{i}; RUN;")
-            for i in range(3)
-        ]
+        files = [_make_meta(f"/data/file_{i}.sas", f"DATA work.f{i}; RUN;") for i in range(3)]
         agent = RegistryWriterAgent()
         _run(agent.process(files, db_engine))
 

@@ -31,15 +31,14 @@ import threading
 import time
 
 import structlog
-
 from config.settings import settings
 
 _log = structlog.get_logger("codara.queue")
 
-_VISIBILITY_TIMEOUT_S = 300   # 5 minutes — job must complete within this
-_POLL_INTERVAL_S      = 2     # how often the worker polls when idle
-_MAX_DEQUEUE_COUNT    = 5     # after 5 failed attempts, move to dead-letter
-_WORKER_SLEEP_ON_ERR  = 10    # seconds to sleep after an unexpected worker error
+_VISIBILITY_TIMEOUT_S = 300  # 5 minutes — job must complete within this
+_POLL_INTERVAL_S = 2  # how often the worker polls when idle
+_MAX_DEQUEUE_COUNT = 5  # after 5 failed attempts, move to dead-letter
+_WORKER_SLEEP_ON_ERR = 10  # seconds to sleep after an unexpected worker error
 
 
 class PipelineQueueService:
@@ -59,10 +58,14 @@ class PipelineQueueService:
     def _init(self) -> None:
         conn_str = settings.azure_storage_connection_string
         if not conn_str:
-            _log.info("queue_service_disabled", reason="AZURE_STORAGE_CONNECTION_STRING not set — using BackgroundTasks")
+            _log.info(
+                "queue_service_disabled",
+                reason="AZURE_STORAGE_CONNECTION_STRING not set — using BackgroundTasks",
+            )
             return
         try:
             from azure.storage.queue import QueueServiceClient
+
             svc = QueueServiceClient.from_connection_string(conn_str)
             self._client = svc.get_queue_client(self._queue_name)
             try:
@@ -92,12 +95,14 @@ class PipelineQueueService:
         if not self._enabled:
             return False
 
-        payload = json.dumps({
-            "conversion_id": conversion_id,
-            "file_id": file_id,
-            "filename": filename,
-            "db_path": db_path,
-        })
+        payload = json.dumps(
+            {
+                "conversion_id": conversion_id,
+                "file_id": file_id,
+                "filename": filename,
+                "db_path": db_path,
+            }
+        )
         # Azure Queue requires base64-encoded messages
         encoded = base64.b64encode(payload.encode()).decode()
         try:
@@ -151,18 +156,26 @@ class PipelineQueueService:
                     raw = base64.b64decode(msg.content).decode()
                     job = json.loads(raw)
                 except Exception as exc:
-                    _log.error("queue_message_decode_failed", error=str(exc), content=msg.content[:200])
+                    _log.error(
+                        "queue_message_decode_failed", error=str(exc), content=msg.content[:200]
+                    )
                     self._client.delete_message(msg)
                     continue
 
                 # Guard against poison messages
                 if msg.dequeue_count > _MAX_DEQUEUE_COUNT:
-                    _log.error("job_dead_lettered", conversion_id=job.get("conversion_id"), dequeue_count=msg.dequeue_count)
+                    _log.error(
+                        "job_dead_lettered",
+                        conversion_id=job.get("conversion_id"),
+                        dequeue_count=msg.dequeue_count,
+                    )
                     self._client.delete_message(msg)
                     continue
 
                 conversion_id = job.get("conversion_id", "unknown")
-                _log.info("job_processing", conversion_id=conversion_id, dequeue_count=msg.dequeue_count)
+                _log.info(
+                    "job_processing", conversion_id=conversion_id, dequeue_count=msg.dequeue_count
+                )
 
                 try:
                     run_pipeline_sync(

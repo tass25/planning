@@ -22,11 +22,11 @@ from typing import Generator
 
 import structlog
 from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from api.core.auth import decode_token, security
 from api.core.database import get_api_engine, get_api_session
-from fastapi.security import HTTPAuthorizationCredentials
 
 log = structlog.get_logger("codara.deps")
 
@@ -49,6 +49,7 @@ def _get_engine():
 
 # ── Database dependency ───────────────────────────────────────────────────────
 
+
 def get_db() -> Generator[Session, None, None]:
     """Yield a SQLAlchemy Session and close it after the request."""
     session = get_api_session(_get_engine())
@@ -59,6 +60,7 @@ def get_db() -> Generator[Session, None, None]:
 
 
 # ── Auth dependencies ─────────────────────────────────────────────────────────
+
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),

@@ -43,32 +43,33 @@ logger = structlog.get_logger()
 # ── paths ─────────────────────────────────────────────────────────────────────
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
-_GOLD_DIR     = _PROJECT_ROOT / "knowledge_base" / "gold_standard"
+_GOLD_DIR = _PROJECT_ROOT / "knowledge_base" / "gold_standard"
 
 
 # ── result types ──────────────────────────────────────────────────────────────
 
+
 @dataclass
 class CaseResult:
-    case_id:       str
-    sas_file:      str
-    status:        str          # "pass" | "fail" | "skip" | "error"
-    error_type:    str  = ""
-    details:       list[str] = field(default_factory=list)
-    oracle_repr:   str  = ""
-    actual_repr:   str  = ""
-    duration_ms:   float = 0.0
+    case_id: str
+    sas_file: str
+    status: str  # "pass" | "fail" | "skip" | "error"
+    error_type: str = ""
+    details: list[str] = field(default_factory=list)
+    oracle_repr: str = ""
+    actual_repr: str = ""
+    duration_ms: float = 0.0
     partition_type: str = ""
 
 
 @dataclass
 class RegressionReport:
-    total:    int = 0
-    passed:   int = 0
-    failed:   int = 0
-    skipped:  int = 0
-    errors:   int = 0
-    cases:    list[CaseResult] = field(default_factory=list)
+    total: int = 0
+    passed: int = 0
+    failed: int = 0
+    skipped: int = 0
+    errors: int = 0
+    cases: list[CaseResult] = field(default_factory=list)
     duration_s: float = 0.0
 
     @property
@@ -114,6 +115,7 @@ def _indent(text: str, prefix: str = "      ") -> str:
 
 
 # ── core runner ───────────────────────────────────────────────────────────────
+
 
 def _load_gold_pairs(gold_dir: Path) -> list[tuple[Path, dict]]:
     """Return [(sas_path, gold_dict)] for every matching pair in gold_dir."""
@@ -195,14 +197,12 @@ def run_regression(
         RegressionReport with case-by-case results.
     """
     # Lazy imports to avoid circular dependencies at module level
-    from partition.translation.dummy_data_generator import DummyDataGenerator
-    from partition.translation.semantic_validator   import SemanticValidator, _exec_with_inputs
     from partition.translation.deterministic_translator import try_deterministic
+    from partition.translation.semantic_validator import SemanticValidator
 
-    validator   = SemanticValidator()
-    det_xlator  = None  # use try_deterministic() function directly
-    report      = RegressionReport()
-    t0_total    = time.perf_counter()
+    validator = SemanticValidator()
+    report = RegressionReport()
+    t0_total = time.perf_counter()
 
     pairs = _load_gold_pairs(gold_dir)
     if not pairs:
@@ -215,13 +215,13 @@ def run_regression(
             sas_code = sas_path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             sas_code = sas_path.read_text(encoding="utf-8", errors="replace")
-        blocks    = _partition_sas_blocks(sas_code)
+        blocks = _partition_sas_blocks(sas_code)
         case_base = sas_path.stem
 
         for b_idx, block in enumerate(blocks):
-            case_id   = f"{case_base}__b{b_idx:02d}"
-            ptype     = _detect_partition_type(block)
-            t0_case   = time.perf_counter()
+            case_id = f"{case_base}__b{b_idx:02d}"
+            ptype = _detect_partition_type(block)
+            t0_case = time.perf_counter()
 
             try:
                 # Determine which Python code to test against
@@ -240,15 +240,17 @@ def run_regression(
 
                 if python_code is None:
                     # No translation available → skip
-                    report.cases.append(CaseResult(
-                        case_id        = case_id,
-                        sas_file       = sas_path.name,
-                        status         = "skip",
-                        partition_type = ptype,
-                        duration_ms    = (time.perf_counter() - t0_case) * 1000,
-                    ))
+                    report.cases.append(
+                        CaseResult(
+                            case_id=case_id,
+                            sas_file=sas_path.name,
+                            status="skip",
+                            partition_type=ptype,
+                            duration_ms=(time.perf_counter() - t0_case) * 1000,
+                        )
+                    )
                     report.skipped += 1
-                    report.total   += 1
+                    report.total += 1
                     continue
 
                 # Run semantic oracle + compare
@@ -260,36 +262,36 @@ def run_regression(
 
                 if result.passed:
                     cr = CaseResult(
-                        case_id        = case_id,
-                        sas_file       = sas_path.name,
-                        status         = "pass",
-                        partition_type = ptype,
-                        duration_ms    = dur_ms,
+                        case_id=case_id,
+                        sas_file=sas_path.name,
+                        status="pass",
+                        partition_type=ptype,
+                        duration_ms=dur_ms,
                     )
                     report.passed += 1
                 else:
                     cr = CaseResult(
-                        case_id        = case_id,
-                        sas_file       = sas_path.name,
-                        status         = "fail",
-                        error_type     = result.error_type,
-                        details        = result.details,
-                        oracle_repr    = result.oracle_repr,
-                        actual_repr    = result.actual_repr,
-                        partition_type = ptype,
-                        duration_ms    = dur_ms,
+                        case_id=case_id,
+                        sas_file=sas_path.name,
+                        status="fail",
+                        error_type=result.error_type,
+                        details=result.details,
+                        oracle_repr=result.oracle_repr,
+                        actual_repr=result.actual_repr,
+                        partition_type=ptype,
+                        duration_ms=dur_ms,
                     )
                     report.failed += 1
 
             except Exception as exc:
                 dur_ms = (time.perf_counter() - t0_case) * 1000
                 cr = CaseResult(
-                    case_id        = case_id,
-                    sas_file       = sas_path.name,
-                    status         = "error",
-                    details        = [str(exc)],
-                    partition_type = ptype,
-                    duration_ms    = dur_ms,
+                    case_id=case_id,
+                    sas_file=sas_path.name,
+                    status="error",
+                    details=[str(exc)],
+                    partition_type=ptype,
+                    duration_ms=dur_ms,
                 )
                 report.errors += 1
                 logger.warning("regression_case_error", case_id=case_id, error=str(exc))
@@ -297,7 +299,9 @@ def run_regression(
             report.cases.append(cr)
             report.total += 1
             if verbose:
-                icon = "PASS" if cr.status == "pass" else ("SKIP" if cr.status == "skip" else "FAIL")
+                icon = (
+                    "PASS" if cr.status == "pass" else ("SKIP" if cr.status == "skip" else "FAIL")
+                )
                 print(f"  [{icon}] {case_id:<42} {ptype:<22} {cr.duration_ms:.0f}ms")
 
     report.duration_s = time.perf_counter() - t0_total
@@ -306,35 +310,43 @@ def run_regression(
 
 # ── thin shim so SemanticValidator can accept our simple dict ─────────────────
 
+
 class _DummyPartition:
     """Minimal PartitionIR-compatible object for standalone regression use."""
+
     def __init__(self, source_code: str, metadata: dict) -> None:
         self.source_code = source_code
-        self.metadata    = metadata
-        self.block_id    = None
-        self.file_id     = None
+        self.metadata = metadata
+        self.block_id = None
+        self.file_id = None
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
+
 
 def _cli() -> None:
     parser = argparse.ArgumentParser(
         description="Semantic regression runner for Codara gold standard pairs"
     )
     parser.add_argument(
-        "--gold-dir", default=str(_GOLD_DIR),
+        "--gold-dir",
+        default=str(_GOLD_DIR),
         help="Path to gold_standard/ directory",
     )
     parser.add_argument(
-        "--mode", choices=["deterministic", "full"], default="deterministic",
+        "--mode",
+        choices=["deterministic", "full"],
+        default="deterministic",
         help="deterministic = no LLM; full = uses python_code from gold JSON",
     )
     parser.add_argument(
-        "--out", default=None,
+        "--out",
+        default=None,
         help="Write JSON report to this file path",
     )
     parser.add_argument(
-        "--verbose", action="store_true",
+        "--verbose",
+        action="store_true",
         help="Print per-case results while running",
     )
     args = parser.parse_args()
@@ -345,9 +357,9 @@ def _cli() -> None:
         sys.exit(2)
 
     report = run_regression(
-        gold_dir = gold_dir,
-        mode     = args.mode,
-        verbose  = args.verbose,
+        gold_dir=gold_dir,
+        mode=args.mode,
+        verbose=args.verbose,
     )
     report.print_summary()
 

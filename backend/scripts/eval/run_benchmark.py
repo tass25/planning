@@ -26,6 +26,7 @@ Usage::
     python scripts/run_benchmark.py --providers mistral gemini groq_gen
     python scripts/run_benchmark.py --fixed-sas knowledge_base/fixed_sas_abc123.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -45,13 +46,15 @@ while not (BACKEND_DIR / "partition").exists():
 sys.path.insert(0, str(BACKEND_DIR))
 
 from dotenv import load_dotenv
+
 load_dotenv(BACKEND_DIR.parent / ".env")
 
-from openai import AzureOpenAI, OpenAI
 import instructor
+from openai import AzureOpenAI, OpenAI
 from pydantic import BaseModel, Field
 
 # ── Pydantic models ──────────────────────────────────────────────────────────
+
 
 class GeneratedSAS(BaseModel):
     sas_code: str = Field(..., description="Realistic SAS code block")
@@ -118,39 +121,39 @@ FIXED_TASKS = [
 
 PROVIDERS = {
     "groq_gen": {
-        "env_key":       "GROQ_API_KEY",
-        "base_url":      "https://api.groq.com/openai/v1",
+        "env_key": "GROQ_API_KEY",
+        "base_url": "https://api.groq.com/openai/v1",
         "default_model": "llama-3.3-70b-versatile",
-        "is_azure":      False,
-        "label":         "Groq LLaMA-3.3-70B",
+        "is_azure": False,
+        "label": "Groq LLaMA-3.3-70B",
     },
     "mistral": {
-        "env_key":       "NVIDIA_API_KEY_MISTRAL",
-        "base_url":      "https://integrate.api.nvidia.com/v1",
+        "env_key": "NVIDIA_API_KEY_MISTRAL",
+        "base_url": "https://integrate.api.nvidia.com/v1",
         "default_model": "mistralai/mistral-medium-3-instruct",
-        "is_azure":      False,
-        "label":         "Mistral Medium 3 (NVIDIA NIM)",
+        "is_azure": False,
+        "label": "Mistral Medium 3 (NVIDIA NIM)",
     },
     "kimi": {
-        "env_key":       "NVIDIA_API_KEY_MISTRAL",
-        "base_url":      "https://integrate.api.nvidia.com/v1",
+        "env_key": "NVIDIA_API_KEY_MISTRAL",
+        "base_url": "https://integrate.api.nvidia.com/v1",
         "default_model": "moonshotai/kimi-k2-instruct",
-        "is_azure":      False,
-        "label":         "Kimi K2 (NVIDIA NIM)",
+        "is_azure": False,
+        "label": "Kimi K2 (NVIDIA NIM)",
     },
     "gemini": {
-        "env_key":       "GEMINI_API_KEY",
-        "base_url":      "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "env_key": "GEMINI_API_KEY",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
         "default_model": "gemini-2.0-flash",
-        "is_azure":      False,
-        "label":         "Gemini 2.0 Flash",
+        "is_azure": False,
+        "label": "Gemini 2.0 Flash",
     },
     "azure": {
-        "env_key":       "AZURE_OPENAI_API_KEY",
-        "base_url":      None,
+        "env_key": "AZURE_OPENAI_API_KEY",
+        "base_url": None,
         "default_model": "gpt-4o",
-        "is_azure":      True,
-        "label":         "Azure GPT-4o",
+        "is_azure": True,
+        "label": "Azure GPT-4o",
     },
 }
 
@@ -193,6 +196,7 @@ _PLAIN_PROVIDERS = {"gemini"}
 
 
 # ── Client helpers ────────────────────────────────────────────────────────────
+
 
 def _make_client(provider_name: str) -> tuple[instructor.Instructor, str]:
     """Build instructor client for a provider. Returns (client, model_name)."""
@@ -268,11 +272,15 @@ def _convert_plain(sas_item: dict, provider_name: str) -> tuple[dict | None, flo
             text = text.split("```")[1].split("```")[0].strip()
         data = json.loads(text)
         elapsed = round(time.perf_counter() - t0, 2)
-        return {
-            "python_code": data.get("python_code", ""),
-            "imports_needed": data.get("imports_needed", []),
-            "notes": data.get("notes", ""),
-        }, elapsed, None
+        return (
+            {
+                "python_code": data.get("python_code", ""),
+                "imports_needed": data.get("imports_needed", []),
+                "notes": data.get("notes", ""),
+            },
+            elapsed,
+            None,
+        )
     except Exception as exc:
         err = str(exc)
         err_label = _classify_error(err)
@@ -295,6 +303,7 @@ def _rotate_groq() -> None:
 
 
 # ── Step 1: Generate SAS inputs (Groq, once) ─────────────────────────────────
+
 
 def generate_sas_inputs(run_id: str) -> list[dict]:
     """Generate 6 SAS code blocks using Groq (fast ~2s/call). Return list of dicts."""
@@ -339,17 +348,19 @@ def generate_sas_inputs(run_id: str) -> list[dict]:
                 )
                 elapsed = round(time.perf_counter() - t0, 2)
                 print(f"  [{i}/6] {task['category']} ({task['complexity']}) — {elapsed}s")
-                sas_inputs.append({
-                    "task_index":   i - 1,
-                    "category":     task["category"],
-                    "complexity":   task["complexity"],
-                    "failure_mode": task["failure_mode"],
-                    "constructs":   task["constructs"],
-                    "sas_code":     result.sas_code,
-                    "description":  result.description,
-                    "generated_by": "groq/llama-3.3-70b-versatile",
-                    "generated_at": datetime.now(timezone.utc).isoformat(),
-                })
+                sas_inputs.append(
+                    {
+                        "task_index": i - 1,
+                        "category": task["category"],
+                        "complexity": task["complexity"],
+                        "failure_mode": task["failure_mode"],
+                        "constructs": task["constructs"],
+                        "sas_code": result.sas_code,
+                        "description": result.description,
+                        "generated_by": "groq/llama-3.3-70b-versatile",
+                        "generated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
                 break
             except Exception as exc:
                 err = str(exc)
@@ -365,6 +376,7 @@ def generate_sas_inputs(run_id: str) -> list[dict]:
 
 
 # ── Step 2: Convert SAS → Python (one provider) ──────────────────────────────
+
 
 def _classify_error(err: str) -> str:
     """Return a short human-readable error label from an exception string."""
@@ -414,17 +426,19 @@ def convert_with_provider(sas_inputs: list[dict], provider_name: str) -> list[di
 
         # If provider-level error (missing key, unreachable), record for every pair
         if provider_error or client is None:
-            results.append({
-                **sas_item,
-                "provider":       provider_name,
-                "model":          model,
-                "python_code":    None,
-                "imports":        [],
-                "py_notes":       "",
-                "t_convert_s":    0.0,
-                "convert_ok":     False,
-                "convert_error":  provider_error or "client_init_failed",
-            })
+            results.append(
+                {
+                    **sas_item,
+                    "provider": provider_name,
+                    "model": model,
+                    "python_code": None,
+                    "imports": [],
+                    "py_notes": "",
+                    "t_convert_s": 0.0,
+                    "convert_ok": False,
+                    "convert_error": provider_error or "client_init_failed",
+                }
+            )
             continue
 
         fm = sas_item.get("failure_mode", "")
@@ -444,18 +458,22 @@ def convert_with_provider(sas_inputs: list[dict], provider_name: str) -> list[di
         # Plain-mode providers bypass instructor entirely
         if provider_name in _PLAIN_PROVIDERS:
             plain_out, elapsed, plain_err = _convert_plain(sas_item, provider_name)
-            print(f"  [{i}/6] {sas_item['category']} — {elapsed}s  {'OK' if plain_out else 'FAILED'}")
-            results.append({
-                **sas_item,
-                "provider":      provider_name,
-                "model":         model,
-                "python_code":   plain_out["python_code"] if plain_out else None,
-                "imports":       plain_out["imports_needed"] if plain_out else [],
-                "py_notes":      plain_out["notes"] if plain_out else "",
-                "t_convert_s":   elapsed,
-                "convert_ok":    plain_out is not None,
-                "convert_error": plain_err,
-            })
+            print(
+                f"  [{i}/6] {sas_item['category']} — {elapsed}s  {'OK' if plain_out else 'FAILED'}"
+            )
+            results.append(
+                {
+                    **sas_item,
+                    "provider": provider_name,
+                    "model": model,
+                    "python_code": plain_out["python_code"] if plain_out else None,
+                    "imports": plain_out["imports_needed"] if plain_out else [],
+                    "py_notes": plain_out["notes"] if plain_out else "",
+                    "t_convert_s": elapsed,
+                    "convert_ok": plain_out is not None,
+                    "convert_error": plain_err,
+                }
+            )
             time.sleep(5)
             continue
 
@@ -477,10 +495,14 @@ def convert_with_provider(sas_inputs: list[dict], provider_name: str) -> list[di
                 last_error = _classify_error(err)
                 if "429" in err:
                     # Document the error immediately — no long waits
-                    print(f"  [{i}/6] {provider_name} 429 rate limit — recording error, skipping pair")
+                    print(
+                        f"  [{i}/6] {provider_name} 429 rate limit — recording error, skipping pair"
+                    )
                     break
                 elif "connection" in err.lower():
-                    print(f"  [{i}/6] {provider_name} connection error — recording, skipping provider")
+                    print(
+                        f"  [{i}/6] {provider_name} connection error — recording, skipping provider"
+                    )
                     break
                 elif "400" in err and attempt < 1:
                     print(f"  [{i}/6] {provider_name} 400 (schema) — retrying in 3s ...")
@@ -493,22 +515,25 @@ def convert_with_provider(sas_inputs: list[dict], provider_name: str) -> list[di
         status = "OK" if py_result else f"FAILED ({last_error})"
         print(f"  [{i}/6] {sas_item['category']} — {elapsed}s  {status}")
 
-        results.append({
-            **sas_item,
-            "provider":      provider_name,
-            "model":         model,
-            "python_code":   py_result.python_code if py_result else None,
-            "imports":       py_result.imports_needed if py_result else [],
-            "py_notes":      py_result.notes if py_result else "",
-            "t_convert_s":   elapsed,
-            "convert_ok":    py_result is not None,
-            "convert_error": last_error,
-        })
+        results.append(
+            {
+                **sas_item,
+                "provider": provider_name,
+                "model": model,
+                "python_code": py_result.python_code if py_result else None,
+                "imports": py_result.imports_needed if py_result else [],
+                "py_notes": py_result.notes if py_result else "",
+                "t_convert_s": elapsed,
+                "convert_ok": py_result is not None,
+                "convert_error": last_error,
+            }
+        )
 
     return results
 
 
 # ── Step 3: Verify (Groq) ────────────────────────────────────────────────────
+
 
 def verify_results(results: list[dict]) -> list[dict]:
     """Run Prompt C on all converted results using Groq."""
@@ -518,15 +543,20 @@ def verify_results(results: list[dict]) -> list[dict]:
     verified: list[dict] = []
     for i, r in enumerate(results, 1):
         if not r.get("convert_ok") or not r.get("python_code"):
-            r.update({"confidence": 0.0, "equivalent": False, "issues": ["conversion_failed"],
-                       "t_verify_s": 0.0, "verify_model": verify_model})
+            r.update(
+                {
+                    "confidence": 0.0,
+                    "equivalent": False,
+                    "issues": ["conversion_failed"],
+                    "t_verify_s": 0.0,
+                    "verify_model": verify_model,
+                }
+            )
             verified.append(r)
             continue
 
         fm = r.get("failure_mode", "")
-        fm_check = (
-            f"\nPay special attention to the {fm} pattern.\n" if fm else ""
-        )
+        fm_check = f"\nPay special attention to the {fm} pattern.\n" if fm else ""
         prompt = (
             "You are a code equivalence verifier.\n\n"
             f"SAS Code:\n```sas\n{r['sas_code']}\n```\n\n"
@@ -560,21 +590,26 @@ def verify_results(results: list[dict]) -> list[dict]:
 
         t_verify = round(time.perf_counter() - t0, 2)
         conf = verify.confidence if verify else 0.0
-        print(f"  [{i}/{ len(results)}] {r['category']} ({r['provider']}) conf={conf:.2f}  {t_verify}s")
+        print(
+            f"  [{i}/{ len(results)}] {r['category']} ({r['provider']}) conf={conf:.2f}  {t_verify}s"
+        )
 
-        r.update({
-            "confidence":    conf,
-            "equivalent":    verify.equivalent if verify else False,
-            "issues":        verify.issues if verify else ["verify_failed"],
-            "t_verify_s":    t_verify,
-            "verify_model":  verify_model,
-        })
+        r.update(
+            {
+                "confidence": conf,
+                "equivalent": verify.equivalent if verify else False,
+                "issues": verify.issues if verify else ["verify_failed"],
+                "t_verify_s": t_verify,
+                "verify_model": verify_model,
+            }
+        )
         verified.append(r)
 
     return verified
 
 
 # ── Step 4: Print tableau récapitulatif ──────────────────────────────────────
+
 
 def print_tableau(all_results: list[dict], run_id: str, providers_used: list[str]) -> None:
     """Print the complete benchmark comparison table."""
@@ -589,14 +624,16 @@ def print_tableau(all_results: list[dict], run_id: str, providers_used: list[str
     p("=" * 120)
     p("  TABLEAU RECAPITULATIF — BENCHMARK MULTI-PROVIDER KB GENERATION")
     p(f"  Run ID: {run_id}  |  Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    p(f"  Methodology: Fixed SAS inputs (Groq) + Provider-specific Python conversion")
+    p("  Methodology: Fixed SAS inputs (Groq) + Provider-specific Python conversion")
     p(f"  Providers compared: {', '.join(providers_used)}")
     p("=" * 120)
 
     # ── A. Per-provider summary ──────────────────────────────────────────────
     p("\n[A] PROVIDER SUMMARY")
     p("-" * 120)
-    p(f"{'Provider':<12} {'Model':<45} {'Pairs':>6} {'OK':>4} {'Acc%':>5} {'AvgConf':>8} {'MinConf':>8} {'AvgConvt':>10} {'AvgVerif':>9}")
+    p(
+        f"{'Provider':<12} {'Model':<45} {'Pairs':>6} {'OK':>4} {'Acc%':>5} {'AvgConf':>8} {'MinConf':>8} {'AvgConvt':>10} {'AvgVerif':>9}"
+    )
     p("-" * 120)
 
     for prov in providers_used:
@@ -643,7 +680,9 @@ def print_tableau(all_results: list[dict], run_id: str, providers_used: list[str
 
     for idx in sorted(sas_inputs_uniq.keys()):
         base = sas_inputs_uniq[idx]
-        p(f"\n  PAIR {idx+1}/6  |  Category: {base['category']}  |  Complexity: {base['complexity']}  |  Failure mode: {base.get('failure_mode') or 'none'}")
+        p(
+            f"\n  PAIR {idx+1}/6  |  Category: {base['category']}  |  Complexity: {base['complexity']}  |  Failure mode: {base.get('failure_mode') or 'none'}"
+        )
         p(f"  Description: {base.get('description','')[:100]}")
         p()
         p(f"  SAS CODE ({base['sas_code'].count(chr(10))+1} lines):")
@@ -696,15 +735,23 @@ def print_tableau(all_results: list[dict], run_id: str, providers_used: list[str
     # ── C. Head-to-head quality matrix ──────────────────────────────────────
     p("\n[C] HEAD-TO-HEAD QUALITY MATRIX (confidence per pair per provider)")
     p("-" * 120)
-    pair_labels = [f"P{i+1}:{sas_inputs_uniq[i]['category'][:18]}" for i in sorted(sas_inputs_uniq.keys())]
-    p(f"  {'Provider':<14} " + "  ".join(f"{lbl[:20]:>22}" for lbl in pair_labels) + f"  {'AVG':>6}")
+    pair_labels = [
+        f"P{i+1}:{sas_inputs_uniq[i]['category'][:18]}" for i in sorted(sas_inputs_uniq.keys())
+    ]
+    p(
+        f"  {'Provider':<14} "
+        + "  ".join(f"{lbl[:20]:>22}" for lbl in pair_labels)
+        + f"  {'AVG':>6}"
+    )
     p(f"  {'-'*14} " + "  ".join("-" * 22 for _ in pair_labels) + f"  {'---':>6}")
 
     for prov in providers_used:
         row_confs = []
         cells = []
         for idx in sorted(sas_inputs_uniq.keys()):
-            r_list = [r for r in all_results if r.get("provider") == prov and r.get("task_index") == idx]
+            r_list = [
+                r for r in all_results if r.get("provider") == prov and r.get("task_index") == idx
+            ]
             if r_list:
                 r = r_list[0]
                 if r.get("convert_ok"):
@@ -741,11 +788,41 @@ def print_tableau(all_results: list[dict], run_id: str, providers_used: list[str
     p("\n[D] MODEL PROFILES")
     p("=" * 120)
     MODEL_INFO = {
-        "groq_gen":  {"params": "70B dense",     "arch": "LLaMA-3.3",   "ctx": "128K", "speed": "FAST (<2s)", "notes": "Groq hardware, excellent for SAS logic"},
-        "mistral":   {"params": "~22B active MoE","arch": "Mistral MoE", "ctx": "128K", "speed": "SLOW (60-300s on free NIM)", "notes": "Strong instruction following, free tier rate limited"},
-        "kimi":      {"params": "1T MoE (~32B act)","arch":"MoE Transformer","ctx":"128K","speed":"SLOW on NIM", "notes": "Large capacity, strong reasoning, less tested on SAS"},
-        "gemini":    {"params": "Flash (small)",  "arch": "Gemini 2.0",  "ctx": "1M",   "speed": "FAST",       "notes": "Very large context, fast, good multilingual"},
-        "azure":     {"params": "GPT-4o",         "arch": "OpenAI GPT",  "ctx": "128K", "speed": "FAST",       "notes": "Primary production model, highest quality expected"},
+        "groq_gen": {
+            "params": "70B dense",
+            "arch": "LLaMA-3.3",
+            "ctx": "128K",
+            "speed": "FAST (<2s)",
+            "notes": "Groq hardware, excellent for SAS logic",
+        },
+        "mistral": {
+            "params": "~22B active MoE",
+            "arch": "Mistral MoE",
+            "ctx": "128K",
+            "speed": "SLOW (60-300s on free NIM)",
+            "notes": "Strong instruction following, free tier rate limited",
+        },
+        "kimi": {
+            "params": "1T MoE (~32B act)",
+            "arch": "MoE Transformer",
+            "ctx": "128K",
+            "speed": "SLOW on NIM",
+            "notes": "Large capacity, strong reasoning, less tested on SAS",
+        },
+        "gemini": {
+            "params": "Flash (small)",
+            "arch": "Gemini 2.0",
+            "ctx": "1M",
+            "speed": "FAST",
+            "notes": "Very large context, fast, good multilingual",
+        },
+        "azure": {
+            "params": "GPT-4o",
+            "arch": "OpenAI GPT",
+            "ctx": "128K",
+            "speed": "FAST",
+            "notes": "Primary production model, highest quality expected",
+        },
     }
     for prov in providers_used:
         info = MODEL_INFO.get(prov, {})
@@ -766,7 +843,12 @@ def print_tableau(all_results: list[dict], run_id: str, providers_used: list[str
                 if iss and iss not in ("none", "conversion_failed", "verify_failed"):
                     top_issues[iss] = top_issues.get(iss, 0) + 1
         if top_issues:
-            p(f"    Top issues: " + ", ".join(f"{k}({v}x)" for k, v in sorted(top_issues.items(), key=lambda x: -x[1])[:4]))
+            p(
+                "    Top issues: "
+                + ", ".join(
+                    f"{k}({v}x)" for k, v in sorted(top_issues.items(), key=lambda x: -x[1])[:4]
+                )
+            )
 
     # ── E. Recommendation ───────────────────────────────────────────────────
     p("\n[E] RECOMMENDATION")
@@ -788,7 +870,7 @@ def print_tableau(all_results: list[dict], run_id: str, providers_used: list[str
 
     if prov_scores:
         ranked = sorted(prov_scores.items(), key=lambda x: -x[1])
-        p(f"  Ranking by score (60% confidence + 30% acceptance + 10% speed):")
+        p("  Ranking by score (60% confidence + 30% acceptance + 10% speed):")
         for rank, (prov, score) in enumerate(ranked, 1):
             p(f"  #{rank}  {prov:<12}  score={score:.3f}")
         winner = ranked[0][0]
@@ -797,6 +879,7 @@ def print_tableau(all_results: list[dict], run_id: str, providers_used: list[str
 
 
 # ── Save results ─────────────────────────────────────────────────────────────
+
 
 def save_results(
     run_id: str,
@@ -816,41 +899,52 @@ def save_results(
     # Save full results
     results_path = os.path.join(kb_dir, f"benchmark_crossProvider_{run_id}.json")
     with open(results_path, "w", encoding="utf-8") as f:
-        json.dump({
-            "run_id":         run_id,
-            "timestamp":      datetime.now(timezone.utc).isoformat(),
-            "methodology":    "fixed_sas_cross_provider",
-            "providers":      providers_used,
-            "sas_inputs":     sas_inputs,
-            "results":        all_results,
-        }, f, indent=2, default=str)
+        json.dump(
+            {
+                "run_id": run_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "methodology": "fixed_sas_cross_provider",
+                "providers": providers_used,
+                "sas_inputs": sas_inputs,
+                "results": all_results,
+            },
+            f,
+            indent=2,
+            default=str,
+        )
     print(f"  Full results saved: {results_path}")
 
     # Save verified pairs to the main generated_pairs files
     for prov in providers_used:
-        prov_results = [r for r in all_results if r.get("provider") == prov and r.get("convert_ok") and r.get("confidence", 0) >= 0.65]
+        prov_results = [
+            r
+            for r in all_results
+            if r.get("provider") == prov and r.get("convert_ok") and r.get("confidence", 0) >= 0.65
+        ]
         if prov_results:
             pairs = []
             for r in prov_results:
-                pairs.append({
-                    "example_id":          str(uuid.uuid4()),
-                    "sas_code":            r["sas_code"],
-                    "python_code":         r["python_code"],
-                    "partition_type":      r["category"],
-                    "complexity_tier":     r["complexity"],
-                    "target_runtime":      "python",
-                    "verified":            True,
-                    "source":              f"benchmark_{run_id}",
-                    "failure_mode":        r.get("failure_mode", ""),
-                    "verification_method": "llm_crosscheck",
-                    "verification_score":  r["confidence"],
-                    "category":            r["category"],
-                    "provider":            prov,
-                    "gen_model":           r["model"],
-                    "verify_model":        r.get("verify_model", "llama-3.3-70b-versatile"),
-                    "latency_s":           r.get("t_convert_s", 0),
-                    "created_at":          datetime.now(timezone.utc).isoformat(),
-                })
+                pairs.append(
+                    {
+                        "example_id": str(uuid.uuid4()),
+                        "sas_code": r["sas_code"],
+                        "python_code": r["python_code"],
+                        "partition_type": r["category"],
+                        "complexity_tier": r["complexity"],
+                        "target_runtime": "python",
+                        "verified": True,
+                        "source": f"benchmark_{run_id}",
+                        "failure_mode": r.get("failure_mode", ""),
+                        "verification_method": "llm_crosscheck",
+                        "verification_score": r["confidence"],
+                        "category": r["category"],
+                        "provider": prov,
+                        "gen_model": r["model"],
+                        "verify_model": r.get("verify_model", "llama-3.3-70b-versatile"),
+                        "latency_s": r.get("t_convert_s", 0),
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
             prov_path = os.path.join(kb_dir, f"generated_pairs_{prov}_benchmark_{run_id}.json")
             with open(prov_path, "w", encoding="utf-8") as f:
                 json.dump(pairs, f, indent=2, default=str)
@@ -859,22 +953,26 @@ def save_results(
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     global _GROQ_KEYS
 
     parser = argparse.ArgumentParser(description="Cross-provider KB benchmark")
     parser.add_argument(
-        "--providers", nargs="+",
+        "--providers",
+        nargs="+",
         choices=list(PROVIDERS.keys()),
         default=["groq_gen"],
         help="Providers to benchmark for Python conversion.",
     )
     parser.add_argument(
-        "--fixed-sas", default=None,
+        "--fixed-sas",
+        default=None,
         help="Path to existing fixed_sas_*.json — skip SAS generation step.",
     )
     parser.add_argument(
-        "--kb-dir", default="knowledge_base/output",
+        "--kb-dir",
+        default="knowledge_base/output",
         help="Directory for output files (default: knowledge_base/output).",
     )
     args = parser.parse_args()

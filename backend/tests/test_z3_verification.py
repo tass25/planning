@@ -18,8 +18,8 @@ from __future__ import annotations
 
 import pytest
 from partition.verification.z3_agent import (
-    Z3VerificationAgent,
     VerificationStatus,
+    Z3VerificationAgent,
 )
 
 
@@ -30,11 +30,9 @@ def agent():
 
 # ── Pattern 3: PROC MEANS with CLASS → groupby(dropna=False).agg() ──────────
 
+
 def test_proc_means_groupby_proved(agent):
-    sas = (
-        "proc means data=patients; class dept; var age; "
-        "output out=stats mean=mean_age; run;"
-    )
+    sas = "proc means data=patients; class dept; var age; " "output out=stats mean=mean_age; run;"
     py = "stats = patients.groupby(['dept'], dropna=False).agg(mean_age=('age', 'mean'))"
     result = agent._verify_proc_means_groupby(sas, py)
     assert result is not None
@@ -79,6 +77,7 @@ def test_proc_means_no_match_returns_none(agent):
 
 # ── Pattern 4: Boolean filter (WHERE / IF numeric condition) ─────────────────
 
+
 def test_boolean_filter_gt_proved(agent):
     sas = "data adults; set people; if age > 18; run;"
     py = "adults = people[people['age'] > 18]"
@@ -98,7 +97,7 @@ def test_boolean_filter_eq_proved(agent):
 def test_boolean_filter_wrong_threshold_counterexample(agent):
     """Different threshold values → Z3 finds counterexample."""
     sas = "data high_val; set orders; if amount > 1000; run;"
-    py = "high_val = orders[orders['amount'] > 500]"   # wrong threshold
+    py = "high_val = orders[orders['amount'] > 500]"  # wrong threshold
     result = agent._verify_boolean_filter(sas, py)
     assert result is not None
     assert result.status == VerificationStatus.COUNTEREXAMPLE
@@ -112,6 +111,7 @@ def test_boolean_filter_no_comparison_returns_none(agent):
 
 
 # ── Pattern 2: PROC SORT direction ───────────────────────────────────────────
+
 
 def test_sort_direction_proved(agent):
     sas = "proc sort data=employees; by dept descending salary; run;"
@@ -138,6 +138,7 @@ def test_sort_direction_no_sort_returns_none(agent):
 
 
 # ── Pattern 9: PROC SORT NODUPKEY → drop_duplicates ──────────────────────────
+
 
 def test_sort_nodupkey_proved(agent):
     sas = "proc sort data=patients nodupkey; by patient_id; run;"
@@ -167,13 +168,11 @@ def test_sort_nodupkey_not_matched_without_nodupkey(agent):
 
 # ── Pattern 1: IF/THEN/ELSE → np.select / np.where ───────────────────────────
 
+
 def test_conditional_assignment_iterrows_counterexample(agent):
     """iterrows() for conditional assignment is always COUNTEREXAMPLE."""
     sas = "data out; set in; if x > 0 then y = 1; else y = 0; run;"
-    py = (
-        "for idx, row in df.iterrows():\n"
-        "    df.at[idx, 'y'] = 1 if row['x'] > 0 else 0"
-    )
+    py = "for idx, row in df.iterrows():\n" "    df.at[idx, 'y'] = 1 if row['x'] > 0 else 0"
     result = agent._verify_conditional_assignment(sas, py)
     assert result is not None
     assert result.status == VerificationStatus.COUNTEREXAMPLE
@@ -201,6 +200,7 @@ def test_conditional_assignment_wrong_threshold_counterexample(agent):
 
 # ── Pattern 10: DATA step arithmetic assignment ───────────────────────────────
 
+
 def test_simple_assignment_equivalent(agent):
     """Matching coefficient and offset → PROVED."""
     sas = "data out; set in; salary_usd = salary_eur * 1.1; run;"
@@ -213,7 +213,7 @@ def test_simple_assignment_equivalent(agent):
 def test_simple_assignment_counterexample(agent):
     """Wrong multiplier → Z3 finds x where SAS and Python differ."""
     sas = "data out; set in; score = x * 2 + 10; run;"
-    py = "out = in_.copy()\nout['score'] = out['x'] * 3 + 10"   # wrong multiplier
+    py = "out = in_.copy()\nout['score'] = out['x'] * 3 + 10"  # wrong multiplier
     result = agent._verify_simple_assignment(sas, py)
     assert result is not None
     assert result.status == VerificationStatus.COUNTEREXAMPLE
@@ -230,6 +230,7 @@ def test_simple_assignment_no_data_step_returns_none(agent):
 
 
 # ── Pattern 5: PROC FORMAT display-only ──────────────────────────────────────
+
 
 def test_format_display_only_proved(agent):
     """New _fmt column created → PROVED."""
@@ -251,6 +252,7 @@ def test_format_display_overwrite_counterexample(agent):
 
 
 # ── Pattern 6: LEFT JOIN ──────────────────────────────────────────────────────
+
 
 def test_left_join_proved(agent):
     sas = "proc sql; create table out as select * from t1 left join t2 on t1.id=t2.id; quit;"
@@ -278,6 +280,7 @@ def test_left_join_no_match_returns_none(agent):
 
 # ── Pattern 8: PROC REG STEPWISE ─────────────────────────────────────────────
 
+
 def test_stepwise_regression_sklearn_counterexample(agent):
     """sklearn used instead of statsmodels → COUNTEREXAMPLE."""
     sas = "proc reg data=d; model y = x1 x2 / selection=stepwise; run;"
@@ -296,6 +299,7 @@ def test_stepwise_regression_no_match_returns_none(agent):
 
 
 # ── Top-level verify() dispatcher ────────────────────────────────────────────
+
 
 def test_verify_dispatches_proc_means(agent):
     sas = "proc means data=d; class grp; var v; output out=s mean=m; run;"
@@ -340,6 +344,7 @@ def test_verify_has_latency_recorded(agent):
 def test_verify_counterexample_re_queues():
     """COUNTEREXAMPLE result documents that orchestrator bumps risk_level to HIGH."""
     from partition.verification.z3_agent import VerificationResult, VerificationStatus
+
     result = VerificationResult(
         status=VerificationStatus.COUNTEREXAMPLE,
         counterexample={"issue": "multiplier mismatch"},

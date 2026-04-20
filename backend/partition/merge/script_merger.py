@@ -13,12 +13,12 @@ from uuid import uuid4
 
 import structlog
 
-from partition.merge.import_consolidator import consolidate_imports
 from partition.merge.dependency_injector import (
+    add_cross_file_stubs,
     build_name_registry,
     inject_variable_names,
-    add_cross_file_stubs,
 )
+from partition.merge.import_consolidator import consolidate_imports
 
 log = structlog.get_logger(__name__)
 
@@ -49,9 +49,7 @@ def _make_todo_stub(partition: dict) -> str:
     line_end = partition.get("line_end", "?")
     raw_sas = partition.get("raw_code", partition.get("source_code", ""))
 
-    sas_commented = "\n".join(
-        f"#   {line}" for line in raw_sas.split("\n")[:20]
-    )
+    sas_commented = "\n".join(f"#   {line}" for line in raw_sas.split("\n")[:20])
     if len(raw_sas.split("\n")) > 20:
         sas_commented += "\n#   ... (truncated)"
 
@@ -112,14 +110,10 @@ def merge_script(
     # 5. Add cross-file stubs
     body_text = "\n\n".join(body_parts)
     if unresolved_refs:
-        body_text = add_cross_file_stubs(
-            body_text, unresolved_refs, cross_file_sources or {}
-        )
+        body_text = add_cross_file_stubs(body_text, unresolved_refs, cross_file_sources or {})
 
     # 6. Build final script
-    header = _make_header(
-        source_path, len(conversion_results), partial_count, target_runtime
-    )
+    header = _make_header(source_path, len(conversion_results), partial_count, target_runtime)
     final_script = f"{header}\n{import_block}\n\n\n{body_text}\n"
 
     # 7. ast.parse() validation

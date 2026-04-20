@@ -17,19 +17,9 @@ import asyncio
 import os
 import tempfile
 import time
-from pathlib import Path
 
-import duckdb
 import pytest
-
-from partition.utils.retry import (
-    CircuitBreaker,
-    RateLimitSemaphore,
-    azure_breaker,
-    azure_limiter,
-    groq_breaker,
-    groq_limiter,
-)
+from partition.kb.kb_changelog import get_history, log_kb_change
 from partition.utils.large_file import (
     HUGE_FILE_LINE_THRESHOLD,
     LARGE_FILE_LINE_THRESHOLD,
@@ -38,8 +28,14 @@ from partition.utils.large_file import (
     configure_memory_guards,
     detect_file_size_strategy,
 )
-from partition.kb.kb_changelog import get_history, log_kb_change
-
+from partition.utils.retry import (
+    CircuitBreaker,
+    RateLimitSemaphore,
+    azure_breaker,
+    azure_limiter,
+    groq_breaker,
+    groq_limiter,
+)
 
 # =====================================================================
 # Helpers
@@ -48,9 +44,7 @@ from partition.kb.kb_changelog import get_history, log_kb_change
 
 def _write_temp_file(line_count: int) -> str:
     """Create a temp file with the given number of lines."""
-    tmp = tempfile.NamedTemporaryFile(
-        mode="w", suffix=".sas", delete=False, encoding="utf-8"
-    )
+    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".sas", delete=False, encoding="utf-8")
     for i in range(line_count):
         tmp.write(f"/* line {i} */\n")
     tmp.close()
@@ -353,12 +347,18 @@ class TestKBChangelog:
 
     def test_different_examples_isolated(self, db_path):
         log_kb_change(
-            db_path=db_path, example_id="a", action="insert",
-            new_version=1, author="t",
+            db_path=db_path,
+            example_id="a",
+            action="insert",
+            new_version=1,
+            author="t",
         )
         log_kb_change(
-            db_path=db_path, example_id="b", action="insert",
-            new_version=1, author="t",
+            db_path=db_path,
+            example_id="b",
+            action="insert",
+            new_version=1,
+            author="t",
         )
         assert len(get_history(db_path, "a")) == 1
         assert len(get_history(db_path, "b")) == 1
@@ -384,6 +384,7 @@ class TestKBWriter:
 
     def _make_pair(self, category: str = "DATA_STEP_BASIC", version: int = 1) -> dict:
         import uuid
+
         return {
             "example_id": str(uuid.uuid4()),
             "sas_code": "DATA test; SET input; RUN;",

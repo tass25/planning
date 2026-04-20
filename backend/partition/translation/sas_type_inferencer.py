@@ -44,22 +44,28 @@ from typing import Optional
 
 
 class SASType(str, Enum):
-    NUMERIC   = "NUMERIC"
+    NUMERIC = "NUMERIC"
     CHARACTER = "CHARACTER"
-    DATE      = "DATE"
-    DATETIME  = "DATETIME"
-    TIME      = "TIME"
-    UNKNOWN   = "UNKNOWN"
+    DATE = "DATE"
+    DATETIME = "DATETIME"
+    TIME = "TIME"
+    UNKNOWN = "UNKNOWN"
 
 
 # ── Type inference rules ──────────────────────────────────────────────────────
 
 # Functions that produce DATE output
-_DATE_FUNCTIONS = frozenset({
-    "TODAY", "DATE", "MDY", "YMD", "DATEPART",
-    "INTNX",   # when interval is a date interval
-    "INPUT",   # when informat is a date informat — checked separately
-})
+_DATE_FUNCTIONS = frozenset(
+    {
+        "TODAY",
+        "DATE",
+        "MDY",
+        "YMD",
+        "DATEPART",
+        "INTNX",  # when interval is a date interval
+        "INPUT",  # when informat is a date informat — checked separately
+    }
+)
 
 # Functions that produce DATETIME output
 _DATETIME_FUNCTIONS = frozenset({"DATETIME", "DHMS", "DATEPART", "DATETIMEX"})
@@ -68,17 +74,46 @@ _DATETIME_FUNCTIONS = frozenset({"DATETIME", "DHMS", "DATEPART", "DATETIMEX"})
 _TIME_FUNCTIONS = frozenset({"TIME", "HMS", "TIMEPART"})
 
 # Format names that indicate DATE storage (normalized — no width/dec)
-_DATE_FORMATS = frozenset({
-    "DATE", "DATE7", "DATE9", "DDMMYY", "DDMMYY8", "DDMMYY10",
-    "MMDDYY", "MMDDYY8", "MMDDYY10", "YYMMDD", "YYMMDD8", "YYMMDD10",
-    "MONYY", "MONYY5", "MONYY7", "MONNAME", "WEEKDATE",
-    "JULIAN", "JULDAY", "DAY", "MONTH", "YEAR", "QTR",
-    "NLDATE", "IS8601DA", "E8601DA",
-})
+_DATE_FORMATS = frozenset(
+    {
+        "DATE",
+        "DATE7",
+        "DATE9",
+        "DDMMYY",
+        "DDMMYY8",
+        "DDMMYY10",
+        "MMDDYY",
+        "MMDDYY8",
+        "MMDDYY10",
+        "YYMMDD",
+        "YYMMDD8",
+        "YYMMDD10",
+        "MONYY",
+        "MONYY5",
+        "MONYY7",
+        "MONNAME",
+        "WEEKDATE",
+        "JULIAN",
+        "JULDAY",
+        "DAY",
+        "MONTH",
+        "YEAR",
+        "QTR",
+        "NLDATE",
+        "IS8601DA",
+        "E8601DA",
+    }
+)
 
-_DATETIME_FORMATS = frozenset({
-    "DATETIME", "DATETIME18", "DATETIME20", "IS8601DT", "E8601DT",
-})
+_DATETIME_FORMATS = frozenset(
+    {
+        "DATETIME",
+        "DATETIME18",
+        "DATETIME20",
+        "IS8601DT",
+        "E8601DT",
+    }
+)
 
 _TIME_FORMATS = frozenset({"TIME", "TIME5", "TIME8"})
 
@@ -98,6 +133,7 @@ def _normalize_format(fmt: str) -> str:
 @dataclass
 class TypeReport:
     """Results of type inference over a SAS DATA step."""
+
     typed_columns: dict[str, SASType] = field(default_factory=dict)
     format_annotations: dict[str, str] = field(default_factory=dict)  # col → format name
 
@@ -108,7 +144,7 @@ class TypeReport:
         """Return concrete pandas conversion hints for date/datetime columns."""
         hints = []
         for col, stype in self.typed_columns.items():
-            fmt = self.format_annotations.get(col, "")
+            self.format_annotations.get(col, "")
             if stype == SASType.DATE:
                 hints.append(
                     f"`{col}`: SAS DATE (numeric days since 1960-01-01) → "
@@ -132,8 +168,7 @@ class TypeReport:
             return ""
 
         non_numeric = {
-            col: stype for col, stype in self.typed_columns.items()
-            if stype != SASType.NUMERIC
+            col: stype for col, stype in self.typed_columns.items() if stype != SASType.NUMERIC
         }
         if not non_numeric:
             return ""
@@ -158,7 +193,9 @@ class TypeReport:
                     "Use `pd.to_timedelta(df['col'], unit='s')`."
                 )
             elif stype == SASType.CHARACTER:
-                lines.append(f"- `{col}` is **CHARACTER**: keep as string dtype; do NOT cast to numeric.")
+                lines.append(
+                    f"- `{col}` is **CHARACTER**: keep as string dtype; do NOT cast to numeric."
+                )
             else:
                 lines.append(f"- `{col}` is **{stype.value}**{fmt_note}")
 
@@ -172,6 +209,7 @@ class TypeReport:
 
 # ── Inference engine ──────────────────────────────────────────────────────────
 
+
 class _TypeEnv:
     """Mutable type environment for a single DATA step analysis pass."""
 
@@ -184,7 +222,7 @@ class _TypeEnv:
         # Lattice join: DATE/DATETIME/TIME overrides NUMERIC/UNKNOWN; CHAR never demoted
         current = self._types.get(var, SASType.UNKNOWN)
         if current == SASType.CHARACTER and stype != SASType.CHARACTER:
-            return   # char never becomes numeric
+            return  # char never becomes numeric
         if stype in (SASType.DATE, SASType.DATETIME, SASType.TIME):
             self._types[var] = stype
         elif current == SASType.UNKNOWN:
@@ -207,10 +245,11 @@ def _infer_from_format_statements(sas_code: str, env: _TypeEnv) -> None:
     # FORMAT var fmt;
     for m in re.finditer(
         r"\bformat\b\s+([A-Za-z_]\w*(?:\s+[A-Za-z_]\w*)*)\s+(\$?[A-Za-z_]\w*\d*\.?\d*)\s*;",
-        sas_code, re.IGNORECASE,
+        sas_code,
+        re.IGNORECASE,
     ):
         raw_vars = m.group(1).strip().split()
-        raw_fmt  = m.group(2)
+        raw_fmt = m.group(2)
         norm_fmt = _normalize_format(raw_fmt.lstrip("$"))
         for var in raw_vars:
             if raw_fmt.startswith("$"):
@@ -225,10 +264,11 @@ def _infer_from_format_statements(sas_code: str, env: _TypeEnv) -> None:
     # INFORMAT var inf;
     for m in re.finditer(
         r"\binformat\b\s+([A-Za-z_]\w*(?:\s+[A-Za-z_]\w*)*)\s+(\$?[A-Za-z_]\w*\d*\.?\d*)\s*;",
-        sas_code, re.IGNORECASE,
+        sas_code,
+        re.IGNORECASE,
     ):
         raw_vars = m.group(1).strip().split()
-        raw_inf  = m.group(2)
+        raw_inf = m.group(2)
         norm_inf = _normalize_format(raw_inf.lstrip("$"))
         for var in raw_vars:
             if raw_inf.startswith("$"):
@@ -281,12 +321,10 @@ def _infer_from_input_statement(sas_code: str, env: _TypeEnv) -> None:
 def _infer_from_assignments(sas_code: str, env: _TypeEnv) -> None:
     """Infer types from assignment statements using RHS function calls."""
     # var = FUNCTION(...);
-    assign_re = re.compile(
-        r"([A-Za-z_]\w*)\s*=\s*([A-Za-z_]\w*)\s*\(", re.IGNORECASE
-    )
+    assign_re = re.compile(r"([A-Za-z_]\w*)\s*=\s*([A-Za-z_]\w*)\s*\(", re.IGNORECASE)
     for m in assign_re.finditer(sas_code):
         var = m.group(1)
-        fn  = m.group(2).upper()
+        fn = m.group(2).upper()
         if fn in _DATE_FUNCTIONS:
             env.set(var, SASType.DATE)
         elif fn in _DATETIME_FUNCTIONS:
@@ -295,9 +333,7 @@ def _infer_from_assignments(sas_code: str, env: _TypeEnv) -> None:
             env.set(var, SASType.TIME)
 
     # var = 'string'  (string literal assignment → CHARACTER)
-    str_assign_re = re.compile(
-        r"([A-Za-z_]\w*)\s*=\s*['\"]", re.IGNORECASE
-    )
+    str_assign_re = re.compile(r"([A-Za-z_]\w*)\s*=\s*['\"]", re.IGNORECASE)
     for m in str_assign_re.finditer(sas_code):
         var = m.group(1)
         if env.get(var) == SASType.UNKNOWN:

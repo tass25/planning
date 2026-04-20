@@ -26,13 +26,19 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from partition.translation.error_classifier import (
+    COL_MISSING,
+    DTYPE_MISMATCH,
+    EMPTY_SUSPICIOUS,
+    GROUP_BOUNDARY,
+    KEY_ERROR,
+    LAG_SEQUENCE,
+    MERGE_CONTRACT,
+    OUTPUT_MISSING,
+    RETAIN_SEQUENCE,
+    SORT_ORDER,
+    TYPE_ERROR,
+    VALUE_ERROR,
     ErrorReport,
-    SYNTAX, TIMEOUT, NAME_ERROR, IMPORT_ERROR,
-    KEY_ERROR, COL_MISSING, TYPE_ERROR, VALUE_ERROR,
-    ATTRIBUTE_ERROR, DTYPE_MISMATCH, COL_EXTRA,
-    MERGE_CONTRACT, SORT_ORDER, RETAIN_SEQUENCE,
-    LAG_SEQUENCE, GROUP_BOUNDARY,
-    EMPTY_SUSPICIOUS, OUTPUT_MISSING, RUNTIME_GENERAL,
 )
 
 
@@ -40,10 +46,10 @@ from partition.translation.error_classifier import (
 class ErrorAnalysis:
     root_cause: str
     non_neg_contract: list[str] = field(default_factory=list)
-    forbidden: list[str]        = field(default_factory=list)
-    repair_strategy: list[str]  = field(default_factory=list)
-    minimal_scope: str          = "Fix only the failing section; leave all other logic unchanged."
-    code_slice: str             = ""   # program slice injected from AST analysis
+    forbidden: list[str] = field(default_factory=list)
+    repair_strategy: list[str] = field(default_factory=list)
+    minimal_scope: str = "Fix only the failing section; leave all other logic unchanged."
+    code_slice: str = ""  # program slice injected from AST analysis
 
     def to_prompt_block(self) -> str:
         """Render as a Markdown block for injection into a correction prompt."""
@@ -84,6 +90,7 @@ class ErrorAnalysis:
 
 # ── Program slicing (Weiser 1984 / SRepair ISSTA 2024) ───────────────────────
 
+
 def _extract_failing_lineno(traceback_str: str) -> Optional[int]:
     """Extract the last failing line number from a Python traceback string."""
     matches = re.findall(r",\s*line\s+(\d+)", traceback_str)
@@ -96,7 +103,7 @@ def _slice_around_line(python_code: str, lineno: int, context: int = 3) -> str:
     """Return ±context lines around lineno (1-based) with line numbers."""
     code_lines = python_code.splitlines()
     start = max(0, lineno - 1 - context)
-    end   = min(len(code_lines), lineno - 1 + context + 1)
+    end = min(len(code_lines), lineno - 1 + context + 1)
     result = []
     for i in range(start, end):
         marker = ">>>" if i == lineno - 1 else "   "
@@ -171,6 +178,7 @@ def _slice_for_columns(python_code: str, column_names: list[str]) -> str:
 
 # ── SAS contract extractors ───────────────────────────────────────────────────
 
+
 def _extract_by_vars(sas_code: str) -> list[str]:
     m = re.search(r"\bby\s+([^;]+);", sas_code, re.IGNORECASE)
     if not m:
@@ -216,10 +224,11 @@ def _extract_output_ds(sas_code: str) -> str:
 
 # ── Per-category analysis builders ───────────────────────────────────────────
 
+
 def _analyse_col_missing(report: ErrorReport, sas: str, py: str) -> ErrorAnalysis:
     affected = report.affected_columns
     col_hint = f"column(s) {affected}" if affected else "missing column(s)"
-    by_vars  = _extract_by_vars(sas)
+    by_vars = _extract_by_vars(sas)
     keep_col = _extract_keep(sas)
 
     # Program slice: show exactly where the missing columns are referenced
@@ -239,7 +248,11 @@ def _analyse_col_missing(report: ErrorReport, sas: str, py: str) -> ErrorAnalysi
             "All DataFrame column names must be lowercased immediately: "
             "`df.columns = df.columns.str.lower().str.strip()`",
             f"BY variables must be present: {by_vars}" if by_vars else "BY columns must exist",
-            f"KEEP columns must be in output: {keep_col}" if keep_col else "Preserve expected output columns",
+            (
+                f"KEEP columns must be in output: {keep_col}"
+                if keep_col
+                else "Preserve expected output columns"
+            ),
         ],
         forbidden=[
             "Do NOT reload internal DataFrames from disk with pd.read_csv()",
@@ -247,8 +260,11 @@ def _analyse_col_missing(report: ErrorReport, sas: str, py: str) -> ErrorAnalysi
         ],
         repair_strategy=[
             "Add `df.columns = df.columns.str.lower().str.strip()` right after any DataFrame creation",
-            f"Replace all references to {affected} with the correct lowercased names" if affected else
-            "Check each column reference against the actual DataFrame columns",
+            (
+                f"Replace all references to {affected} with the correct lowercased names"
+                if affected
+                else "Check each column reference against the actual DataFrame columns"
+            ),
             "Verify the correct input DataFrame is being used (not a copy with stale schema)",
         ],
         minimal_scope="Fix only the column access / lowercasing issue.",
@@ -291,7 +307,7 @@ def _analyse_dtype(report: ErrorReport, sas: str, py: str) -> ErrorAnalysis:
 
 def _analyse_merge_contract(report: ErrorReport, sas: str, py: str) -> ErrorAnalysis:
     merge_how = _extract_merge_type(sas)
-    by_vars   = _extract_by_vars(sas)
+    by_vars = _extract_by_vars(sas)
     return ErrorAnalysis(
         root_cause=(
             f"The join semantics do not match the SAS MERGE contract. "
@@ -333,7 +349,11 @@ def _analyse_retain(report: ErrorReport, sas: str, py: str) -> ErrorAnalysis:
             "Do NOT use .apply() with shared mutable state — it is not vectorised",
         ],
         repair_strategy=[
-            f"Sort DataFrame by {by_vars} first" if by_vars else "Sort by the grouping column first",
+            (
+                f"Sort DataFrame by {by_vars} first"
+                if by_vars
+                else "Sort by the grouping column first"
+            ),
             "Use `df.groupby(by_col)['val'].cumsum()` for simple running totals",
             "For conditional accumulation: use `.groupby().transform(lambda s: ...)` with explicit reset logic",
             "For FIRST./LAST. reset: detect boundary with `df['grp'] != df['grp'].shift(1)`",
@@ -358,8 +378,11 @@ def _analyse_lag(report: ErrorReport, sas: str, py: str) -> ErrorAnalysis:
         ],
         repair_strategy=[
             "Replace `LAG(var)` with `df['var'].shift(1)`",
-            f"For BY-group LAG: `df.groupby({by_vars})['var'].shift(1)`" if by_vars else
-            "Apply shift within appropriate group if BY is present",
+            (
+                f"For BY-group LAG: `df.groupby({by_vars})['var'].shift(1)`"
+                if by_vars
+                else "Apply shift within appropriate group if BY is present"
+            ),
             "Fill NaN on first row with `np.nan` or the correct SAS initialisation value",
         ],
         minimal_scope="Fix only the LAG/shift translation.",
@@ -400,8 +423,11 @@ def _analyse_output_missing(report: ErrorReport, sas: str, py: str) -> ErrorAnal
             "The final result must be stored in a top-level variable (not inside a function)."
         ),
         non_neg_contract=[
-            f"The final output must be assigned to `{out_ds}`" if out_ds else
-            "The final output must be a named DataFrame variable",
+            (
+                f"The final output must be assigned to `{out_ds}`"
+                if out_ds
+                else "The final output must be a named DataFrame variable"
+            ),
             "The script must be FLAT — no `def main()` or wrapper functions",
         ],
         forbidden=[
@@ -410,8 +436,11 @@ def _analyse_output_missing(report: ErrorReport, sas: str, py: str) -> ErrorAnal
         ],
         repair_strategy=[
             "Identify the last transformation in the SAS code",
-            f"Ensure the result is assigned to `{out_ds}` at the top level" if out_ds else
-            "Assign the final DataFrame to a clearly named top-level variable",
+            (
+                f"Ensure the result is assigned to `{out_ds}` at the top level"
+                if out_ds
+                else "Assign the final DataFrame to a clearly named top-level variable"
+            ),
             "Remove any function wrapper (`def main()`, `def process()`, etc.)",
         ],
         minimal_scope="Add or fix the final output variable assignment.",
@@ -426,7 +455,11 @@ def _analyse_sort_order(report: ErrorReport, sas: str, py: str) -> ErrorAnalysis
             "sort; the BY statement may include DESCENDING prefixes."
         ),
         non_neg_contract=[
-            f"Sort by {by_vars} in the correct direction" if by_vars else "Sort by the correct BY columns",
+            (
+                f"Sort by {by_vars} in the correct direction"
+                if by_vars
+                else "Sort by the correct BY columns"
+            ),
             "Use `kind='mergesort'` for stable sort",
         ],
         forbidden=[
@@ -467,6 +500,7 @@ def _analyse_empty(report: ErrorReport, sas: str, py: str) -> ErrorAnalysis:
 
 # ── Generic fallbacks ─────────────────────────────────────────────────────────
 
+
 def _analyse_generic(report: ErrorReport, sas: str, py: str) -> ErrorAnalysis:
     # Attempt line-based slice from traceback when column names are unavailable
     code_slice = ""
@@ -476,9 +510,7 @@ def _analyse_generic(report: ErrorReport, sas: str, py: str) -> ErrorAnalysis:
             code_slice = _slice_around_line(py, ln)
 
     return ErrorAnalysis(
-        root_cause=(
-            f"{report.primary_category}: {report.error_message}"
-        ),
+        root_cause=(f"{report.primary_category}: {report.error_message}"),
         non_neg_contract=[
             "The output must match the SAS dataset semantics (rows, columns, values)",
         ],
@@ -499,18 +531,18 @@ def _analyse_generic(report: ErrorReport, sas: str, py: str) -> ErrorAnalysis:
 # ── Dispatch map ─────────────────────────────────────────────────────────────
 
 _DISPATCH: dict[str, object] = {
-    COL_MISSING:     _analyse_col_missing,
-    KEY_ERROR:       _analyse_col_missing,
-    DTYPE_MISMATCH:  _analyse_dtype,
-    TYPE_ERROR:      _analyse_dtype,
-    VALUE_ERROR:     _analyse_dtype,
-    MERGE_CONTRACT:  _analyse_merge_contract,
+    COL_MISSING: _analyse_col_missing,
+    KEY_ERROR: _analyse_col_missing,
+    DTYPE_MISMATCH: _analyse_dtype,
+    TYPE_ERROR: _analyse_dtype,
+    VALUE_ERROR: _analyse_dtype,
+    MERGE_CONTRACT: _analyse_merge_contract,
     RETAIN_SEQUENCE: _analyse_retain,
-    LAG_SEQUENCE:    _analyse_lag,
-    GROUP_BOUNDARY:  _analyse_group_boundary,
-    OUTPUT_MISSING:  _analyse_output_missing,
-    SORT_ORDER:      _analyse_sort_order,
-    EMPTY_SUSPICIOUS:_analyse_empty,
+    LAG_SEQUENCE: _analyse_lag,
+    GROUP_BOUNDARY: _analyse_group_boundary,
+    OUTPUT_MISSING: _analyse_output_missing,
+    SORT_ORDER: _analyse_sort_order,
+    EMPTY_SUSPICIOUS: _analyse_empty,
 }
 
 

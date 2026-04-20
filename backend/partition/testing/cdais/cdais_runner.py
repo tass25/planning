@@ -29,8 +29,8 @@ from partition.testing.cdais.constraint_catalog import (
     ConstraintConfig,
     applicable_classes,
 )
-from partition.testing.cdais.synthesizer import CDASISynthesizer, SynthesisResult
 from partition.testing.cdais.coverage_oracle import CoverageOracle, CoverageResult
+from partition.testing.cdais.synthesizer import CDASISynthesizer, SynthesisResult
 
 logger = structlog.get_logger(__name__)
 
@@ -38,11 +38,12 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class CDAISReport:
     """Full CDAIS report for one partition translation."""
+
     partition_id: str
     all_passed: bool
-    certificates: list[str] = field(default_factory=list)     # formal cert strings
+    certificates: list[str] = field(default_factory=list)  # formal cert strings
     failures: list[CoverageResult] = field(default_factory=list)
-    skipped_classes: list[str] = field(default_factory=list)   # not applicable
+    skipped_classes: list[str] = field(default_factory=list)  # not applicable
     latency_ms: float = 0.0
     n_classes_checked: int = 0
 
@@ -67,7 +68,7 @@ class CDAISReport:
         return "\n".join(lines)
 
     def summary(self) -> str:
-        total  = self.n_classes_checked
+        total = self.n_classes_checked
         failed = len(self.failures)
         passed = total - failed
         return (
@@ -87,9 +88,9 @@ class CDAISRunner:
         synthesizer: Optional[CDASISynthesizer] = None,
         oracle: Optional[CoverageOracle] = None,
     ) -> None:
-        self.cfg         = cfg or ConstraintConfig()
+        self.cfg = cfg or ConstraintConfig()
         self.synthesizer = synthesizer or CDASISynthesizer()
-        self.oracle      = oracle or CoverageOracle()
+        self.oracle = oracle or CoverageOracle()
 
     def run(
         self,
@@ -97,14 +98,14 @@ class CDAISRunner:
         python_code: str,
     ) -> CDAISReport:
         """Run CDAIS for all applicable error classes on this partition."""
-        t0      = time.monotonic()
-        sas     = partition.source_code or ""
-        pid     = str(partition.block_id)
+        t0 = time.monotonic()
+        sas = partition.source_code or ""
+        pid = str(partition.block_id)
 
-        classes     = applicable_classes(sas)
-        skipped     = []
+        classes = applicable_classes(sas)
+        skipped = []
         certificates = []
-        failures    = []
+        failures = []
 
         if not classes:
             elapsed = (time.monotonic() - t0) * 1000
@@ -112,11 +113,12 @@ class CDAISRunner:
             return CDAISReport(
                 partition_id=pid,
                 all_passed=True,
-                skipped_classes=[ec.name for ec in
-                                  __import__(
-                                      "partition.testing.cdais.constraint_catalog",
-                                      fromlist=["ALL_ERROR_CLASSES"]
-                                  ).ALL_ERROR_CLASSES],
+                skipped_classes=[
+                    ec.name
+                    for ec in __import__(
+                        "partition.testing.cdais.constraint_catalog", fromlist=["ALL_ERROR_CLASSES"]
+                    ).ALL_ERROR_CLASSES
+                ],
                 latency_ms=elapsed,
                 n_classes_checked=0,
             )
@@ -133,22 +135,25 @@ class CDAISRunner:
 
                 if result.passed:
                     certificates.append(result.certificate)
-                    logger.info("cdais_cert_issued", error_class=ec.name,
-                                partition_id=pid)
+                    logger.info("cdais_cert_issued", error_class=ec.name, partition_id=pid)
                 else:
                     failures.append(result)
-                    logger.warning("cdais_failure", error_class=ec.name,
-                                   partition_id=pid,
-                                   details=result.failure_details[:1])
+                    logger.warning(
+                        "cdais_failure",
+                        error_class=ec.name,
+                        partition_id=pid,
+                        details=result.failure_details[:1],
+                    )
 
             except Exception as exc:
                 skipped.append(ec.name)
-                logger.error("cdais_class_error", error_class=ec.name,
-                             partition_id=pid, error=str(exc))
+                logger.error(
+                    "cdais_class_error", error_class=ec.name, partition_id=pid, error=str(exc)
+                )
 
-        elapsed     = (time.monotonic() - t0) * 1000
-        all_passed  = len(failures) == 0
-        n_checked   = len(classes) - len(skipped)
+        elapsed = (time.monotonic() - t0) * 1000
+        all_passed = len(failures) == 0
+        n_checked = len(classes) - len(skipped)
 
         logger.info(
             "cdais_complete",
@@ -176,8 +181,9 @@ class CDAISRunner:
     ) -> CDAISReport:
         """Convenience wrapper when you have raw code strings (no PartitionIR)."""
         import uuid
-        from partition.models.partition_ir import PartitionIR
+
         from partition.models.enums import PartitionType, RiskLevel
+        from partition.models.partition_ir import PartitionIR
 
         p = PartitionIR(
             block_id=uuid.UUID(int=0),

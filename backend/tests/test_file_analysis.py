@@ -5,14 +5,12 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from pathlib import Path
-from uuid import UUID
 
 import pytest
-
-from partition.entry.file_analysis_agent import FileAnalysisAgent, _pre_validate
-
+from partition.entry.file_analysis_agent import FileAnalysisAgent
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _run(coro):
     """Run an async coroutine synchronously."""
@@ -36,6 +34,7 @@ def sas_dir(tmp_path: Path) -> Path:
 
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
+
 
 class TestFileAnalysisAgent:
     """Test suite for FileAnalysisAgent."""

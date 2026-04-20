@@ -165,9 +165,5 @@ azure_limiter = RateLimitSemaphore(max_concurrent=10)
 groq_limiter = RateLimitSemaphore(max_concurrent=3)
 
 # Circuit breakers per LLM provider
-azure_breaker = CircuitBreaker(
-    failure_threshold=5, reset_timeout=60.0, name="azure_openai"
-)
-groq_breaker = CircuitBreaker(
-    failure_threshold=3, reset_timeout=120.0, name="groq"
-)
+azure_breaker = CircuitBreaker(failure_threshold=5, reset_timeout=60.0, name="azure_openai")
+groq_breaker = CircuitBreaker(failure_threshold=3, reset_timeout=120.0, name="groq")

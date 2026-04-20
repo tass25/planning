@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field
 
-
 # ── Enums ─────────────────────────────────────────────────────────────────────
+
 
 class PipelineStage(str, Enum):
     FILE_PROCESS = "file_process"
@@ -79,6 +78,7 @@ class KBAction(str, Enum):
 
 
 # ── Request / Response schemas ────────────────────────────────────────────────
+
 
 class PipelineStageInfo(BaseModel):
     stage: PipelineStage

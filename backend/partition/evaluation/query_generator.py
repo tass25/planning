@@ -125,14 +125,10 @@ def generate_queries(
             if source_code:
                 # Content-based query: semantically unique per partition so
                 # the embedder can retrieve the exact leaf node.
-                query_text = (
-                    f"Convert this SAS code to Python:\n{source_code[:500]}"
-                )
+                query_text = f"Convert this SAS code to Python:\n{source_code[:500]}"
             else:
                 # Fallback to template when source_code is unavailable.
-                templates = QUERY_TEMPLATES.get(
-                    ptype, ["Convert this SAS code to Python"]
-                )
+                templates = QUERY_TEMPLATES.get(ptype, ["Convert this SAS code to Python"])
                 query_text = rng.choice(templates)
 
             queries.append(

@@ -10,8 +10,8 @@ import math
 from typing import Optional
 
 import numpy as np
-from sklearn.mixture import GaussianMixture
 import structlog
+from sklearn.mixture import GaussianMixture
 
 logger = structlog.get_logger()
 
@@ -30,9 +30,9 @@ class GMMClusterer:
     (τ = 0.72) supports this without block duplication.
     """
 
-    TAU = 0.72          # Soft-assignment threshold
+    TAU = 0.72  # Soft-assignment threshold
     BIC_EPSILON = 0.01  # BIC convergence threshold
-    MAX_RETRIES = 3     # Retries on ConvergenceWarning
+    MAX_RETRIES = 3  # Retries on ConvergenceWarning
 
     def cluster(
         self,
@@ -58,7 +58,7 @@ class GMMClusterer:
             return [[0]], 0.0
 
         k = max_k or max(2, int(math.sqrt(n_samples)))
-        k = min(k, n_samples)   # k cannot exceed the number of samples
+        k = min(k, n_samples)  # k cannot exceed the number of samples
 
         logger.info("gmm_clustering", n_samples=n_samples, k=k, tau=self.TAU)
 

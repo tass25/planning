@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
-from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -34,7 +33,7 @@ class ConversionResult(BaseModel):
     rag_paradigm: str = ""
     # Z3 formal verification fields (populated by Z3VerificationAgent)
     z3_status: VerificationStatus = VerificationStatus.SKIPPED
-    z3_pattern: str = ""          # which Z3 pattern matched (e.g. "linear_arithmetic")
+    z3_pattern: str = ""  # which Z3 pattern matched (e.g. "linear_arithmetic")
     z3_latency_ms: float = 0.0
     # CDAIS coverage fields (populated by CDAISRunner)
     cdais_all_passed: bool = True
@@ -44,6 +43,4 @@ class ConversionResult(BaseModel):
     mis_violations: list[str] = Field(default_factory=list)
     # Namespace violations: column/dtype-related MIS violations surfaced to the UI
     namespace_violations: list[str] = Field(default_factory=list)
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

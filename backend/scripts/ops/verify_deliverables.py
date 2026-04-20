@@ -3,6 +3,7 @@
 Run from the project root:
     cd backend && python scripts/verify_deliverables.py
 """
+
 from __future__ import annotations
 
 import sys
@@ -20,60 +21,59 @@ FRONTEND = ROOT / "frontend"
 
 REQUIRED: list[tuple[str, Path]] = [
     # ── Pipeline core ────────────────────────────────────────────────────
-    ("Orchestrator",            BACKEND / "partition/orchestration/orchestrator.py"),
-    ("StateAgent (FSM)",        BACKEND / "partition/streaming/state_agent.py"),
-    ("BoundaryDetector",        BACKEND / "partition/chunking/boundary_detector.py"),
-    ("RAPTORAgent",             BACKEND / "partition/raptor/raptor_agent.py"),
-    ("RiskRouter",              BACKEND / "partition/complexity/risk_router.py"),
-    ("TranslationPipeline",     BACKEND / "partition/translation/translation_pipeline.py"),
-    ("MergeAgent",              BACKEND / "partition/merge/merge_agent.py"),
+    ("Orchestrator", BACKEND / "partition/orchestration/orchestrator.py"),
+    ("StateAgent (FSM)", BACKEND / "partition/streaming/state_agent.py"),
+    ("BoundaryDetector", BACKEND / "partition/chunking/boundary_detector.py"),
+    ("RAPTORAgent", BACKEND / "partition/raptor/raptor_agent.py"),
+    ("RiskRouter", BACKEND / "partition/complexity/risk_router.py"),
+    ("TranslationPipeline", BACKEND / "partition/translation/translation_pipeline.py"),
+    ("MergeAgent", BACKEND / "partition/merge/merge_agent.py"),
     # ── RAG ──────────────────────────────────────────────────────────────
-    ("RAGRouter",               BACKEND / "partition/rag/router.py"),
-    ("StaticRAG",               BACKEND / "partition/rag/static_rag.py"),
-    ("GraphRAG",                BACKEND / "partition/rag/graph_rag.py"),
-    ("AgenticRAG",              BACKEND / "partition/rag/agentic_rag.py"),
+    ("RAGRouter", BACKEND / "partition/rag/router.py"),
+    ("StaticRAG", BACKEND / "partition/rag/static_rag.py"),
+    ("GraphRAG", BACKEND / "partition/rag/graph_rag.py"),
+    ("AgenticRAG", BACKEND / "partition/rag/agentic_rag.py"),
     # ── Prompts ──────────────────────────────────────────────────────────
-    ("Prompt: translation_static",  BACKEND / "partition/prompts/templates/translation_static.j2"),
+    ("Prompt: translation_static", BACKEND / "partition/prompts/templates/translation_static.j2"),
     ("Prompt: translation_agentic", BACKEND / "partition/prompts/templates/translation_agentic.j2"),
-    ("Prompt: translation_graph",   BACKEND / "partition/prompts/templates/translation_graph.j2"),
-    ("Prompt: cross_verify",        BACKEND / "partition/prompts/templates/cross_verify.j2"),
-    ("Prompt: reflection",          BACKEND / "partition/prompts/templates/reflection.j2"),
+    ("Prompt: translation_graph", BACKEND / "partition/prompts/templates/translation_graph.j2"),
+    ("Prompt: cross_verify", BACKEND / "partition/prompts/templates/cross_verify.j2"),
+    ("Prompt: reflection", BACKEND / "partition/prompts/templates/reflection.j2"),
     # ── API ──────────────────────────────────────────────────────────────
-    ("FastAPI main",            BACKEND / "api/main.py"),
-    ("DB models",               BACKEND / "api/database.py"),
-    ("Auth",                    BACKEND / "api/auth.py"),
-    ("Conversions route",       BACKEND / "api/routes/conversions.py"),
+    ("FastAPI main", BACKEND / "api/main.py"),
+    ("DB models", BACKEND / "api/database.py"),
+    ("Auth", BACKEND / "api/auth.py"),
+    ("Conversions route", BACKEND / "api/routes/conversions.py"),
     # ── Data ─────────────────────────────────────────────────────────────
-    ("Gold standard dir",       BACKEND / "knowledge_base/gold_standard"),
-    ("Requirements",            BACKEND / "requirements/base.txt"),
+    ("Gold standard dir", BACKEND / "knowledge_base/gold_standard"),
+    ("Requirements", BACKEND / "requirements/base.txt"),
     # ── Tests ────────────────────────────────────────────────────────────
-    ("Test suite",              BACKEND / "tests"),
-    ("Benchmark script",        BACKEND / "benchmark/boundary_benchmark.py"),
+    ("Test suite", BACKEND / "tests"),
+    ("Benchmark script", BACKEND / "benchmark/boundary_benchmark.py"),
     # ── Frontend ─────────────────────────────────────────────────────────
-    ("Frontend Workspace",      FRONTEND / "src/pages/Workspace.tsx"),
-    ("Frontend types",          FRONTEND / "src/types/index.ts"),
-    ("Frontend api.ts",         FRONTEND / "src/lib/api.ts"),
+    ("Frontend Workspace", FRONTEND / "src/pages/Workspace.tsx"),
+    ("Frontend types", FRONTEND / "src/types/index.ts"),
+    ("Frontend api.ts", FRONTEND / "src/lib/api.ts"),
     # ── Infrastructure ───────────────────────────────────────────────────
-    ("Docker Compose",          ROOT / "infra/docker-compose.yml"),
-    ("Dockerfile",              ROOT / "infra/Dockerfile"),
-    ("CI workflow",             ROOT / ".github/workflows/ci.yml"),
-    ("CLAUDE.md",               ROOT / "CLAUDE.md"),
-    ("README.md",               ROOT / "README.md"),
+    ("Docker Compose", ROOT / "infra/docker-compose.yml"),
+    ("Dockerfile", ROOT / "infra/Dockerfile"),
+    ("CI workflow", ROOT / ".github/workflows/ci.yml"),
+    ("CLAUDE.md", ROOT / "CLAUDE.md"),
+    ("README.md", ROOT / "README.md"),
     # ── Docs ─────────────────────────────────────────────────────────────
-    ("Audit report v3",         ROOT / "docs/reports/AUDIT_REPORT_V3.md"),
-    ("Changelog 28mars",        ROOT / "docs/planning/28mars.md"),
+    ("Audit report v3", ROOT / "docs/reports/AUDIT_REPORT_V3.md"),
+    ("Changelog 28mars", ROOT / "docs/planning/28mars.md"),
 ]
 
 OPTIONAL: list[tuple[str, Path]] = [
-    ("LanceDB data dir",        BACKEND / "data/lancedb"),
-    ("Ablation DB",             BACKEND / "data/ablation.db"),
-    ("Ablation analyzer",       BACKEND / "scripts/analyze_ablation.py"),
+    ("LanceDB data dir", BACKEND / "data/lancedb"),
+    ("Ablation DB", BACKEND / "data/ablation.db"),
+    ("Ablation analyzer", BACKEND / "scripts/analyze_ablation.py"),
     ("Complexity training CSV", BACKEND / "benchmark/complexity_training.csv"),
 ]
 
 
 def _check(items: list[tuple[str, Path]], required: bool) -> int:
-    label = "REQUIRED" if required else "OPTIONAL"
     failures = 0
     for name, path in items:
         exists = path.exists()

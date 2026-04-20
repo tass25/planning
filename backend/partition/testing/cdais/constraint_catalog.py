@@ -29,24 +29,26 @@ Error classes implemented:
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
-from typing import Any, Optional
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
 class ConstraintConfig:
     """Parameters that control the size of the synthesis problem."""
-    n_groups: int = 2          # number of BY-groups in the witness
+
+    n_groups: int = 2  # number of BY-groups in the witness
     n_rows_per_group: int = 3  # rows per group
-    value_min: int = 1         # minimum symbolic value
-    value_max: int = 100       # maximum symbolic value
+    value_min: int = 1  # minimum symbolic value
+    value_max: int = 100  # maximum symbolic value
     z3_timeout_ms: int = 10_000
 
 
 @dataclass
 class EncodedConstraints:
     """Result of encoding: symbolic vars + the divergence constraint is already added."""
-    sym_vars: dict[str, Any]    # name → z3 symbolic variable
+
+    sym_vars: dict[str, Any]  # name → z3 symbolic variable
     n_groups: int
     n_rows_per_group: int
     error_class: str
@@ -66,6 +68,7 @@ class ErrorClass:
 
 
 # ── 1. RETAIN_RESET ───────────────────────────────────────────────────────────
+
 
 class RetainResetError(ErrorClass):
     """Targets translations that do df.cumsum() without per-group reset.
@@ -89,8 +92,8 @@ class RetainResetError(ErrorClass):
 
     def applicable_to(self, sas_code: str) -> bool:
         has_retain = bool(re.search(r"\bretain\b", sas_code, re.IGNORECASE))
-        has_by     = bool(re.search(r"\bby\b", sas_code, re.IGNORECASE))
-        has_accum  = bool(re.search(r"\w+\s*\+\s*\w+", sas_code))
+        has_by = bool(re.search(r"\bby\b", sas_code, re.IGNORECASE))
+        has_accum = bool(re.search(r"\w+\s*\+\s*\w+", sas_code))
         return has_retain and (has_by or has_accum)
 
     def encode(self, solver: Any, cfg: ConstraintConfig) -> EncodedConstraints:
@@ -132,11 +135,13 @@ class RetainResetError(ErrorClass):
         solver.add(C[1][0] != IC[R])  # always SAT for lo≥1, but Z3 gives minimum
 
         sym_vars = {f"v_{g}_{r}": v[g][r] for g in range(G) for r in range(R)}
-        return EncodedConstraints(sym_vars=sym_vars, n_groups=G,
-                                  n_rows_per_group=R, error_class=self.name)
+        return EncodedConstraints(
+            sym_vars=sym_vars, n_groups=G, n_rows_per_group=R, error_class=self.name
+        )
 
 
 # ── 2. LAG_QUEUE ──────────────────────────────────────────────────────────────
+
 
 class LagQueueError(ErrorClass):
     """Targets translations using shift(1) instead of per-group-reset LAG.
@@ -178,14 +183,16 @@ class LagQueueError(ErrorClass):
         # Divergence requires v[R-1] ≠ 0 — guaranteed since lo ≥ 1.
         boundary_val = v[R - 1]
         null_sentinel = z3.IntVal(0)  # NULL encoded as 0 in our integer domain
-        solver.add(boundary_val != null_sentinel)   # always SAT
+        solver.add(boundary_val != null_sentinel)  # always SAT
 
         sym_vars = {f"lag_v_{i}": v[i] for i in range(2 * R)}
-        return EncodedConstraints(sym_vars=sym_vars, n_groups=2,
-                                  n_rows_per_group=R, error_class=self.name)
+        return EncodedConstraints(
+            sym_vars=sym_vars, n_groups=2, n_rows_per_group=R, error_class=self.name
+        )
 
 
 # ── 3. SORT_STABLE ────────────────────────────────────────────────────────────
+
 
 class SortStableError(ErrorClass):
     """Targets translations using sort_values without kind='mergesort'.
@@ -230,14 +237,18 @@ class SortStableError(ErrorClass):
         solver.add(sec1 != sec2)
 
         sym_vars = {
-            "sort_key1": key1, "sort_key2": key2,
-            "sort_sec1": sec1, "sort_sec2": sec2,
+            "sort_key1": key1,
+            "sort_key2": key2,
+            "sort_sec1": sec1,
+            "sort_sec2": sec2,
         }
-        return EncodedConstraints(sym_vars=sym_vars, n_groups=1,
-                                  n_rows_per_group=2, error_class=self.name)
+        return EncodedConstraints(
+            sym_vars=sym_vars, n_groups=1, n_rows_per_group=2, error_class=self.name
+        )
 
 
 # ── 4. NULL_ARITHMETIC ────────────────────────────────────────────────────────
+
 
 class NullArithmeticError(ErrorClass):
     """Targets RETAIN accumulators that don't handle SAS missing (.) as 0.
@@ -259,30 +270,30 @@ class NullArithmeticError(ErrorClass):
 
     def applicable_to(self, sas_code: str) -> bool:
         has_retain = bool(re.search(r"\bretain\b", sas_code, re.IGNORECASE))
-        has_accum  = bool(re.search(r"\w+\s*\+\s*\w+", sas_code))
+        has_accum = bool(re.search(r"\w+\s*\+\s*\w+", sas_code))
         return has_retain and has_accum
 
     def encode(self, solver: Any, cfg: ConstraintConfig) -> EncodedConstraints:
         import z3
 
-        total      = z3.Int("null_total")
-        addend     = z3.Int("null_addend")
+        total = z3.Int("null_total")
+        addend = z3.Int("null_addend")
         is_missing = z3.Bool("null_is_missing")
 
         lo = z3.IntVal(cfg.value_min)
         hi = z3.IntVal(cfg.value_max)
         nan_sentinel = z3.IntVal(-999)
 
-        solver.add(total  >= lo, total  <= hi)
+        solver.add(total >= lo, total <= hi)
         solver.add(addend >= lo, addend <= hi)
 
         # Correct result when is_missing: total unchanged
         correct_result = z3.If(is_missing, total, total + addend)
         # Wrong result when is_missing: NaN propagation → sentinel
-        wrong_result   = z3.If(is_missing, nan_sentinel, total + addend)
+        wrong_result = z3.If(is_missing, nan_sentinel, total + addend)
 
         # Diverge only when is_missing is True
-        solver.add(is_missing == True)
+        solver.add(is_missing)
         solver.add(correct_result != wrong_result)  # total ≠ -999, always SAT
 
         sym_vars = {
@@ -290,12 +301,16 @@ class NullArithmeticError(ErrorClass):
             "null_addend": addend,
             "null_is_missing": is_missing,
         }
-        return EncodedConstraints(sym_vars=sym_vars, n_groups=2,
-                                  n_rows_per_group=cfg.n_rows_per_group,
-                                  error_class=self.name)
+        return EncodedConstraints(
+            sym_vars=sym_vars,
+            n_groups=2,
+            n_rows_per_group=cfg.n_rows_per_group,
+            error_class=self.name,
+        )
 
 
 # ── 5. JOIN_TYPE ──────────────────────────────────────────────────────────────
+
 
 class JoinTypeError(ErrorClass):
     """Targets MERGE translated as inner join instead of outer join.
@@ -357,11 +372,13 @@ class JoinTypeError(ErrorClass):
             **{f"join_kL_{i}": k_L[i] for i in range(n)},
             **{f"join_kR_{i}": k_R[i] for i in range(n)},
         }
-        return EncodedConstraints(sym_vars=sym_vars, n_groups=2,
-                                  n_rows_per_group=n, error_class=self.name)
+        return EncodedConstraints(
+            sym_vars=sym_vars, n_groups=2, n_rows_per_group=n, error_class=self.name
+        )
 
 
 # ── 6. GROUP_BOUNDARY ─────────────────────────────────────────────────────────
+
 
 class GroupBoundaryError(ErrorClass):
     """Targets FIRST./LAST. implemented as .head(1)/.tail(1) on the full DF.
@@ -387,7 +404,7 @@ class GroupBoundaryError(ErrorClass):
 
     def applicable_to(self, sas_code: str) -> bool:
         has_first_last = bool(re.search(r"\bfirst\.\w+|\blast\.\w+", sas_code, re.IGNORECASE))
-        has_by         = bool(re.search(r"\bby\b", sas_code, re.IGNORECASE))
+        has_by = bool(re.search(r"\bby\b", sas_code, re.IGNORECASE))
         return has_first_last and has_by
 
     def encode(self, solver: Any, cfg: ConstraintConfig) -> EncodedConstraints:
@@ -398,7 +415,7 @@ class GroupBoundaryError(ErrorClass):
 
         # Group labels and row values
         group_labels = [z3.Int(f"gb_group_{g}") for g in range(G)]
-        row_vals     = [[z3.Int(f"gb_val_{g}_{r}") for r in range(R)] for g in range(G)]
+        row_vals = [[z3.Int(f"gb_val_{g}_{r}") for r in range(R)] for g in range(G)]
 
         lo = z3.IntVal(cfg.value_min)
         hi = z3.IntVal(cfg.value_max)
@@ -414,15 +431,16 @@ class GroupBoundaryError(ErrorClass):
         # Divergence: correct output has G rows, wrong has 1.
         # For G ≥ 2 this is always satisfiable.
         n_correct = z3.IntVal(G)
-        n_wrong   = z3.IntVal(1)
+        n_wrong = z3.IntVal(1)
         solver.add(n_correct != n_wrong)  # trivially SAT for G≥2
 
         sym_vars = {
             **{f"gb_group_{g}": group_labels[g] for g in range(G)},
             **{f"gb_val_{g}_{r}": row_vals[g][r] for g in range(G) for r in range(R)},
         }
-        return EncodedConstraints(sym_vars=sym_vars, n_groups=G,
-                                  n_rows_per_group=R, error_class=self.name)
+        return EncodedConstraints(
+            sym_vars=sym_vars, n_groups=G, n_rows_per_group=R, error_class=self.name
+        )
 
 
 # ── Catalog registry ──────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 """Partition data models."""
 
-from .enums import PartitionType, RiskLevel, ConversionStatus, PartitionStrategy
+from .enums import ConversionStatus, PartitionStrategy, PartitionType, RiskLevel
 from .file_metadata import FileMetadata
 from .partition_ir import PartitionIR, RAPTORNode
 

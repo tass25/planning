@@ -8,17 +8,14 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-
-import numpy as np
-import pytest
 from unittest.mock import MagicMock
 
+import numpy as np
+from partition.models.enums import PartitionType
+from partition.models.partition_ir import PartitionIR, RAPTORNode
 from partition.raptor.clustering import GMMClusterer
 from partition.raptor.summarizer import ClusterSummarizer, ClusterSummary
 from partition.raptor.tree_builder import RAPTORTreeBuilder
-from partition.models.partition_ir import RAPTORNode, PartitionIR
-from partition.models.enums import PartitionType
-
 
 # =====================================================================
 # GMMClusterer

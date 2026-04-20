@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from uuid import UUID
-
 from partition.base_agent import BaseAgent
 from partition.models.partition_ir import PartitionIR, RAPTORNode
-from partition.raptor.embedder import NomicEmbedder
 from partition.raptor.clustering import get_clusterer
+from partition.raptor.embedder import NomicEmbedder
 from partition.raptor.summarizer import ClusterSummarizer
 from partition.raptor.tree_builder import RAPTORTreeBuilder
 
@@ -28,7 +26,7 @@ class RAPTORPartitionAgent(BaseAgent):
         super().__init__(trace_id)
 
         self.embedder = NomicEmbedder(device=device)
-        self.clusterer = get_clusterer()   # GMMClusterer (production)
+        self.clusterer = get_clusterer()  # GMMClusterer (production)
         self.summarizer = ClusterSummarizer()
         self.tree_builder = RAPTORTreeBuilder(
             embedder=self.embedder,
@@ -54,9 +52,7 @@ class RAPTORPartitionAgent(BaseAgent):
             self.logger.warning("raptor_no_partitions", file_id=file_id)
             return []
 
-        macro_density = (
-            sum(1 for p in partitions if p.has_macros) / len(partitions)
-        )
+        macro_density = sum(1 for p in partitions if p.has_macros) / len(partitions)
 
         self.logger.info(
             "raptor_agent_start",

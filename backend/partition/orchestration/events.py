@@ -41,7 +41,7 @@ class StageEvent:
 
     conversion_id: str
     stage: str
-    status: str                    # running | completed | failed | skipped
+    status: str  # running | completed | failed | skipped
     latency_ms: float = 0.0
     retry_count: int = 0
     warnings: list[str] = field(default_factory=list)
@@ -76,10 +76,7 @@ class PipelineEventEmitter:
         """Fan out the event to all listeners; errors are swallowed per-listener."""
         if not self._listeners:
             return
-        tasks = [
-            asyncio.create_task(_safe_notify(listener, event))
-            for listener in self._listeners
-        ]
+        tasks = [asyncio.create_task(_safe_notify(listener, event)) for listener in self._listeners]
         await asyncio.gather(*tasks)
 
 

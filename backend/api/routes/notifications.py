@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.core.auth import get_current_user
-from api.core.database import get_api_session, NotificationRow
+from api.core.database import NotificationRow, get_api_session
 from api.core.schemas import NotificationOut
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
@@ -26,6 +26,7 @@ def _notif_to_out(row: NotificationRow) -> NotificationOut:
 @router.get("", response_model=list[NotificationOut])
 def list_notifications(current_user: dict = Depends(get_current_user)):
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         rows = (
@@ -43,18 +44,23 @@ def list_notifications(current_user: dict = Depends(get_current_user)):
 @router.put("/{notif_id}/read")
 def mark_read(notif_id: str, current_user: dict = Depends(get_current_user)):
     from api.main import engine
+
     session = get_api_session(engine)
     try:
-        row = session.query(NotificationRow).filter(
-            NotificationRow.id == notif_id,
-            NotificationRow.user_id == current_user["sub"],
-        ).first()
+        row = (
+            session.query(NotificationRow)
+            .filter(
+                NotificationRow.id == notif_id,
+                NotificationRow.user_id == current_user["sub"],
+            )
+            .first()
+        )
         if not row:
             raise HTTPException(status_code=404, detail="Notification not found")
         row.read = True
         try:
             session.commit()
-        except Exception as exc:
+        except Exception:
             session.rollback()
             raise HTTPException(status_code=500, detail="Failed to mark notification as read")
         return {"ok": True}
@@ -65,6 +71,7 @@ def mark_read(notif_id: str, current_user: dict = Depends(get_current_user)):
 @router.put("/read-all")
 def mark_all_read(current_user: dict = Depends(get_current_user)):
     from api.main import engine
+
     session = get_api_session(engine)
     try:
         session.query(NotificationRow).filter(
@@ -73,7 +80,7 @@ def mark_all_read(current_user: dict = Depends(get_current_user)):
         ).update({"read": True})
         try:
             session.commit()
-        except Exception as exc:
+        except Exception:
             session.rollback()
             raise HTTPException(status_code=500, detail="Failed to mark notifications as read")
         return {"ok": True}

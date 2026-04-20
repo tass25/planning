@@ -145,9 +145,7 @@ class _LLMCallTracker:
         self._start_time = time.perf_counter()
 
     def set_response(self, response_text: str) -> None:
-        self.response_hash = hashlib.sha256(
-            response_text.encode()
-        ).hexdigest()[:16]
+        self.response_hash = hashlib.sha256(response_text.encode()).hexdigest()[:16]
 
     def succeed(self) -> None:
         self.success = True

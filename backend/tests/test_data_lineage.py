@@ -3,22 +3,19 @@
 from __future__ import annotations
 
 import asyncio
-import tempfile
 from pathlib import Path
 
-import pytest
-
 from partition.db.sqlite_manager import (
-    get_engine,
-    init_db,
-    get_session,
     DataLineageRow,
+    get_engine,
+    get_session,
+    init_db,
 )
 from partition.entry.data_lineage_extractor import DataLineageExtractor
 from partition.models.file_metadata import FileMetadata
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _write_sas(tmp: Path, name: str, content: str) -> Path:
     """Write a SAS file and return its path."""
@@ -30,6 +27,7 @@ def _write_sas(tmp: Path, name: str, content: str) -> Path:
 def _make_metadata(path: Path) -> FileMetadata:
     raw = path.read_bytes()
     import hashlib
+
     return FileMetadata(
         file_path=str(path),
         encoding="utf-8",
@@ -55,37 +53,45 @@ def _query_rows(engine) -> list[DataLineageRow]:
 # Need to insert into file_registry first so FK is satisfied
 def _insert_registry(engine, fm: FileMetadata):
     from partition.db.sqlite_manager import FileRegistryRow
+
     session = get_session(engine)
-    session.add(FileRegistryRow(
-        file_id=str(fm.file_id),
-        file_path=fm.file_path,
-        encoding=fm.encoding,
-        content_hash=fm.content_hash,
-        file_size_bytes=fm.file_size_bytes,
-        line_count=fm.line_count,
-        lark_valid=fm.lark_valid,
-        lark_errors="",
-        status="PENDING",
-        error_log="",
-        created_at=fm.created_at.isoformat(),
-    ))
+    session.add(
+        FileRegistryRow(
+            file_id=str(fm.file_id),
+            file_path=fm.file_path,
+            encoding=fm.encoding,
+            content_hash=fm.content_hash,
+            file_size_bytes=fm.file_size_bytes,
+            line_count=fm.line_count,
+            lark_valid=fm.lark_valid,
+            lark_errors="",
+            status="PENDING",
+            error_log="",
+            created_at=fm.created_at.isoformat(),
+        )
+    )
     session.commit()
     session.close()
 
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
+
 class TestDataLineageExtractor:
     """Five tests covering the core table-level lineage patterns."""
 
     def test_data_step_set_read(self, tmp_path):
         """DATA step with SET → detects TABLE_READ."""
-        sas = _write_sas(tmp_path, "t1.sas", """\
+        sas = _write_sas(
+            tmp_path,
+            "t1.sas",
+            """\
 DATA work.clean;
     SET raw.claims;
     x = 1;
 RUN;
-""")
+""",
+        )
         fm = _make_metadata(sas)
         engine = get_engine(str(tmp_path / "test.db"))
         init_db(engine)
@@ -106,12 +112,16 @@ RUN;
 
     def test_data_step_output_write(self, tmp_path):
         """DATA step output → detects TABLE_WRITE."""
-        sas = _write_sas(tmp_path, "t2.sas", """\
+        sas = _write_sas(
+            tmp_path,
+            "t2.sas",
+            """\
 DATA out.summary;
     SET staging.detail;
     total = price * qty;
 RUN;
-""")
+""",
+        )
         fm = _make_metadata(sas)
         engine = get_engine(str(tmp_path / "test.db"))
         init_db(engine)
@@ -126,7 +136,10 @@ RUN;
 
     def test_proc_sql_from_join(self, tmp_path):
         """PROC SQL with FROM + JOIN → detects multiple TABLE_READ."""
-        sas = _write_sas(tmp_path, "t3.sas", """\
+        sas = _write_sas(
+            tmp_path,
+            "t3.sas",
+            """\
 PROC SQL;
     CREATE TABLE work.merged AS
     SELECT a.id, a.name, b.amount
@@ -134,7 +147,8 @@ PROC SQL;
     INNER JOIN src.orders AS b
     ON a.id = b.cust_id;
 QUIT;
-""")
+""",
+        )
         fm = _make_metadata(sas)
         engine = get_engine(str(tmp_path / "test.db"))
         init_db(engine)
@@ -153,14 +167,18 @@ QUIT;
 
     def test_create_table_write(self, tmp_path):
         """CREATE TABLE → detects TABLE_WRITE."""
-        sas = _write_sas(tmp_path, "t4.sas", """\
+        sas = _write_sas(
+            tmp_path,
+            "t4.sas",
+            """\
 PROC SQL;
     CREATE TABLE lib.report AS
     SELECT region, SUM(sales) AS total_sales
     FROM staging.transactions
     GROUP BY region;
 QUIT;
-""")
+""",
+        )
         fm = _make_metadata(sas)
         engine = get_engine(str(tmp_path / "test.db"))
         init_db(engine)
@@ -174,13 +192,17 @@ QUIT;
 
     def test_multi_output_data_step(self, tmp_path):
         """DATA step with multiple output datasets → detects multiple TABLE_WRITE."""
-        sas = _write_sas(tmp_path, "t5.sas", """\
+        sas = _write_sas(
+            tmp_path,
+            "t5.sas",
+            """\
 DATA work.valid work.invalid;
     SET raw.transactions;
     IF amount > 0 THEN OUTPUT work.valid;
     ELSE OUTPUT work.invalid;
 RUN;
-""")
+""",
+        )
         fm = _make_metadata(sas)
         engine = get_engine(str(tmp_path / "test.db"))
         init_db(engine)
@@ -198,7 +220,10 @@ RUN;
 
     def test_proc_data_read(self, tmp_path):
         """PROC SORT DATA=ds → detects TABLE_READ for the input dataset."""
-        sas = _write_sas(tmp_path, "t6.sas", """\
+        sas = _write_sas(
+            tmp_path,
+            "t6.sas",
+            """\
 PROC SORT DATA=loan_applications;
 BY applicant_id;
 RUN;
@@ -208,7 +233,8 @@ VAR loan_amount;
 OUTPUT OUT=decision_summary
 N=application_count;
 RUN;
-""")
+""",
+        )
         fm = _make_metadata(sas)
         engine = get_engine(str(tmp_path / "test.db"))
         init_db(engine)
@@ -226,7 +252,10 @@ RUN;
 
     def test_output_out_write(self, tmp_path):
         """OUTPUT OUT=ds → detects TABLE_WRITE for the output dataset."""
-        sas = _write_sas(tmp_path, "t7.sas", """\
+        sas = _write_sas(
+            tmp_path,
+            "t7.sas",
+            """\
 PROC MEANS DATA=sales NOPRINT;
 CLASS region;
 VAR revenue;
@@ -234,7 +263,8 @@ OUTPUT OUT=region_summary
 MEAN=avg_revenue
 SUM=total_revenue;
 RUN;
-""")
+""",
+        )
         fm = _make_metadata(sas)
         engine = get_engine(str(tmp_path / "test.db"))
         init_db(engine)

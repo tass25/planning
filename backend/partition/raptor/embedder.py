@@ -12,6 +12,7 @@ logger = structlog.get_logger()
 
 try:
     from sentence_transformers import SentenceTransformer as _SentenceTransformer
+
     _ST_AVAILABLE = True
 except Exception:  # ImportError or missing tf_keras / tensorflow cascade
     _SentenceTransformer = None  # type: ignore[assignment]
