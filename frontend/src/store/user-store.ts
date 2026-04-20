@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { User, Notification } from "@/types";
 import { api, setToken, clearToken, getToken } from "@/lib/api";
+import { useConversionStore } from "@/store/conversion-store";
 
 interface AuthResponse {
   user: User;
@@ -37,7 +38,9 @@ export const useUserStore = create<UserState>((set, get) => ({
     try {
       const res = await api.post<AuthResponse>("/auth/login", { email, password });
       setToken(res.token);
+      useConversionStore.setState({ conversions: [] });
       set({ isLoading: false, isAuthenticated: true, currentUser: res.user });
+      useConversionStore.getState().fetchConversions();
       get().fetchNotifications();
       return true;
     } catch {
@@ -90,6 +93,7 @@ export const useUserStore = create<UserState>((set, get) => ({
   logout: async () => {
     try { await api.post("/auth/logout", {}); } catch { /* ignore — token cleared regardless */ }
     clearToken();
+    useConversionStore.setState({ conversions: [] });
     set({ isAuthenticated: false, currentUser: null, notifications: [], unreadCount: 0 });
   },
 
