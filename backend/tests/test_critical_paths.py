@@ -71,11 +71,8 @@ async def test_all_llm_tiers_unavailable_returns_partial():
         metadata={},
     )
 
-    # Patch LLM call chain to always raise
-    with patch.object(agent, "_translate_with_ollama", side_effect=RuntimeError("ollama down")), \
-         patch.object(agent, "_translate_with_azure", side_effect=RuntimeError("azure down")), \
-         patch.object(agent, "_translate_with_groq", side_effect=RuntimeError("groq down")):
-        result = await agent.process(partition)
+    # All clients already set to None above — no LLM tier available
+    result = await agent.process(partition)
 
     assert result.status == ConversionStatus.PARTIAL, (
         f"Expected PARTIAL when all LLM tiers fail, got {result.status}"

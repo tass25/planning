@@ -154,3 +154,15 @@ Report saved to: `backend/output/translate_test/semanticheck_report.json`
 - SemantiCheck L1/L2 integration into the main pipeline (currently standalone eval script only)
 - Frontend deployment (Azure Static Web Apps or second Container App)
 - `azure_setup.sh` still needs to be run once to provision Azure infra
+
+---
+
+## Final regression test fix (end-of-session)
+
+- **Problem**: 2 regression tests failing — `test_no_lineage_violations_in_deterministic` for `gsr_04` and `gsr_06`
+- **Root cause**: `_try_proc_import()` in the deterministic translator emits `pd.read_excel('input_file.csv')` when the DATAFILE path can't be parsed (macro variable or complex path). `_looks_internal('input_file.csv')` then returns True (SAS-style name + csv extension → heuristic flags it as internal), producing a false-positive lineage violation.
+- **Fix** (`lineage_guard.py:117`): Only apply `_looks_internal` heuristic when no explicit `internal_table_names` set is provided. When the caller supplies an explicit set, trust it and don't second-guess with heuristics.
+  - Before: `or _looks_internal(filepath, table_name)`
+  - After: `or (not internal and _looks_internal(filepath, table_name))`
+- **Result**: 135 passed, 127 skipped, 0 failures on full regression suite
+- **Commit**: `27e5f68f`

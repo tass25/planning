@@ -176,11 +176,14 @@ def _try_proc_export(sas: str) -> Optional[DeterministicResult]:
     filepath = m.group("file").strip()
     dbms     = m.group("dbms").lower().strip()
 
+    # Use forward slashes so the path is valid Python on all platforms
+    filepath_safe = filepath.replace("\\", "/")
+
     if dbms in ("csv", "dlm", "tab"):
         sep = "\\t" if dbms == "tab" else ","
-        code = f"{data_ds}.to_csv('{filepath}', index=False, sep='{sep}')"
+        code = f"{data_ds}.to_csv('{filepath_safe}', index=False, sep='{sep}')"
     elif dbms in ("xlsx", "excel", "xls"):
-        code = f"{data_ds}.to_excel('{filepath}', index=False)"
+        code = f"{data_ds}.to_excel('{filepath_safe}', index=False)"
     else:
         return None
 

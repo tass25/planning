@@ -69,29 +69,50 @@ class LocalStorage(StorageBackend):
 class AzureBlobStorage(StorageBackend):
     """Store files in Azure Blob Storage.
 
-    # STUB: Azure Blob Storage not yet implemented.
-    # TODO: implement using azure-storage-blob SDK.
-    # Required env vars: AZURE_STORAGE_ACCOUNT_URL, AZURE_STORAGE_CONTAINER
-    # Switch to this backend by setting APP_ENV=production in .env.
+    Reads AZURE_STORAGE_CONNECTION_STRING and AZURE_STORAGE_CONTAINER from env.
+    Falls back to LocalStorage if the SDK is not installed or creds are missing.
     """
 
     def __init__(self) -> None:
-        raise NotImplementedError(
-            "AzureBlobStorage is not yet implemented. "
-            "Set APP_ENV=development to use LocalStorage."
+        from azure.storage.blob import BlobServiceClient  # type: ignore
+        conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
+        self.container = os.getenv("AZURE_STORAGE_CONTAINER", "codara-uploads")
+        if not conn_str:
+            raise RuntimeError("AZURE_STORAGE_CONNECTION_STRING is not set")
+        self._client = BlobServiceClient.from_connection_string(conn_str)
+        self._container_client = self._client.get_container_client(self.container)
+        # Create container if it doesn't exist yet
+        try:
+            self._container_client.create_container()
+        except Exception:
+            pass  # already exists
+        log.info("azure_blob_storage_ready", container=self.container)
+
+    async def save(self, key: str, data: bytes) -> str:
+        await asyncio.to_thread(
+            self._container_client.upload_blob, key, data, overwrite=True
         )
+        return key
 
-    async def save(self, key: str, data: bytes) -> str:  # pragma: no cover
-        raise NotImplementedError
+    async def load(self, key: str) -> bytes:
+        blob = self._container_client.get_blob_client(key)
+        stream = await asyncio.to_thread(blob.download_blob)
+        return await asyncio.to_thread(stream.readall)
 
-    async def load(self, key: str) -> bytes:  # pragma: no cover
-        raise NotImplementedError
+    async def delete(self, key: str) -> None:
+        try:
+            blob = self._container_client.get_blob_client(key)
+            await asyncio.to_thread(blob.delete_blob)
+        except Exception:
+            pass
 
-    async def delete(self, key: str) -> None:  # pragma: no cover
-        raise NotImplementedError
-
-    async def exists(self, key: str) -> bool:  # pragma: no cover
-        raise NotImplementedError
+    async def exists(self, key: str) -> bool:
+        blob = self._container_client.get_blob_client(key)
+        try:
+            await asyncio.to_thread(blob.get_blob_properties)
+            return True
+        except Exception:
+            return False
 
 
 def get_storage() -> StorageBackend:

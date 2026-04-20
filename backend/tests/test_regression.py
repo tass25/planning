@@ -97,7 +97,7 @@ def _is_deterministic_candidate(sas_code: str) -> bool:
     return any(p in code_lower for p in DETERMINISTIC_PATTERNS)
 
 
-@pytest.mark.parametrize("name,sas_code,gold_meta", _PAIRS)
+@pytest.mark.parametrize("name,sas_code,gold_meta", _PAIRS, ids=[p[0] for p in _PAIRS])
 def test_syntax_validity_after_deterministic(name: str, sas_code: str, gold_meta: dict):
     """Deterministic translations must produce syntactically valid Python."""
     result = try_deterministic(sas_code)
@@ -108,7 +108,7 @@ def test_syntax_validity_after_deterministic(name: str, sas_code: str, gold_meta
     assert valid, f"{name} [{result.reason}]: SyntaxError: {err}\n---\n{result.code}"
 
 
-@pytest.mark.parametrize("name,sas_code,gold_meta", _PAIRS)
+@pytest.mark.parametrize("name,sas_code,gold_meta", _PAIRS, ids=[p[0] for p in _PAIRS])
 def test_deterministic_fires_for_known_patterns(name: str, sas_code: str, gold_meta: dict):
     """Deterministic translator must fire for PROC SORT / IMPORT / EXPORT / PRINT / DATALINES."""
     if not _is_deterministic_candidate(sas_code):
@@ -125,7 +125,7 @@ def test_deterministic_fires_for_known_patterns(name: str, sas_code: str, gold_m
 
 # ── Lineage guard tests ───────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("name,sas_code,gold_meta", _PAIRS)
+@pytest.mark.parametrize("name,sas_code,gold_meta", _PAIRS, ids=[p[0] for p in _PAIRS])
 def test_no_lineage_violations_in_deterministic(name: str, sas_code: str, gold_meta: dict):
     """Deterministic translations must not reload internal tables from disk."""
     result = try_deterministic(sas_code)
@@ -142,7 +142,7 @@ def test_no_lineage_violations_in_deterministic(name: str, sas_code: str, gold_m
 
 # ── No-def tests ──────────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("name,sas_code,gold_meta", _PAIRS)
+@pytest.mark.parametrize("name,sas_code,gold_meta", _PAIRS, ids=[p[0] for p in _PAIRS])
 def test_no_def_main_in_deterministic(name: str, sas_code: str, gold_meta: dict):
     """Deterministic translations must never wrap output in def main()."""
     result = try_deterministic(sas_code)
