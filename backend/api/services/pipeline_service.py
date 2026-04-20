@@ -18,6 +18,8 @@ Stage mapping (frontend display name → what actually runs here):
 from __future__ import annotations
 
 import asyncio
+import shutil
+import tempfile
 import time
 import uuid
 from datetime import datetime, timezone
@@ -52,13 +54,24 @@ def run_pipeline_sync(
         file_process → sas_partition → strategy_select → translate →
         validate → repair → merge → finalize
     """
-    # Resolve the file path — download from Blob if enabled, else use local disk
+    # Resolve the file path — download from Blob if enabled, else use local disk.
+    # Always place the file in an isolated temp directory so FileAnalysisAgent
+    # scans only this file and not the entire system temp folder.
+    _temp_dir: Path | None = None
     _temp_path: Path | None = None
     try:
-        file_path: Path = asyncio.run(blob_service.download_to_temp(file_id, filename))
-        # download_to_temp returns a temp file when Blob is enabled; track it for cleanup
+        raw_path: Path = asyncio.run(blob_service.download_to_temp(file_id, filename))
         if blob_service.enabled:
-            _temp_path = file_path
+            # Blob mode: raw_path is a random temp file (e.g. /tmp/tmpXXX.sas).
+            # Move it into an isolated directory named after the conversion.
+            _temp_dir = Path(tempfile.mkdtemp(prefix=f"codara_{conversion_id}_"))
+            file_path = _temp_dir / filename
+            shutil.move(str(raw_path), file_path)
+            _temp_path = _temp_dir   # cleanup the whole dir on exit
+        else:
+            # Local mode: raw_path is already under uploads/file-XXXXXXXX/filename
+            # which is an isolated per-upload directory — no move needed.
+            file_path = raw_path
     except Exception as exc:
         _log.error("pipeline_file_resolve_failed", conversion_id=conversion_id,
                    file_id=file_id, filename=filename, error=str(exc))
@@ -310,9 +323,9 @@ def run_pipeline_sync(
         except Exception:
             pass
 
-    # Clean up temp file created by blob download (local uploads are kept)
+    # Clean up isolated temp directory created for blob downloads
     if _temp_path is not None:
         try:
-            _temp_path.unlink(missing_ok=True)
+            shutil.rmtree(_temp_path, ignore_errors=True)
         except Exception:
             pass
