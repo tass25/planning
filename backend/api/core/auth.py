@@ -19,6 +19,7 @@ _DEFAULT_SECRET = "codara-dev-secret-change-in-production"
 SECRET_KEY: str = os.getenv("CODARA_JWT_SECRET", _DEFAULT_SECRET)
 if SECRET_KEY == _DEFAULT_SECRET:
     import warnings
+
     warnings.warn(
         "CODARA_JWT_SECRET is not set — using insecure default. "
         "Set this env var before deploying to production.",

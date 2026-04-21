@@ -143,7 +143,9 @@ class ComplexityAgent(BaseAgent):
         try:
             joblib.dump(self._model, _MODEL_PATH)
         except Exception as exc:
-            self.logger.warning("complexity_model_save_failed", path=str(_MODEL_PATH), error=str(exc))
+            self.logger.warning(
+                "complexity_model_save_failed", path=str(_MODEL_PATH), error=str(exc)
+            )
 
         train_acc = float(np.mean(self._model.predict(X_tr) == y_tr))
         test_acc = float(np.mean(self._model.predict(X_te) == y_te))

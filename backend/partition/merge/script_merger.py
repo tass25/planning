@@ -128,7 +128,7 @@ def merge_script(
         for line in (cr.get("python_code", "") or "").splitlines():
             stripped = line.strip()
             if stripped.startswith("import "):
-                module = stripped[len("import "):].split()[0].split(".")[0]
+                module = stripped[len("import ") :].split()[0].split(".")[0]
                 if module not in detected:
                     detected.append(module)
             elif stripped.startswith("from "):

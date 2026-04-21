@@ -23,6 +23,7 @@ def _duckdb_conn(db_path: str):
         finally:
             con.close()
 
+
 logger = structlog.get_logger()
 
 DB_PATH = "data/analytics.duckdb"

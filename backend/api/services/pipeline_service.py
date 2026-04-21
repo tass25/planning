@@ -167,8 +167,18 @@ def run_pipeline_sync(
         )
 
         # Signal the frontend that the pipeline is running.
-        _update_stage("file_process", "running", description="Full 8-node LangGraph pipeline starting...")
-        for _s in ("sas_partition", "strategy_select", "translate", "validate", "repair", "merge", "finalize"):
+        _update_stage(
+            "file_process", "running", description="Full 8-node LangGraph pipeline starting..."
+        )
+        for _s in (
+            "sas_partition",
+            "strategy_select",
+            "translate",
+            "validate",
+            "repair",
+            "merge",
+            "finalize",
+        ):
             _update_stage(_s, "running", description="Queued — waiting for upstream stage...")
 
         final_state = asyncio.run(orchestrator.run([str(file_path)]))
@@ -176,45 +186,62 @@ def run_pipeline_sync(
         total_elapsed = time.perf_counter() - total_start
 
         # --- Map orchestrator state → display stages ---
-        n_files    = len(final_state.get("file_metas", []))
-        n_parts    = final_state.get("partition_count", 0)
-        n_raptor   = len(final_state.get("raptor_nodes", []))
-        conv_res   = final_state.get("conversion_results", [])
+        n_files = len(final_state.get("file_metas", []))
+        n_parts = final_state.get("partition_count", 0)
+        n_raptor = len(final_state.get("raptor_nodes", []))
+        conv_res = final_state.get("conversion_results", [])
         val_passed = final_state.get("validation_passed", 0)
-        merge_res  = final_state.get("merge_results", [])
-        n_errors   = len(final_state.get("errors", []))
+        merge_res = final_state.get("merge_results", [])
+        n_errors = len(final_state.get("errors", []))
         n_warnings = len(final_state.get("warnings", []))
 
-        _update_stage("file_process",    "completed", None, f"{n_files} file(s) scanned — registry built")
-        _update_stage("sas_partition",   "completed", None, f"{n_parts} partition(s) — streaming + boundary detection")
-        _update_stage("strategy_select", "completed", None, f"RAPTOR: {n_raptor} nodes — risk + strategy assigned")
-        _update_stage("translate",       "completed", None, f"{len(conv_res)} block(s) translated via 3-tier RAG")
-        _update_stage("validate",        "completed", None, f"{val_passed}/{len(conv_res)} passed semantic validation")
-        _update_stage("repair",          "completed", None, f"{n_errors} error(s) | {n_warnings} warning(s)")
-        _update_stage("merge",           "completed", None, f"{len(merge_res)} script(s) assembled")
-        _update_stage("finalize",        "completed", None, f"Pipeline complete in {total_elapsed:.1f}s")
+        _update_stage(
+            "file_process", "completed", None, f"{n_files} file(s) scanned — registry built"
+        )
+        _update_stage(
+            "sas_partition",
+            "completed",
+            None,
+            f"{n_parts} partition(s) — streaming + boundary detection",
+        )
+        _update_stage(
+            "strategy_select",
+            "completed",
+            None,
+            f"RAPTOR: {n_raptor} nodes — risk + strategy assigned",
+        )
+        _update_stage(
+            "translate", "completed", None, f"{len(conv_res)} block(s) translated via 3-tier RAG"
+        )
+        _update_stage(
+            "validate",
+            "completed",
+            None,
+            f"{val_passed}/{len(conv_res)} passed semantic validation",
+        )
+        _update_stage("repair", "completed", None, f"{n_errors} error(s) | {n_warnings} warning(s)")
+        _update_stage("merge", "completed", None, f"{len(merge_res)} script(s) assembled")
+        _update_stage("finalize", "completed", None, f"Pipeline complete in {total_elapsed:.1f}s")
 
         # --- Extract python code and accuracy from first merge result ---
-        python_code       = ""
-        merge_status_str  = "FAILED"
+        python_code = ""
+        merge_status_str = "FAILED"
         validation_report = ""
-        merge_report      = ""
+        merge_report = ""
 
         if merge_res:
-            first        = merge_res[0]
-            merged       = first.get("merged_script", {})
-            python_code  = merged.get("python_script", "")
+            first = merge_res[0]
+            merged = first.get("merged_script", {})
+            python_code = merged.get("python_script", "")
             merge_status_str = merged.get("status", "FAILED")
-            block_count  = merged.get("block_count", 1) or 1
-            partial      = merged.get("partial_count", 0)
-            human_rev    = merged.get("human_review_count", 0)
+            block_count = merged.get("block_count", 1) or 1
+            partial = merged.get("partial_count", 0)
+            human_rev = merged.get("human_review_count", 0)
             syntax_valid = merged.get("syntax_valid", False)
 
-            report_obj   = first.get("report", {})
+            report_obj = first.get("report", {})
             validation_report = (
-                report_obj.get("report_md", "")
-                if isinstance(report_obj, dict)
-                else str(report_obj)
+                report_obj.get("report_md", "") if isinstance(report_obj, dict) else str(report_obj)
             )
             merge_report = (
                 f"Merge status: {merge_status_str} | "
@@ -226,21 +253,20 @@ def run_pipeline_sync(
             accuracy = 100.0
         elif merge_status_str == "HAS_GAPS":
             merged_block_count = merge_res[0].get("merged_script", {}).get("block_count", 1) or 1
-            gaps = (
-                merge_res[0].get("merged_script", {}).get("partial_count", 0)
-                + merge_res[0].get("merged_script", {}).get("human_review_count", 0)
-            )
+            gaps = merge_res[0].get("merged_script", {}).get("partial_count", 0) + merge_res[0].get(
+                "merged_script", {}
+            ).get("human_review_count", 0)
             accuracy = round(100.0 * (merged_block_count - gaps) / merged_block_count, 1)
         else:
             accuracy = 0.0
 
-        conv.python_code       = python_code
-        conv.status            = "completed"
-        conv.duration          = round(total_elapsed, 2)
-        conv.accuracy          = accuracy
+        conv.python_code = python_code
+        conv.status = "completed"
+        conv.duration = round(total_elapsed, 2)
+        conv.accuracy = accuracy
         conv.validation_report = validation_report
-        conv.merge_report      = merge_report
-        conv.updated_at        = datetime.now(timezone.utc).isoformat()
+        conv.merge_report = merge_report
+        conv.updated_at = datetime.now(timezone.utc).isoformat()
 
     except Exception as exc:
         conv.status = "failed"
