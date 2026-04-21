@@ -606,7 +606,7 @@ class PartitionOrchestrator:
         conversion_results = state.get("conversion_results", [])
         partitions = state.get("partitions", [])
         target_runtime = state.get("target_runtime", "python")
-        state.get("cross_file_deps", {})
+        cross_deps = state.get("cross_file_deps", {})
         warnings = list(state.get("warnings", []))
 
         # Group partitions and conversions by file_id
@@ -658,6 +658,7 @@ class PartitionOrchestrator:
                     source_file_id=file_id,
                     source_path=source_path,
                     target_runtime=target_runtime,
+                    cross_file_sources=cross_deps,
                 )
                 merge_results.append(result)
             except Exception as exc:

@@ -2,8 +2,26 @@
 
 from __future__ import annotations
 
+import threading
+from contextlib import contextmanager
+
 import duckdb
 import structlog
+
+# DuckDB allows only one write connection per file at a time.
+# This lock ensures concurrent pipeline threads don't race on the same DB file.
+_DUCKDB_LOCK = threading.Lock()
+
+
+@contextmanager
+def _duckdb_conn(db_path: str):
+    """Open a DuckDB connection under the process-wide write lock."""
+    with _DUCKDB_LOCK:
+        con = duckdb.connect(db_path)
+        try:
+            yield con
+        finally:
+            con.close()
 
 logger = structlog.get_logger()
 
@@ -22,7 +40,8 @@ def init_all_duckdb_tables(db_path: str = DB_PATH):
         6. kb_changelog     — KB versioning audit trail
         7. conversion_reports — per-file report metadata
     """
-    con = duckdb.connect(db_path)
+    with _DUCKDB_LOCK:
+        con = duckdb.connect(db_path)
 
     # Table 1: llm_audit
     con.execute("""
@@ -147,19 +166,18 @@ DUCKDB_SCHEMA_VERSION = 1
 
 def check_duckdb_schema(db_path: str = DB_PATH) -> int:
     """Ensure schema_version table exists and return current version."""
-    con = duckdb.connect(db_path)
-    con.execute(
-        "CREATE TABLE IF NOT EXISTS schema_version "
-        "(version INTEGER NOT NULL, applied_at TIMESTAMP DEFAULT NOW())"
-    )
-    row = con.execute("SELECT MAX(version) FROM schema_version").fetchone()
-    current = (row[0] or 0) if row else 0
-    if current < DUCKDB_SCHEMA_VERSION:
+    with _duckdb_conn(db_path) as con:
         con.execute(
-            "INSERT INTO schema_version VALUES (?, NOW())",
-            [DUCKDB_SCHEMA_VERSION],
+            "CREATE TABLE IF NOT EXISTS schema_version "
+            "(version INTEGER NOT NULL, applied_at TIMESTAMP DEFAULT NOW())"
         )
-    con.close()
+        row = con.execute("SELECT MAX(version) FROM schema_version").fetchone()
+        current = (row[0] or 0) if row else 0
+        if current < DUCKDB_SCHEMA_VERSION:
+            con.execute(
+                "INSERT INTO schema_version VALUES (?, NOW())",
+                [DUCKDB_SCHEMA_VERSION],
+            )
     return max(current, DUCKDB_SCHEMA_VERSION)
 
 
@@ -176,22 +194,21 @@ def log_llm_call(
     tier: str | None = None,
 ):
     """Log an LLM call to the audit table."""
-    con = duckdb.connect(db_path)
-    con.execute(
-        """
-        INSERT INTO llm_audit
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-        """,
-        [
-            call_id,
-            agent_name,
-            model_name,
-            prompt_hash,
-            response_hash,
-            latency_ms,
-            success,
-            error_msg,
-            tier,
-        ],
-    )
-    con.close()
+    with _duckdb_conn(db_path) as con:
+        con.execute(
+            """
+            INSERT INTO llm_audit
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            """,
+            [
+                call_id,
+                agent_name,
+                model_name,
+                prompt_hash,
+                response_hash,
+                latency_ms,
+                success,
+                error_msg,
+                tier,
+            ],
+        )

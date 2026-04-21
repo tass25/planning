@@ -5,7 +5,7 @@ from __future__ import annotations
 from partition.base_agent import BaseAgent
 from partition.models.partition_ir import PartitionIR, RAPTORNode
 from partition.raptor.clustering import get_clusterer
-from partition.raptor.embedder import NomicEmbedder
+from partition.raptor.embedder import get_embedder
 from partition.raptor.summarizer import ClusterSummarizer
 from partition.raptor.tree_builder import RAPTORTreeBuilder
 
@@ -25,7 +25,7 @@ class RAPTORPartitionAgent(BaseAgent):
     def __init__(self, trace_id=None, device: str = "cpu"):
         super().__init__(trace_id)
 
-        self.embedder = NomicEmbedder(device=device)
+        self.embedder = get_embedder(device=device)
         self.clusterer = get_clusterer()  # GMMClusterer (production)
         self.summarizer = ClusterSummarizer()
         self.tree_builder = RAPTORTreeBuilder(

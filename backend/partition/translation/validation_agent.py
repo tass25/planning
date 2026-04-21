@@ -143,6 +143,11 @@ def _sandbox_exec(code: str, result_queue: "multiprocessing.Queue") -> None:
     import sys as _sys
     import traceback as _tb
 
+    # Poison sys.modules so translated code cannot import escape paths even
+    # if __import__ and importlib are blocked in builtins.
+    for _mod in ("importlib", "subprocess", "os", "socket", "shutil"):
+        _sys.modules[_mod] = None  # type: ignore[assignment]
+
     import numpy as _np
     import pandas as _pd
 
@@ -158,6 +163,7 @@ def _sandbox_exec(code: str, result_queue: "multiprocessing.Queue") -> None:
             "input",
             "breakpoint",
             "memoryview",
+            "importlib",
         }
     )
 

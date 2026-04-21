@@ -49,7 +49,7 @@ class MergeAgent(BaseAgent):
         )
 
         # ── Namespace safety check on final merged Python ─────────────────────
-        merged_code = merged.get("python_code", "") or ""
+        merged_code = merged.get("python_script", "") or ""
         ns_result = check_namespace(merged_code)
         if ns_result.has_errors or ns_result.has_warnings:
             self.logger.warning(

@@ -22,6 +22,44 @@ from partition.merge.import_consolidator import consolidate_imports
 
 log = structlog.get_logger(__name__)
 
+_IMPORT_PREFIXES = ("import ", "from ")
+
+
+def _strip_imports(code: str) -> str:
+    """Remove top-level import/from lines from a code block.
+
+    Continuation lines (ending with backslash or inside parentheses) are also
+    removed so the consolidated import block at the top is the single source.
+    """
+    lines = code.splitlines()
+    result: list[str] = []
+    skip_continuation = False
+    open_parens = 0
+
+    for line in lines:
+        stripped = line.strip()
+
+        if skip_continuation:
+            open_parens += stripped.count("(") - stripped.count(")")
+            if open_parens <= 0 and not stripped.endswith("\\"):
+                skip_continuation = False
+                open_parens = 0
+            continue
+
+        if any(stripped.startswith(p) for p in _IMPORT_PREFIXES):
+            open_parens = stripped.count("(") - stripped.count(")")
+            if stripped.endswith("\\") or open_parens > 0:
+                skip_continuation = True
+            continue
+
+        result.append(line)
+
+    # Drop leading blank lines left after import removal
+    while result and not result[0].strip():
+        result.pop(0)
+
+    return "\n".join(result)
+
 
 def _make_header(
     source_path: str,
@@ -80,8 +118,26 @@ def merge_script(
     paired = list(zip(conversion_results, partitions))
     paired.sort(key=lambda p: p[1].get("line_start", 0))
 
-    # 2. Consolidate imports
-    all_imports = [cr.get("imports_detected", []) for cr in conversion_results]
+    # 2. Consolidate imports — combine LLM-detected module names with imports
+    #    parsed directly from each block's code (covers fallback paths where
+    #    imports_detected is []).
+    all_imports: list[list[str]] = []
+    for cr in conversion_results:
+        detected = list(cr.get("imports_detected", []) or [])
+        # Also parse inline import lines from the raw code
+        for line in (cr.get("python_code", "") or "").splitlines():
+            stripped = line.strip()
+            if stripped.startswith("import "):
+                module = stripped[len("import "):].split()[0].split(".")[0]
+                if module not in detected:
+                    detected.append(module)
+            elif stripped.startswith("from "):
+                parts = stripped.split()
+                if len(parts) >= 2:
+                    module = parts[1].split(".")[0]
+                    if module not in detected:
+                        detected.append(module)
+        all_imports.append(detected)
     import_block = consolidate_imports(all_imports)
 
     # 3. Build name registry
@@ -104,6 +160,7 @@ def merge_script(
             partial_count += 1
 
         code = cr.get("python_code", "")
+        code = _strip_imports(code)
         code = inject_variable_names(code, registry, source_file_id)
         body_parts.append(code)
 

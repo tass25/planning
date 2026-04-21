@@ -28,6 +28,8 @@ from config.constants import SSE_MAX_EVENTS, SSE_POLL_INTERVAL_S
 from config.settings import settings
 
 from api.core.auth import get_current_user
+from sqlalchemy.orm import selectinload
+
 from api.core.database import (
     ConversionRow,
     ConversionStageRow,
@@ -194,7 +196,11 @@ def list_conversions(current_user: dict = Depends(get_current_user)):
 
     session = get_api_session(engine)
     try:
-        q = session.query(ConversionRow).order_by(ConversionRow.created_at.desc())
+        q = (
+            session.query(ConversionRow)
+            .options(selectinload(ConversionRow.stages))
+            .order_by(ConversionRow.created_at.desc())
+        )
         # Admins see all; regular users see only their own
         if current_user.get("role") != "admin":
             q = q.filter(ConversionRow.user_id == current_user["sub"])

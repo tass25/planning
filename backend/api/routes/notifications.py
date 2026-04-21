@@ -41,6 +41,26 @@ def list_notifications(current_user: dict = Depends(get_current_user)):
         session.close()
 
 
+@router.put("/read-all")
+def mark_all_read(current_user: dict = Depends(get_current_user)):
+    from api.main import engine
+
+    session = get_api_session(engine)
+    try:
+        session.query(NotificationRow).filter(
+            NotificationRow.user_id == current_user["sub"],
+            NotificationRow.read.is_(False),
+        ).update({"read": True})
+        try:
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise HTTPException(status_code=500, detail="Failed to mark notifications as read")
+        return {"ok": True}
+    finally:
+        session.close()
+
+
 @router.put("/{notif_id}/read")
 def mark_read(notif_id: str, current_user: dict = Depends(get_current_user)):
     from api.main import engine
@@ -63,26 +83,6 @@ def mark_read(notif_id: str, current_user: dict = Depends(get_current_user)):
         except Exception:
             session.rollback()
             raise HTTPException(status_code=500, detail="Failed to mark notification as read")
-        return {"ok": True}
-    finally:
-        session.close()
-
-
-@router.put("/read-all")
-def mark_all_read(current_user: dict = Depends(get_current_user)):
-    from api.main import engine
-
-    session = get_api_session(engine)
-    try:
-        session.query(NotificationRow).filter(
-            NotificationRow.user_id == current_user["sub"],
-            NotificationRow.read.is_(False),
-        ).update({"read": True})
-        try:
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise HTTPException(status_code=500, detail="Failed to mark notifications as read")
         return {"ok": True}
     finally:
         session.close()

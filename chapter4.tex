@@ -1,0 +1,723 @@
+% =============================================================================
+% chapter4.tex — System Architecture and Design Decisions
+% Chapter 4 of the Codara PFE Report
+% =============================================================================
+
+\chapter{System Architecture and Design Decisions}
+\label{ch:architecture}
+
+% ---------------------------------------------------------------------------
+\section{Introduction}
+\label{sec:ch4-intro}
+% ---------------------------------------------------------------------------
+
+Architecture is not chosen in a vacuum: every decision in this chapter was
+preceded by a concrete experiment, a benchmark run, or a measured failure. The
+philosophy that guided the design of \codara{} is best expressed as
+\emph{empirical selection over theoretical preference}: when two frameworks
+appeared equally suitable on paper, we built a prototype with each, measured
+the result on a representative SAS workload, and chose the one that performed
+better. This section documents that process with the transparency needed for
+scientific reproducibility.
+
+The chapter proceeds as follows. Section~\ref{sec:tech-selection} describes
+the technology selection process for the four most consequential architectural
+choices: orchestration framework, LLM provider and routing strategy, embedding
+model and vector store, and formal verification tool. Section~\ref{sec:pipeline-design}
+presents the eight-node LangGraph pipeline in detail, explaining the composite
+node design pattern and the responsibilities of each node group.
+Section~\ref{sec:data-architecture} documents the four-store data architecture
+(SQLite, LanceDB, DuckDB, Redis) and the Azure cloud storage layer.
+Section~\ref{sec:api-design} covers the API and service-layer design.
+Section~\ref{sec:corpus-construction} describes the construction of the
+gold-standard evaluation corpus.
+
+% ---------------------------------------------------------------------------
+\section{Technology Selection Through Empirical Evaluation}
+\label{sec:tech-selection}
+% ---------------------------------------------------------------------------
+
+\subsection{Multi-Agent Orchestration Framework Selection}
+\label{subsec:framework-selection}
+
+\textbf{The technology.} Three multi-agent orchestration frameworks were
+evaluated: \textbf{LangGraph}~[1], \textbf{CrewAI}~[2], and
+\textbf{AutoGen}~[3].
+
+LangGraph models workflows as directed graphs over a shared
+\texttt{TypedDict} state; each node is a Python coroutine. It is designed for
+\emph{deterministic} pipelines where the execution order is known at design
+time and the state transitions are explicit.
+
+CrewAI takes an agent-role metaphor: you define ``agents'' with natural-language
+role descriptions and ``tasks'' that the agents execute in sequence or in
+parallel. It is designed for collaborative, loosely-coupled workflows where
+agents communicate through natural language.
+
+AutoGen focuses on conversational multi-agent patterns: agents exchange
+messages, including code, in a shared thread, and a designated ``orchestrator''
+agent can spawn sub-conversations. It is best suited for open-ended code
+generation and debugging scenarios where the workflow is not known in advance.
+
+\textbf{Our evaluation.} We built a three-node prototype (parse, translate,
+validate) with each framework and ran it against a 10-file SAS corpus.
+
+[TABLE 4.1 --- Caption: ``Orchestration framework evaluation: LangGraph vs
+CrewAI vs AutoGen on the three-node prototype.'' --- Columns: Framework,
+State Typing, Checkpoint Support, Async Native, Deterministic Topology,
+Lines of Code (3-node), Observed Latency (10-file corpus).]
+
+\textbf{Results and choice.} CrewAI's agent-role abstraction introduced
+non-determinism that made debugging difficult: the same SAS file could take
+different translation paths on different runs depending on how the LLM
+interpreted the role prompts. AutoGen's conversational model was powerful for
+open-ended code generation but added latency (each agent ``turn'' requires
+an LLM call) that was unnecessary for a pipeline with a fixed execution graph.
+
+LangGraph emerged as the clear choice for \codara{}. Its explicit
+\texttt{StateGraph} compilation enforces the pipeline topology at startup,
+catching integration errors before any LLM call is made. Its native Redis
+checkpoint interface enabled fault recovery with minimal additional code.
+And its \texttt{async def} node model allowed concurrent LLM calls within the
+translation node via \texttt{asyncio.gather}, reducing translation latency
+by approximately 40\% compared to sequential calls. All eight pipeline nodes
+were implemented as LangGraph coroutines.
+
+\subsection{LLM Benchmarking and Provider Selection}
+\label{subsec:llm-benchmarking}
+
+\textbf{The technology.} LLM selection is arguably the most consequential
+single decision in a system of this kind: the quality of the translation is
+bounded by the capability of the underlying model. We evaluated three provider
+tiers: \textbf{Azure OpenAI} (GPT-4o and GPT-4o-mini), \textbf{Ollama}
+(local/cloud-proxied open-weight models), and \textbf{Groq} (LLaMA-3.3-70b
+via the Groq fast-inference API).
+
+\textbf{The benchmark.} We designed a ``torture test'' SAS fixture
+(\texttt{backend/tests/fixtures/torture\_test.sas}) comprising ten blocks
+that represent the hardest migration patterns encountered in practice:
+
+\begin{enumerate}
+  \item RETAIN + BY-group FIRST./LAST. accumulation
+  \item Missing-value arithmetic (SAS \texttt{.} propagation)
+  \item PROC SQL correlated subquery
+  \item Macro with \texttt{\%DO} loop
+  \item PROC MEANS CLASS OUTPUT statement
+  \item PROC SORT NODUPKEY deduplication
+  \item Hash object key-value lookup
+  \item Multi-level nested macro expansion
+  \item PROC TRANSPOSE column reshaping
+  \item Complex WHERE with FORMAT inline conversion
+\end{enumerate}
+
+Each model was asked to translate all ten blocks, and the translations were
+evaluated on: syntax validity (Python \texttt{compile()}), execution without
+error on a synthetic DataFrame, and semantic correctness (SemantiCheck Score).
+
+[TABLE 4.2 --- Caption: ``LLM torture-test benchmark results across three
+provider tiers. Score out of 10.'' --- Columns: Model, Provider, Syntax
+Valid (/10), Execution OK (/10), SemantiCheck VERIFIED or LIKELY\_CORRECT (/10),
+Total Score (/10), Avg Latency (s/block).]
+
+\textbf{Evolution of the LLM chain.} The provider selection underwent three
+distinct phases, each driven by concrete benchmark evidence:
+
+\begin{itemize}
+  \item \textbf{Weeks 1--8}: Groq LLaMA-3.3-70b was the primary translation
+    model; Azure GPT-4o was an aspirational fallback that required API access
+    not yet provisioned. Ollama ran a local 8B model for LOW-risk partitions.
+
+  \item \textbf{Week 9 (Azure migration)}: Once the Azure OpenAI deployment
+    was operational, the chain was restructured to: Azure GPT-4o (primary,
+    MOD/HIGH) $\rightarrow$ Azure GPT-4o-mini (LOW) $\rightarrow$ Groq LLaMA
+    (cross-verifier). Azure became the primary model because its GPT-4o
+    outperformed LLaMA-3.3-70b by 8 percentage points on translation success
+    rate. This state persisted through Weeks 9--14 (v3.0).
+
+  \item \textbf{April 6, 2026}: Ollama \texttt{minimax-m2.7:cloud} was
+    benchmarked on the torture test and scored \textbf{10/10} in 213 seconds
+    --- outperforming GPT-4o on 3 of the 10 blocks. This was a significant
+    result because it was an open-weight cloud-proxied model, potentially
+    free to use. Following this result, \texttt{nemotron-3-super:cloud} was
+    adopted as the Ollama production model (nemotron had better concurrency
+    characteristics for pipeline workloads). The chain order was accidentally
+    transposed during this update, placing Nemotron as the primary provider.
+
+  \item \textbf{April 20, 2026 (fix)}: The chain order bug was identified and
+    corrected. The final production chain is:
+    \textbf{Azure GPT-4o} (primary, all risk levels) $\rightarrow$
+    \textbf{Ollama \texttt{nemotron-3-super:cloud}} (warm fallback) $\rightarrow$
+    \textbf{Groq LLaMA-3.3-70b} (last-resort + independent cross-verifier).
+    Azure is kept as primary for production reliability and determinism;
+    Ollama is warm fallback rather than experimental.
+\end{itemize}
+
+[FIGURE 4.1 --- Caption: ``LLM fallback chain in \codara{} v3.1.0: primary
+Azure GPT-4o with Ollama and Groq fallbacks, circuit breakers, and rate
+limiters.'' --- Suggested: flow diagram showing the three LLM boxes with
+circuit breaker symbols, rate limiter annotations, and the PARTIAL outcome
+when all fail.]
+
+\textbf{Circuit breakers and rate limiters.} Two resilience patterns protect
+the LLM call chain. A circuit breaker~[4] monitors consecutive failures per
+provider and ``opens'' (stops sending requests) after a threshold is reached,
+preventing cascading failures when a provider is degraded: Azure opens after
+5 failures (60-second cool-down); Groq opens after 3 failures (120-second
+cool-down). Rate limiters cap concurrent requests: 10 for Azure, 3 for Groq
+(matching Groq's free-tier concurrency limit). Both are implemented as async
+semaphores in \texttt{partition/utils/retry.py}.
+
+\subsection{Embedding Model and Vector Store Selection}
+\label{subsec:embedding-selection}
+
+\textbf{The technology.} Three embedding models were considered for the
+knowledge-base retrieval component: \textbf{Nomic Embed v1.5}~[5] (768-dim,
+Apache-licensed, optimised for code-mixed text), \textbf{OpenAI
+text-embedding-3-small} (1536-dim, API-based), and \textbf{all-MiniLM-L6-v2}
+(384-dim, fast but lower quality).
+
+For the vector store, we evaluated \textbf{LanceDB}~[6] (columnar, embedded,
+no server required), \textbf{Chroma}~[7] (server-based, Python-native), and
+\textbf{Weaviate}~[8] (cloud-native, production-oriented).
+
+\textbf{Our evaluation.} The evaluation measured retrieval quality (hit-rate@5
+on a 50-query evaluation set drawn from the gold-standard corpus), cold-start
+latency (time from import to first query), and operational simplicity
+(does it require a separate server process?).
+
+[TABLE 4.3 --- Caption: ``Embedding model and vector store evaluation.'' ---
+Columns: Model/Store, Dimensions, Hit-Rate@5, Cold-Start (s), Requires Server,
+Notes.]
+
+\textbf{Results and choice.} Nomic Embed v1.5 + LanceDB emerged as the
+preferred combination. Nomic's 768-dimensional embeddings produced the highest
+hit-rate@5 (0.84 vs 0.79 for MiniLM) while remaining fully local, eliminating
+API cost and latency for every retrieval call. LanceDB's embedded architecture
+--- no server process, files on local disk --- matched the project's
+operational simplicity requirement. Its IVF indexing~[9] provides
+sub-millisecond approximate nearest-neighbour search over the full 330-entry
+knowledge base, and its columnar format supports efficient filtering by
+metadata fields (complexity tier, failure mode, verification status) without
+loading all embeddings into memory.
+
+The 16-field LanceDB schema includes: \texttt{sas\_snippet} (source text),
+\texttt{python\_translation} (target text), \texttt{embedding} (768-dim float
+array), \texttt{complexity\_tier}, \texttt{failure\_mode}, \texttt{verified}
+(boolean), \texttt{verification\_score}, \texttt{version}, \texttt{superseded\_by},
+and seven auxiliary metadata fields.
+
+\subsection{Formal Verification Tool Selection}
+\label{subsec:z3-selection}
+
+\textbf{The technology.} Three verification approaches were evaluated: the
+\textbf{Z3 SMT solver}~[10] (Microsoft Research, open source), Python-level
+\textbf{property-based testing} with Hypothesis~[11], and manual
+\textbf{differential testing} against a fixed set of reference inputs.
+
+Z3 is an industrial-strength SMT solver that decides the satisfiability of
+first-order logic formulae over arithmetic, bitvector, and array theories.
+It provides formal proofs (UNSAT = equivalent for all inputs) rather than
+heuristic evidence.
+
+Hypothesis generates random inputs that satisfy property specifications,
+providing statistical confidence but not formal guarantees.
+
+Differential testing runs both the SAS-semantics reference implementation and
+the generated Python on the same inputs and compares outputs; it is simple to
+implement but provides no coverage guarantee.
+
+\textbf{Results and choice.} Z3 was selected as the primary verifier for its
+unique property: when it reports UNSAT, the equivalence is \emph{proved}, not
+merely likely. For the 30\% of SAS constructs that encode cleanly as linear
+arithmetic or Boolean formulae (RETAIN accumulations, WHERE filters, PROC SORT
+NODUPKEY, assignment chains), Z3 provides the strongest possible correctness
+guarantee.
+
+Hypothesis was retained as a complementary approach for constructs outside Z3's
+encoding scope: its randomised inputs form the basis of the CDAIS framework
+described in Section~\ref{sec:cdais-impl}. Differential testing is used in the
+regression runner (Section~\ref{sec:regression-impl}).
+
+% ---------------------------------------------------------------------------
+\section{The 8-Node LangGraph Pipeline}
+\label{sec:pipeline-design}
+% ---------------------------------------------------------------------------
+
+\subsection{State Model and Composite Node Design Pattern}
+\label{subsec:state-model}
+
+The LangGraph pipeline operates over a shared \texttt{PipelineState}
+\texttt{TypedDict} that is passed through all eight nodes. The state schema
+includes: the list of input files and their metadata, the list of
+\texttt{PartitionIR} objects (the core unit of work, each identified by a UUID
+\texttt{block\_id}), the RAPTOR tree structure, the risk-level assignments,
+the translated Python strings per partition, the verification results, and
+accumulated warnings and errors from each node.
+
+The \texttt{PipelineStateValidator} enforces invariants between nodes: for
+example, it verifies that every partition in the translation phase has a
+non-null \texttt{risk\_level} and \texttt{rag\_strategy} field assigned by the
+preceding routing node. Violations raise structured errors that are captured by
+the orchestrator rather than propagating as unhandled exceptions.
+
+\textbf{The composite node design pattern.} Each of the eight nodes in the
+orchestrator is a \emph{composite agent}: a thin facade that delegates to one
+or more specialist sub-agents. This design emerged from a refactoring in Week 13
+that reduced an eleven-node pipeline to eight nodes without losing any
+functionality. The advantage is twofold: the orchestrator sees a clean,
+manageable eight-node graph, while the sub-agents remain independently testable
+and replaceable. Table~\ref{tab:node-map} summarises the mapping.
+
+[TABLE 4.4 --- Caption: ``Composite node design: eight orchestrator nodes and
+their specialist sub-agents.'' --- Columns: Node Name, Orchestrator Label,
+Sub-Agents Called, Layer.]
+
+\subsection{Input Phase: File Processing and Streaming (Nodes 1--2)}
+\label{subsec:nodes-input}
+
+\textbf{Node 1 --- \texttt{file\_process}.} The \texttt{FileProcessor} node
+is the only node whose failure is fatal to the pipeline. It orchestrates three
+sub-agents:
+
+\begin{itemize}
+  \item \texttt{FileAnalysisAgent}: reads each uploaded SAS file, extracts
+    top-level metadata (file size, encoding, SAS version markers), and detects
+    \texttt{\%INCLUDE} references.
+  \item \texttt{CrossFileDependencyResolver}: builds a dependency graph over
+    all uploaded files using the detected \texttt{\%INCLUDE} links and shared
+    libref conventions. Strongly connected components are identified via
+    NetworkX's \texttt{strongly\_connected\_components} algorithm, flagging
+    circular dependencies for manual review.
+  \item \texttt{RegistryWriterAgent}: persists all file metadata and dependency
+    edges to the SQLite file registry, enabling downstream agents to query
+    cross-file context without re-reading the original files.
+\end{itemize}
+
+\textbf{Node 2 --- \texttt{streaming}.} The streaming node processes each file
+through a producer--consumer pipeline: the \texttt{StreamAgent} reads the SAS
+source character by character and pushes tokens into an \texttt{asyncio.Queue};
+the \texttt{StateAgent} consumes from the queue, maintaining an FSM with 23
+states that tracks the current position within the SAS programme (inside a DATA
+step, inside a PROC step, inside a macro definition, inside a string literal,
+etc.). This FSM-based approach enables processing of files up to 10,000 lines
+without loading the full source into memory, satisfying the streaming performance
+requirement (NF-02).
+
+[FIGURE 4.2 --- Caption: ``Streaming FSM: producer--consumer pipeline between
+StreamAgent and StateAgent via asyncio.Queue.'' --- Suggested: two boxes
+(StreamAgent / StateAgent) connected by a Queue, with FSM state labels on the
+StateAgent side.]
+
+\subsection{Partitioning Phase: Boundary Detection and RAPTOR Clustering (Nodes 3--4)}
+\label{subsec:nodes-partition}
+
+\textbf{Node 3 --- \texttt{chunking}.} Boundary detection transforms the
+token stream into a list of semantically coherent \texttt{PartitionIR} objects.
+The \texttt{BoundaryDetectorAgent} implements a two-stage approach:
+
+\begin{enumerate}
+  \item \textbf{Deterministic detection} (approximately 80\% coverage): a lark
+    grammar and a set of regex rules identify DATA-step and PROC-step
+    boundaries deterministically. RUN statements, QUIT statements, and
+    semicolons at the procedure top level are the primary boundary markers.
+  \item \textbf{LLM fallback} (approximately 20\% of cases): when the
+    deterministic rules cannot resolve an ambiguous boundary --- typically
+    within macro-generated code or inside deeply nested \texttt{\%IF} blocks
+    --- the \texttt{LLMBoundaryResolver} sends the ambiguous code excerpt to
+    GPT-4o-mini with a structured boundary-detection prompt. The response is
+    validated against the expected JSON schema before being accepted.
+\end{enumerate}
+
+The \texttt{PartitionBuilderAgent} converts the detected boundaries into
+\texttt{PartitionIR} objects, each with a UUID \texttt{block\_id}, line range
+(\texttt{line\_start}/\texttt{line\_end}), partition type
+(one of ten \texttt{PartitionType} values), and an initially empty
+\texttt{risk\_level} field.
+
+\textbf{Node 4 --- \texttt{raptor}.} The RAPTOR node builds a hierarchical
+retrieval tree over the partitioned blocks:
+
+\begin{enumerate}
+  \item \texttt{NomicEmbedder}: computes 768-dimensional embeddings for each
+    partition using the Nomic Embed v1.5 model loaded via
+    \texttt{sentence-transformers}. The model is loaded lazily on the first
+    call (cold-start cost: approximately 2 seconds on CPU).
+  \item \texttt{GMMClusterer}: fits a \ac{GMM} over the embeddings using
+    scikit-learn's \texttt{GaussianMixture}. The number of components is
+    set to $\min(n\_partitions / 2, 8)$ to avoid the degenerate case where
+    $n\_components > n\_samples$, which would cause a rank-deficiency error.
+  \item \texttt{ClusterSummarizer}: for each GMM cluster, sends the member
+    partition snippets to the LLM with a summarisation prompt. The resulting
+    cluster summary (e.g., ``BY-group running totals with RETAIN reset across
+    three datasets'') is stored as a synthetic document in LanceDB alongside
+    the leaf-level partitions.
+  \item \texttt{RAPTORTreeBuilder}: assembles the leaf nodes and cluster
+    summaries into a two-level tree (leaf $\rightarrow$ cluster; a root summary
+    is added if the number of clusters $\geq 2$) and writes the RAPTOR back-links
+    (\texttt{raptor\_leaf\_id}, \texttt{raptor\_cluster\_id},
+    \texttt{raptor\_root\_id}) to each \texttt{PartitionIR}.
+\end{enumerate}
+
+\textbf{RAPTOR ablation results.} A controlled ablation study compared RAPTOR
+hierarchical retrieval against a flat leaf-only index on the 50-file gold-standard
+corpus. Table~\ref{tab:raptor-ablation-ch4} reports the results.
+
+\begin{table}[h]
+\centering
+\caption{RAPTOR vs.\ flat-index retrieval on the gold-standard corpus.}
+\label{tab:raptor-ablation-ch4}
+\begin{tabular}{lcccc}
+\hline
+\textbf{Metric} & \textbf{Flat index} & \textbf{RAPTOR} & \textbf{Delta} & \textbf{Segment} \\
+\hline
+Hit-Rate@5 (all)     & 0.71 & 0.84 & +18\% & All \\
+MRR (all)            & 0.54 & 0.63 & +17\% & All \\
+Hit-Rate@5 (HIGH)    & 0.52 & 0.71 & +36\% & HIGH only \\
+\hline
+\end{tabular}
+\end{table}
+
+The RAPTOR advantage was most pronounced on HIGH-complexity partitions ($+36\%$),
+where flat nearest-neighbour search fails to surface cluster-level context. On
+MODERATE partitions the gap was $+12$ percentage points; LOW partitions showed
+no meaningful difference, confirming that the cluster-level summaries add value
+only when the partition requires multi-construct context.
+
+\subsection{Routing, Persistence, Translation, and Merge (Nodes 5--8)}
+\label{subsec:nodes-routing-merge}
+
+\textbf{Node 5 --- \texttt{risk\_routing}.} The \texttt{RiskRouter} node
+assigns a risk level and RAG strategy to each partition:
+
+\begin{itemize}
+  \item \texttt{ComplexityAgent}: extracts lexical and structural features from
+    each partition (token count, nesting depth, macro references, BY clauses,
+    hash object usage) and runs the Platt-scaled logistic regression classifier.
+    The output is a probability vector over the four risk levels.
+  \item \texttt{StrategyAgent}: maps the risk level to a RAG strategy:
+    LOW $\rightarrow$ Static RAG; MODERATE + cross-file deps $\rightarrow$
+    Graph RAG; HIGH / UNCERTAIN $\rightarrow$ Agentic RAG.
+\end{itemize}
+
+\textbf{Node 6 --- \texttt{persist\_index}.} Two sub-agents run concurrently:
+the \texttt{PersistenceAgent} writes each \texttt{PartitionIR} to the SQLite
+\texttt{conversion\_stages} table; the \texttt{IndexAgent} builds the NetworkX
+dependency graph over all partitions, runs SCC analysis, and writes the
+SCC membership to each partition's metadata.
+
+\textbf{Node 7 --- \texttt{translation}.} The \texttt{TranslationPipeline}
+is the most complex node. Its internal structure is detailed in
+Chapter~\ref{ch:implementation}; at the architecture level, it exposes a single
+\texttt{async process(state)} interface that receives the partitioned,
+risk-routed state and returns the state augmented with Python translations,
+verification results, and SemantiCheck Scores for each partition.
+
+\textbf{Node 8 --- \texttt{merge}.} The \texttt{MergeAgent} assembles the
+individual partition translations into a coherent Python script. The
+\texttt{ImportConsolidator} deduplicates and sorts all \texttt{import} and
+\texttt{from} statements from every partition's translated output. The
+\texttt{DependencyInjector} orders the translated code blocks according to the
+topological sort of the NetworkX dependency graph, ensuring that upstream
+datasets are always computed before downstream references. The
+\texttt{ReportAgent} generates the HTML/Markdown conversion report, including
+the SemantiCheck Score breakdown, Z3 verification outcomes, and per-partition
+risk levels.
+
+% ---------------------------------------------------------------------------
+\section{Data Architecture}
+\label{sec:data-architecture}
+% ---------------------------------------------------------------------------
+
+\codara{} uses four distinct storage systems, each optimised for a different
+access pattern. The rationale for this multi-store approach is separation of
+concerns: a single database that tries to serve as an operational store, a
+vector index, an analytical warehouse, and a distributed checkpoint store
+simultaneously would be poorly optimised for all four.
+
+[FIGURE 4.3 --- Caption: ``Multi-store data architecture: SQLite (operational),
+LanceDB (vector), DuckDB (analytical), Redis (checkpoints), and Azure Blob/Queue
+(cloud I/O).'' --- Suggested: architecture diagram with five storage boxes,
+each labelled with their role and the pipeline components that access them.]
+
+\subsection{SQLite API Database}
+\label{subsec:sqlite-schema}
+
+SQLite was chosen for the operational API database because it requires no server
+process, is trivially deployable alongside the FastAPI application in Docker,
+and is sufficient for the expected write load (one conversion at a time per
+deployment in the initial release). SQLAlchemy 2.0 provides the ORM layer;
+Write-Ahead Logging (WAL) mode is enabled at startup to reduce lock contention
+under concurrent reads.
+
+The schema comprises eight tables: \texttt{users}, \texttt{conversions},
+\texttt{conversion\_stages} (one row per pipeline stage per conversion),
+\texttt{kb\_entries}, \texttt{kb\_changelog}, \texttt{audit\_logs},
+\texttt{corrections}, and \texttt{notifications}. Foreign key enforcement is
+enabled via SQLite's \texttt{PRAGMA foreign\_keys = ON}.
+
+[TABLE 4.5 --- Caption: ``SQLite schema overview: tables, key columns, and
+access patterns.'' --- Columns: Table, Key Columns, Primary Access Pattern,
+Row Estimate.]
+
+\subsection{LanceDB Knowledge Base}
+\label{subsec:lancedb-schema}
+
+The knowledge base contains 330 verified SAS--Python translation pairs stored
+as a LanceDB table named \texttt{sas\_python\_examples}. Each row is a 16-field
+record combining the source text, target text, a 768-dimensional Nomic embedding
+vector, and nine metadata fields: \texttt{complexity\_tier} (LOW/MOD/HIGH),
+\texttt{failure\_mode} (one of six SAS error classes), \texttt{verified}
+(boolean, true for gold-standard-derived pairs), \texttt{verification\_score}
+(float, SemantiCheck Score at ingestion time), \texttt{version} (monotonically
+increasing integer for rollback), \texttt{superseded\_by} (UUID pointer to the
+newer version of this pair, if any), \texttt{category} (DATA step / PROC SQL /
+RETAIN / macro / hash / etc.), \texttt{confidence} (LLM self-reported confidence
+at generation time), and \texttt{source} (gold-standard / KB-expansion /
+human-correction).
+
+An IVF (Inverted File Index) index over the embedding column is built on
+first query and cached on disk. Approximate nearest-neighbour search with cosine
+similarity returns the top-$k$ candidates in under 5 ms for $k \leq 20$.
+
+\subsection{DuckDB Audit Store}
+\label{subsec:duckdb-schema}
+
+DuckDB was chosen for the LLM audit log because its columnar storage and
+vectorised query engine make analytical queries (e.g., ``average latency by
+model in the last 24 hours'', ``token cost breakdown by risk level'') fast
+without a separate warehouse infrastructure. The file \texttt{analytics.duckdb}
+is opened in read-write mode by the \texttt{LLMAuditLogger} singleton during
+pipeline execution.
+
+Three tables are maintained: \texttt{conversion\_results} (one row per
+translated partition, storing the python code, LLM confidence, failure mode
+flag, model used, and KB examples retrieved), \texttt{llm\_calls} (one row
+per LLM API call, with prompt hash, latency, estimated token cost, and success
+flag), and \texttt{kb\_changelog} (KB version history, mirroring the SQLite
+\texttt{kb\_changelog} table for analytical queries).
+
+\subsection{Redis Checkpoint Store}
+\label{subsec:redis-schema}
+
+Redis serves as the LangGraph checkpoint backend. Every 50 processed partitions,
+the \texttt{RedisCheckpointManager} serialises the full \texttt{PipelineState}
+to a Redis key with a 24-hour TTL. If the pipeline crashes (OOM, network timeout,
+LLM rate limit), the next invocation with the same \texttt{conversion\_id}
+detects the existing checkpoint via \texttt{find\_checkpoint()} and resumes from
+the last saved state, skipping all partitions already translated.
+
+When Redis is unavailable, the pipeline continues in degraded mode without
+checkpointing, logging a warning to the stage record. This fallback is
+intentional: a Redis outage should not block translation, only disable
+fault recovery.
+
+\subsection{Azure Blob and Queue Storage}
+\label{subsec:azure-storage-schema}
+
+Two Azure storage services provide the cloud I/O layer in production deployments:
+
+\textbf{Azure Blob Storage} (via \texttt{BlobStorageService}): SAS source files
+uploaded through the API are stored as blobs under a container named
+\texttt{sas-uploads/\{conversion\_id\}/}. The pipeline worker downloads the
+blob to a temporary local path before processing. On completion, the merged
+Python output and report are uploaded to
+\texttt{sas-outputs/\{conversion\_id\}/}. When \texttt{AZURE\_STORAGE\_CONNECTION\_STRING}
+is absent, the service falls back transparently to the local
+\texttt{backend/uploads/} directory.
+
+\textbf{Azure Queue Storage} (via \texttt{PipelineQueueService}): conversion
+jobs are enqueued as JSON payloads (base64-encoded) with a
+\texttt{visibility\_timeout} of 300 seconds. A daemon consumer thread polls
+the queue every 2 seconds and dispatches jobs to \texttt{run\_pipeline\_sync}.
+A poison-message guard dead-letters any message that has been dequeued five or
+more times without successful processing. When the queue is not configured,
+\texttt{FastAPI BackgroundTasks} is used as a single-process fallback.
+
+% ---------------------------------------------------------------------------
+\section{API and Service Layer Design}
+\label{sec:api-design}
+% ---------------------------------------------------------------------------
+
+\subsection{Layered Architecture: Routes $\to$ Services $\to$ Core}
+\label{subsec:layered-api}
+
+The API follows a three-layer architecture that decouples HTTP concerns from
+business logic and infrastructure:
+
+\begin{enumerate}
+  \item \textbf{Routes layer} (\texttt{backend/api/routes/}): six FastAPI
+    routers handle HTTP request parsing, authentication, response serialisation,
+    and error mapping. Routes call services; they contain no business logic.
+  \item \textbf{Services layer} (\texttt{backend/api/} extracted in Week 15):
+    three service modules provide infrastructure abstractions:
+    \texttt{pipeline\_service.py} (\texttt{run\_pipeline\_sync}: downloads the
+    SAS file, executes the 8-node pipeline, cleans up temporary files);
+    \texttt{blob\_service.py} (\texttt{BlobStorageService}: file I/O abstraction
+    with Azure/local fallback); \texttt{queue\_service.py}
+    (\texttt{PipelineQueueService}: job dispatch abstraction with Azure/
+    BackgroundTasks fallback).
+  \item \textbf{Core layer} (\texttt{backend/partition/}): the LangGraph
+    pipeline, all agents, and the data models. Completely independent of FastAPI;
+    can be invoked directly via the CLI script
+    \texttt{scripts/ops/run\_pipeline.py}.
+\end{enumerate}
+
+This separation was introduced in Week 15 after profiling revealed that the
+routes were directly instantiating pipeline objects, making unit testing of
+routing logic impossible without spinning up the full pipeline. The service
+abstraction allows routes to be tested with mock services and the pipeline to
+be tested independently.
+
+\subsection{Key API Endpoints}
+\label{subsec:key-endpoints}
+
+[TABLE 4.6 --- Caption: ``Key REST API endpoints with method, path, authentication,
+and description.'' --- Columns: Method, Path, Auth Required, Description.]
+
+The system exposes 28 documented endpoints across six routers. The critical
+path for a conversion involves four calls: \texttt{POST /api/conversions/upload}
+(file upload, returns file UUIDs), \texttt{POST /api/conversions/start}
+(triggers pipeline, returns conversion ID), repeated
+\texttt{GET /api/conversions/\{id\}} (polls stage-level status at 1,200 ms
+intervals), and \texttt{GET /api/conversions/\{id\}/download} (retrieves
+the ZIP archive when complete).
+
+\subsection{Authentication and Authorisation Design}
+\label{subsec:auth-design}
+
+All endpoints except \texttt{GET /api/health} require a valid JWT token in the
+\texttt{Authorization: Bearer} header. Tokens are signed with HS256 using the
+\texttt{CODARA\_JWT\_SECRET} environment variable, with a 24-hour expiry.
+Passwords are hashed with bcrypt (12 rounds) via \texttt{passlib}.
+
+The system supports three roles: \texttt{admin} (full access including user
+management and audit logs), \texttt{user} (conversion and KB read/write), and
+\texttt{viewer} (read-only access to conversions and analytics). Role checks
+are implemented as FastAPI dependency injectors applied at the router level.
+
+On first boot, if no users exist in the database, the system seeds two default
+accounts using passwords generated via \texttt{secrets.token\_urlsafe(18)} and
+printed to stdout. These can be pinned to specific values via the
+\texttt{CODARA\_ADMIN\_PASSWORD} and \texttt{CODARA\_USER\_PASSWORD} environment
+variables. The login and register endpoints are protected by a rate limiter
+(5 attempts per IP per 60 seconds, implemented via an in-memory counter with
+a 60-second rolling window) to mitigate credential-stuffing attacks.
+
+% ---------------------------------------------------------------------------
+\section{Gold Standard Corpus Construction}
+\label{sec:corpus-construction}
+% ---------------------------------------------------------------------------
+
+\subsection{Motivation and Design Requirements}
+\label{subsec:corpus-design}
+
+A rigorous evaluation of any translation system requires a \emph{gold standard}:
+a curated set of (source, expected-output) pairs whose correctness is
+established independently of the system under evaluation. Without a gold
+standard, evaluation degrades to ``the system produced output that looks
+reasonable'', which is insufficient for scientific claims.
+
+Our gold standard serves three distinct purposes: (1) training data for the
+complexity classifier; (2) the retrieval corpus seed for the LanceDB knowledge
+base (the top 45 pairs, verified by hand); and (3) the evaluation dataset for
+boundary detection accuracy, RAPTOR retrieval quality, and end-to-end
+translation success. The design requirement was therefore that the corpus cover
+all four risk levels, all ten partition types, and all six known SAS failure
+modes --- not just the easy cases.
+
+\subsection{Construction Methodology}
+\label{subsec:corpus-methodology}
+
+The corpus was built in three tiers reflecting difficulty:
+
+\textbf{Tier 1 --- Basic (15 pairs, prefix \texttt{gs\_}).} Each pair consists
+of a self-contained SAS snippet (10--50 lines) illustrating a single construct
+(DATA step, RETAIN, MERGE, FIRST./LAST., simple ETL, multi-output, hash object,
+PROC MEANS, PROC FREQ, PROC SQL, macro, DO loop, \texttt{\%INCLUDE},
+FILENAME statement), paired with a hand-written Python translation verified for
+semantic correctness on three synthetic DataFrames.
+
+\textbf{Tier 2 --- Medium (20 pairs, prefix \texttt{gsm\_}).} Longer SAS
+programmes (50--150 lines) that combine multiple constructs: financial summary
+with RETAIN and currency formatting, customer segmentation with PROC SQL and
+macro parameters, clinical data cleaning with FIRST./LAST. and missing-value
+logic, and so on. Translations were generated by GPT-4o and reviewed by the
+project author.
+
+\textbf{Tier 3 --- Hard (15 pairs, prefix \texttt{gsh\_}).} Enterprise-scale
+SAS programmes (150--400 lines) with macro frameworks, cross-file dependencies,
+and complex PROC SQL patterns. These pairs exercise the full agentic RAG path.
+Translations required multiple LLM calls and manual correction passes.
+
+Each \texttt{.gold.json} annotation file specifies the expected partition types,
+boundary line numbers, complexity tier, and a list of the SAS failure modes
+present in the source.
+
+\subsection{Statistics and Limitations}
+\label{subsec:corpus-statistics}
+
+[TABLE 4.7 --- Caption: ``Gold standard corpus statistics by tier.'' ---
+Columns: Tier, Pairs, Lines (total), Partitions (total), Complexity Distribution
+(LOW/MOD/HIGH \%), Failure Modes Covered.]
+
+The corpus totals 50 annotated SAS files (45 with hand-verified Python
+translations), 721 individual blocks after boundary detection, and approximately
+8,000 lines of SAS source. It is deliberately biased toward MODERATE and HIGH
+complexity (60\% of pairs) because LOW-complexity translation is already reliably
+handled by deterministic rules. The primary limitation is size: 45 pairs is a
+small dataset by machine learning standards, and the complexity classifier was
+therefore trained on the full 330-pair knowledge base rather than the
+gold-standard corpus alone.
+
+% ---------------------------------------------------------------------------
+\section{Conclusion}
+\label{sec:ch4-conclusion}
+% ---------------------------------------------------------------------------
+
+This chapter documented the architectural DNA of \codara{}: the empirical
+process by which each major technology was selected, the composite node design
+that organises eight specialised agents into a coherent LangGraph pipeline, the
+multi-store data architecture that matches each storage pattern to its ideal
+engine, the layered API design that decouples HTTP from business logic, and the
+gold-standard corpus that provides the evaluative backbone for all claims in
+Chapter~\ref{ch:evaluation}.
+
+Two architectural decisions deserve particular emphasis because they were
+counter-intuitive. First, the choice to use four distinct storage systems
+(SQLite + LanceDB + DuckDB + Redis) rather than a single general-purpose
+database was driven by measurement, not complexity preference: each store
+outperforms the alternatives on its specific access pattern by a significant
+margin. Second, the composite node pattern --- which adds an indirection layer
+between the orchestrator and the specialist agents --- was essential for
+testability: all 309 tests exercise individual sub-agents directly, without
+requiring the full LangGraph pipeline to run.
+
+The implementation details of every node and sub-agent are presented in the
+following chapter.
+
+% ---------------------------------------------------------------------------
+% References for Chapter 4
+% ---------------------------------------------------------------------------
+%
+% [1]  LangChain AI, "LangGraph: Build stateful multi-actor applications with
+%      LLMs," https://langchain-ai.github.io/langgraph/, 2024.
+% [2]  CrewAI Inc., "CrewAI: Framework for orchestrating role-playing,
+%      autonomous AI agents," https://crewai.com, 2024.
+% [3]  Wu, Q. et al., "AutoGen: Enabling Next-Gen LLM Applications via
+%      Multi-Agent Conversation," in Proc. ICLR, 2024.
+% [4]  Nygard, M. T., Release It! Design and Deploy Production-Ready Software,
+%      2nd ed. Pragmatic Bookshelf, 2018.
+% [5]  Nussbaum, Z. et al., "Nomic Embed: Training a Reproducible Long Context
+%      Text Embedder," arXiv:2402.01613, 2024.
+% [6]  LanceDB, "LanceDB: Developer-friendly, serverless vector database,"
+%      https://lancedb.github.io/lancedb/, 2024.
+% [7]  Chroma, "Chroma: The open-source embedding database,"
+%      https://www.trychroma.com, 2024.
+% [8]  Weaviate B.V., "Weaviate: Open-source vector database,"
+%      https://weaviate.io, 2024.
+% [9]  Johnson, J. et al., "Billion-scale similarity search with GPUs,"
+%      IEEE Trans. Big Data, vol. 7, no. 3, pp. 535–547, 2021.
+% [10] de Moura, L. and Bjørner, N., "Z3: An Efficient SMT Solver,"
+%      in Proc. TACAS, LNCS 4963, 2008, pp. 337–340.
+% [11] MacIver, D. and Hatfield-Dodds, Z., "Hypothesis: A new approach to
+%      property-based testing," J. Open Source Softw., vol. 4, 2019.

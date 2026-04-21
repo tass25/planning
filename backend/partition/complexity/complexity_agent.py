@@ -29,10 +29,15 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+import joblib
 import numpy as np
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
+
+# Serialised model lives next to this file; auto-trained from gold corpus on first run.
+_MODEL_PATH = Path(__file__).parent / "complexity_model.joblib"
+_GOLD_DIR = Path(__file__).resolve().parent.parent.parent / "knowledge_base" / "gold_standard"
 
 from partition.base_agent import BaseAgent
 from partition.models.enums import RiskLevel
@@ -83,6 +88,22 @@ class ComplexityAgent(BaseAgent):
         self._fitted = False
         self._model: CalibratedClassifierCV | None = None
 
+        # Try to load a previously trained model from disk first.
+        if _MODEL_PATH.exists():
+            try:
+                self._model = joblib.load(_MODEL_PATH)
+                self._fitted = True
+                self.logger.info("complexity_model_loaded", path=str(_MODEL_PATH))
+            except Exception as exc:
+                self.logger.warning("complexity_model_load_failed", error=str(exc))
+
+        # If no saved model, auto-train from gold corpus if it's available.
+        if not self._fitted and _GOLD_DIR.exists() and any(_GOLD_DIR.glob("*.gold.json")):
+            try:
+                self.fit(_GOLD_DIR)
+            except Exception as exc:
+                self.logger.warning("complexity_model_autotrain_failed", error=str(exc))
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -117,6 +138,12 @@ class ComplexityAgent(BaseAgent):
         self._model = CalibratedClassifierCV(base, method="sigmoid", cv=5)
         self._model.fit(X_tr, y_tr)
         self._fitted = True
+
+        # Persist so subsequent runs skip re-training.
+        try:
+            joblib.dump(self._model, _MODEL_PATH)
+        except Exception as exc:
+            self.logger.warning("complexity_model_save_failed", path=str(_MODEL_PATH), error=str(exc))
 
         train_acc = float(np.mean(self._model.predict(X_tr) == y_tr))
         test_acc = float(np.mean(self._model.predict(X_te) == y_te))

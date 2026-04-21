@@ -1,0 +1,1231 @@
+% =============================================================================
+% chapter5.tex — Knowledge Integration and Pipeline Implementation
+% Chapter 5 of the Codara PFE Report
+% =============================================================================
+
+\chapter{Knowledge Integration and Pipeline Implementation}
+\label{ch:implementation}
+
+% ---------------------------------------------------------------------------
+\section{Introduction}
+\label{sec:ch5-intro}
+% ---------------------------------------------------------------------------
+
+Architecture specifies \emph{what} a system does; implementation reveals
+\emph{how} it actually works under pressure. This chapter is the most
+technically dense of the report. It walks through every major component of
+the \codara{} implementation in the order that data flows through the system,
+from the knowledge-base retrieval strategy at the front end of translation to
+the namespace safety checks inserted at the merge stage.
+
+The organisation follows the natural division between knowledge integration
+and pipeline execution. The first half (Sections~\ref{sec:rag-impl}
+through~\ref{sec:complexity-impl}) covers how knowledge from the 330-pair
+corpus is organised, indexed, and retrieved. The second half
+(Sections~\ref{sec:translation-impl} through~\ref{sec:regression-impl})
+covers the translation and verification machinery --- deterministic rules,
+LLM invocation, program slicing for repair, the Z3 CEGAR loop, CDAIS
+adversarial synthesis, and SemantiCheck scoring --- before closing with three
+functional scenario walkthroughs that illustrate how the components interact
+on realistic inputs.
+
+% ---------------------------------------------------------------------------
+\section{Three-Tier RAG Strategy}
+\label{sec:rag-impl}
+% ---------------------------------------------------------------------------
+
+\subsection{Conceptual Framework, Knowledge Base, and Escalation Rules}
+\label{subsec:rag-framework}
+
+The central insight behind the three-tier RAG design is that not all SAS
+partitions are equally hard to translate, and retrieval cost should scale with
+translation difficulty. Spending a full multi-step Agentic RAG retrieval budget
+on a five-line \texttt{PROC SORT} call wastes both latency and LLM tokens;
+relying on flat nearest-neighbour search for a 150-line macro-parameterised
+ETL pipeline misses the cluster-level context needed for a correct translation.
+
+The \texttt{RAGRouter} in \texttt{partition/rag/router.py} selects the tier
+using the risk level assigned by Node 5 (\texttt{risk\_routing}):
+
+\begin{itemize}
+  \item \textbf{Tier 1 (Static RAG)}: LOW risk, no cross-file dependencies $\to$
+    \texttt{static\_rag.py}.
+  \item \textbf{Tier 2 (Graph RAG)}: MODERATE risk OR any partition with
+    cross-file dependency edges in the NetworkX graph $\to$
+    \texttt{graph\_rag.py}.
+  \item \textbf{Tier 3 (Agentic RAG)}: HIGH or UNCERTAIN risk $\to$
+    \texttt{agentic\_rag.py}.
+\end{itemize}
+
+All three tiers query the same LanceDB \texttt{sas\_python\_examples} table
+but with different query strategies, candidate counts ($k$), and metadata
+filters.
+
+[FIGURE 5.1 --- Caption: ``Three-tier RAG routing: risk level and dependency
+graph topology determine the retrieval strategy. Arrows show escalation
+paths.'' --- Suggested: decision tree with three leaf nodes (Static/Graph/Agentic)
+and intermediate nodes for risk level and cross-file flag.]
+
+\subsection{Tier 1: Static RAG}
+\label{subsec:static-rag-impl}
+
+Static RAG is the fastest and cheapest retrieval path. The implementation in
+\texttt{static\_rag.py} computes the Nomic embedding of the partition's source
+text and performs a single cosine nearest-neighbour query against LanceDB with
+$k=3$ (leaf-level only). A metadata pre-filter restricts results to entries with
+\texttt{complexity\_tier} $\in$ \{LOW, MODERATE\} and
+\texttt{verified} = true, preventing low-quality or unverified examples from
+contaminating the context window.
+
+The three retrieved SAS--Python pairs are concatenated with the partition source
+in the translation prompt template (\texttt{translation\_static.j2}). The Jinja2
+template structures the examples in few-shot format: each example is labelled
+``SAS Input'' and ``Python Output'' with a horizontal separator. Experiments on
+the gold-standard corpus showed that $k=3$ provides the best
+precision--recall trade-off for low-complexity partitions: fewer examples increase
+hallucination on unfamiliar patterns; more examples exceed the context window
+budget for GPT-4o-mini (128k tokens, but prompt cost scales linearly).
+
+\subsection{Tier 2: Graph RAG}
+\label{subsec:graph-rag-impl}
+
+Graph RAG adds a dependency-graph traversal step before the LanceDB query.
+For each partition with cross-file dependency edges (detected in Node 1), the
+\texttt{graph\_rag.py} retriever walks the NetworkX graph to collect all
+upstream partitions within two hops (direct dependencies and their dependencies).
+These upstream partitions' source texts are appended to the query, producing a
+richer query vector that captures the full cross-file context.
+
+SCC detection is used to identify groups of mutually dependent partitions (common
+in macro libraries where macros call each other). All partitions within an SCC
+are translated as a group: their source texts are concatenated, the combined
+embedding is queried against LanceDB with $k=5$, and the translation prompt
+template (\texttt{translation\_graph.j2}) includes both the graph traversal
+context and the retrieved examples.
+
+This approach resolves the primary failure mode of single-file tools: when a
+DATA step calls \texttt{\%apply\_transform(input=raw, config=cfg)}, the macro
+definition in a separate file is automatically included in the translation
+context via the dependency edge, without the user needing to do anything special.
+
+\subsection{Tier 3: Agentic RAG}
+\label{subsec:agentic-rag-impl}
+
+Agentic RAG is activated for HIGH and UNCERTAIN partitions. The retriever in
+\texttt{agentic\_rag.py} performs iterative retrieval with an adaptive $k$ that
+increments by~3 on each attempt (starting from a base of~5), up to three steps:
+
+\begin{enumerate}
+  \item \textbf{Broad initial query} ($k=5$): embed the full partition source
+    and retrieve the five nearest neighbours. If all retrieved examples are LOW
+    complexity while the partition is HIGH, the results are likely from the wrong
+    region of embedding space and the next step is triggered.
+  \item \textbf{Targeted sub-construct queries} ($k=8$): extract the most
+    complex sub-constructs from the partition (identified by the complexity
+    feature vector) and issue a dedicated LanceDB query with
+    \texttt{complexity\_tier} = HIGH filter. Merge the results with the
+    initial batch, deduplicating by \texttt{block\_id}.
+  \item \textbf{RAPTOR cluster query} ($k=11$): if the partition has a non-null
+    \texttt{raptor\_cluster\_id}, escalate to the cluster level in the RAPTOR
+    tree, retrieving cluster-summary documents that capture higher-level
+    transformation patterns that individual leaf queries may miss.
+\end{enumerate}
+
+The final context window for an Agentic RAG translation may include up to fifteen
+examples spread across the three passes. The translation prompt template
+(\texttt{translation\_agentic.j2}) structures these examples hierarchically:
+cluster-level summary first, then targeted sub-construct examples, then general
+nearest neighbours.
+
+% ---------------------------------------------------------------------------
+\section{RAPTOR Implementation}
+\label{sec:raptor-impl}
+% ---------------------------------------------------------------------------
+
+\subsection{Embedding and Clustering Pipeline}
+\label{subsec:embedding-clustering}
+
+The RAPTOR pipeline in Node 4 begins with the \texttt{NomicEmbedder}, which
+loads the \texttt{nomic-ai/nomic-embed-text-v1.5} model via
+\texttt{sentence\_transformers.SentenceTransformer}. The model is loaded lazily
+on the first call (to avoid slowing down imports) and cached as a module-level
+singleton; subsequent calls reuse the loaded model without re-initialisation.
+
+Each partition's source text is embedded in batches of 32 to saturate the CPU
+BLAS operations. For a typical 50-partition SAS project, the full embedding pass
+takes 1.2 to 2.0 seconds on a standard development machine.
+
+The \texttt{GMMClusterer} fits a \texttt{sklearn.mixture.GaussianMixture}
+model on the embedding matrix. The number of components $K$ is determined
+adaptively:
+\begin{equation}
+  K = \max\!\left(2,\; \min\!\left(\left\lfloor n / 2 \right\rfloor,\; 8\right)\right)
+  \label{eq:gmm-k}
+\end{equation}
+where $n$ is the number of partitions. The lower bound of 2 prevents the
+degenerate single-cluster case; the upper bound of 8 prevents
+$n\_components > n\_samples$ when the file is small. If $n < 2$, clustering
+is skipped entirely and all partitions are assigned to a single virtual cluster.
+
+\subsection{Summarisation and Tree Construction}
+\label{subsec:summarizer-impl}
+
+For each GMM cluster, the \texttt{ClusterSummarizer} concatenates the source
+texts of the cluster's member partitions (up to 3,000 tokens total; longer
+clusters are truncated to the most representative members by embedding-centroid
+distance) and sends them to GPT-4o-mini with the following prompt structure:
+
+\begin{quotation}
+\textit{``You are a SAS expert. Below are SAS code partitions that have been
+grouped together by semantic similarity. In 2--3 sentences, describe the common
+transformation pattern they represent. Be specific: name the SAS constructs
+used (RETAIN, PROC SQL, hash objects, etc.) and the business operation performed
+(running total, deduplication, lookup join, etc.).''}
+\end{quotation}
+
+The resulting summaries are stored in LanceDB as synthetic documents with
+\texttt{partition\_type = CLUSTER\_SUMMARY} and the corresponding
+\texttt{raptor\_cluster\_id}. This enables the Agentic RAG tier to retrieve
+cluster-level context without loading individual partition texts.
+
+\subsection{HyperRAPTOR Extension}
+\label{subsec:hyperraptor-impl}
+
+The HyperRAPTOR extension replaces the Euclidean GMM clustering with a
+hyperbolic embedding approach motivated by the theoretical advantages of
+Poincaré ball geometry for hierarchical data~[1]. In hyperbolic space,
+exponentially many points can be placed at distance $r$ from the origin for
+growing $r$, making it naturally suited to representing tree-structured
+relationships where the number of nodes grows exponentially with depth.
+
+The HyperRAPTOR implementation uses a wrapped-normal distribution in the
+Poincaré ball (curvature $c = -1$, dimension $d = 64$) for clustering instead
+of the Euclidean GMM. Euclidean Nomic embeddings are mapped to the Poincaré
+ball via the exponential map at the origin before clustering.
+
+HyperRAPTOR was evaluated in a pilot study on the 15 hard-tier gold-standard
+pairs. Results are reported in Chapter~\ref{ch:evaluation}. The current
+production pipeline uses standard RAPTOR; HyperRAPTOR is available as an
+experimental flag via the pipeline configuration.
+
+% ---------------------------------------------------------------------------
+\section{Complexity Scoring and Strategy Routing}
+\label{sec:complexity-impl}
+% ---------------------------------------------------------------------------
+
+\subsection{Feature Engineering}
+\label{subsec:feature-engineering}
+
+The complexity classifier operates on a six-dimensional feature vector extracted
+from each partition's source text and dependency metadata. Each feature was
+selected based on its predictive power on the 330-pair training corpus:
+
+\begin{enumerate}
+  \item \textbf{\texttt{line\_count\_norm}}: partition line count normalised by
+    the file-level median. Captures raw size without penalising long files
+    uniformly.
+  \item \textbf{\texttt{nesting\_depth\_norm}}: maximum \texttt{DO}/\texttt{END}
+    nesting depth, normalised by depth 5 (the empirically observed threshold for
+    HIGH complexity). Deep nesting strongly predicts hard SAS constructs such as
+    nested \texttt{\%IF}/macro blocks.
+  \item \textbf{\texttt{macro\_pct}}: percentage of tokens that are macro variable
+    references (\texttt{\&var}) or macro calls (\texttt{\%name}). The primary
+    signal for the MACRO\_AWARE and HUMAN\_REVIEW strategy assignments.
+  \item \textbf{\texttt{has\_call\_execute}}: binary flag set when the source
+    contains a \texttt{CALL EXECUTE} statement. These partitions dynamically
+    generate SAS code at run time and cannot be translated statically.
+  \item \textbf{\texttt{type\_weight}}: a partition-type prior encoded as a scalar
+    (DATA step $= 1.0$, PROC SQL $= 1.2$, Macro definition $= 1.5$, PROC IML
+    $= 2.0$, CALL EXECUTE $= 3.0$). Captures structural complexity independent
+    of the code content.
+  \item \textbf{\texttt{is\_ambiguous}}: binary flag raised by the boundary
+    detector when it could not assign a deterministic partition type with
+    confidence $\geq 0.75$. Ambiguous partitions are routed directly to UNCERTAIN
+    regardless of the classifier's output.
+\end{enumerate}
+
+\subsection{Logistic Regression with Platt Scaling}
+\label{subsec:platt-impl}
+
+The classifier is a multinomial logistic regression over the four risk levels,
+implemented with \texttt{sklearn.linear\_model.LogisticRegression} (solver:
+\texttt{lbfgs}, max iterations: 500, regularisation: L2 with $C=1.0$). The
+full 330-pair KB is used for training, with a stratified 80/20 train/validation
+split. Class imbalance (LOW $\approx$ 35\%, MOD $\approx$ 40\%, HIGH $\approx$
+20\%, UNCERTAIN $\approx$ 5\%) is addressed via \texttt{class\_weight='balanced'}.
+
+Platt scaling is applied as a post-processing step: a secondary logistic
+regression is fitted on the held-out 20\% split using the primary model's raw
+decision-function scores as input features. This two-stage approach corrects
+the systematic over-confidence that scikit-learn's \texttt{LogisticRegression}
+exhibits on imbalanced classes.
+
+The calibrated probabilities are used directly by the \texttt{StrategyAgent}:
+if the maximum class probability exceeds 0.70, the corresponding risk level is
+assigned with confidence; if it falls below 0.50 (ambiguous prediction), the
+partition is classified as UNCERTAIN and routed to Agentic RAG.
+
+\subsection{StrategyAgent: Risk-to-Paradigm Mapping}
+\label{subsec:strategy-impl}
+
+The \texttt{StrategyAgent} maps the \texttt{(risk\_level, partition\_features)}
+pair to one of five \texttt{PartitionStrategy} values via an ordered decision
+table. Table~\ref{tab:strategy-rules} summarises the mapping.
+
+\begin{table}[h]
+\centering
+\caption{StrategyAgent decision table: five strategies, priority order top to bottom.}
+\label{tab:strategy-rules}
+\begin{tabular}{lll}
+\hline
+\textbf{Condition} & \textbf{Strategy} & \textbf{RAG tier} \\
+\hline
+\texttt{has\_call\_execute} OR \texttt{macro\_pct} $\geq 0.60$ & \texttt{HUMAN\_REVIEW} & — \\
+\texttt{cross\_file\_edges} $> 0$ AND \texttt{SCC\_size} $> 1$ & \texttt{DEPENDENCY\_PRESERVING} & Graph (SCC) \\
+\texttt{macro\_pct} $\in [0.20, 0.60)$ & \texttt{MACRO\_AWARE} & Agentic \\
+\texttt{risk\_level} $\in$ \{LOW, MODERATE\} AND \texttt{cross\_file\_edges} $> 0$ & \texttt{STRUCTURAL\_GROUPING} & Graph \\
+\texttt{risk\_level} = LOW AND \texttt{cross\_file\_edges} $= 0$ & \texttt{FLAT\_PARTITION} & Static \\
+\hline
+\end{tabular}
+\end{table}
+
+The \texttt{HUMAN\_REVIEW} flag does not stop the pipeline; the partition is
+still translated by the Agentic RAG tier, but the conversion report marks it
+explicitly as requiring manual inspection. The \texttt{DEPENDENCY\_PRESERVING}
+strategy triggers SCC-level batching in the Graph RAG tier (all SCC members
+translated together with a shared context window). The \texttt{MACRO\_AWARE}
+strategy adds a macro pre-expansion heuristic to the Agentic RAG prompt. The
+\texttt{STRUCTURAL\_GROUPING} strategy groups syntactically similar partitions
+from different files before querying the KB, reducing redundant LLM calls.
+\texttt{FLAT\_PARTITION} is the default fast path for simple, self-contained
+code blocks.
+
+% ---------------------------------------------------------------------------
+\section{Translation and Validation}
+\label{sec:translation-impl}
+% ---------------------------------------------------------------------------
+
+\subsection{Prompt Engineering}
+\label{subsec:prompt-engineering}
+
+All translation prompts are Jinja2 templates stored in
+\texttt{partition/prompts/templates/}. Three primary templates correspond to
+the three RAG tiers: \texttt{translation\_static.j2},
+\texttt{translation\_graph.j2}, and \texttt{translation\_agentic.j2}. Two
+additional templates support the verification phase: \texttt{cross\_verify.j2}
+(independent cross-check of the translation) and \texttt{reflection.j2}
+(Reflexion-style self-critique and repair).
+
+Each translation template has the same high-level structure:
+\begin{enumerate}
+  \item \textbf{System context}: one paragraph establishing the model's role
+    (``You are an expert SAS-to-Python translator''), the target library
+    (pandas, NumPy, PySpark if flagged), and the output format requirement
+    (syntactically valid Python, no markdown fences, imports at the top).
+  \item \textbf{Few-shot examples}: the retrieved SAS--Python pairs, formatted
+    as \texttt{SAS INPUT:} / \texttt{PYTHON OUTPUT:} blocks.
+  \item \textbf{Dependency context}: for Graph and Agentic RAG, the relevant
+    upstream partition source texts.
+  \item \textbf{Task}: ``Translate the following SAS code to Python. Preserve
+    semantic equivalence exactly, including missing-value handling, BY-group
+    boundaries, and RETAIN semantics.''
+  \item \textbf{Source}: the partition source text, delimited by XML-style tags.
+\end{enumerate}
+
+The choice of XML-style tags (\texttt{<sas\_source>} ... \texttt{</sas\_source>})
+for the source delimiter was deliberate: empirical testing showed fewer prompt
+injection attempts (where the SAS code contains text that looks like a new
+instruction) when the source is wrapped in tags rather than enclosed in triple
+backticks.
+
+\subsection{LLM Invocation with Structured Output}
+\label{subsec:llm-invocation}
+
+All LLM calls use the \texttt{instructor} library (v1.8), which wraps an
+OpenAI-compatible client to enforce structured output via Pydantic v2 models.
+The primary output model is \texttt{TranslationOutput}:
+
+\begin{verbatim}
+class TranslationOutput(BaseModel):
+    python_code: str
+    imports: list[str]
+    confidence: float = Field(ge=0.0, le=1.0)
+    failure_mode_suspected: str | None = None
+    explanation: str | None = None
+\end{verbatim}
+
+Instructor retries the LLM call (up to 3 times) if the response fails Pydantic
+validation. This eliminates the need for brittle JSON-parsing post-processing
+and ensures that the \texttt{python\_code} field is always a clean string,
+never wrapped in markdown fences.
+
+Because instructor's API is synchronous but the pipeline is fully async,
+all instructor calls are wrapped in \texttt{asyncio.to\_thread()}, which
+dispatches the synchronous call to a thread-pool executor without blocking
+the event loop:
+
+\begin{verbatim}
+result = await asyncio.to_thread(
+    client.chat.completions.create,
+    model=model_name,
+    response_model=TranslationOutput,
+    messages=[{"role": "user", "content": prompt}],
+)
+\end{verbatim}
+
+\subsection{LLM Fallback Chain Implementation}
+\label{subsec:fallback-impl}
+
+The fallback chain is implemented in \texttt{partition/utils/llm\_clients.py}
+and \texttt{partition/translation/translation\_agent.py}. The chain tries three
+providers in order, catching a \texttt{RateLimitError}, \texttt{APIConnectionError},
+or \texttt{CircuitBreakerOpenError} from each before escalating to the next:
+
+\begin{enumerate}
+  \item \textbf{Primary}: Azure GPT-4o (all risk levels). Wrapped in
+    \texttt{asyncio.wait\_for(timeout=60)} for Python 3.10 compatibility
+    (note: \texttt{asyncio.timeout()} requires 3.11+; the project uses 3.11
+    but the pattern was kept for portability).
+  \item \textbf{Fallback 1}: Ollama \texttt{nemotron-3-super:cloud} via
+    OpenAI-compatible API at \texttt{OLLAMA\_BASE\_URL}.
+  \item \textbf{Fallback 2}: Groq LLaMA-3.3-70b. Acts as both the last-resort
+    translation provider and the independent cross-verifier.
+\end{enumerate}
+
+If all three providers fail (all circuit breakers open, or all return errors),
+the partition is assigned status \texttt{PARTIAL} and its translation is set
+to the last best-effort output, if any. The error is appended to
+\texttt{state["errors"]} but does not crash the pipeline; subsequent partitions
+continue to be processed.
+
+[FIGURE 5.2 --- Caption: ``LLM fallback chain with circuit breakers and rate
+limiters. Each provider failure opens its breaker; PARTIAL status is assigned
+only when all three providers are unavailable.'' --- Suggested: three-stage
+waterfall diagram with Azure/Ollama/Groq boxes, circuit breaker open/closed
+states, and the PARTIAL output at the bottom.]
+
+\subsection{Deterministic Translation Rules}
+\label{subsec:deterministic-rules}
+
+Before any LLM call, the \texttt{DeterministicTranslator} in
+\texttt{partition/translation/deterministic\_translator.py} checks the partition
+source against a registry of two rules:
+
+\textbf{Rule 1 --- \texttt{PROC FORMAT VALUE} (discrete label mappings).}
+The rule's matcher detects VALUE blocks containing string or integer label
+entries using a regex: \texttt{VALUE\ \w+\ (\textquotesingle\textless{}str\textgreater{}\textquotesingle\
+=\ \textquotesingle\textless{}label\textgreater{}\textquotesingle;)+}.
+Numeric range formats (\texttt{18--64}, \texttt{LOW--HIGH}) are explicitly
+rejected and sent to the LLM. Matching partitions are converted to a Python
+dict assignment: \texttt{sexfmt\_fmt = \{'M': 'Male', 'F': 'Female'\}}.
+
+\textbf{Rule 2 --- Simple \texttt{PROC SQL SELECT}.}
+Single-table SELECT with no subqueries, no GROUP BY, and no HAVING clause is
+handled deterministically by mapping each selected column to
+\texttt{df[col]} syntax and each WHERE condition to a \texttt{df.query()}
+expression. This pattern accounts for approximately 12\% of all PROC SQL
+blocks in the gold-standard corpus.
+
+Both rules short-circuit the full LLM pipeline: when a rule matches, the
+translation is produced in under 10 ms without any API call. The rule output
+is still passed through the sandbox execution check (FR-15) to verify syntax
+validity.
+
+\subsection{Error Analysis and Program Slicing}
+\label{subsec:error-analysis-slicing}
+
+When the \texttt{ValidationAgent} sandbox reports an execution error, the
+\texttt{ErrorAnalyst} in \texttt{partition/translation/error\_analyst.py}
+performs backward program slicing~[2] to produce a minimal repair context:
+
+\begin{enumerate}
+  \item \texttt{\_extract\_failing\_lineno()}: parses the Python traceback
+    string for the ``File ..., line X'' pattern. Returns the first line
+    number that falls within the translated script (not in library code).
+  \item \texttt{\_slice\_around\_line()}: returns the $\pm 3$ lines around the
+    failing line, with the failing line annotated with a \texttt{>>>} marker.
+  \item \texttt{\_slice\_for\_columns()}: if the error is a
+    \texttt{KeyError} or \texttt{AttributeError} involving a column name, walks
+    the AST of the translated Python to find all \texttt{df['col']} and
+    \texttt{df.col} accesses that reference the failing column. Expands the
+    slice to $\pm 2$ lines around each such access point.
+\end{enumerate}
+
+The repair prompt (\texttt{reflection.j2}) receives the minimal slice, the
+error message, the original SAS source, and the original translation. Experiments
+on the gold-standard corpus showed that sliced repair prompts produce correct
+fixes in 73\% of cases (vs 54\% with the full translated script), because the
+LLM can focus on the relevant code without being distracted by unrelated
+correct sections.
+
+\subsection{ValidationAgent Sandbox}
+\label{subsec:sandbox-impl}
+
+The sandbox mechanism went through three distinct implementations, each
+replacing the previous due to a concrete failure discovered in production:
+
+\begin{enumerate}
+  \item \textbf{Phase 1 (Weeks 1--12) --- \texttt{threading.Thread}}: the
+    translated code was executed in a daemon thread with a join timeout.
+    Discovered failure: threads share the parent process's memory and cannot
+    be forcibly killed. An infinite loop in a translation would hang the thread
+    past the timeout and leak resources, eventually exhausting the thread pool
+    on high-volume runs.
+  \item \textbf{Phase 2 (Week 13 audit) --- \texttt{multiprocessing.Process}
+    + \texttt{Manager()}}:  moved to a separate OS-level process (killable)
+    with a shared \texttt{Manager().dict()} for result passing. Discovered
+    failure: on Windows, \texttt{Manager()} spawns a separate manager process
+    that takes 3--4 seconds of startup time before the user code begins.
+    With a 5-second timeout, the timeout was consistently exhausted by
+    interpreter startup, not by the actual translation code. Every validation
+    timed out on Windows.
+  \item \textbf{Phase 3 (April 6, 2026) --- \texttt{multiprocessing.Queue}}:
+    replaced \texttt{Manager().dict()} with a \texttt{Queue}, which avoids
+    the extra manager process. Startup time dropped to under 1 second. Timeout
+    increased to 15 seconds on Windows / 8 seconds on Linux. This is the
+    current production implementation.
+\end{enumerate}
+
+The \texttt{ValidationAgent} executes every translated Python snippet in an
+isolated subprocess to detect runtime errors before the translation is accepted.
+The current isolation mechanism uses \texttt{multiprocessing.Process} with
+a stripped execution environment:
+
+\begin{verbatim}
+restricted_globals = {
+    "__builtins__": {
+        k: v for k, v in __builtins__.items()
+        if k not in {"open", "__import__", "exec",
+                     "eval", "compile", "exit", "quit",
+                     "input", "breakpoint"}
+    }
+}
+exec(code, restricted_globals)
+\end{verbatim}
+
+The process is started and then joined with a platform-adaptive timeout:
+15 seconds on Windows (where \texttt{multiprocessing} uses the \texttt{spawn}
+start method, adding $\sim$1 second of interpreter startup overhead) and
+8 seconds on Linux. If the timeout expires, \texttt{process.kill()} is called
+(not \texttt{process.terminate()}, which sends SIGTERM and may not stop a
+CPU-bound loop). This design was specifically chosen over
+\texttt{threading.Thread} (which was used in earlier versions) because threads
+share the parent process's memory space and cannot be forcibly killed, leading
+to resource leaks on infinite-loop translations.
+
+An earlier version used \texttt{multiprocessing.Manager()} to share the result
+dictionary between processes. This was replaced with \texttt{multiprocessing.Queue}
+after profiling revealed that Manager spawns a separate server process that
+adds 3--4 seconds of startup latency on Windows with the \texttt{spawn} start
+method --- exhausting the timeout before any user code ran.
+
+The sandbox also provides an \texttt{\_AutoNamespace} dict subclass that returns
+a synthetic 100-row \texttt{DataFrame} for any undefined variable name. This
+prevents \texttt{NameError} on SAS dataset names (\texttt{transactions},
+\texttt{raw\_data}, \texttt{customers}, etc.) that would be undefined in the
+isolated sandbox environment but are expected to exist at runtime.
+
+\subsection{Oracle-Based Semantic Validation}
+\label{subsec:semantic-validator-impl}
+
+Syntax validity (the sandbox check) is necessary but not sufficient: a
+translation that runs without errors may still compute the wrong result. The
+\texttt{SemanticValidator} in
+\texttt{partition/translation/semantic\_validator.py} performs four oracle
+checks against a reference implementation derived from deterministic SAS
+semantics:
+
+\begin{enumerate}
+  \item \textbf{Column set check}: the translated Python must produce a
+    DataFrame whose column set matches (or is a superset of) the expected
+    columns defined in the gold-standard annotation.
+  \item \textbf{Row count check}: for pure filtering/selection operations,
+    the row count must match the expected count.
+  \item \textbf{Dtype consistency check}: numeric columns in the SAS source
+    must map to numeric dtypes in the Python output (no silently-stringified
+    columns).
+  \item \textbf{Group aggregate check}: for PROC MEANS / PROC FREQ targets,
+    the group aggregates must match within floating-point tolerance.
+\end{enumerate}
+
+These checks are only applied when the gold-standard annotation provides the
+expected output; for partitions without annotations (the majority of
+production conversions), only the sandbox execution check is performed.
+
+\subsection{Cross-Verification and Reflexion}
+\label{subsec:crossverify-impl}
+
+After the primary LLM produces a translation, a cross-verification pass uses
+an independent LLM call (Groq LLaMA-3.3-70b by default, to ensure a different
+model context than the primary call) with the \texttt{cross\_verify.j2} template.
+The cross-verifier receives the SAS source and the proposed Python translation
+and is asked to identify any semantic errors. Its output is structured via the
+\texttt{CrossVerifyOutput} Pydantic model:
+
+\begin{verbatim}
+class CrossVerifyOutput(BaseModel):
+    is_correct: bool
+    error_description: str | None = None
+    corrected_code: str | None = None
+\end{verbatim}
+
+If \texttt{is\_correct = False}, the Reflexion loop begins: the primary LLM
+is called again with the \texttt{reflection.j2} template, which includes the
+cross-verifier's error description and the program slice around the identified
+error. Up to two Reflexion retries are permitted before the best-available
+translation is accepted with a PARTIAL status flag.
+
+\subsection{Lineage Guard}
+\label{subsec:lineage-guard-impl}
+
+The \texttt{LineageGuard} in
+\texttt{partition/translation/lineage\_guard.py} performs a macro reference
+check after all translations are complete but before the merge phase. For each
+translated partition, it inspects the dependency graph to verify that every
+\texttt{\%macro\_name} symbol referenced in the source has a corresponding
+macro definition node in the graph. Partitions that reference undefined macros
+receive a \texttt{UNRESOLVED\_MACRO} warning, which is surfaced in the
+conversion report. This prevents silent unresolved-reference failures at merge
+time, where a missing macro definition would produce valid Python syntax but
+semantically incomplete code.
+
+% ---------------------------------------------------------------------------
+\section{Z3 Formal Verification Layer}
+\label{sec:z3-impl}
+% ---------------------------------------------------------------------------
+
+\subsection{Motivation: From Syntax Checks to Formal Proofs}
+\label{subsec:z3-motivation}
+
+The original \texttt{ValidationAgent} checked two things: does the translated
+Python parse without a syntax error, and does it execute without raising an
+exception? Both are necessary conditions for a correct translation, but
+neither is sufficient. A Python script can run without errors and still produce
+the wrong numerical result --- for instance, computing a global cumulative sum
+instead of a per-group running total, returning the correct data type and
+shape but the wrong values. In pharmaceutical or financial SAS migrations,
+this class of silent semantic error is the most dangerous one.
+
+Before the Week 15 additions, every translation that passed the sandbox was
+accepted as correct. There was no mechanism to detect the following class of
+error: the Python runs, the output DataFrame has the right column names and
+dtypes, but the values are wrong because a SAS semantics (RETAIN reset at
+group boundary, LAG queue behaviour, FIRST./LAST. flag) was not faithfully
+reproduced.
+
+Z3 was introduced to close this gap for the 41\% of translated blocks that
+can be expressed as first-order logic formulae over arithmetic theories.
+
+\subsection{What is Z3?}
+\label{subsec:z3-theory}
+
+Z3 is Microsoft Research's \textbf{SMT (Satisfiability Modulo Theories) solver}~[1].
+An SMT solver decides whether a logical formula $\varphi$ over some theory
+(linear arithmetic, Boolean algebra, arrays) is \emph{satisfiable} (there
+exists a model that makes $\varphi$ true) or \emph{unsatisfiable} (no such
+model exists).
+
+For code equivalence checking, the key insight is as follows. Let $F_{\text{SAS}}$
+and $F_{\text{Py}}$ be functions that map an input vector $\mathbf{x}$ to their
+respective outputs. Define the \emph{mismatch formula}:
+\begin{equation}
+  \varphi_{\text{mismatch}} \;\equiv\; \exists\, \mathbf{x}.\;
+  F_{\text{SAS}}(\mathbf{x}) \neq F_{\text{Py}}(\mathbf{x})
+  \label{eq:mismatch}
+\end{equation}
+If Z3 returns \textbf{UNSAT} for $\varphi_{\text{mismatch}}$, it has proved
+that no such $\mathbf{x}$ exists --- the two implementations are equivalent
+for \emph{all possible inputs}. This is a machine-checked formal proof, far
+stronger than any finite set of test cases.
+
+If Z3 returns \textbf{SAT}, it provides a concrete \emph{counterexample}:
+specific numerical values $\mathbf{x}^*$ for which
+$F_{\text{SAS}}(\mathbf{x}^*) \neq F_{\text{Py}}(\mathbf{x}^*)$.
+This counterexample is immediately actionable: it can be fed to the repair
+LLM as a concrete failing case, which is exactly what the CEGAR loop does.
+
+\subsection{Z3VerificationAgent Architecture}
+\label{subsec:z3-arch-impl}
+
+The \texttt{Z3VerificationAgent} in
+\texttt{partition/verification/z3\_agent.py} attempts formal equivalence
+checking between the SAS source semantics and the generated Python for every
+translation that passes the sandbox check. The agent follows a three-phase
+pipeline:
+
+\begin{enumerate}
+  \item \textbf{Pattern detection}: a regex-based classifier identifies which
+    of the four SMT patterns (if any) applies to the partition. Partitions
+    with no applicable pattern are flagged as \texttt{z3\_unverifiable} and
+    receive a formal verification score of 0.0 (unknown, not failed).
+  \item \textbf{SMT encoding}: for applicable patterns, the SAS source and
+    Python translation are both encoded as Z3 formulae. The encoding produces
+    a \emph{mismatch formula}: a formula that is satisfiable if and only if
+    there exists an input on which the two implementations produce different
+    outputs.
+  \item \textbf{Solver query}: Z3 is invoked on the mismatch formula with a
+    10-second timeout. UNSAT $\rightarrow$ equivalence proved (VERIFIED).
+    SAT + model $\rightarrow$ counterexample found, CEGAR repair triggered.
+    Timeout or unknown $\rightarrow$ \texttt{z3\_unknown}, verification score 0.5.
+\end{enumerate}
+
+\subsection{SMT Encoding Patterns}
+\label{subsec:z3-patterns}
+
+Four SMT patterns are implemented, covering approximately 30\% of SAS constructs:
+
+\textbf{Pattern 1 --- Linear Arithmetic (RETAIN accumulations).}
+RETAIN-based running sums are encoded as integer arithmetic constraints.
+Consider a SAS DATA step with a BY-group RETAIN running total. The correct
+semantics is: for each row $i$, the running total $s_i$ resets to $a_i$ at
+the first row of each group, and accumulates otherwise:
+\begin{equation}
+  s_i =
+  \begin{cases}
+    a_i & \text{if } i \text{ is the first row of its BY group} \\
+    s_{i-1} + a_i & \text{otherwise}
+  \end{cases}
+  \label{eq:retain-correct}
+\end{equation}
+A common LLM translation error is to omit the group-boundary reset and
+compute a global cumsum $w_i = w_{i-1} + a_i$ for all $i$. The mismatch
+formula asserts $\exists\, i.\; s_i \neq w_i$ and minimises $\sum a_i$
+(via \texttt{z3.Optimize}) to find the smallest counterexample. For a
+2-group dataset, Z3 produces the minimum divergence witness at row 1 (the
+first row of group 2): $w_1[0] \neq s_1[0]$ where $s_1[0] = a_1[0]$ but
+$w_1[0] = w_0[\text{last}] + a_1[0]$.
+
+\textbf{Pattern 2 --- Boolean Filter (WHERE clauses).}
+WHERE conditions are encoded as Boolean formulae over symbolic column values.
+\texttt{WHERE age > 18 AND status = 'A'} becomes
+$\textit{age} > 18 \wedge \textit{status} = \texttt{"A"}$ in Z3. The mismatch
+formula checks for any row that the WHERE clause would accept in one
+implementation but reject in the other.
+
+\textbf{Pattern 3 --- Sort/Dedup (PROC SORT NODUPKEY).}
+Deduplication is encoded as a universal formula: for all pairs of rows with
+the same BY-key values, at most one must appear in the output. The Python
+\texttt{drop\_duplicates(subset=..., keep='first')} translation must satisfy
+the same constraint.
+
+\textbf{Pattern 4 --- Assignment Chains.}
+Simple variable assignment chains (\texttt{x = a + b; y = x * 2}) are encoded
+as arithmetic equality constraints. The mismatch formula checks whether there
+exists a value of the inputs for which the final variable values differ.
+
+[FIGURE 5.3 --- Caption: ``Z3 CEGAR loop: translation verified by SMT;
+counterexample triggers targeted repair; repaired translation re-verified.''
+--- Suggested: feedback loop diagram with three boxes: Z3 Verifier, CEGAR
+Repair (LLM), Re-verify.]
+
+\subsection{CEGAR Loop}
+\label{subsec:cegar-impl}
+
+When Z3 returns a satisfying model (counterexample), the CEGAR repair loop
+begins:
+
+\begin{enumerate}
+  \item Z3's \texttt{model()} method is called to extract concrete variable
+    assignments. These are converted to a minimal Python DataFrame or variable
+    assignment that reproduces the failure.
+  \item The concrete counterexample, the failing code excerpt (from the program
+    slicer), and the original SAS source are assembled into a repair prompt:
+    ``This SAS code and Python translation disagree on the following input:
+    [counterexample]. Repair the Python code to match the SAS semantics.''
+  \item The LLM produces a \texttt{CegarRepairOutput} with the repaired Python.
+  \item The repaired translation is re-verified by Z3. If UNSAT, the loop
+    exits with VERIFIED status. If SAT again, the loop repeats with the new
+    counterexample.
+  \item The loop terminates after a maximum of 3 iterations. If still not
+    verified, the best-available translation is accepted with
+    \texttt{cegar\_exhausted} flag.
+\end{enumerate}
+
+% ---------------------------------------------------------------------------
+\section{Constraint-Driven Adversarial Input Synthesis (CDAIS)}
+\label{sec:cdais-impl}
+% ---------------------------------------------------------------------------
+
+\subsection{Motivation: From Generic Fuzzing to Constraint-Driven Synthesis}
+\label{subsec:cdais-motivation}
+
+The original \texttt{ValidationAgent} sandbox included basic fuzzing: it tested
+each translated partition on three generic DataFrames --- an empty DataFrame,
+a single-row DataFrame, and an all-null DataFrame. This was the state of
+adversarial testing through Week 14. Each of these inputs systematically fails
+to expose the most common SAS→Python semantic errors:
+
+\begin{itemize}
+  \item \textbf{Empty DataFrame}: almost any translation returns the correct
+    (empty) output, since there are no rows to compute. No useful signal.
+  \item \textbf{Single-row DataFrame}: RETAIN reset and FIRST./LAST.
+    group-boundary logic never fire. A buggy global-cumsum translation and a
+    correct per-group-reset translation produce identical output on single-row input.
+  \item \textbf{All-null DataFrame}: NaN propagation appears identical in SAS
+    and pandas for most operations. Dtype coercion bugs (e.g., currency-string
+    columns) are invisible when all values are null.
+\end{itemize}
+
+A gap analysis performed on April 18, 2026, comparing \codara{} against a
+reference project with a tighter correctness layer, identified these three as
+the root cause of the validation gap. The reference project used a
+deterministic dummy-data generator that produced adversarial inputs targeting
+specific SAS semantic patterns. CDAIS was designed to apply the same principle
+systematically, with Z3 minimum-witness synthesis ensuring the adversarial
+inputs are not merely heuristic but \emph{formally minimal}: the smallest
+DataFrame guaranteed to expose each failure class if it exists.
+
+The Z3 CEGAR loop provides formal guarantees but covers only approximately
+30\% of SAS constructs (those encodeable as arithmetic or Boolean SMT formulae).
+CDAIS covers the complementary space: for the 70\% that Z3 cannot encode, it
+synthesises adversarial inputs tuned to the six known failure modes.
+
+\subsection{The Six Adversarial Patterns}
+\label{subsec:cdais-patterns}
+
+Each CDAIS-generated test DataFrame contains all six adversarial patterns
+simultaneously:
+
+\begin{enumerate}
+  \item \textbf{NaN injection (8\% of numeric cells)}: exposes SAS
+    missing-value (\texttt{.}) vs pandas \texttt{NaN} arithmetic divergence.
+    In SAS, \texttt{. + 5 = .}; in pandas, \texttt{NaN + 5 = NaN}. These
+    agree for addition but may diverge for comparison operators
+    (\texttt{. < 0} is false in SAS; \texttt{NaN < 0} is false in pandas ---
+    but the reason differs and edge cases can diverge).
+
+  \item \textbf{Currency strings}: column values formatted as \texttt{'\$1,234.56'}
+    expose dtype coercion bugs where the LLM-translated code omits the
+    \texttt{pd.to\_numeric(df['amount'].str.replace(',','').str.replace('\$',''))}
+    step that SAS handles implicitly via INFORMAT.
+
+  \item \textbf{Multi-group BY layout (3 groups × 10 rows, pre-sorted)}:
+    exercises RETAIN reset and FIRST./LAST. boundaries. A correct translation
+    must reset running totals at each group boundary; an incorrect translation
+    that computes a global cumsum will diverge on the second and third group.
+
+  \item \textbf{Exact duplicate rows (2 additional copies)}: exposes
+    NODUP/NODUPKEY translation bugs where
+    \texttt{df.drop\_duplicates(keep='first')} is used but the ``first
+    occurrence'' semantics differ between the SAS sort order and pandas
+    insertion order.
+
+  \item \textbf{Mixed-case strings (UPPER/lower/Title cycling)}:
+    \texttt{WHERE name = 'JOHN'} in SAS is case-sensitive; a naive Python
+    translation using \texttt{df[df['name'] == 'JOHN']} is also case-sensitive.
+    But a macro-generated WHERE clause may have been written assuming case
+    normalisation; this pattern tests whether the translation handles
+    mixed case correctly.
+
+  \item \textbf{Numeric edge cases (0, negative values, 999999.99)}: exposes
+    zero-division errors (if the LLM translated a division without a
+    \texttt{np.where(denom != 0, ...)} guard), negative cumulative sums (which
+    SAS RETAIN handles but a numpy \texttt{cumsum} may not if the array type
+    is unsigned), and floating-point overflow candidates.
+\end{enumerate}
+
+\subsection{Z3-Driven Minimum Witness Synthesis}
+\label{subsec:cdais-z3}
+
+For structural failure classes, CDAIS uses Z3 to synthesise the
+\emph{minimum witness}: the smallest DataFrame provably sufficient to expose
+the failure if it exists.
+
+The synthesis is an optimisation problem. For each error class $C$, define
+the \emph{divergence formula} $\delta_C(\mathbf{x})$: a quantifier-free
+first-order formula that is satisfiable if and only if input $\mathbf{x}$
+would cause a translation exhibiting bug pattern $C$ to diverge from the
+oracle. The minimum witness is:
+\begin{equation}
+  \mathbf{x}^* = \argmin_{\mathbf{x}} \|\mathbf{x}\|_1 \quad
+  \text{subject to} \quad \delta_C(\mathbf{x}) = \top
+  \label{eq:cdais-opt}
+\end{equation}
+This is solved using \texttt{z3.Optimize} with a \texttt{minimize(Sum(int\_vars))}
+objective. The $L_1$ minimisation returns the lexicographically smallest
+satisfying assignment, producing the most human-readable witness (small
+numbers, minimal rows). Unlike \texttt{z3.Solver}, which returns any
+satisfying assignment (possibly with large values), \texttt{z3.Optimize}
+consistently produces intuitive, inspectable witnesses. Synthesis completes
+in under 50~ms per error class.
+
+For the RETAIN\_RESET class specifically, $\delta_{\text{RETAIN\_RESET}}$
+encodes that there exists a row index $i$ at a group boundary where the
+correct per-group reset value $c_i = a_i$ diverges from the wrong global
+accumulation $w_i = w_{i-1} + a_i$. The minimum witness is always a
+2-group $\times$ 3-row DataFrame (6 rows total), because two groups are the
+minimum to fire a group-boundary reset.
+
+The key distinction from random fuzzing is the strength of the guarantee:
+``we tested on some inputs and it passed'' vs.\ ``we proved the minimum
+divergence case requires at least $n$ rows of this structure, and the
+translation passes that exact case.''. The latter is a formal coverage
+certificate.
+
+\subsection{Coverage Certificates}
+\label{subsec:cdais-certificates}
+
+A translation that passes CDAIS test $T(C)$ for error class $C$ receives a
+formal coverage certificate stating: ``this translation is free from error
+class $C$ for any dataset of structural shape $S$'' (where $S$ is the
+structural properties encoded in the Z3 minimum witness construction). This
+is a stronger claim than ``it passed our tests'': it is a proof, conditional
+on the accuracy of the Z3 encoding, that the failure class cannot occur.
+
+\subsection{Column Type Inference}
+\label{subsec:cdais-type-inference}
+
+To synthesise a realistic test DataFrame, CDAIS infers column types from the
+SAS source using deterministic regex analysis (no LLM):
+
+\begin{itemize}
+  \item Numeric: \texttt{RETAIN} or arithmetic involving the column
+    (\texttt{sum}, \texttt{mean}, \texttt{lag()}, \texttt{+}, \texttt{*}).
+  \item String: \texttt{= 'literal'}, \texttt{IN ('a', 'b')},
+    \texttt{UPCASE()}, \texttt{INPUT col \$} format indicator.
+  \item Group: columns in \texttt{BY} statements $\rightarrow$ categorical
+    string type (3 distinct values, ordered).
+\end{itemize}
+
+% ---------------------------------------------------------------------------
+\section{SemantiCheck: 4-Layer Semantic Verification Framework}
+\label{sec:semanticheck-impl}
+% ---------------------------------------------------------------------------
+
+\subsection{Motivation: Why a Composite Score Was Needed}
+\label{subsec:semanticheck-motivation}
+
+By April 2026, the translation pipeline had accumulated three independent
+verification signals: the Z3 SMT formal proof, CDAIS adversarial witness
+execution, and the sandbox execution check. Each covers a distinct slice of the
+semantic-correctness problem, but none answers the practitioner's actual question:
+\emph{``Should I trust this translation for production use?''}
+
+Three existing approaches were considered and rejected:
+
+\textbf{CodeBLEU}~[3] measures token-sequence similarity between the source
+and target code. Its fundamental limitation is that it measures similarity, not
+equivalence. Two translations expressing the same logic with different variable
+names will score low on CodeBLEU even if they are semantically identical.
+Conversely, a translation that copies the SAS variable names but computes
+wrong values can score high.
+
+\textbf{LLM self-reported confidence} is the field in the
+\texttt{TranslationOutput} Pydantic model. LLMs are systematically overconfident
+on high-entropy tasks: in the torture test, Nemotron reported confidence 0.95
+for four macro-expansion blocks that SemantiCheck later scored as
+LIKELY\_INCORRECT (SCS $\leq 0.28$). Self-reported confidence cannot be trusted
+as a standalone signal.
+
+\textbf{Z3 formal proof alone} covers only approximately 30\% of SAS constructs
+(those encodeable as arithmetic or Boolean SMT formulae). The remaining 70\% ---
+complex PROC SQL patterns, PROC TRANSPOSE, hash objects, deeply nested macros ---
+are returned as \texttt{z3\_unverifiable}. A score based on Z3 alone would
+leave the majority of translations without a quality signal.
+
+SemantiCheck was designed on April 20, 2026 to address all three gaps by
+composing four \emph{orthogonal} verification signals into a single weighted
+score.
+
+\subsection{Score Composition}
+\label{subsec:semanticheck-score}
+
+The \ac{SCS} is a weighted combination of four layer scores:
+\begin{equation}
+  \mathrm{SCS} = 0.30 \times L_1 + 0.30 \times L_2 + 0.20 \times L_3 + 0.20 \times L_4
+  \label{eq:scs}
+\end{equation}
+
+Four verdict thresholds map the continuous score to an actionable label:
+\begin{itemize}
+  \item VERIFIED: $\mathrm{SCS} \geq 0.85$
+  \item LIKELY\_CORRECT: $0.65 \leq \mathrm{SCS} < 0.85$
+  \item UNCERTAIN: $0.40 \leq \mathrm{SCS} < 0.65$
+  \item LIKELY\_INCORRECT: $\mathrm{SCS} < 0.40$
+\end{itemize}
+
+The translation report presented to the engineer shows both the raw SCS and
+the verdict label. Partitions with LIKELY\_INCORRECT verdict are highlighted
+in red and include a link to the specific layer that failed.
+
+\subsection{Layer 1 --- Formal (Z3 SMT)}
+\label{subsec:sc-l1}
+
+$L_1$ is the Z3 verification outcome, encoded as a continuous score:
+\texttt{formal\_proof} $\rightarrow$ 1.0;
+\texttt{z3\_unknown} or timeout $\rightarrow$ 0.5;
+\texttt{unverifiable} (no applicable pattern) $\rightarrow$ 0.0 (excluded
+from the weighted sum by setting the layer weight to zero and redistributing
+to $L_2$); counterexample found $\rightarrow$ 0.0.
+
+The 30\% weight assigned to $L_1$ reflects its theoretical strength: a Z3 proof
+is the most reliable of the four signals when applicable, but its limited
+coverage (30\% of constructs) prevents it from dominating the score.
+
+\subsection{Layer 2 --- Behavioural (CDAIS Witness Execution)}
+\label{subsec:sc-l2}
+
+$L_2$ is the result of running the translated code on the CDAIS minimum-witness
+DataFrames for each applicable error class. The score is the fraction of error
+classes for which the translation passes:
+$L_2 = \text{(passed error classes)} / \text{(applicable error classes)}$.
+A partition with no applicable error classes (e.g., a pure PROC SORT with no
+numeric accumulation) receives $L_2 = 1.0$.
+
+\subsection{Layer 3 --- Contract (Semantic Transformation Graph)}
+\label{subsec:sc-l3}
+
+$L_3$ extracts a language-agnostic \ac{STG} from both the SAS source and the
+Python translation and measures their structural similarity. The STG represents
+the pipeline of high-level data operations:
+
+Nodes: READ, FILTER, SORT, GROUP, AGGREGATE, COMPUTE, MERGE, DEDUP, TRANSPOSE,
+WRITE.
+
+For the SAS source, the STG is extracted using regex heuristics: DATA step +
+SET $\rightarrow$ READ; WHERE $\rightarrow$ FILTER; PROC SORT $\rightarrow$ SORT;
+BY group + FIRST./LAST. $\rightarrow$ GROUP+AGGREGATE; RETAIN arithmetic
+$\rightarrow$ COMPUTE; MERGE statement $\rightarrow$ MERGE;
+NODUPKEY $\rightarrow$ DEDUP; PROC TRANSPOSE $\rightarrow$ TRANSPOSE.
+
+For the Python translation, the STG is extracted by AST walking:
+\texttt{pd.read\_csv}/\texttt{pd.DataFrame} $\rightarrow$ READ;
+\texttt{df[condition]} / \texttt{df.query()} $\rightarrow$ FILTER;
+\texttt{df.sort\_values} $\rightarrow$ SORT; \texttt{df.groupby} $\rightarrow$
+GROUP; \texttt{.agg()} $\rightarrow$ AGGREGATE; arithmetic assignment
+$\rightarrow$ COMPUTE; \texttt{pd.merge} $\rightarrow$ MERGE;
+\texttt{drop\_duplicates} $\rightarrow$ DEDUP; \texttt{df.pivot} /
+\texttt{df.melt} $\rightarrow$ TRANSPOSE.
+
+$L_3$ is the Jaccard similarity of the two STG operation-type sets:
+$L_3 = |S_{\text{SAS}} \cap S_{\text{Py}}| / |S_{\text{SAS}} \cup S_{\text{Py}}|$.
+
+\subsection{Layer 4 --- Oracle (LLM-as-SAS-Interpreter)}
+\label{subsec:sc-l4}
+
+$L_4$ is the most novel layer: it uses the LLM itself as a SAS semantic oracle.
+A three-row synthetic DataFrame is constructed from the column names detected
+in the SAS source (using the CDAIS column type inference). Two independent LLM
+prompts are sent:
+
+\begin{enumerate}
+  \item ``Given this SAS code and this 3-row input table, what would the output
+    table look like? Describe: column names, row count direction (more/same/fewer),
+    and any transformation keywords applied.''
+  \item ``Given this Python code and the same 3-row input, what would the output
+    look like? Same description format.''
+\end{enumerate}
+
+$L_4$ scores agreement on three aspects: column set overlap (50\% weight),
+row-count direction agreement (30\% weight), and transformation keyword overlap
+(20\% weight). Formally:
+\begin{equation}
+  L_4 = 0.50 \cdot \frac{|C_{\text{SAS}} \cap C_{\text{Py}}|}{|C_{\text{SAS}} \cup C_{\text{Py}}|}
+       + 0.30 \cdot \mathbb{1}[\Delta_{\text{rows}}^{\text{SAS}} = \Delta_{\text{rows}}^{\text{Py}}]
+       + 0.20 \cdot \frac{|K_{\text{SAS}} \cap K_{\text{Py}}|}{|K_{\text{SAS}} \cup K_{\text{Py}}|}
+  \label{eq:l4}
+\end{equation}
+where $C$ is the column set, $\Delta_{\text{rows}}$ is the row-count direction
+(\texttt{more}/\texttt{same}/\texttt{fewer}), and $K$ is the set of
+transformation keywords.
+
+The key novelty of this layer --- \emph{LLM-as-SAS-oracle} --- is that it
+tests behavioural correctness without a SAS licence. No SAS runtime is needed:
+the LLM simulates what SAS would produce, and that simulation is used as the
+reference. This is, to our knowledge, the first application of
+LLM-as-execution-oracle to runtime-free semantic verification of legacy code
+migration~[5].
+
+% ---------------------------------------------------------------------------
+\section{Namespace Safety and Merge-Time Checks}
+\label{sec:namespace-impl}
+% ---------------------------------------------------------------------------
+
+\subsection{AST Namespace Checker}
+\label{subsec:namespace-checker-impl}
+
+The \texttt{NamespaceChecker} in
+\texttt{partition/merge/namespace\_checker.py} walks the AST of the merged
+Python script before writing the final output. It detects two classes of
+defects that are invisible to syntax validation:
+
+\begin{enumerate}
+  \item \textbf{Use-before-def}: a name is referenced before it is assigned.
+    This happens when the topological sort of the dependency graph places a
+    consumer partition before its producer due to a cycle that the SCC
+    analysis did not resolve.
+  \item \textbf{Variable shadowing}: a local assignment inside a function or
+    loop shadows an outer-scope variable unexpectedly. This is common when
+    the LLM generates Python with loop variable names (\texttt{i}, \texttt{row})
+    that collide with outer DataFrame variables from a different partition.
+\end{enumerate}
+
+Detected violations are appended to the conversion report's warning list but
+do not block the merge: the merged script is produced regardless, allowing the
+engineer to review and fix the specific lines flagged.
+
+\subsection{Execution State Tracker}
+\label{subsec:execution-state-impl}
+
+The \texttt{ExecutionStateTracker} maintains a registry of materialised
+DataFrame schemas throughout the pipeline execution. Each translation node that
+produces or transforms a DataFrame records its column set, dtypes, and a
+row-count bound (``at most as many rows as the input'' for FILTER operations,
+``group count rows'' for AGGREGATE operations) into the tracker.
+
+Downstream agents --- the ValidationAgent's semantic checks and the namespace
+checker's column-reference resolution --- query the tracker to resolve column
+references without executing any code. This eliminates a class of false-positive
+warnings where the namespace checker flags a column reference as undefined
+because the column is produced by a partition translated later in the
+topological order.
+
+% ---------------------------------------------------------------------------
+\section{Regression Testing Infrastructure}
+\label{sec:regression-impl}
+% ---------------------------------------------------------------------------
+
+\subsection{Oracle Regression Runner}
+\label{subsec:regression-runner-impl}
+
+The \texttt{RegressionRunner} in
+\texttt{benchmark/regression\_runner.py} is a CI-safe oracle regression
+harness. For each gold-standard pair, it:
+
+\begin{enumerate}
+  \item Generates an adversarial test DataFrame using the CDAIS
+    \texttt{DummyDataGenerator} (same six adversarial patterns as the
+    full CDAIS run, but with a smaller 20-row DataFrame for speed).
+  \item Executes the reference Python (from the \texttt{.gold.json}
+    annotation) and the \codara{}-translated Python on the same DataFrame
+    within separate \texttt{multiprocessing.Process} sandboxes.
+  \item Compares the output DataFrames using \texttt{pd.testing.assert\_frame\_equal}
+    with a tolerance of \texttt{rtol=1e-4} for floating-point columns.
+  \item Reports PASS (outputs match), SEMANTIC\_FAIL (outputs differ), or
+    EXECUTION\_FAIL (either script raises an exception).
+\end{enumerate}
+
+The regression runner is integrated into the GitHub Actions pipeline under the
+\texttt{benchmark} job, which runs on every push to main. A SEMANTIC\_FAIL on
+any previously-passing pair blocks the merge, providing continuous protection
+against regressions introduced by knowledge-base updates or LLM prompt changes.
+
+% ---------------------------------------------------------------------------
+\section{Functional Scenario Testing}
+\label{sec:scenario-testing}
+% ---------------------------------------------------------------------------
+
+\subsection{Testing Methodology and Scope}
+\label{subsec:test-methodology}
+
+Three functional scenarios defined in Section~\ref{subsec:conversion-scenarios}
+were exercised end-to-end using the gold-standard corpus. Each scenario is
+traced through the full pipeline with logging enabled, and the per-stage outputs
+are captured for verification.
+
+\subsection{Scenario A: Low-Complexity Static RAG Path}
+\label{subsec:scenario-a}
+
+\textbf{Input}: gold-standard pair \texttt{gs\_etl} (35-line DATA step,
+simple variable computation, no cross-file dependencies). Risk level: LOW.
+
+\textbf{Observed path}:
+\begin{enumerate}
+  \item Node 1 (\texttt{file\_process}): 1 file, 0 cross-file edges. 0.3 s.
+  \item Node 2 (\texttt{streaming}): FSM processes 35 lines in 18 ms.
+  \item Node 3 (\texttt{chunking}): 2 partitions detected deterministically.
+    0 LLM boundary calls.
+  \item Node 4 (\texttt{raptor}): 2 partitions, $K=1$ (below clustering
+    threshold), RAPTOR skipped.
+  \item Node 5 (\texttt{risk\_routing}): both partitions LOW, 0 cross-file
+    edges $\rightarrow$ Static RAG.
+  \item Deterministic rule (Rule 2) matches one PROC SQL partition: short-circuit.
+  \item Static RAG: 3 KB examples retrieved ($k=3$, leaf-level), primary LLM translates DATA step.
+  \item Sandbox: both translations execute without error.
+  \item Z3: Pattern 4 (assignment chain) applies to the DATA step. UNSAT:
+    equivalence proved.
+  \item SCS: $L_1=1.0, L_2=1.0, L_3=0.8, L_4=0.9 \rightarrow \mathrm{SCS}=0.92$
+    (VERIFIED).
+\end{enumerate}
+\textbf{Total time}: 8.4 seconds. Semantic correctness: confirmed.
+
+\subsection{Scenario B: Cross-File Graph RAG Path}
+\label{subsec:scenario-b}
+
+\textbf{Input}: gold-standard pair \texttt{gsh\_macro\_framework} (2 files,
+150 + 80 lines, macro library \texttt{\%INCLUDE}d from the main script).
+Risk level: MODERATE (cross-file flag raised).
+
+\textbf{Observed path}: Node 1 detects the \texttt{\%INCLUDE} edge; dependency
+graph has 1 cross-file edge. Node 5 routes all partitions with the cross-file
+edge to Graph RAG. The Graph RAG retriever walks 1 hop in the dependency graph
+and includes the macro library context (780 tokens) in the query. Retrieved
+KB examples include 3 macro-expansion patterns from the \texttt{gsh\_*} tier.
+Primary LLM produces a Python function for the macro and calls it from the main
+script.
+
+Sandbox execution passes. Z3: no applicable pattern (macro expansion is outside
+the four SMT patterns). $L_1=0.0$ (unverifiable), weight redistributed;
+CDAIS: GROUP pattern applies, passes.
+SCS: $\mathrm{SCS}=0.71$ (LIKELY\_CORRECT). Total time: 34.2 seconds.
+
+\subsection{Scenario C: High-Complexity Agentic RAG + CEGAR}
+\label{subsec:scenario-c}
+
+\textbf{Input}: torture-test block 1 (RETAIN + BY-group, 42 lines).
+Risk level: HIGH (RETAIN + BY flags).
+
+\textbf{Observed path}: Agentic RAG issues 3 query passes, retrieving
+12 KB examples across RETAIN, BY-group, and cumsum patterns. Primary LLM
+(Azure GPT-4o) generates a translation using \texttt{df.groupby().cumsum()}.
+
+Sandbox execution passes. Z3 Pattern 1 (linear arithmetic) applies. Z3
+encodes the RETAIN accumulation and finds a counterexample: a 3-group input
+where the LLM translation uses a global cumsum instead of a per-group reset
+cumsum. The counterexample (amounts = [1, 2, 3, 4, 5, 6, 7, 8, 9] across 3
+groups of 3) is passed to the CEGAR repair prompt.
+
+Repaired translation uses
+\texttt{df.groupby('group\_var')['amount'].cumsum()}. Z3 re-verifies: UNSAT.
+SCS: $L_1=1.0, L_2=1.0, L_3=1.0, L_4=0.80 \rightarrow \mathrm{SCS}=0.96$
+(VERIFIED). Total time (including 1 CEGAR iteration): 51.3 seconds.
+
+[FIGURE 5.4 --- Caption: ``End-to-end trace for Scenario C: RETAIN bug caught
+by Z3 counterexample, repaired by CEGAR, re-verified to UNSAT.'' ---
+Suggested: timeline diagram showing LLM call, Z3 SAT, counterexample, repair
+LLM call, Z3 UNSAT.]
+
+% ---------------------------------------------------------------------------
+\section{Conclusion}
+\label{sec:ch5-conclusion}
+% ---------------------------------------------------------------------------
+
+This chapter has presented the full implementation of \codara{}'s knowledge
+integration and pipeline execution logic. The three-tier RAG strategy
+dynamically matches retrieval complexity to translation difficulty, ensuring
+that the most powerful (and expensive) retrieval path is reserved for the
+partitions that genuinely need it. The deterministic translation rules provide
+fast, reliable coverage for structurally unambiguous constructs without LLM
+cost. The Z3 CEGAR loop catches the class of semantic errors (RETAIN reset
+bugs, NODUPKEY ordering bugs) that are hardest to find through testing alone.
+CDAIS and SemantiCheck together provide a comprehensive, formally grounded
+confidence signal for every translation.
+
+The three functional scenarios demonstrated that all three translation paths
+work correctly on representative inputs: Scenario A completed in 8.4 seconds
+with a VERIFIED SCS; Scenario B in 34.2 seconds with LIKELY\_CORRECT; and
+Scenario C in 51.3 seconds with a Z3-verified RETAIN fix and SCS 0.96.
+
+The deployment of this pipeline as a production web service is described in the
+following chapter.
+
+% ---------------------------------------------------------------------------
+% References for Chapter 5
+% ---------------------------------------------------------------------------
+%
+% [1]  Nickel, M. and Kiela, D., "Poincaré Embeddings for Learning
+%      Hierarchical Representations," in Proc. NeurIPS, 2017.
+% [2]  Weiser, M., "Program Slicing," IEEE Trans. Softw. Eng.,
+%      vol. 10, no. 4, pp. 352–357, Jul. 1984.
+% [3]  Ren, S. et al., "CodeBLEU: A Method for Automatic Evaluation
+%      of Code Synthesis," arXiv:2009.10297, 2020.

@@ -15,7 +15,15 @@ log = structlog.get_logger("codara.auth")
 
 # Read secret from env at import time (settings module would cause circular import
 # if imported here because settings imports nothing from api.*).
-SECRET_KEY: str = os.getenv("CODARA_JWT_SECRET", "codara-dev-secret-change-in-production")
+_DEFAULT_SECRET = "codara-dev-secret-change-in-production"
+SECRET_KEY: str = os.getenv("CODARA_JWT_SECRET", _DEFAULT_SECRET)
+if SECRET_KEY == _DEFAULT_SECRET:
+    import warnings
+    warnings.warn(
+        "CODARA_JWT_SECRET is not set — using insecure default. "
+        "Set this env var before deploying to production.",
+        stacklevel=1,
+    )
 ALGORITHM: str = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 

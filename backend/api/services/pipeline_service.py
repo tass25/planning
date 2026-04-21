@@ -18,6 +18,7 @@ Stage mapping (frontend display name → what actually runs here):
 from __future__ import annotations
 
 import asyncio
+import os
 import shutil
 import tempfile
 import time
@@ -36,7 +37,6 @@ from api.core.database import (
     get_api_session,
 )
 from api.services.blob_service import blob_service
-from api.services.translation_service import translate_sas_to_python
 
 _log = structlog.get_logger("codara.pipeline")
 
@@ -151,180 +151,96 @@ def run_pipeline_sync(
     if pkg_root not in sys.path:
         sys.path.insert(0, pkg_root)
 
-    from partition.db.sqlite_manager import get_engine, init_db
-    from partition.entry.cross_file_dep_resolver import CrossFileDependencyResolver
-    from partition.entry.data_lineage_extractor import DataLineageExtractor
-    from partition.entry.file_analysis_agent import FileAnalysisAgent
-    from partition.entry.registry_writer_agent import RegistryWriterAgent
-
-    pipeline_db_path = str(UPLOAD_DIR / f"{conversion_id}_pipeline.db")
-    pipeline_engine = None
-    try:
-        pipeline_engine = get_engine(pipeline_db_path)
-        init_db(pipeline_engine)
-    except Exception as exc:
-        _log.error("pipeline_engine_init_failed", conversion_id=conversion_id, error=str(exc))
-        conv.status = "failed"
-        conv.updated_at = datetime.now(timezone.utc).isoformat()
-        conv.validation_report = f"Pipeline DB init error: {exc}"
-        try:
-            session.commit()
-        except Exception:
-            pass
-        try:
-            session.close()
-        except Exception:
-            pass
-        return
-
-    project_root = file_path.parent
     total_start = time.perf_counter()
+    pipeline_engine = None
 
     try:
-        # Stage 1: file_process
-        _update_stage(
-            "file_process",
-            "running",
-            description="Scanning file structure & identifying SAS modules...",
-        )
-        t0 = time.perf_counter()
-        agent1 = FileAnalysisAgent()
-        files = asyncio.run(agent1.process(project_root)) or []
-        lat = (time.perf_counter() - t0) * 1000
-        _update_stage(
-            "file_process", "completed", lat, f"Discovered {len(files)} file(s) — structure mapped"
+        from partition.orchestration.orchestrator import PartitionOrchestrator
+
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        duckdb_path = os.getenv("DUCKDB_PATH", "data/analytics.duckdb")
+
+        orchestrator = PartitionOrchestrator(
+            redis_url=redis_url,
+            duckdb_path=duckdb_path,
+            target_runtime=conv.runtime or "python",
         )
 
-        # Stage 2: sas_partition
-        _update_stage(
-            "sas_partition", "running", description="Chunking SAS code into logical blocks..."
-        )
-        t0 = time.perf_counter()
-        agent2 = RegistryWriterAgent()
-        reg_result = asyncio.run(agent2.process(files, pipeline_engine)) or {}
-        lat = (time.perf_counter() - t0) * 1000
-        inserted = reg_result.get("inserted", 0)
-        _update_stage(
-            "sas_partition",
-            "completed",
-            lat,
-            f"Partitioned into {inserted} block(s) — registry built",
-        )
+        # Signal the frontend that the pipeline is running.
+        _update_stage("file_process", "running", description="Full 8-node LangGraph pipeline starting...")
+        for _s in ("sas_partition", "strategy_select", "translate", "validate", "repair", "merge", "finalize"):
+            _update_stage(_s, "running", description="Queued — waiting for upstream stage...")
 
-        # Stage 3: strategy_select
-        _update_stage(
-            "strategy_select",
-            "running",
-            description="Resolving cross-file dependencies & imports...",
-        )
-        t0 = time.perf_counter()
-        agent3 = CrossFileDependencyResolver()
-        deps = asyncio.run(agent3.process(files, project_root, pipeline_engine)) or {}
-        lat = (time.perf_counter() - t0) * 1000
-        _update_stage(
-            "strategy_select",
-            "completed",
-            lat,
-            f"Resolved {deps.get('resolved', 0)}/{deps.get('total', 0)} dependencies",
-        )
-
-        # Stage 4: translate (data lineage)
-        _update_stage(
-            "translate",
-            "running",
-            description="Tracing data lineage — reads, writes, transforms...",
-        )
-        t0 = time.perf_counter()
-        agent4 = DataLineageExtractor()
-        lineage = asyncio.run(agent4.process(files, pipeline_engine)) or {}
-        lat = (time.perf_counter() - t0) * 1000
-        _update_stage(
-            "translate",
-            "completed",
-            lat,
-            f"Mapped {lineage.get('total_reads', 0)} reads + {lineage.get('total_writes', 0)} writes",
-        )
-
-        # Stage 5: validate (LLM translation)
-        _update_stage(
-            "validate", "running", description="Translating SAS code to Python via LLM..."
-        )
-        t0 = time.perf_counter()
-        python_code = translate_sas_to_python(sas_code)
-        lat = (time.perf_counter() - t0) * 1000
-        translation_ok = python_code and not python_code.startswith("# TRANSLATION UNAVAILABLE")
-        _update_stage(
-            "validate",
-            "completed",
-            lat,
-            (
-                "SAS → Python translation complete"
-                if translation_ok
-                else "Translation skipped — LLM not configured"
-            ),
-        )
-
-        # Stage 6: repair (syntax validation)
-        _update_stage("repair", "running", description="Validating translated Python code...")
-        t0 = time.perf_counter()
-        repair_notes: list[str] = []
-        if translation_ok:
-            try:
-                compile(python_code, "<translated>", "exec")
-                repair_notes.append("Syntax OK — compiles without errors")
-            except SyntaxError as se:
-                repair_notes.append(f"Syntax warning at line {se.lineno}: {se.msg}")
-        lat = (time.perf_counter() - t0) * 1000
-        _update_stage(
-            "repair", "completed", lat, repair_notes[0] if repair_notes else "No repairs needed"
-        )
-
-        # Stage 7: merge
-        _update_stage("merge", "running", description="Assembling final Python module...")
-        t0 = time.perf_counter()
-        header_lines = [
-            f'"""Auto-converted from {file_path.name} by Codara pipeline."""',
-            "",
-        ]
-        final_code = "\n".join(header_lines) + python_code
-        conv.python_code = final_code
-        session.commit()
-        lat = (time.perf_counter() - t0) * 1000
-        _update_stage("merge", "completed", lat, "Merged successfully — final module ready")
-
-        # Stage 8: finalize
-        _update_stage(
-            "finalize", "running", description="Packaging results & generating reports..."
-        )
-        t0 = time.perf_counter()
-        lat = (time.perf_counter() - t0) * 1000
-        _update_stage("finalize", "completed", lat, "Pipeline complete — results ready")
+        final_state = asyncio.run(orchestrator.run([str(file_path)]))
 
         total_elapsed = time.perf_counter() - total_start
 
-        report_lines = [
-            f"File analysis: {len(files)} file(s) discovered",
-            f"Registry: {reg_result.get('inserted', 0)} inserted, {reg_result.get('skipped', 0)} skipped",
-            f"Cross-file deps: {deps.get('total', 0)} total, {deps.get('resolved', 0)} resolved",
-            f"Data lineage: {lineage.get('total_reads', 0)} reads, {lineage.get('total_writes', 0)} writes",
-        ]
+        # --- Map orchestrator state → display stages ---
+        n_files    = len(final_state.get("file_metas", []))
+        n_parts    = final_state.get("partition_count", 0)
+        n_raptor   = len(final_state.get("raptor_nodes", []))
+        conv_res   = final_state.get("conversion_results", [])
+        val_passed = final_state.get("validation_passed", 0)
+        merge_res  = final_state.get("merge_results", [])
+        n_errors   = len(final_state.get("errors", []))
+        n_warnings = len(final_state.get("warnings", []))
 
-        # Accuracy: 100 if translation succeeded and syntax is valid,
-        # 50 if translation succeeded but had syntax warnings, 0 if unavailable.
-        syntax_ok = repair_notes and repair_notes[0].startswith("Syntax OK")
-        if translation_ok and syntax_ok:
+        _update_stage("file_process",    "completed", None, f"{n_files} file(s) scanned — registry built")
+        _update_stage("sas_partition",   "completed", None, f"{n_parts} partition(s) — streaming + boundary detection")
+        _update_stage("strategy_select", "completed", None, f"RAPTOR: {n_raptor} nodes — risk + strategy assigned")
+        _update_stage("translate",       "completed", None, f"{len(conv_res)} block(s) translated via 3-tier RAG")
+        _update_stage("validate",        "completed", None, f"{val_passed}/{len(conv_res)} passed semantic validation")
+        _update_stage("repair",          "completed", None, f"{n_errors} error(s) | {n_warnings} warning(s)")
+        _update_stage("merge",           "completed", None, f"{len(merge_res)} script(s) assembled")
+        _update_stage("finalize",        "completed", None, f"Pipeline complete in {total_elapsed:.1f}s")
+
+        # --- Extract python code and accuracy from first merge result ---
+        python_code       = ""
+        merge_status_str  = "FAILED"
+        validation_report = ""
+        merge_report      = ""
+
+        if merge_res:
+            first        = merge_res[0]
+            merged       = first.get("merged_script", {})
+            python_code  = merged.get("python_script", "")
+            merge_status_str = merged.get("status", "FAILED")
+            block_count  = merged.get("block_count", 1) or 1
+            partial      = merged.get("partial_count", 0)
+            human_rev    = merged.get("human_review_count", 0)
+            syntax_valid = merged.get("syntax_valid", False)
+
+            report_obj   = first.get("report", {})
+            validation_report = (
+                report_obj.get("report_md", "")
+                if isinstance(report_obj, dict)
+                else str(report_obj)
+            )
+            merge_report = (
+                f"Merge status: {merge_status_str} | "
+                f"Blocks: {block_count} | Partial: {partial} | "
+                f"Human review: {human_rev} | Syntax valid: {syntax_valid}"
+            )
+
+        if merge_status_str == "SUCCESS":
             accuracy = 100.0
-        elif translation_ok:
-            accuracy = 50.0
+        elif merge_status_str == "HAS_GAPS":
+            merged_block_count = merge_res[0].get("merged_script", {}).get("block_count", 1) or 1
+            gaps = (
+                merge_res[0].get("merged_script", {}).get("partial_count", 0)
+                + merge_res[0].get("merged_script", {}).get("human_review_count", 0)
+            )
+            accuracy = round(100.0 * (merged_block_count - gaps) / merged_block_count, 1)
         else:
             accuracy = 0.0
 
-        conv.status = "completed"
-        conv.duration = round(total_elapsed, 2)
-        conv.accuracy = accuracy
-        conv.validation_report = "\n".join(report_lines)
-        conv.merge_report = f"Pipeline completed in {total_elapsed:.2f}s"
-        conv.updated_at = datetime.now(timezone.utc).isoformat()
+        conv.python_code       = python_code
+        conv.status            = "completed"
+        conv.duration          = round(total_elapsed, 2)
+        conv.accuracy          = accuracy
+        conv.validation_report = validation_report
+        conv.merge_report      = merge_report
+        conv.updated_at        = datetime.now(timezone.utc).isoformat()
 
     except Exception as exc:
         conv.status = "failed"

@@ -281,12 +281,8 @@
   \subsection{CEGAR: Counterexample-Guided Abstraction Refinement}
   \label{subsec:cegar-theory}
 
-  \subsection{Program Slicing for Fault Localisation}
-  \label{subsec:program-slicing-theory}
-  % Weiser (1984) backward slicing: given a failing statement,
-  % the slice is the minimal subset of statements that affect its value.
-  % Applied here to reduce the repair context sent to the LLM after
-  % a sandbox execution failure, improving repair precision.
+  \subsection{Scope and Limits of Formal Verification}
+  \label{subsec:fv-scope}
 
 \section{Semantic Equivalence Verification Beyond SMT}
 \label{sec:semantic-equiv-theory}
@@ -1029,8 +1025,8 @@
   \label{subsec:future-short-term}
   % - Integrate SemantiCheck L1/L2 into the main pipeline
   %   (currently standalone eval script only).
-  % - Implement CDAIS synthesizer.py and coverage_oracle.py modules
-  %   (architecture designed; constraint_catalog.py complete).
+  % - Integrate full \%MACRO/\%MEND block-level pre-expansion (beyond the
+  %   existing \%LET symbolic substitution already wired in the pipeline).
   % - Expand KB: 330 → 380 pairs (target: weak macro/TRANSPOSE categories).
   % - Frontend deployment (Azure Static Web Apps or second Container App).
 

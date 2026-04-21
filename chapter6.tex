@@ -1,0 +1,368 @@
+% =============================================================================
+% chapter6.tex — Deployment and User Interface
+% Chapter 6 of the Codara PFE Report
+% =============================================================================
+
+\chapter{Deployment and User Interface}
+\label{ch:deployment}
+
+% ---------------------------------------------------------------------------
+\section{Introduction}
+\label{sec:ch6-intro}
+% ---------------------------------------------------------------------------
+
+A system that works in a Jupyter notebook is not the same as a system that
+works in production. The fifteen-week development sprint did not treat deployment
+as an afterthought: the Docker Compose configuration, GitHub Actions pipeline,
+and Azure Key Vault integration were built in Week 13 and evolved alongside the
+pipeline logic. This chapter documents the gap between the core pipeline
+described in Chapter~\ref{ch:implementation} and the production-ready service
+that the host company's engineers can actually use.
+
+The chapter is organised into three sections. Section~\ref{sec:backend-deployment}
+covers the FastAPI backend structure, the three-service abstraction layer, the
+Docker containerisation, the six-job GitHub Actions CI/CD pipeline, and the
+Azure Key Vault integration for secrets management. Section~\ref{sec:frontend-deployment}
+presents the React frontend: technology choices, key interface views, and the
+end-to-end integration flow from file upload to download. The chapter closes
+with a discussion of the deployment architecture's strengths and known
+limitations.
+
+% ---------------------------------------------------------------------------
+\section{Backend Deployment}
+\label{sec:backend-deployment}
+% ---------------------------------------------------------------------------
+
+\subsection{FastAPI Structure, Endpoints, and Background Tasks}
+\label{subsec:fastapi-structure}
+
+\textbf{The technology.} FastAPI~[1] is an asynchronous Python web framework
+built on Starlette and Pydantic. Its key advantage for this project is
+\emph{type-driven development}: all request and response bodies are declared as
+Pydantic v2 models, from which FastAPI automatically generates OpenAPI
+documentation, request validation, and JSON serialisation. Combined with its
+native async support (built on \texttt{asyncio}), FastAPI allows the API server
+to handle many concurrent polling requests without blocking while pipeline
+coroutines execute in background tasks.
+
+\textbf{How we used it.} The FastAPI application in
+\texttt{backend/api/main.py} initialises in three phases:
+
+\begin{enumerate}
+  \item \textbf{Startup}: SQLAlchemy creates the SQLite database tables (if
+    absent), seeds the default admin and user accounts (printing generated
+    passwords to stdout), initialises the \texttt{PipelineQueueService} daemon
+    consumer thread, and registers all six routers.
+  \item \textbf{Runtime}: the ASGI server (uvicorn) accepts HTTP requests on
+    port 8000. Routing is handled by six FastAPI routers: \texttt{auth},
+    \texttt{conversions}, \texttt{knowledge\_base}, \texttt{admin},
+    \texttt{analytics}, \texttt{notifications} + \texttt{settings}.
+  \item \textbf{Shutdown}: the queue consumer thread is signalled to exit
+    and the database session factory is closed.
+\end{enumerate}
+
+CORS is configured at startup to allow requests from
+\texttt{localhost:8080} (Docker/nginx), \texttt{localhost:5173} (Vite dev server),
+and \texttt{127.0.0.1:8080}. In production, the \texttt{FRONTEND\_URL}
+environment variable adds the Azure Static Web App domain to the CORS
+allowed-origins list.
+
+[FIGURE 6.1 --- Caption: ``FastAPI router hierarchy: six routers mapped to
+the main application, with authentication dependency injected at the router
+level.'' --- Suggested: tree diagram with the FastAPI app at the root and six
+router boxes as children, each annotated with its prefix and auth requirement.]
+
+\subsection{Service Layer: Pipeline, Blob, and Queue}
+\label{subsec:service-layer}
+
+\textbf{The problem.} In the early sprints, the conversion router called the
+LangGraph pipeline directly via \texttt{BackgroundTasks.add\_task()}. This
+worked locally but created three problems at scale: (1) the pipeline
+instantiated a new LangGraph graph object on every conversion request, adding
+initialisation overhead; (2) file I/O was mixed with HTTP logic, making the
+route handlers untestable without a running filesystem; (3) there was no way
+to dispatch jobs to a remote worker process.
+
+\textbf{The solution.} Three service modules were extracted in Week 15 to
+decouple HTTP routing from infrastructure:
+
+\textbf{\texttt{pipeline\_service.py} (\texttt{run\_pipeline\_sync})}: the
+single function called by both the queue consumer and the BackgroundTasks
+fallback. It downloads the SAS file from Blob Storage (or reads it from the
+local \texttt{uploads/} directory), constructs the \texttt{PipelineState}
+initial dict, executes the 8-node LangGraph pipeline synchronously (using
+\texttt{asyncio.run()} inside the thread), updates the conversion record with
+the result, and cleans up the temporary file. All pipeline errors are caught,
+logged to DuckDB via \texttt{LLMAuditLogger}, and written to the
+\texttt{conversion\_stages} table as failed stages.
+
+\textbf{\texttt{blob\_service.py} (\texttt{BlobStorageService})}: provides
+four methods: \texttt{upload\_file()} (write bytes to Azure Blob or local disk),
+\texttt{download\_to\_temp()} (download blob to a named temp file, returning
+the path), \texttt{list\_files()} (list blobs under a prefix), and
+\texttt{delete\_folder()} (delete all blobs under a prefix). The service checks
+for \texttt{AZURE\_STORAGE\_CONNECTION\_STRING} at initialisation; if absent,
+all methods operate on the local \texttt{backend/uploads/} directory instead.
+This transparent fallback means the same code path is exercised in both
+development (local disk) and production (Azure Blob).
+
+\textbf{\texttt{queue\_service.py} (\texttt{PipelineQueueService})}: wraps
+Azure Queue Storage for asynchronous job dispatch. The \texttt{enqueue()} method
+base64-encodes a JSON payload (containing the conversion ID and file paths) and
+sends it to the Azure Queue with \texttt{visibility\_timeout=300} seconds. A
+daemon thread started at application startup polls the queue every 2 seconds
+via \texttt{receive\_messages(max\_messages=1, visibility\_timeout=300)} and
+calls \texttt{run\_pipeline\_sync} for each message. The poison-message guard
+increments a dequeue-count counter per message ID and dead-letters any message
+with count $\geq 5$ to prevent infinite retry loops on unprocessable jobs.
+
+[FIGURE 6.2 --- Caption: ``Service layer architecture: three services abstract
+Azure Blob, Azure Queue, and the LangGraph pipeline from the HTTP routes.''
+--- Suggested: three-column diagram with HTTP Routes on left, Services in
+middle, and Azure/Pipeline on right, with arrows showing the call direction.]
+
+\subsection{Containerisation and CI/CD}
+\label{subsec:docker}
+
+\textbf{The technology.} Docker~[2] enables reproducible, environment-independent
+deployment by packaging the application and all its dependencies into an image.
+Docker Compose~[3] orchestrates multiple containers (Redis, backend, frontend)
+as a single service. GitHub Actions~[4] provides the CI/CD pipeline that
+automates testing, building, and deploying on every push to main.
+
+\textbf{Docker setup.} The backend image is built from a multi-stage
+\texttt{infra/Dockerfile} based on \texttt{python:3.11-slim}. Stage 1 installs
+build dependencies (gcc, libpq-dev) and builds the Python wheels; Stage 2
+copies only the compiled wheels into a clean image, reducing the final image
+size. The application listens on port 8000 and is started with uvicorn.
+
+The \texttt{infra/docker-compose.yml} defines three services:
+\texttt{redis} (image: \texttt{redis:7-alpine}, port 6379, no persistence),
+\texttt{backend} (built from Dockerfile, port 8000, depends on redis),
+\texttt{frontend} (built from the React app with nginx, port 8080, proxies
+\texttt{/api} to the backend container).
+
+\textbf{GitHub Actions pipeline.} The CI/CD pipeline comprises six jobs that
+run on every push to the \texttt{main} branch:
+
+[TABLE 6.1 --- Caption: ``GitHub Actions CI/CD pipeline: six jobs, their
+triggers, and success criteria.'' --- Columns: Job, Trigger, Runtime, Success
+Criterion.]
+
+\begin{enumerate}
+  \item \textbf{lint}: runs \texttt{flake8} and \texttt{mypy} on the backend
+    codebase. Blocks merge on any type error or style violation above severity
+    E/W.
+  \item \textbf{test}: installs dev dependencies from
+    \texttt{requirements/dev.txt} (which includes pytest via \texttt{base.txt}),
+    runs \texttt{pytest tests/ -v --tb=short --cov=partition --cov-report=xml},
+    and uploads the coverage report. Fails if any test fails.
+  \item \textbf{benchmark}: runs the boundary detection benchmark
+    (\texttt{benchmark/boundary\_benchmark.py}) and the oracle regression runner
+    (\texttt{benchmark/regression\_runner.py}) against the gold-standard corpus.
+    Fails if any gold-standard pair produces SEMANTIC\_FAIL.
+  \item \textbf{docker-build}: builds both the backend and frontend Docker
+    images without pushing. Catches Dockerfile errors and dependency conflicts.
+  \item \textbf{codeql}: GitHub's default CodeQL security scanning for Python
+    (CWE-089, CWE-022, CWE-078, and 12 other high-severity patterns). All
+    CodeQL High findings were resolved in a dedicated security sprint (5
+    alerts fixed across path traversal, SQL injection, and OS command injection
+    categories).
+  \item \textbf{azure-deploy}: on successful completion of all five preceding
+    jobs, updates the Azure Container App image using:
+    \texttt{az containerapp update --name codara-backend --resource-group rg-codara
+    --image \$REGISTRY/backend:\$SHA}. The image-only update preserves all
+    existing secrets and environment variable bindings, unlike
+    \texttt{az containerapp up} which resets them on every deploy.
+\end{enumerate}
+
+\subsection{Azure Key Vault Integration}
+\label{subsec:keyvault}
+
+\textbf{The technology.} Azure Key Vault~[5] is a cloud secrets manager that
+stores cryptographic keys, secrets, and certificates. Azure Container Apps can
+reference Key Vault secrets directly as environment variables via
+\texttt{--secrets keyvaultref:<URI>}, eliminating the need to store secrets
+in GitHub Actions variables or \texttt{.env} files.
+
+\textbf{How we used it.} The \texttt{infra/azure\_setup.sh} script provisions
+six secrets in Key Vault:
+\texttt{OLLAMA-API-KEY}, \texttt{OLLAMA-BASE-URL},
+\texttt{GROQ-API-KEY}, \texttt{CODARA-JWT-SECRET},
+\texttt{AZURE-OPENAI-API-KEY}, and \texttt{FRONTEND-URL} (for CORS).
+The Container App's system-assigned managed identity is granted the
+``Key Vault Secrets User'' role, allowing it to read secrets without any stored
+credentials. The Container App environment also receives \texttt{CORS\_ORIGINS}
+and \texttt{OLLAMA\_MODEL} as plain environment variables (non-sensitive).
+
+This design satisfies NF-06 (JWT required on all endpoints), NF-07 (bcrypt
+hashing), and NF-08 (rate limiting) at the infrastructure level: the JWT secret
+is never stored in source code or container images, only fetched at runtime from
+Key Vault.
+
+% ---------------------------------------------------------------------------
+\section{Frontend Dashboard}
+\label{sec:frontend-deployment}
+% ---------------------------------------------------------------------------
+
+\subsection{Technology Stack and Architecture}
+\label{subsec:frontend-stack}
+
+\textbf{The technology.} The frontend is a React 18~[6] single-page application
+built with Vite~[7] as the bundler, TypeScript~[8] for static typing, Tailwind
+CSS~[9] + shadcn/ui~[10] for the component library, and Zustand~[11] for
+global state management.
+
+React 18 was chosen for its concurrent rendering capabilities (important for
+the live stage-progress view) and its large ecosystem of UI libraries compatible
+with Tailwind. Vite provides near-instant hot-module replacement in development
+and produces optimised production bundles in under 10 seconds. TypeScript
+enforces type safety across all API calls: the
+\texttt{frontend/src/types/index.ts} file defines \texttt{Conversion},
+\texttt{SasFile}, \texttt{PipelineStageInfo}, and related types that mirror
+the Pydantic schemas on the backend.
+
+Zustand was preferred over Redux for its minimal boilerplate: the
+\texttt{conversion-store.ts} contains the full upload/start/poll/stop logic
+in under 100 lines, with the polling interval hardcoded to 1,200 ms and
+automatic stop when the conversion status is terminal.
+
+All API calls pass through the \texttt{frontend/src/lib/api.ts} thin wrapper,
+which reads the JWT token from \texttt{localStorage} under the key
+\texttt{codara\_token} and attaches it as a Bearer header. The Vite dev-server
+proxy forwards all \texttt{/api} requests to \texttt{http://localhost:8000},
+so the frontend code never references the backend URL directly.
+
+\subsection{Key Interface Views}
+\label{subsec:workspace-ui}
+
+The frontend exposes seven distinct views:
+
+\textbf{Login / Register} (\texttt{src/pages/Login.tsx}): a minimal JWT
+authentication form with error handling for invalid credentials and rate-limited
+responses. On successful login, the JWT is stored in localStorage and the user
+is redirected to the Dashboard.
+
+\textbf{Dashboard} (\texttt{src/pages/Dashboard.tsx}): the primary landing
+page. Lists the user's conversions with status badges (queued / running /
+completed / partial / failed), accuracy scores where available, and creation
+timestamps. Provides a ``New Conversion'' button that navigates to the Workspace.
+
+[FIGURE 6.3 --- Caption: ``\codara{} Dashboard: list of conversions with
+status badges, accuracy scores, and navigation to the Workspace.'' ---
+Suggested: screenshot of the Dashboard page.]
+
+\textbf{Workspace} (\texttt{src/pages/Workspace.tsx}): the main conversion
+UI. Divided into three panels:
+\begin{itemize}
+  \item \textit{Upload panel}: drag-and-drop file upload with progress indicator.
+    After upload, displays the file list with detected SAS structure metadata.
+  \item \textit{Progress panel}: a live stage tracker showing the eight
+    pipeline stages as a vertical list with status icons, latency figures, and
+    warning counts. Stages update in real time as the 1,200 ms poll detects
+    changes.
+  \item \textit{Diff panel}: a GitHub-style side-by-side diff view
+    (SAS source on the left, Python output on the right) using the
+    \texttt{framer-motion} library for smooth transition animations. The SCS
+    badge appears above each translated block, colour-coded by verdict
+    (green = VERIFIED, blue = LIKELY\_CORRECT, yellow = UNCERTAIN,
+    red = LIKELY\_INCORRECT).
+\end{itemize}
+
+[FIGURE 6.4 --- Caption: ``\codara{} Workspace: upload panel (left), live
+stage tracker (centre), and GitHub-style SAS/Python side-by-side diff (right)
+with SemantiCheck Score badges.'' --- Suggested: screenshot or mockup of the
+three-panel Workspace view.]
+
+\textbf{Admin views} (\texttt{src/pages/admin/}): six admin-only pages
+accessible via the sidebar navigation for users with \texttt{role=admin}:
+\textit{Users} (user management with role and status controls),
+\textit{KBManagement} (knowledge-base CRUD with search),
+\textit{KBChangelog} (version history of KB entries),
+\textit{AuditLogs} (DuckDB-backed LLM cost and latency table),
+\textit{SystemHealth} (Redis status, LanceDB table size, SQLite size,
+circuit breaker states), and \textit{PipelineConfig} (editable pipeline
+parameters including LLM timeouts and RAPTOR cluster count).
+
+[FIGURE 6.5 --- Caption: ``Admin AuditLogs view: per-model latency and
+estimated token cost, sortable by timestamp.'' --- Suggested: screenshot
+of the AuditLogs admin page.]
+
+\textbf{Knowledge Base} (\texttt{src/pages/KnowledgeBase.tsx}): semantic search
+interface for the LanceDB KB. Users can search by SAS snippet or Python
+translation text; results are displayed as SAS--Python pair cards with
+confidence scores and complexity tier badges.
+
+\subsection{End-to-End Integration Flow}
+\label{subsec:e2e-integration}
+
+The complete flow from the user's perspective is as follows:
+
+\begin{enumerate}
+  \item User navigates to the Workspace and drags a \texttt{.sas} file onto
+    the upload zone. The file is sent via \texttt{POST /api/conversions/upload};
+    the response includes a list of SAS file metadata objects.
+  \item User clicks ``Start Conversion''. A \texttt{POST /api/conversions/start}
+    request is sent with the file UUIDs and target runtime (\texttt{python}).
+    The response returns a \texttt{conversion\_id}.
+  \item The Zustand \texttt{conversion-store} begins polling
+    \texttt{GET /api/conversions/\{id\}} every 1,200 ms. The stage tracker
+    updates live as each of the eight pipeline stages completes.
+  \item On completion, the diff panel renders the side-by-side view with SCS
+    badges. The user can click any translated block to view the full
+    SemantiCheck breakdown, Z3 verification outcome, and CDAIS test results.
+  \item If any partition is LIKELY\_INCORRECT, the user can click ``Submit
+    Correction'' to provide a corrected translation, which is ingested into
+    the knowledge base via \texttt{POST /api/conversions/\{id\}/corrections}.
+  \item The user clicks ``Download'' to receive a ZIP archive containing the
+    merged Python script and the HTML conversion report.
+\end{enumerate}
+
+[FIGURE 6.6 --- Caption: ``End-to-end integration sequence diagram: browser,
+FastAPI, Queue, Pipeline worker, and data stores.'' --- Suggested: UML
+sequence diagram with five actors.]
+
+% ---------------------------------------------------------------------------
+\section{Conclusion}
+\label{sec:ch6-conclusion}
+% ---------------------------------------------------------------------------
+
+This chapter demonstrated that \codara{} is not merely a research prototype
+but a deployable production service. The FastAPI application handles
+authentication, file upload, pipeline dispatch, and result polling through a
+clean, layered API. The three service modules (pipeline, blob, queue) decouple
+the HTTP layer from infrastructure, enabling both local development with
+Docker Compose and cloud deployment on Azure Container Apps without code changes.
+The six-job GitHub Actions pipeline provides continuous quality assurance:
+every push to main triggers lint, unit tests, semantic regression tests,
+Docker build validation, CodeQL security scanning, and an automated Azure deploy.
+
+The React frontend provides a polished, production-ready user experience: the
+three-panel Workspace view with live stage tracking and GitHub-style diff output
+gives engineers the visibility they need to trust the system's translations,
+while the SCS badges and one-click correction flow create a feedback loop that
+continuously improves the knowledge base.
+
+The quantitative performance of all these components against the targets
+established in Chapter~\ref{ch:specifications} is measured in the following
+chapter.
+
+% ---------------------------------------------------------------------------
+% References for Chapter 6
+% ---------------------------------------------------------------------------
+%
+% [1]  Ramírez, S., "FastAPI," https://fastapi.tiangolo.com/, 2024.
+% [2]  Docker Inc., "Docker: Empowering App Development for Developers,"
+%      https://www.docker.com/, 2024.
+% [3]  Docker Inc., "Docker Compose," https://docs.docker.com/compose/, 2024.
+% [4]  GitHub Inc., "GitHub Actions,"
+%      https://docs.github.com/en/actions, 2024.
+% [5]  Microsoft, "Azure Key Vault,"
+%      https://learn.microsoft.com/azure/key-vault/, 2024.
+% [6]  Meta Open Source, "React 18," https://react.dev/, 2024.
+% [7]  Evan You, "Vite: Next Generation Frontend Tooling,"
+%      https://vitejs.dev/, 2024.
+% [8]  Microsoft, "TypeScript," https://www.typescriptlang.org/, 2024.
+% [9]  Tailwind Labs, "Tailwind CSS," https://tailwindcss.com/, 2024.
+% [10] shadcn, "shadcn/ui," https://ui.shadcn.com/, 2024.
+% [11] Pmndrs, "Zustand," https://github.com/pmndrs/zustand, 2024.
