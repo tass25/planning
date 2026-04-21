@@ -4,7 +4,7 @@
 
 # Linting & formatting
 ruff~=0.9.0
-black~=25.0.0
+black~=25.1.0
 
 # Testing extras
 pytest~=8.3.0
