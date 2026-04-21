@@ -21,6 +21,7 @@ from pathlib import Path
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
+from sqlalchemy.orm import selectinload
 
 _log = structlog.get_logger("codara.conversions")
 
@@ -28,8 +29,6 @@ from config.constants import SSE_MAX_EVENTS, SSE_POLL_INTERVAL_S
 from config.settings import settings
 
 from api.core.auth import get_current_user
-from sqlalchemy.orm import selectinload
-
 from api.core.database import (
     ConversionRow,
     ConversionStageRow,
