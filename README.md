@@ -1,4 +1,4 @@
-# Codara — SAS → Python Conversion Accelerator
+# Codara by tess — SAS → Python Conversion Accelerator
 
 Multi-agent SAS-to-Python conversion accelerator using LangGraph orchestration, RAPTOR semantic clustering, and a 3-tier LLM fallback chain (Nemotron via Ollama → Azure OpenAI → Groq).
 
