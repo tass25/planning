@@ -24,7 +24,7 @@ from typing import Optional
 
 import instructor
 import structlog
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from partition.base_agent import BaseAgent
 from partition.models.conversion_result import ConversionResult
@@ -62,11 +62,25 @@ class TranslationOutput(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0)
     notes: str = Field(default="")
 
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _normalize_confidence(cls, v: object) -> float:
+        # Some models (e.g. nemotron) return confidence on a 0-100 scale.
+        # Divide by 100 when the value exceeds 1.
+        f = float(v)
+        return f / 100.0 if f > 1.0 else f
+
 
 class CrossVerifyOutput(BaseModel):
     equivalent: bool
     confidence: float = Field(..., ge=0.0, le=1.0)
     issues: list[str] = Field(default_factory=list)
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _normalize_confidence(cls, v: object) -> float:
+        f = float(v)
+        return f / 100.0 if f > 1.0 else f
 
 
 _LLM_TIMEOUT_S = 60  # per asyncio.to_thread call

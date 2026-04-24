@@ -43,6 +43,78 @@ _log = structlog.get_logger("codara.pipeline")
 UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "uploads"
 
 
+def _judge_translation_accuracy(sas_code: str, python_code: str) -> float:
+    """Score semantic equivalence using NVIDIA NIM as an independent judge.
+
+    NVIDIA NIM (meta/llama-3.1-70b-instruct) is used because it is completely
+    separate from the translation chain (Ollama/Azure/Groq), giving an unbiased
+    evaluation. Rotates across up to 5 NVIDIA API keys on failure.
+
+    Returns 0-100.0 or -1.0 when unavailable (caller uses structural fallback).
+    """
+    import json
+    import re
+
+    from openai import OpenAI
+
+    # Collect all NVIDIA keys in order (NVIDIA_API_KEY, NVIDIA_API_KEY_2, …5)
+    nvidia_keys = []
+    primary = os.getenv("NVIDIA_API_KEY", "").strip()
+    if primary:
+        nvidia_keys.append(primary)
+    for i in range(2, 6):
+        k = os.getenv(f"NVIDIA_API_KEY_{i}", "").strip()
+        if k:
+            nvidia_keys.append(k)
+
+    if not nvidia_keys:
+        return -1.0
+
+    sas_snippet = sas_code[:3000]
+    py_snippet = python_code[:3000]
+
+    prompt = (
+        "You are an independent code reviewer evaluating a SAS-to-Python translation.\n"
+        "Score 0 to 100 using this rubric:\n"
+        "  - Semantic equivalence: same logic and data transformations (50 pts)\n"
+        "  - Completeness: all SAS blocks represented in Python (25 pts)\n"
+        "  - Correctness: syntactically valid, idiomatic Python (25 pts)\n\n"
+        'Reply ONLY with a JSON object — no prose, no markdown:\n'
+        '{"score": <integer 0-100>, "reason": "<one sentence>"}\n\n'
+        f"### Original SAS code\n{sas_snippet}\n\n"
+        f"### Translated Python code\n{py_snippet}"
+    )
+
+    for key in nvidia_keys:
+        try:
+            client = OpenAI(api_key=key, base_url="https://integrate.api.nvidia.com/v1")
+            resp = client.chat.completions.create(
+                model="meta/llama-3.1-70b-instruct",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=120,
+                temperature=0.0,
+                timeout=25,
+            )
+            raw = (resp.choices[0].message.content or "").strip()
+            # NVIDIA doesn't always honour json_object mode — parse via regex
+            m = re.search(r"\{[^}]+\}", raw, re.DOTALL)
+            if m:
+                data = json.loads(m.group())
+                score = float(data.get("score", -1))
+                if 0.0 <= score <= 100.0:
+                    _log.info(
+                        "judge_accuracy_ok",
+                        provider="nvidia",
+                        score=score,
+                        reason=data.get("reason", "")[:80],
+                    )
+                    return round(score, 1)
+        except Exception as exc:
+            _log.warning("judge_nvidia_failed", error=str(exc))
+
+    return -1.0
+
+
 def run_pipeline_sync(
     conversion_id: str,
     file_id: str,
@@ -249,7 +321,12 @@ def run_pipeline_sync(
                 f"Human review: {human_rev} | Syntax valid: {syntax_valid}"
             )
 
-        if merge_status_str == "SUCCESS":
+        # Independent LLM judge (Groq) evaluates semantic equivalence.
+        # Falls back to structural completeness metric when Groq is unavailable.
+        judged_score = _judge_translation_accuracy(sas_code, python_code) if python_code else -1.0
+        if judged_score >= 0.0:
+            accuracy = judged_score
+        elif merge_status_str == "SUCCESS":
             accuracy = 100.0
         elif merge_status_str == "HAS_GAPS":
             merged_block_count = merge_res[0].get("merged_script", {}).get("block_count", 1) or 1
