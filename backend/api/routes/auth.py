@@ -2,26 +2,20 @@
 
 from __future__ import annotations
 
-import secrets
 import threading
 import time
 import uuid
+import secrets
 from collections import defaultdict
 from datetime import datetime, timezone
 
 import httpx
-from config.settings import settings
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Depends, Request, status
 
-from api.core.auth import create_access_token, get_current_user, hash_password, verify_password
-from api.core.database import NotificationRow, UserRow, get_api_session
-from api.core.schemas import (
-    AuthResponse,
-    GitHubCallbackRequest,
-    LoginRequest,
-    SignupRequest,
-    UserOut,
-)
+from api.core.auth import hash_password, verify_password, create_access_token, get_current_user
+from api.core.database import get_api_session, UserRow, NotificationRow
+from api.core.schemas import LoginRequest, SignupRequest, AuthResponse, UserOut, GitHubCallbackRequest
+from config.settings import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -67,34 +61,25 @@ def _user_to_out(row: UserRow) -> UserOut:
 
 
 def _create_notification(session, user_id: str, title: str, message: str, ntype: str = "info"):
-    session.add(
-        NotificationRow(
-            id=f"notif-{uuid.uuid4().hex[:8]}",
-            user_id=user_id,
-            title=title,
-            message=message,
-            type=ntype,
-            created_at=datetime.now(timezone.utc).isoformat(),
-        )
-    )
+    session.add(NotificationRow(
+        id=f"notif-{uuid.uuid4().hex[:8]}",
+        user_id=user_id,
+        title=title,
+        message=message,
+        type=ntype,
+        created_at=datetime.now(timezone.utc).isoformat(),
+    ))
 
 
 @router.post("/login", response_model=AuthResponse)
 def login(body: LoginRequest, request: Request):
     _check_rate_limit(request, "login")
     from api.main import engine
-
     session = get_api_session(engine)
     try:
         user = session.query(UserRow).filter(UserRow.email == body.email).first()
-        if (
-            not user
-            or not user.hashed_password
-            or not verify_password(body.password, user.hashed_password)
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
-            )
+        if not user or not user.hashed_password or not verify_password(body.password, user.hashed_password):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
         if user.status == "suspended":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
         token = create_access_token({"sub": user.id, "email": user.email, "role": user.role})
@@ -107,7 +92,6 @@ def login(body: LoginRequest, request: Request):
 def signup(body: SignupRequest, request: Request):
     _check_rate_limit(request, "signup")
     from api.main import engine
-
     session = get_api_session(engine)
     try:
         if session.query(UserRow).filter(UserRow.email == body.email).first():
@@ -129,15 +113,13 @@ def signup(body: SignupRequest, request: Request):
         session.flush()
 
         _create_notification(
-            session,
-            user.id,
+            session, user.id,
             "Welcome to Codara!",
             "Your account has been created. Please verify your email to unlock all features.",
             "info",
         )
         _create_notification(
-            session,
-            user.id,
+            session, user.id,
             "Email Verification Required",
             f"Use this verification token: {verification_token}",
             "warning",
@@ -158,7 +140,6 @@ def signup(body: SignupRequest, request: Request):
 @router.post("/verify-email")
 def verify_email(token: str):
     from api.main import engine
-
     session = get_api_session(engine)
     try:
         user = session.query(UserRow).filter(UserRow.verification_token == token).first()
@@ -168,8 +149,7 @@ def verify_email(token: str):
         user.verification_token = None
 
         _create_notification(
-            session,
-            user.id,
+            session, user.id,
             "Email Verified",
             "Your email has been verified successfully. All features are now unlocked.",
             "success",
@@ -185,10 +165,7 @@ def verify_email(token: str):
 def github_login_url():
     """Return the GitHub OAuth authorization URL."""
     if not GITHUB_CLIENT_ID:
-        raise HTTPException(
-            status_code=501,
-            detail="GitHub OAuth not configured. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET env vars.",
-        )
+        raise HTTPException(status_code=501, detail="GitHub OAuth not configured. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET env vars.")
     return {
         "url": f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&scope=user:email"
     }
@@ -217,10 +194,7 @@ async def github_callback(body: GitHubCallbackRequest):
         token_data = token_resp.json()
         access_token = token_data.get("access_token")
         if not access_token:
-            raise HTTPException(
-                status_code=400,
-                detail=token_data.get("error_description", "Failed to get access token"),
-            )
+            raise HTTPException(status_code=400, detail=token_data.get("error_description", "Failed to get access token"))
 
         # Get user info
         user_resp = await client.get(
@@ -247,21 +221,11 @@ async def github_callback(body: GitHubCallbackRequest):
             emails = []
         if not isinstance(emails, list):
             emails = []
-        primary_email = next(
-            (
-                e["email"]
-                for e in emails
-                if isinstance(e, dict) and e.get("primary") and e.get("email")
-            ),
-            None,
-        )
+        primary_email = next((e["email"] for e in emails if isinstance(e, dict) and e.get("primary") and e.get("email")), None)
         if not primary_email:
-            primary_email = (
-                gh_user.get("email") or f"{gh_user.get('login', 'unknown')}@github.local"
-            )
+            primary_email = gh_user.get("email") or f"{gh_user.get('login', 'unknown')}@github.local"
 
     from api.main import engine
-
     session = get_api_session(engine)
     try:
         gh_id = str(gh_user.get("id", ""))
@@ -289,8 +253,7 @@ async def github_callback(body: GitHubCallbackRequest):
                 session.flush()
 
                 _create_notification(
-                    session,
-                    user.id,
+                    session, user.id,
                     "Welcome to Codara!",
                     "Your account has been created via GitHub. Start converting SAS files now!",
                     "success",
@@ -307,7 +270,6 @@ async def github_callback(body: GitHubCallbackRequest):
 @router.get("/me", response_model=UserOut)
 def me(current_user: dict = Depends(get_current_user)):
     from api.main import engine
-
     session = get_api_session(engine)
     try:
         user = session.query(UserRow).filter(UserRow.id == current_user["sub"]).first()

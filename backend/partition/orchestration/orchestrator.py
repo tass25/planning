@@ -22,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import re
 import uuid
+from pathlib import Path
 from uuid import UUID
 
 import structlog
@@ -30,8 +31,8 @@ from langgraph.graph import END, StateGraph
 from partition.orchestration.audit import LLMAuditLogger
 from partition.orchestration.checkpoint import RedisCheckpointManager
 from partition.orchestration.state import PipelineStage, PipelineState
-from partition.orchestration.telemetry import trace_span, track_event, track_metric
-from partition.utils.large_file import MemoryMonitor, configure_memory_guards
+from partition.orchestration.telemetry import track_event, track_metric, trace_span
+from partition.utils.large_file import configure_memory_guards, MemoryMonitor
 
 logger = structlog.get_logger()
 
@@ -42,11 +43,12 @@ PIPELINE_VERSION = "3.1.0"
 def _parse_output_tables(sas_code: str) -> list[str]:
     """Extract output DATA dataset names from SAS source for ExecutionStateTracker."""
     names: list[str] = []
-    for m in re.finditer(r"\bdata\s+([\w.]+)", sas_code, re.IGNORECASE):
+    for m in re.finditer(r'\bdata\s+([\w.]+)', sas_code, re.IGNORECASE):
         name = m.group(1).split(".")[-1].lower()
         if name not in ("_null_",) and name not in names:
             names.append(name)
     return names
+
 
 
 class PartitionOrchestrator:
@@ -227,15 +229,12 @@ class PartitionOrchestrator:
 
         n_errors = len(final_state.get("errors", []))
         n_parts = final_state.get("partition_count", 0)
-        track_event(
-            "pipeline_complete",
-            {
-                "run_id": run_id,
-                "partitions": str(n_parts),
-                "errors": str(n_errors),
-                "pipeline_version": PIPELINE_VERSION,
-            },
-        )
+        track_event("pipeline_complete", {
+            "run_id": run_id,
+            "partitions": str(n_parts),
+            "errors": str(n_errors),
+            "pipeline_version": PIPELINE_VERSION,
+        })
         track_metric("pipeline_partition_count", float(n_parts), {"run_id": run_id})
 
         logger.info(
@@ -253,9 +252,7 @@ class PartitionOrchestrator:
     async def _node_file_process(self, state: PipelineState) -> dict:
         """Consolidated L2-A: Scan, register, and resolve cross-file deps."""
         import time as _t
-
         from partition.entry.file_processor import FileProcessor
-
         _t0 = _t.perf_counter()
 
         trace_id = UUID(state["trace_id"])
@@ -275,9 +272,7 @@ class PartitionOrchestrator:
             raise RuntimeError(f"L2-A file processing failed (fatal): {exc}") from exc
 
         track_event("stage_complete", {"stage": "file_process", "files": str(len(file_metas))})
-        track_metric(
-            "stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "file_process"}
-        )
+        track_metric("stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "file_process"})
         return {
             "file_metas": file_metas,
             "file_ids": file_ids,
@@ -290,9 +285,7 @@ class PartitionOrchestrator:
     async def _node_streaming(self, state: PipelineState) -> dict:
         """L2-B: Stream files through StreamAgent + StateAgent."""
         import time as _t
-
         from partition.streaming.pipeline import run_streaming_pipeline
-
         _t0 = _t.perf_counter()
 
         trace_id = UUID(state["trace_id"])
@@ -328,9 +321,7 @@ class PartitionOrchestrator:
     async def _node_chunking(self, state: PipelineState) -> dict:
         """Consolidated L2-C: Detect boundaries and build PartitionIR objects."""
         import time as _t
-
         from partition.chunking.chunking_agent import ChunkingAgent
-
         _t0 = _t.perf_counter()
 
         trace_id = UUID(state["trace_id"])
@@ -360,9 +351,7 @@ class PartitionOrchestrator:
     async def _node_raptor(self, state: PipelineState) -> dict:
         """L2-C: RAPTOR semantic clustering."""
         import time as _t
-
         from partition.raptor.raptor_agent import RAPTORPartitionAgent
-
         _t0 = _t.perf_counter()
 
         trace_id = UUID(state["trace_id"])
@@ -396,9 +385,7 @@ class PartitionOrchestrator:
     async def _node_risk_routing(self, state: PipelineState) -> dict:
         """Consolidated L2-D: Compute complexity scores and assign strategies."""
         import time as _t
-
         from partition.complexity.risk_router import RiskRouter
-
         _t0 = _t.perf_counter()
 
         agent = self._get_agent("risk_router", RiskRouter)
@@ -408,9 +395,7 @@ class PartitionOrchestrator:
         try:
             routed = await agent.process(partitions)
             track_event("stage_complete", {"stage": "risk_routing", "partitions": str(len(routed))})
-            track_metric(
-                "stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "risk_routing"}
-            )
+            track_metric("stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "risk_routing"})
             return {
                 "partitions": routed,
                 "complexity_computed": True,
@@ -428,15 +413,17 @@ class PartitionOrchestrator:
     async def _node_persist_index(self, state: PipelineState) -> dict:
         """Consolidated L2-E: Persist to SQLite + build dependency DAG."""
         import time as _t
-
-        from partition.index.index_agent import IndexAgent
         from partition.persistence.persistence_agent import PersistenceAgent
-
+        from partition.index.index_agent import IndexAgent
         _t0 = _t.perf_counter()
 
         trace_id = UUID(state["trace_id"])
-        persist_agent = self._get_agent("persistence", lambda: PersistenceAgent(trace_id=trace_id))
-        index_agent = self._get_agent("index", lambda: IndexAgent(trace_id=trace_id))
+        persist_agent = self._get_agent(
+            "persistence", lambda: PersistenceAgent(trace_id=trace_id)
+        )
+        index_agent = self._get_agent(
+            "index", lambda: IndexAgent(trace_id=trace_id)
+        )
         partitions = state.get("partitions", [])
         cross_deps = state.get("cross_file_deps", {})
         errors = list(state.get("errors", []))
@@ -472,17 +459,8 @@ class PartitionOrchestrator:
         for fid in state.get("file_ids", []):
             self.checkpoint.clear_checkpoints(fid)
 
-        track_event(
-            "stage_complete",
-            {
-                "stage": "persist_index",
-                "persisted": str(total_persisted),
-                "sccs": str(len(scc_groups)),
-            },
-        )
-        track_metric(
-            "stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "persist_index"}
-        )
+        track_event("stage_complete", {"stage": "persist_index", "persisted": str(total_persisted), "sccs": str(len(scc_groups))})
+        track_metric("stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "persist_index"})
         return {
             "persisted_count": total_persisted,
             "scc_groups": scc_groups,
@@ -502,10 +480,8 @@ class PartitionOrchestrator:
             applied to every translation for invariant-violation detection.
         """
         import time as _t
-
-        from partition.orchestration.execution_state import ExecutionStateTracker
         from partition.translation.translation_pipeline import TranslationPipeline
-
+        from partition.orchestration.execution_state import ExecutionStateTracker
         _t0 = _t.perf_counter()
 
         pipeline = self._get_agent(
@@ -549,8 +525,9 @@ class PartitionOrchestrator:
                 if getattr(result, "validation_passed", False):
                     passed += 1
                     # Register output tables for downstream context injection
-                    output_tables = p.metadata.get("output_tables", []) or _parse_output_tables(
-                        p.source_code or ""
+                    output_tables = (
+                        p.metadata.get("output_tables", [])
+                        or _parse_output_tables(p.source_code or "")
                     )
                     for tname in output_tables:
                         tracker.infer(tname, cols=[], produced_by=p.block_id)
@@ -575,17 +552,8 @@ class PartitionOrchestrator:
             validated=passed,
             tracker_tables=len(tracker.materialized_names()),
         )
-        track_event(
-            "stage_complete",
-            {
-                "stage": "translation",
-                "translated": str(len(conversion_results)),
-                "validated": str(passed),
-            },
-        )
-        track_metric(
-            "stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "translation"}
-        )
+        track_event("stage_complete", {"stage": "translation", "translated": str(len(conversion_results)), "validated": str(passed)})
+        track_metric("stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "translation"})
         return {
             "conversion_results": conversion_results,
             "validation_passed": passed,
@@ -597,9 +565,7 @@ class PartitionOrchestrator:
     async def _node_merge(self, state: PipelineState) -> dict:
         """Consolidated L4: Merge translated partitions into final scripts."""
         import time as _t
-
         from partition.merge.merge_agent import MergeAgent
-
         _t0 = _t.perf_counter()
 
         agent = self._get_agent("merge", MergeAgent)
@@ -645,9 +611,7 @@ class PartitionOrchestrator:
                     ],
                     partitions=[
                         {
-                            "partition_type": getattr(
-                                p.partition_type, "value", str(p.partition_type)
-                            ),
+                            "partition_type": getattr(p.partition_type, "value", str(p.partition_type)),
                             "line_start": getattr(p, "line_start", 0),
                             "line_end": getattr(p, "line_end", 0),
                             "raw_code": getattr(p, "raw_code", ""),
@@ -658,7 +622,6 @@ class PartitionOrchestrator:
                     source_file_id=file_id,
                     source_path=source_path,
                     target_runtime=target_runtime,
-                    cross_file_sources=cross_deps,
                 )
                 merge_results.append(result)
             except Exception as exc:
@@ -677,3 +640,5 @@ class PartitionOrchestrator:
             "stage": PipelineStage.COMPLETE.value,
             "warnings": warnings,
         }
+
+

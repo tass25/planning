@@ -18,9 +18,6 @@ Stage mapping (frontend display name → what actually runs here):
 from __future__ import annotations
 
 import asyncio
-import os
-import shutil
-import tempfile
 import time
 import uuid
 from datetime import datetime, timezone
@@ -29,90 +26,15 @@ from pathlib import Path
 import structlog
 
 from api.core.database import (
-    ConversionRow,
-    ConversionStageRow,
-    NotificationRow,
-    UserRow,
-    get_api_engine,
-    get_api_session,
+    ConversionRow, ConversionStageRow, UserRow, NotificationRow,
+    get_api_engine, get_api_session,
 )
 from api.services.blob_service import blob_service
+from api.services.translation_service import translate_sas_to_python
 
 _log = structlog.get_logger("codara.pipeline")
 
 UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "uploads"
-
-
-def _judge_translation_accuracy(sas_code: str, python_code: str) -> float:
-    """Score semantic equivalence using NVIDIA NIM as an independent judge.
-
-    NVIDIA NIM (meta/llama-3.1-70b-instruct) is used because it is completely
-    separate from the translation chain (Ollama/Azure/Groq), giving an unbiased
-    evaluation. Rotates across up to 5 NVIDIA API keys on failure.
-
-    Returns 0-100.0 or -1.0 when unavailable (caller uses structural fallback).
-    """
-    import json
-    import re
-
-    from openai import OpenAI
-
-    # Collect all NVIDIA keys in order (NVIDIA_API_KEY, NVIDIA_API_KEY_2, …5)
-    nvidia_keys = []
-    primary = os.getenv("NVIDIA_API_KEY", "").strip()
-    if primary:
-        nvidia_keys.append(primary)
-    for i in range(2, 6):
-        k = os.getenv(f"NVIDIA_API_KEY_{i}", "").strip()
-        if k:
-            nvidia_keys.append(k)
-
-    if not nvidia_keys:
-        return -1.0
-
-    sas_snippet = sas_code[:3000]
-    py_snippet = python_code[:3000]
-
-    prompt = (
-        "You are an independent code reviewer evaluating a SAS-to-Python translation.\n"
-        "Score 0 to 100 using this rubric:\n"
-        "  - Semantic equivalence: same logic and data transformations (50 pts)\n"
-        "  - Completeness: all SAS blocks represented in Python (25 pts)\n"
-        "  - Correctness: syntactically valid, idiomatic Python (25 pts)\n\n"
-        'Reply ONLY with a JSON object — no prose, no markdown:\n'
-        '{"score": <integer 0-100>, "reason": "<one sentence>"}\n\n'
-        f"### Original SAS code\n{sas_snippet}\n\n"
-        f"### Translated Python code\n{py_snippet}"
-    )
-
-    for key in nvidia_keys:
-        try:
-            client = OpenAI(api_key=key, base_url="https://integrate.api.nvidia.com/v1")
-            resp = client.chat.completions.create(
-                model="meta/llama-3.1-70b-instruct",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=120,
-                temperature=0.0,
-                timeout=25,
-            )
-            raw = (resp.choices[0].message.content or "").strip()
-            # NVIDIA doesn't always honour json_object mode — parse via regex
-            m = re.search(r"\{[^}]+\}", raw, re.DOTALL)
-            if m:
-                data = json.loads(m.group())
-                score = float(data.get("score", -1))
-                if 0.0 <= score <= 100.0:
-                    _log.info(
-                        "judge_accuracy_ok",
-                        provider="nvidia",
-                        score=score,
-                        reason=data.get("reason", "")[:80],
-                    )
-                    return round(score, 1)
-        except Exception as exc:
-            _log.warning("judge_nvidia_failed", error=str(exc))
-
-    return -1.0
 
 
 def run_pipeline_sync(
@@ -130,32 +52,16 @@ def run_pipeline_sync(
         file_process → sas_partition → strategy_select → translate →
         validate → repair → merge → finalize
     """
-    # Resolve the file path — download from Blob if enabled, else use local disk.
-    # Always place the file in an isolated temp directory so FileAnalysisAgent
-    # scans only this file and not the entire system temp folder.
-    _temp_dir: Path | None = None
+    # Resolve the file path — download from Blob if enabled, else use local disk
     _temp_path: Path | None = None
     try:
-        raw_path: Path = asyncio.run(blob_service.download_to_temp(file_id, filename))
+        file_path: Path = asyncio.run(blob_service.download_to_temp(file_id, filename))
+        # download_to_temp returns a temp file when Blob is enabled; track it for cleanup
         if blob_service.enabled:
-            # Blob mode: raw_path is a random temp file (e.g. /tmp/tmpXXX.sas).
-            # Move it into an isolated directory named after the conversion.
-            _temp_dir = Path(tempfile.mkdtemp(prefix=f"codara_{conversion_id}_"))
-            file_path = _temp_dir / filename
-            shutil.move(str(raw_path), file_path)
-            _temp_path = _temp_dir  # cleanup the whole dir on exit
-        else:
-            # Local mode: raw_path is already under uploads/file-XXXXXXXX/filename
-            # which is an isolated per-upload directory — no move needed.
-            file_path = raw_path
+            _temp_path = file_path
     except Exception as exc:
-        _log.error(
-            "pipeline_file_resolve_failed",
-            conversion_id=conversion_id,
-            file_id=file_id,
-            filename=filename,
-            error=str(exc),
-        )
+        _log.error("pipeline_file_resolve_failed", conversion_id=conversion_id,
+                   file_id=file_id, filename=filename, error=str(exc))
         return
     try:
         engine = get_api_engine(db_path)
@@ -171,14 +77,10 @@ def run_pipeline_sync(
         description: str | None = None,
     ) -> None:
         try:
-            st = (
-                session.query(ConversionStageRow)
-                .filter(
-                    ConversionStageRow.conversion_id == conversion_id,
-                    ConversionStageRow.stage == stage_name,
-                )
-                .first()
-            )
+            st = session.query(ConversionStageRow).filter(
+                ConversionStageRow.conversion_id == conversion_id,
+                ConversionStageRow.stage == stage_name,
+            ).first()
             if st:
                 st.status = status
                 now = datetime.now(timezone.utc).isoformat()
@@ -218,131 +120,147 @@ def run_pipeline_sync(
 
     # Ensure backend package is on sys.path for partition imports
     import sys
-
     pkg_root = str(Path(__file__).resolve().parent.parent.parent.parent)
     if pkg_root not in sys.path:
         sys.path.insert(0, pkg_root)
 
-    total_start = time.perf_counter()
+    from partition.entry.file_analysis_agent import FileAnalysisAgent
+    from partition.entry.registry_writer_agent import RegistryWriterAgent
+    from partition.entry.cross_file_dep_resolver import CrossFileDependencyResolver
+    from partition.entry.data_lineage_extractor import DataLineageExtractor
+    from partition.db.sqlite_manager import get_engine, init_db
+
+    pipeline_db_path = str(UPLOAD_DIR / f"{conversion_id}_pipeline.db")
     pipeline_engine = None
+    try:
+        pipeline_engine = get_engine(pipeline_db_path)
+        init_db(pipeline_engine)
+    except Exception as exc:
+        _log.error("pipeline_engine_init_failed", conversion_id=conversion_id, error=str(exc))
+        conv.status = "failed"
+        conv.updated_at = datetime.now(timezone.utc).isoformat()
+        conv.validation_report = f"Pipeline DB init error: {exc}"
+        try:
+            session.commit()
+        except Exception:
+            pass
+        try:
+            session.close()
+        except Exception:
+            pass
+        return
+
+    project_root = file_path.parent
+    total_start = time.perf_counter()
 
     try:
-        from partition.orchestration.orchestrator import PartitionOrchestrator
+        # Stage 1: file_process
+        _update_stage("file_process", "running", description="Scanning file structure & identifying SAS modules...")
+        t0 = time.perf_counter()
+        agent1 = FileAnalysisAgent()
+        files = asyncio.run(agent1.process(project_root)) or []
+        lat = (time.perf_counter() - t0) * 1000
+        _update_stage("file_process", "completed", lat, f"Discovered {len(files)} file(s) — structure mapped")
 
-        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-        duckdb_path = os.getenv("DUCKDB_PATH", "data/analytics.duckdb")
+        # Stage 2: sas_partition
+        _update_stage("sas_partition", "running", description="Chunking SAS code into logical blocks...")
+        t0 = time.perf_counter()
+        agent2 = RegistryWriterAgent()
+        reg_result = asyncio.run(agent2.process(files, pipeline_engine)) or {}
+        lat = (time.perf_counter() - t0) * 1000
+        inserted = reg_result.get("inserted", 0)
+        _update_stage("sas_partition", "completed", lat, f"Partitioned into {inserted} block(s) — registry built")
 
-        orchestrator = PartitionOrchestrator(
-            redis_url=redis_url,
-            duckdb_path=duckdb_path,
-            target_runtime=conv.runtime or "python",
-        )
-
-        # Signal the frontend that the pipeline is running.
+        # Stage 3: strategy_select
+        _update_stage("strategy_select", "running", description="Resolving cross-file dependencies & imports...")
+        t0 = time.perf_counter()
+        agent3 = CrossFileDependencyResolver()
+        deps = asyncio.run(agent3.process(files, project_root, pipeline_engine)) or {}
+        lat = (time.perf_counter() - t0) * 1000
         _update_stage(
-            "file_process", "running", description="Full 8-node LangGraph pipeline starting..."
+            "strategy_select", "completed", lat,
+            f"Resolved {deps.get('resolved', 0)}/{deps.get('total', 0)} dependencies",
         )
-        for _s in (
-            "sas_partition",
-            "strategy_select",
-            "translate",
-            "validate",
-            "repair",
-            "merge",
-            "finalize",
-        ):
-            _update_stage(_s, "running", description="Queued — waiting for upstream stage...")
 
-        final_state = asyncio.run(orchestrator.run([str(file_path)]))
+        # Stage 4: translate (data lineage)
+        _update_stage("translate", "running", description="Tracing data lineage — reads, writes, transforms...")
+        t0 = time.perf_counter()
+        agent4 = DataLineageExtractor()
+        lineage = asyncio.run(agent4.process(files, pipeline_engine)) or {}
+        lat = (time.perf_counter() - t0) * 1000
+        _update_stage(
+            "translate", "completed", lat,
+            f"Mapped {lineage.get('total_reads', 0)} reads + {lineage.get('total_writes', 0)} writes",
+        )
+
+        # Stage 5: validate (LLM translation)
+        _update_stage("validate", "running", description="Translating SAS code to Python via LLM...")
+        t0 = time.perf_counter()
+        python_code = translate_sas_to_python(sas_code)
+        lat = (time.perf_counter() - t0) * 1000
+        translation_ok = python_code and not python_code.startswith("# TRANSLATION UNAVAILABLE")
+        _update_stage(
+            "validate", "completed", lat,
+            "SAS → Python translation complete" if translation_ok
+            else "Translation skipped — LLM not configured",
+        )
+
+        # Stage 6: repair (syntax validation)
+        _update_stage("repair", "running", description="Validating translated Python code...")
+        t0 = time.perf_counter()
+        repair_notes: list[str] = []
+        if translation_ok:
+            try:
+                compile(python_code, "<translated>", "exec")
+                repair_notes.append("Syntax OK — compiles without errors")
+            except SyntaxError as se:
+                repair_notes.append(f"Syntax warning at line {se.lineno}: {se.msg}")
+        lat = (time.perf_counter() - t0) * 1000
+        _update_stage("repair", "completed", lat, repair_notes[0] if repair_notes else "No repairs needed")
+
+        # Stage 7: merge
+        _update_stage("merge", "running", description="Assembling final Python module...")
+        t0 = time.perf_counter()
+        header_lines = [
+            f'"""Auto-converted from {file_path.name} by Codara pipeline."""',
+            "",
+        ]
+        final_code = "\n".join(header_lines) + python_code
+        conv.python_code = final_code
+        session.commit()
+        lat = (time.perf_counter() - t0) * 1000
+        _update_stage("merge", "completed", lat, "Merged successfully — final module ready")
+
+        # Stage 8: finalize
+        _update_stage("finalize", "running", description="Packaging results & generating reports...")
+        t0 = time.perf_counter()
+        lat = (time.perf_counter() - t0) * 1000
+        _update_stage("finalize", "completed", lat, "Pipeline complete — results ready")
 
         total_elapsed = time.perf_counter() - total_start
 
-        # --- Map orchestrator state → display stages ---
-        n_files = len(final_state.get("file_metas", []))
-        n_parts = final_state.get("partition_count", 0)
-        n_raptor = len(final_state.get("raptor_nodes", []))
-        conv_res = final_state.get("conversion_results", [])
-        val_passed = final_state.get("validation_passed", 0)
-        merge_res = final_state.get("merge_results", [])
-        n_errors = len(final_state.get("errors", []))
-        n_warnings = len(final_state.get("warnings", []))
+        report_lines = [
+            f"File analysis: {len(files)} file(s) discovered",
+            f"Registry: {reg_result.get('inserted', 0)} inserted, {reg_result.get('skipped', 0)} skipped",
+            f"Cross-file deps: {deps.get('total', 0)} total, {deps.get('resolved', 0)} resolved",
+            f"Data lineage: {lineage.get('total_reads', 0)} reads, {lineage.get('total_writes', 0)} writes",
+        ]
 
-        _update_stage(
-            "file_process", "completed", None, f"{n_files} file(s) scanned — registry built"
-        )
-        _update_stage(
-            "sas_partition",
-            "completed",
-            None,
-            f"{n_parts} partition(s) — streaming + boundary detection",
-        )
-        _update_stage(
-            "strategy_select",
-            "completed",
-            None,
-            f"RAPTOR: {n_raptor} nodes — risk + strategy assigned",
-        )
-        _update_stage(
-            "translate", "completed", None, f"{len(conv_res)} block(s) translated via 3-tier RAG"
-        )
-        _update_stage(
-            "validate",
-            "completed",
-            None,
-            f"{val_passed}/{len(conv_res)} passed semantic validation",
-        )
-        _update_stage("repair", "completed", None, f"{n_errors} error(s) | {n_warnings} warning(s)")
-        _update_stage("merge", "completed", None, f"{len(merge_res)} script(s) assembled")
-        _update_stage("finalize", "completed", None, f"Pipeline complete in {total_elapsed:.1f}s")
-
-        # --- Extract python code and accuracy from first merge result ---
-        python_code = ""
-        merge_status_str = "FAILED"
-        validation_report = ""
-        merge_report = ""
-
-        if merge_res:
-            first = merge_res[0]
-            merged = first.get("merged_script", {})
-            python_code = merged.get("python_script", "")
-            merge_status_str = merged.get("status", "FAILED")
-            block_count = merged.get("block_count", 1) or 1
-            partial = merged.get("partial_count", 0)
-            human_rev = merged.get("human_review_count", 0)
-            syntax_valid = merged.get("syntax_valid", False)
-
-            report_obj = first.get("report", {})
-            validation_report = (
-                report_obj.get("report_md", "") if isinstance(report_obj, dict) else str(report_obj)
-            )
-            merge_report = (
-                f"Merge status: {merge_status_str} | "
-                f"Blocks: {block_count} | Partial: {partial} | "
-                f"Human review: {human_rev} | Syntax valid: {syntax_valid}"
-            )
-
-        # Independent LLM judge (Groq) evaluates semantic equivalence.
-        # Falls back to structural completeness metric when Groq is unavailable.
-        judged_score = _judge_translation_accuracy(sas_code, python_code) if python_code else -1.0
-        if judged_score >= 0.0:
-            accuracy = judged_score
-        elif merge_status_str == "SUCCESS":
+        # Accuracy: 100 if translation succeeded and syntax is valid,
+        # 50 if translation succeeded but had syntax warnings, 0 if unavailable.
+        syntax_ok = repair_notes and repair_notes[0].startswith("Syntax OK")
+        if translation_ok and syntax_ok:
             accuracy = 100.0
-        elif merge_status_str == "HAS_GAPS":
-            merged_block_count = merge_res[0].get("merged_script", {}).get("block_count", 1) or 1
-            gaps = merge_res[0].get("merged_script", {}).get("partial_count", 0) + merge_res[0].get(
-                "merged_script", {}
-            ).get("human_review_count", 0)
-            accuracy = round(100.0 * (merged_block_count - gaps) / merged_block_count, 1)
+        elif translation_ok:
+            accuracy = 50.0
         else:
             accuracy = 0.0
 
-        conv.python_code = python_code
         conv.status = "completed"
         conv.duration = round(total_elapsed, 2)
         conv.accuracy = accuracy
-        conv.validation_report = validation_report
-        conv.merge_report = merge_report
+        conv.validation_report = "\n".join(report_lines)
+        conv.merge_report = f"Pipeline completed in {total_elapsed:.2f}s"
         conv.updated_at = datetime.now(timezone.utc).isoformat()
 
     except Exception as exc:
@@ -370,21 +288,17 @@ def run_pipeline_sync(
             if conv.status == "completed"
             else f"Conversion of '{conv.file_name}' failed. Please try again."
         )
-        session.add(
-            NotificationRow(
-                id=f"notif-{uuid.uuid4().hex[:8]}",
-                user_id=conv.user_id,
-                title=notif_title,
-                message=notif_msg,
-                type="success" if conv.status == "completed" else "error",
-                created_at=datetime.now(timezone.utc).isoformat(),
-            )
-        )
+        session.add(NotificationRow(
+            id=f"notif-{uuid.uuid4().hex[:8]}",
+            user_id=conv.user_id,
+            title=notif_title,
+            message=notif_msg,
+            type="success" if conv.status == "completed" else "error",
+            created_at=datetime.now(timezone.utc).isoformat(),
+        ))
         session.commit()
     except Exception as exc:
-        _log.warning(
-            "post_pipeline_bookkeeping_failed", conversion_id=conversion_id, error=str(exc)
-        )
+        _log.warning("post_pipeline_bookkeeping_failed", conversion_id=conversion_id, error=str(exc))
 
     try:
         session.close()
@@ -396,9 +310,9 @@ def run_pipeline_sync(
         except Exception:
             pass
 
-    # Clean up isolated temp directory created for blob downloads
+    # Clean up temp file created by blob download (local uploads are kept)
     if _temp_path is not None:
         try:
-            shutil.rmtree(_temp_path, ignore_errors=True)
+            _temp_path.unlink(missing_ok=True)
         except Exception:
             pass

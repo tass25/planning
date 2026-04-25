@@ -50,13 +50,13 @@ def _load_keyvault_secrets() -> None:
 
         # Key Vault name → env var name mapping
         secret_map: dict[str, str] = {
-            "GROQ-API-KEY": "GROQ_API_KEY",
-            "GROQ-API-KEY-2": "GROQ_API_KEY_2",
-            "GROQ-API-KEY-3": "GROQ_API_KEY_3",
-            "OLLAMA-API-KEY": "OLLAMA_API_KEY",
-            "CODARA-JWT-SECRET": "CODARA_JWT_SECRET",
-            "GITHUB-CLIENT-SECRET": "GITHUB_CLIENT_SECRET",
-            "AZURE-STORAGE-CONNECTION-STRING": "AZURE_STORAGE_CONNECTION_STRING",
+            "GROQ-API-KEY":                     "GROQ_API_KEY",
+            "GROQ-API-KEY-2":                   "GROQ_API_KEY_2",
+            "GROQ-API-KEY-3":                   "GROQ_API_KEY_3",
+            "OLLAMA-API-KEY":                   "OLLAMA_API_KEY",
+            "CODARA-JWT-SECRET":                "CODARA_JWT_SECRET",
+            "GITHUB-CLIENT-SECRET":             "GITHUB_CLIENT_SECRET",
+            "AZURE-STORAGE-CONNECTION-STRING":  "AZURE_STORAGE_CONNECTION_STRING",
             # Add more as you store them in the vault:
             # "AZURE-OPENAI-API-KEY":           "AZURE_OPENAI_API_KEY",
             # "AZURE-OPENAI-ENDPOINT":          "AZURE_OPENAI_ENDPOINT",
@@ -96,20 +96,22 @@ class Settings(BaseSettings):
     )
 
     # ── App ───────────────────────────────────────────────────────────────────
-    app_env: str = "development"  # development | staging | production
+    app_env: str = "development"          # development | staging | production
     app_version: str = "3.1.0"
 
     # ── Database ──────────────────────────────────────────────────────────────
     # Override with postgresql+asyncpg://... for Azure SQL
-    sqlite_path: str = ""  # resolved in validator below
-    database_url: str = ""  # resolved in validator below
+    sqlite_path: str = ""                 # resolved in validator below
+    database_url: str = ""                # resolved in validator below
 
     @field_validator("sqlite_path", mode="before")
     @classmethod
     def _default_sqlite_path(cls, v: str) -> str:
         if v:
             return v
-        return str(Path(__file__).resolve().parent.parent / "data" / "codara_api.db")
+        return str(
+            Path(__file__).resolve().parent.parent / "data" / "codara_api.db"
+        )
 
     @field_validator("database_url", mode="before")
     @classmethod
@@ -185,7 +187,7 @@ class Settings(BaseSettings):
 
     # ── Feature flags ─────────────────────────────────────────────────────────
     enable_z3_verification: bool = True
-    llm_provider: str = "azure"  # legacy: azure | groq
+    llm_provider: str = "azure"           # legacy: azure | groq
 
     # ── CORS ─────────────────────────────────────────────────────────────────
     # Override via env: CORS_ORIGINS=https://app.codara.dev,http://localhost:5173
@@ -197,12 +199,12 @@ class Settings(BaseSettings):
     ]
 
     # ── Local GGUF model (Tier 0 — optional) ─────────────────────────────────
-    local_model_path: str = ""  # path to .gguf file; empty = disabled
-    local_model_threads: int = 4  # CPU threads for llama-cpp inference
-    local_model_ctx: int = 4096  # context window in tokens
+    local_model_path: str = ""          # path to .gguf file; empty = disabled
+    local_model_threads: int = 4        # CPU threads for llama-cpp inference
+    local_model_ctx: int = 4096         # context window in tokens
 
     # ── Azure Key Vault (production secret injection) ─────────────────────────
-    azure_keyvault_url: str = ""  # e.g. https://codara-kv.vault.azure.net/
+    azure_keyvault_url: str = ""        # e.g. https://codara-kv.vault.azure.net/
 
     # ── Misc ──────────────────────────────────────────────────────────────────
     lancedb_path: str = "lancedb_data"

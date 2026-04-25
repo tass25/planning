@@ -17,41 +17,42 @@ Provider chain (primary → fallback 1 → fallback 2):
 
 from __future__ import annotations
 
-import asyncio
 import re
 import uuid
+import asyncio
 from typing import Optional
 
 import instructor
+from pydantic import BaseModel, Field
 import structlog
-from pydantic import BaseModel, Field, field_validator
 
 from partition.base_agent import BaseAgent
+from partition.models.partition_ir import PartitionIR
 from partition.models.conversion_result import ConversionResult
 from partition.models.enums import ConversionStatus
-from partition.models.partition_ir import PartitionIR
-from partition.prompts import PromptManager
-from partition.rag import RAGRouter
-from partition.raptor.embedder import get_embedder
-from partition.translation.deterministic_translator import try_deterministic
 from partition.translation.failure_mode_detector import (
     detect_failure_mode,
     get_combined_failure_mode_rules,
 )
-from partition.translation.format_mapper import get_format_hint_block
-from partition.translation.kb_query import KBQueryClient
+from partition.translation.deterministic_translator import try_deterministic
 from partition.translation.macro_expander import expand_macros
+from partition.translation.format_mapper import get_format_hint_block
 from partition.translation.sas_builtins import get_builtins_hint_block
 from partition.translation.sas_type_inferencer import infer_types
+from partition.translation.kb_query import KBQueryClient
+from partition.raptor.embedder import get_embedder
+from partition.rag import RAGRouter
+from partition.prompts import PromptManager
+from partition.utils.retry import azure_limiter, azure_breaker
 from partition.utils.llm_clients import (
-    GroqPool,
     get_azure_openai_client,
     get_deployment_name,
     get_groq_openai_client,
     get_ollama_client,
+    get_ollama_model,
+    GroqPool,
 )
 from partition.utils.local_model_client import get_local_model_client
-from partition.utils.retry import azure_breaker, azure_limiter
 
 logger = structlog.get_logger()
 
@@ -62,30 +63,16 @@ class TranslationOutput(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0)
     notes: str = Field(default="")
 
-    @field_validator("confidence", mode="before")
-    @classmethod
-    def _normalize_confidence(cls, v: object) -> float:
-        # Some models (e.g. nemotron) return confidence on a 0-100 scale.
-        # Divide by 100 when the value exceeds 1.
-        f = float(v)
-        return f / 100.0 if f > 1.0 else f
-
 
 class CrossVerifyOutput(BaseModel):
     equivalent: bool
     confidence: float = Field(..., ge=0.0, le=1.0)
     issues: list[str] = Field(default_factory=list)
 
-    @field_validator("confidence", mode="before")
-    @classmethod
-    def _normalize_confidence(cls, v: object) -> float:
-        f = float(v)
-        return f / 100.0 if f > 1.0 else f
 
-
-_LLM_TIMEOUT_S = 60  # per asyncio.to_thread call
-_GROQ_MODEL = "llama-3.3-70b-versatile"
-_NEMOTRON_MODEL = "nemotron-3-super:cloud"  # PRIMARY Ollama model (Tier 1)
+_LLM_TIMEOUT_S   = 60                       # per asyncio.to_thread call
+_GROQ_MODEL      = "llama-3.3-70b-versatile"
+_NEMOTRON_MODEL  = "nemotron-3-super:cloud"  # PRIMARY Ollama model (Tier 1)
 
 
 class TranslationAgent(BaseAgent):
@@ -112,7 +99,7 @@ class TranslationAgent(BaseAgent):
     ):
         super().__init__()
         self.target_runtime = target_runtime
-        self.embedder = get_embedder()  # shared singleton — not loaded per agent
+        self.embedder = get_embedder()   # shared singleton — not loaded per agent
         self.kb_client = KBQueryClient()
         self.prompt_manager = PromptManager()
         self.rag_router = RAGRouter(
@@ -128,13 +115,17 @@ class TranslationAgent(BaseAgent):
 
         # Azure OpenAI (PRIMARY) — GPT-4o / GPT-4o-mini
         try:
-            self.azure_client = instructor.from_openai(get_azure_openai_client(async_client=False))
+            self.azure_client = instructor.from_openai(
+                get_azure_openai_client(async_client=False)
+            )
         except RuntimeError:
             self.azure_client = None
 
         # Ollama/Nemotron (fallback 1) — nemotron-3-super:cloud
         _ollama = get_ollama_client(async_client=False)
-        self.ollama_client = instructor.from_openai(_ollama) if _ollama else None
+        self.ollama_client = (
+            instructor.from_openai(_ollama) if _ollama else None
+        )
 
         # Groq (fallback 2) — llama-3.3-70b, round-robin key pool
         self._groq_pool = GroqPool()
@@ -172,8 +163,7 @@ class TranslationAgent(BaseAgent):
                     fingerprint=fingerprint,
                 )
                 imports = [
-                    ln.strip()
-                    for ln in cached_code.split("\n")
+                    ln.strip() for ln in cached_code.split("\n")
                     if ln.strip().startswith(("import ", "from "))
                 ]
                 return ConversionResult(
@@ -205,8 +195,7 @@ class TranslationAgent(BaseAgent):
                 rule=det.reason,
             )
             imports = [
-                ln.strip()
-                for ln in det.code.split("\n")
+                ln.strip() for ln in det.code.split("\n")
                 if ln.strip().startswith(("import ", "from "))
             ]
             return ConversionResult(
@@ -227,18 +216,18 @@ class TranslationAgent(BaseAgent):
 
         # ── Step 1: Failure mode detection ───────────────────────────────────
         failure_mode = detect_failure_mode(effective_sas)
-        fm_rules = get_combined_failure_mode_rules(effective_sas)
+        fm_rules     = get_combined_failure_mode_rules(effective_sas)
 
         # ── Step 2: Business logic enrichment + SAS contract extraction ──────
         business_logic = _enrich_business_logic(effective_sas, partition.partition_type.value)
-        sas_contract = _extract_sas_contract(effective_sas)
+        sas_contract   = _extract_sas_contract(effective_sas)
 
         # ── Step 2b: Format, built-in, type hints (new research modules) ─────
-        format_hint = get_format_hint_block(effective_sas)
+        format_hint  = get_format_hint_block(effective_sas)
         builtin_hint = get_builtins_hint_block(effective_sas)
-        type_report = infer_types(effective_sas)
-        type_hint = type_report.to_prompt_block()
-        macro_hint = macro_report.to_prompt_block() if macro_report.has_substitutions else ""
+        type_report  = infer_types(effective_sas)
+        type_hint    = type_report.to_prompt_block()
+        macro_hint   = macro_report.to_prompt_block() if macro_report.has_substitutions else ""
 
         # Inject enrichment and contract into metadata for RAG prompt building
         partition.metadata.setdefault("business_logic", business_logic)
@@ -247,7 +236,7 @@ class TranslationAgent(BaseAgent):
 
         # Inject error analysis hint from pipeline retry (if present)
         error_analysis_hint = partition.metadata.pop("error_analysis_hint", "")
-        partition.metadata.pop("error_category", "")
+        error_category      = partition.metadata.pop("error_category", "")
 
         # ── Step 3: RAG Router — select paradigm + retrieve + build prompt ───
         rag_ctx = self.rag_router.build_context(
@@ -258,24 +247,18 @@ class TranslationAgent(BaseAgent):
             attempt_number=0,
             translations=self._translations,
         )
-        prompt = rag_ctx["prompt"]
+        prompt      = rag_ctx["prompt"]
         kb_examples = rag_ctx["kb_examples"]
-        paradigm = rag_ctx["paradigm"]
+        paradigm    = rag_ctx["paradigm"]
 
         # Append all enrichment blocks to the prompt
-        for block in (
-            sas_contract,
-            format_hint,
-            builtin_hint,
-            type_hint,
-            macro_hint,
-            error_analysis_hint,
-        ):
+        for block in (sas_contract, format_hint, builtin_hint, type_hint,
+                      macro_hint, error_analysis_hint):
             if block:
                 prompt = prompt + "\n\n" + block
 
         # ── Step 4: LLM translation ───────────────────────────────────────────
-        model_used = ""
+        model_used  = ""
         translation = None
         retry_count = 0
 
@@ -309,14 +292,21 @@ class TranslationAgent(BaseAgent):
                         python_code=(
                             f"# PARTIAL: Translation failed after {retry_count} retries\n"
                             f"# Original SAS:\n"
-                            + "\n".join(f"# {line}" for line in partition.source_code.split("\n"))
+                            + "\n".join(
+                                f"# {line}"
+                                for line in partition.source_code.split("\n")
+                            )
                         ),
                         imports_detected=[],
                         status=ConversionStatus.PARTIAL,
                         llm_confidence=0.0,
-                        failure_mode_flagged=(failure_mode.value if failure_mode else ""),
+                        failure_mode_flagged=(
+                            failure_mode.value if failure_mode else ""
+                        ),
                         model_used=model_used,
-                        kb_examples_used=[ex["example_id"] for ex in kb_examples],
+                        kb_examples_used=[
+                            ex["example_id"] for ex in kb_examples
+                        ],
                         retry_count=retry_count,
                         trace_id=trace_id,
                         rag_paradigm=paradigm,
@@ -355,7 +345,9 @@ class TranslationAgent(BaseAgent):
                 prompt = rag_ctx["prompt"]
                 paradigm = rag_ctx["paradigm"]
                 try:
-                    translation, model_used = await self._translate_high_risk(prompt)
+                    translation, model_used = await self._translate_high_risk(
+                        prompt
+                    )
                     verify = await self._cross_verify(
                         partition.source_code,
                         translation.python_code,
@@ -394,7 +386,9 @@ class TranslationAgent(BaseAgent):
             rag_paradigm=paradigm,
         )
 
-    async def _translate_with_debate(self, prompt: str) -> tuple[TranslationOutput, str]:
+    async def _translate_with_debate(
+        self, prompt: str
+    ) -> tuple[TranslationOutput, str]:
         """Multi-agent debate for HIGH/UNCERTAIN risk partitions.
 
         Pattern from Du et al. "Improving Factuality and Reasoning in Language
@@ -421,12 +415,8 @@ class TranslationAgent(BaseAgent):
             return_exceptions=True,
         )
 
-        candidate_a: Optional[TranslationOutput] = (
-            results[0] if not isinstance(results[0], Exception) else None
-        )
-        candidate_b: Optional[TranslationOutput] = (
-            results[1] if not isinstance(results[1], Exception) else None
-        )
+        candidate_a: Optional[TranslationOutput] = results[0] if not isinstance(results[0], Exception) else None
+        candidate_b: Optional[TranslationOutput] = results[1] if not isinstance(results[1], Exception) else None
 
         # If we have two valid candidates and Groq is available — run debate
         if candidate_a and candidate_b and self.groq_client:
@@ -532,7 +522,9 @@ class TranslationAgent(BaseAgent):
             logger.warning("reflection_failed", error=str(exc))
             return error_description
 
-    async def _translate_local(self, sas_code: str, prompt: str) -> tuple[TranslationOutput, str]:
+    async def _translate_local(
+        self, sas_code: str, prompt: str
+    ) -> tuple[TranslationOutput, str]:
         """Tier 0: translate using local fine-tuned GGUF (LOW risk only).
 
         Falls back to Azure mini if the local model returns None or fails.
@@ -545,7 +537,8 @@ class TranslationAgent(BaseAgent):
             if python_code.startswith("```"):
                 lines = python_code.split("\n")
                 python_code = "\n".join(
-                    line for line in lines if not line.startswith("```")
+                    line for line in lines
+                    if not line.startswith("```")
                 ).strip()
             imports = [
                 ln.strip()
@@ -721,109 +714,22 @@ import hashlib as _hashlib
 
 # ── Translation memory helpers ────────────────────────────────────────────────
 
-_SAS_KEYWORDS = frozenset(
-    {
-        "data",
-        "set",
-        "run",
-        "proc",
-        "by",
-        "where",
-        "if",
-        "then",
-        "else",
-        "merge",
-        "keep",
-        "drop",
-        "rename",
-        "output",
-        "retain",
-        "array",
-        "do",
-        "end",
-        "to",
-        "while",
-        "until",
-        "return",
-        "link",
-        "goto",
-        "input",
-        "cards",
-        "datalines",
-        "infile",
-        "file",
-        "put",
-        "get",
-        "select",
-        "when",
-        "otherwise",
-        "format",
-        "informat",
-        "label",
-        "length",
-        "attrib",
-        "missing",
-        "options",
-        "libname",
-        "filename",
-        "ods",
-        "title",
-        "footnote",
-        "global",
-        "local",
-        "let",
-        "macro",
-        "mend",
-        "call",
-        "symput",
-        "symget",
-        "sum",
-        "mean",
-        "max",
-        "min",
-        "class",
-        "var",
-        "model",
-        "weight",
-        "freq",
-        "id",
-        "tables",
-        "ways",
-        "nodupkey",
-        "nodup",
-        "sort",
-        "import",
-        "export",
-        "print",
-        "means",
-        "freq",
-        "sql",
-        "transpose",
-        "report",
-        "tabulate",
-        "sgplot",
-        "connect",
-        "execute",
-        "create",
-        "insert",
-        "update",
-        "delete",
-        "from",
-        "join",
-        "left",
-        "right",
-        "inner",
-        "outer",
-        "on",
-        "as",
-        "order",
-        "group",
-        "having",
-        "distinct",
-        "into",
-        "quit",
-    }
-)
+_SAS_KEYWORDS = frozenset({
+    "data", "set", "run", "proc", "by", "where", "if", "then", "else",
+    "merge", "keep", "drop", "rename", "output", "retain", "array",
+    "do", "end", "to", "while", "until", "return", "link", "goto",
+    "input", "cards", "datalines", "infile", "file", "put", "get",
+    "select", "when", "otherwise", "format", "informat", "label",
+    "length", "attrib", "missing", "options", "libname", "filename",
+    "ods", "title", "footnote", "global", "local", "let", "macro",
+    "mend", "call", "symput", "symget", "sum", "mean", "max", "min",
+    "class", "var", "model", "weight", "freq", "id", "tables", "ways",
+    "nodupkey", "nodup", "sort", "import", "export", "print", "means",
+    "freq", "sql", "transpose", "report", "tabulate", "sgplot",
+    "connect", "execute", "create", "insert", "update", "delete",
+    "from", "join", "left", "right", "inner", "outer", "on", "as",
+    "order", "group", "having", "distinct", "into", "quit",
+})
 
 
 def _semantic_fingerprint(sas_code: str) -> str:
@@ -860,7 +766,9 @@ def _semantic_fingerprint(sas_code: str) -> str:
     return _hashlib.sha256(normalized.encode()).hexdigest()[:16]
 
 
-def _apply_var_renaming(cached_python: str, new_sas: str) -> Optional[str]:
+def _apply_var_renaming(
+    cached_python: str, new_sas: str
+) -> Optional[str]:
     """Apply variable name substitution from cached translation to new SAS context.
 
     Builds a mapping from the cached SAS variable names to the new SAS
@@ -871,45 +779,19 @@ def _apply_var_renaming(cached_python: str, new_sas: str) -> Optional[str]:
     """
     # Extract variable names from new SAS (non-keywords, in order of appearance)
     new_sas_clean = re.sub(r"/\*.*?\*/", "", new_sas, flags=re.DOTALL).lower()
-    new_names = list(
-        dict.fromkeys(
-            m.group(0)
-            for m in re.finditer(r"\b[a-z_]\w*\b", new_sas_clean)
-            if m.group(0) not in _SAS_KEYWORDS
-        )
-    )
+    new_names = list(dict.fromkeys(
+        m.group(0) for m in re.finditer(r"\b[a-z_]\w*\b", new_sas_clean)
+        if m.group(0) not in _SAS_KEYWORDS
+    ))
 
     # Extract variable names from cached Python code
-    py_names = list(
-        dict.fromkeys(
-            m.group(0)
-            for m in re.finditer(r"\b[a-z_]\w*\b", cached_python)
-            if not m.group(0).startswith(
-                (
-                    "import",
-                    "from",
-                    "def",
-                    "class",
-                    "return",
-                    "if",
-                    "else",
-                    "for",
-                    "while",
-                    "in",
-                    "not",
-                    "and",
-                    "or",
-                    "is",
-                    "True",
-                    "False",
-                    "None",
-                    "lambda",
-                    "pd",
-                    "np",
-                )
-            )
-        )
-    )
+    py_names = list(dict.fromkeys(
+        m.group(0) for m in re.finditer(r"\b[a-z_]\w*\b", cached_python)
+        if not m.group(0).startswith(("import", "from", "def", "class",
+                                       "return", "if", "else", "for", "while",
+                                       "in", "not", "and", "or", "is", "True",
+                                       "False", "None", "lambda", "pd", "np"))
+    ))
 
     # Heuristic: if name counts differ too much, don't attempt renaming
     if abs(len(new_names) - len(py_names)) > max(3, len(new_names) // 2):
@@ -922,7 +804,7 @@ def _apply_var_renaming(cached_python: str, new_sas: str) -> Optional[str]:
             mapping[old] = new
 
     if not mapping:
-        return cached_python  # identical variable names — direct reuse
+        return cached_python   # identical variable names — direct reuse
 
     # Apply substitution (whole-word only)
     result = cached_python
@@ -935,22 +817,22 @@ def _apply_var_renaming(cached_python: str, new_sas: str) -> Optional[str]:
 # ── Business logic enrichment ─────────────────────────────────────────────────
 
 _PROC_HINTS: dict[str, str] = {
-    "PROC SORT": "Sorts the dataset by the BY variables.",
-    "PROC MEANS": "Computes descriptive statistics (mean, min, max, std, n).",
-    "PROC FREQ": "Produces frequency tables and cross-tabulations.",
-    "PROC SQL": "Executes SQL queries against SAS datasets.",
-    "PROC IMPORT": "Imports an external file (CSV, Excel) into a SAS dataset.",
-    "PROC EXPORT": "Exports a SAS dataset to an external file (CSV, Excel).",
-    "PROC TRANSPOSE": "Transposes rows to columns or columns to rows.",
-    "PROC PRINT": "Prints observations from a dataset.",
+    "PROC SORT":       "Sorts the dataset by the BY variables.",
+    "PROC MEANS":      "Computes descriptive statistics (mean, min, max, std, n).",
+    "PROC FREQ":       "Produces frequency tables and cross-tabulations.",
+    "PROC SQL":        "Executes SQL queries against SAS datasets.",
+    "PROC IMPORT":     "Imports an external file (CSV, Excel) into a SAS dataset.",
+    "PROC EXPORT":     "Exports a SAS dataset to an external file (CSV, Excel).",
+    "PROC TRANSPOSE":  "Transposes rows to columns or columns to rows.",
+    "PROC PRINT":      "Prints observations from a dataset.",
     "PROC UNIVARIATE": "Detailed univariate statistics and distribution tests.",
-    "PROC REG": "Fits a linear regression model.",
-    "PROC LOGISTIC": "Fits a logistic regression model.",
-    "PROC REPORT": "Generates a customised tabular report.",
-    "PROC TABULATE": "Creates multi-dimensional summary tables.",
-    "PROC SGPLOT": "Creates statistical graphics (line, scatter, bar, etc.).",
-    "DATA STEP": "Processes data row by row, creating or transforming datasets.",
-    "%MACRO": "Defines a reusable macro (parametrised code template).",
+    "PROC REG":        "Fits a linear regression model.",
+    "PROC LOGISTIC":   "Fits a logistic regression model.",
+    "PROC REPORT":     "Generates a customised tabular report.",
+    "PROC TABULATE":   "Creates multi-dimensional summary tables.",
+    "PROC SGPLOT":     "Creates statistical graphics (line, scatter, bar, etc.).",
+    "DATA STEP":       "Processes data row by row, creating or transforming datasets.",
+    "%MACRO":          "Defines a reusable macro (parametrised code template).",
 }
 
 
@@ -973,13 +855,13 @@ def _enrich_business_logic(sas_code: str, partition_type: str) -> str:
 
     # Fallback by partition_type
     pt_hints = {
-        "DATA_STEP": "Transforms, filters, or merges data row-by-row.",
-        "PROC_BLOCK": "Runs a SAS procedure to compute or output results.",
+        "DATA_STEP":        "Transforms, filters, or merges data row-by-row.",
+        "PROC_BLOCK":       "Runs a SAS procedure to compute or output results.",
         "MACRO_DEFINITION": "Defines a reusable macro template.",
         "MACRO_INVOCATION": "Calls a previously defined macro with parameters.",
-        "SQL_BLOCK": "Executes a PROC SQL block with joins, aggregations, or DDL.",
-        "CONDITIONAL_BLOCK": "Contains conditional macro logic (%IF/%ELSE).",
-        "LOOP_BLOCK": "Contains an iterative macro loop (%DO/%END).",
+        "SQL_BLOCK":        "Executes a PROC SQL block with joins, aggregations, or DDL.",
+        "CONDITIONAL_BLOCK":"Contains conditional macro logic (%IF/%ELSE).",
+        "LOOP_BLOCK":       "Contains an iterative macro loop (%DO/%END).",
         "GLOBAL_STATEMENT": "Sets global options, libnames, or macro variables.",
         "INCLUDE_REFERENCE": "Includes an external SAS file.",
     }
@@ -1030,9 +912,7 @@ def _extract_sas_contract(sas_code: str) -> str:
     if re.search(r"\bdescending\b", sas_code, re.IGNORECASE):
         desc_m = re.findall(r"descending\s+(\w+)", sas_code, re.IGNORECASE)
         if desc_m:
-            lines.append(
-                f"- **DESCENDING** columns (use `ascending=False`): `{[c.lower() for c in desc_m]}`"
-            )
+            lines.append(f"- **DESCENDING** columns (use `ascending=False`): `{[c.lower() for c in desc_m]}`")
 
     # NODUPKEY
     if re.search(r"\bnodupkey\b", sas_code, re.IGNORECASE):

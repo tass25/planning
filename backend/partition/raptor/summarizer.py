@@ -16,12 +16,10 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-
 import structlog
 
 try:
     import tiktoken as _tiktoken
-
     _TIKTOKEN_AVAILABLE = True
 except ImportError:
     _tiktoken = None  # type: ignore[assignment]
@@ -51,7 +49,8 @@ try:
         key_constructs: list[str] = Field(
             default_factory=list,
             description=(
-                "Key SAS constructs found in this cluster " "(e.g., DATA step, PROC SQL, macro)."
+                "Key SAS constructs found in this cluster "
+                "(e.g., DATA step, PROC SQL, macro)."
             ),
         )
         estimated_complexity: str = Field(
@@ -71,7 +70,6 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Summarizer
 # ---------------------------------------------------------------------------
-
 
 class ClusterSummarizer:
     """Summarize a cluster of SAS code blocks — three-tier fallback.
@@ -96,11 +94,12 @@ class ClusterSummarizer:
         self._enc = _tiktoken.get_encoding(self.ENCODING_NAME) if _TIKTOKEN_AVAILABLE else None
         self.azure_client = None
         self.groq_client = None
-        self._azure_deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT_FULL", "gpt-4o")
+        self._azure_deployment = os.getenv(
+            "AZURE_OPENAI_DEPLOYMENT_FULL", "gpt-4o"
+        )
 
         try:
             import instructor
-
             from partition.utils.llm_clients import (
                 get_azure_openai_client,
                 get_groq_openai_client,
@@ -131,14 +130,18 @@ class ClusterSummarizer:
     # Public
     # ------------------------------------------------------------------
 
-    def summarize(self, code_blocks: list[str]) -> tuple[ClusterSummary, str]:
+    def summarize(
+        self, code_blocks: list[str]
+    ) -> tuple[ClusterSummary, str]:
         """Summarize a cluster of code blocks.
 
         Returns:
             (summary, tier) where tier is one of:
             "groq" | "ollama_fallback" | "heuristic_fallback" | "cached"
         """
-        cache_key = hashlib.sha256("||".join(sorted(code_blocks)).encode()).hexdigest()
+        cache_key = hashlib.sha256(
+            "||".join(sorted(code_blocks)).encode()
+        ).hexdigest()
 
         if cache_key in self._summary_cache:
             logger.debug("summary_cache_hit", key=cache_key[:12])
@@ -239,17 +242,17 @@ class ClusterSummarizer:
         constructs: set[str] = set()
 
         patterns = {
-            "DATA step": r"\bDATA\s+\w+",
-            "PROC SQL": r"\bPROC\s+SQL\b",
-            "PROC MEANS": r"\bPROC\s+MEANS\b",
-            "PROC FREQ": r"\bPROC\s+FREQ\b",
-            "PROC SORT": r"\bPROC\s+SORT\b",
-            "PROC REG": r"\bPROC\s+REG\b",
-            "PROC LOGISTIC": r"\bPROC\s+LOGISTIC\b",
-            "PROC IMPORT": r"\bPROC\s+IMPORT\b",
+            "DATA step":       r"\bDATA\s+\w+",
+            "PROC SQL":        r"\bPROC\s+SQL\b",
+            "PROC MEANS":      r"\bPROC\s+MEANS\b",
+            "PROC FREQ":       r"\bPROC\s+FREQ\b",
+            "PROC SORT":       r"\bPROC\s+SORT\b",
+            "PROC REG":        r"\bPROC\s+REG\b",
+            "PROC LOGISTIC":   r"\bPROC\s+LOGISTIC\b",
+            "PROC IMPORT":     r"\bPROC\s+IMPORT\b",
             "Macro definition": r"%MACRO\s+\w+",
-            "MERGE": r"\bMERGE\b",
-            "RETAIN": r"\bRETAIN\b",
+            "MERGE":           r"\bMERGE\b",
+            "RETAIN":          r"\bRETAIN\b",
         }
         for name, pattern in patterns.items():
             if re.search(pattern, all_code, re.IGNORECASE):
@@ -265,7 +268,11 @@ class ClusterSummarizer:
             f"Key constructs: {constructs_str}."
         )
 
-        complexity = "LOW" if total_lines < 50 else "MODERATE" if total_lines < 200 else "HIGH"
+        complexity = (
+            "LOW" if total_lines < 50
+            else "MODERATE" if total_lines < 200
+            else "HIGH"
+        )
 
         return ClusterSummary(
             summary=summary_text,
