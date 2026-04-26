@@ -466,9 +466,9 @@ def test_z3_effect_summary(agent):
     false_positive = sum(1 for c in CASES if c.correct_z3_status == "counterexample")
 
     assert bugs_caught == len(CASES), f"Z3 should catch all {len(CASES)} bugs, caught {bugs_caught}"
-    assert false_positive == 0, (
-        f"Z3 produced {false_positive} false positive(s) on correct translations"
-    )
+    assert (
+        false_positive == 0
+    ), f"Z3 produced {false_positive} false positive(s) on correct translations"
 
 
 # -------------------------------------------------------------------------

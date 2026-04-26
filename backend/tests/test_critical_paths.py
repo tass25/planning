@@ -74,9 +74,9 @@ async def test_all_llm_tiers_unavailable_returns_partial():
     # All clients already set to None above — no LLM tier available
     result = await agent.process(partition)
 
-    assert result.status == ConversionStatus.PARTIAL, (
-        f"Expected PARTIAL when all LLM tiers fail, got {result.status}"
-    )
+    assert (
+        result.status == ConversionStatus.PARTIAL
+    ), f"Expected PARTIAL when all LLM tiers fail, got {result.status}"
 
 
 # ── 3. None duration does not crash downloads ─────────────────────────────────

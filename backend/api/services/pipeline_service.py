@@ -568,9 +568,11 @@ def run_pipeline_sync(
             "validate",
             "completed",
             lat,
-            "SAS → Python translation complete"
-            if translation_ok
-            else "Translation skipped — LLM not configured",
+            (
+                "SAS → Python translation complete"
+                if translation_ok
+                else "Translation skipped — LLM not configured"
+            ),
         )
         track_metric("stage.validate.latency_ms", lat, {"conversion_id": conversion_id})
         track_event(

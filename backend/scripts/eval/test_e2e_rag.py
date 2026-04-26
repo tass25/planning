@@ -429,9 +429,9 @@ def test_agentic_rag(out: io.StringIO, embedder: NomicEmbedder) -> None:
                 f"  top_hit:      {top.get('category')}  sim={top.get('similarity', 0):.4f}",
                 file=out,
             )
-        assert ctx["raptor_level"] == expected_level, (
-            f"attempt={attempt}: expected {expected_level}, got {ctx['raptor_level']}"
-        )
+        assert (
+            ctx["raptor_level"] == expected_level
+        ), f"attempt={attempt}: expected {expected_level}, got {ctx['raptor_level']}"
         print("", file=out)
 
     # UNCERTAIN -> skips retrieval
@@ -495,9 +495,9 @@ def test_rag_router(out: io.StringIO, embedder: NomicEmbedder) -> None:
             f"{len(ctx['kb_examples']):>5} {elapsed:>7.3f}s  {match}",
             file=out,
         )
-        assert ctx["paradigm"] == expected_paradigm, (
-            f"{label}: expected {expected_paradigm}, got {ctx['paradigm']}"
-        )
+        assert (
+            ctx["paradigm"] == expected_paradigm
+        ), f"{label}: expected {expected_paradigm}, got {ctx['paradigm']}"
         if label == "UNCERTAIN":
             assert ctx["kb_examples"] == []
 
@@ -584,9 +584,9 @@ def process_running_totals(sales_df: pd.DataFrame) -> pd.DataFrame:
     print(f"  KB count:         {count_before} -> {count_after}", file=out)
 
     if result.get("accepted"):
-        assert count_after == count_before + 1, (
-            f"KB should have grown: {count_before} -> {count_after}"
-        )
+        assert (
+            count_after == count_before + 1
+        ), f"KB should have grown: {count_before} -> {count_after}"
         print(
             f"\nResult: PASS -- correction accepted, KB grew {count_before} -> {count_after}",
             file=out,
@@ -738,9 +738,9 @@ def test_retrain_trigger(out: io.StringIO) -> None:
             f"{decision.trigger_reason[:60]}  [{match}]",
             file=out,
         )
-        assert decision.should_retrain == expect_retrain, (
-            f"'{label}': expected {expect_retrain}, got {decision.should_retrain}"
-        )
+        assert (
+            decision.should_retrain == expect_retrain
+        ), f"'{label}': expected {expect_retrain}, got {decision.should_retrain}"
 
     print("\nResult: PASS -- all 4 trigger conditions verified", file=out)
 
@@ -794,9 +794,9 @@ def test_full_pipeline_rag(out: io.StringIO, embedder: NomicEmbedder) -> None:
         print(f"    {ctx['prompt'][:300].replace(chr(10), ' ')}", file=out)
         print("", file=out)
 
-        assert ctx["paradigm"] == expected_paradigm, (
-            f"{fname}: expected {expected_paradigm}, got {ctx['paradigm']}"
-        )
+        assert (
+            ctx["paradigm"] == expected_paradigm
+        ), f"{fname}: expected {expected_paradigm}, got {ctx['paradigm']}"
 
     print("Result: PASS", file=out)
 
