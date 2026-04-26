@@ -38,7 +38,7 @@ def _make_meta(tmp_path: Path, name: str, content: str) -> FileMetadata:
 def db_engine(tmp_path: Path):
     """Create a temp SQLite DB with tables initialised."""
     db_path = tmp_path / "test.db"
-    engine = get_engine(str(db_path))
+    engine = get_engine(str(db_path), _allow_any_path=True)
     init_db(engine)
     return engine
 

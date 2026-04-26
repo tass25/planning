@@ -18,6 +18,7 @@ openai~=1.82.0
 # Groq (fallback LLM provider — pre-Week 9 primary)
 groq~=0.25.0
 # RAPTOR semantic clustering (week 5)
+einops~=0.8.0                       # required by nomic-ai/nomic-bert-2048
 sentence-transformers~=4.1.0
 tf-keras>=2.16.0  # required by sentence-transformers 4+ / transformers keras backend
 torch~=2.7.0

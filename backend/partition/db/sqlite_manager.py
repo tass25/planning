@@ -137,7 +137,7 @@ class MergedScriptRow(Base):
 # ── Engine / Session helpers ──────────────────────────────────────────────────
 
 
-def get_engine(db_path: str = "data/file_registry.db"):
+def get_engine(db_path: str = "data/file_registry.db", *, _allow_any_path: bool = False):
     """Create a SQLAlchemy engine for the given SQLite database.
 
     Enables WAL journal mode and foreign keys via PRAGMA statements.
@@ -145,12 +145,13 @@ def get_engine(db_path: str = "data/file_registry.db"):
     resolved = Path(db_path).resolve()
     if resolved.suffix != ".db":
         raise ValueError(f"Invalid database path (must end in .db): {db_path}")
-    # Guard against path traversal: must stay within backend/
-    _backend_root = Path(__file__).resolve().parent.parent.parent
-    try:
-        resolved.relative_to(_backend_root)
-    except ValueError:
-        raise ValueError(f"Database path must be within backend directory: {db_path}")
+    if not _allow_any_path:
+        # Guard against path traversal: must stay within backend/
+        _backend_root = Path(__file__).resolve().parent.parent.parent
+        try:
+            resolved.relative_to(_backend_root)
+        except ValueError:
+            raise ValueError(f"Database path must be within backend directory: {db_path}")
     abs_path = str(resolved)
     engine = create_engine(f"sqlite:///{abs_path}", echo=False)
 

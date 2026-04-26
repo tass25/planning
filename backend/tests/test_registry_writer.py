@@ -33,7 +33,7 @@ def _make_meta(path: str, content: str = "DATA work.x; RUN;", valid: bool = True
 @pytest.fixture()
 def db_engine(tmp_path: Path):
     db_path = tmp_path / "test.db"
-    engine = get_engine(str(db_path))
+    engine = get_engine(str(db_path), _allow_any_path=True)
     init_db(engine)
     return engine
 
