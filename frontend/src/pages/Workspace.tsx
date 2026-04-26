@@ -216,6 +216,7 @@ export default function WorkspacePage() {
                 stage.status === "failed" ? "bg-destructive" : "bg-muted"
               )} />
               <span className="text-[10px] text-muted-foreground mt-2 text-center leading-tight">{stageLabels[stage.stage]}</span>
+              {stage.description && <span className="text-[9px] text-muted-foreground/70 text-center leading-tight max-w-[100px] truncate" title={stage.description}>{stage.description}</span>}
               {stage.latency && <span className="text-[10px] text-muted-foreground font-mono">{(stage.latency / 1000).toFixed(1)}s</span>}
               {stage.retryCount > 0 && <span className="text-[10px] text-warning">retry: {stage.retryCount}</span>}
               {stage.warnings.length > 0 && <AlertTriangle className="w-3 h-3 text-warning mt-0.5" />}

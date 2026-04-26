@@ -152,7 +152,7 @@ def run() -> None:
     total_start = time.monotonic()
 
     for i, (label, source) in enumerate(blocks):
-        print(f"[{i+1:2}/{len(blocks)}] {label[:52]:<52}", end="", flush=True)
+        print(f"[{i + 1:2}/{len(blocks)}] {label[:52]:<52}", end="", flush=True)
         t0 = time.monotonic()
         try:
             out = translate_block(client, model, source)
@@ -176,10 +176,10 @@ def run() -> None:
     success = sum(1 for *_, s, _ in results if s == "SUCCESS")
     total = len(results)
 
-    print(f"\n{CYAN}{'─'*72}")
-    print(f"  Results: {GREEN}{success}/{total} SUCCESS{RESET}  ({success/total*100:.0f}%)")
-    print(f"  Total time: {total_elapsed:.1f}s  |  avg: {total_elapsed/total:.1f}s/block")
-    print(f"{CYAN}{'─'*72}{RESET}")
+    print(f"\n{CYAN}{'─' * 72}")
+    print(f"  Results: {GREEN}{success}/{total} SUCCESS{RESET}  ({success / total * 100:.0f}%)")
+    print(f"  Total time: {total_elapsed:.1f}s  |  avg: {total_elapsed / total:.1f}s/block")
+    print(f"{CYAN}{'─' * 72}{RESET}")
 
     # Full translation printout
     print(f"\n{CYAN}{BOLD}{sep}")
@@ -204,7 +204,7 @@ def run() -> None:
 
         if out.explanation:
             print(f"{YELLOW}│  Note: {out.explanation[:120]}{RESET}")
-        print(f"{'─'*72}")
+        print(f"{'─' * 72}")
 
 
 if __name__ == "__main__":

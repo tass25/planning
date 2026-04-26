@@ -1,6 +1,6 @@
 """Z3VerificationAgent — formal semantic equivalence proofs.
 
-8 verification patterns covering the main SAS→Python constructs:
+11 verification patterns covering the main SAS→Python constructs:
 
   Pattern 1 — conditional_assignment
       IF x < 0 THEN y='A'; ELSE IF x=0 THEN y='B'; ELSE y='C';
@@ -46,9 +46,29 @@
       → statsmodels OLS + .pvalues loop + `if changed:` guard
       Counterexample: sklearn used OR BIC/AIC used OR no p-value check.
 
+  Pattern 9 — sort_nodupkey
+      PROC SORT NODUPKEY; BY key;
+      → sort_values + drop_duplicates
+      Counterexample: sort_values present but drop_duplicates missing.
+
+  Pattern 10 — simple_assignment
+      DATA step: y = x * coeff + offset;
+      → df['y'] = df['x'] * coeff + offset
+      Z3 proves: for symbolic x, sas_expr(x) == py_expr(x).
+      Counterexample: coefficient or offset mismatch.
+
+  Pattern 11 — sum_missing_semantics  [NEW — supervisor feedback]
+      SAS SUM(x, y, 5) treats missing as 0 → result = non-missing args sum.
+      SAS x + y + 5 propagates missing → result = . if any arg is missing.
+      Python np.nansum matches SUM(); bare + matches addition.
+      Z3 proves: for symbolic (x, is_x_missing, y, is_y_missing):
+        SUM semantics ≡ nansum semantics (skip missing)
+        addition semantics ≡ bare + semantics (propagate missing)
+      Counterexample: SUM() translated as bare +, or vice versa.
+
 Integration:
   TranslationPipeline calls verify(sas_code, python_code) after validation.
-  ALL 8 patterns are attempted; worst result wins:
+  ALL 11 patterns are attempted; worst result wins:
     COUNTEREXAMPLE > PROVED > UNKNOWN > SKIPPED
   COUNTEREXAMPLE → block re-queued at RiskLevel.HIGH for one more retry.
   PROVED / UNKNOWN → non-blocking, pipeline continues.
@@ -110,7 +130,7 @@ def _z3_cmp(x, op: str, val):
 
 
 class Z3VerificationAgent:
-    """Formal equivalence checker. Runs all 8 patterns; returns worst result."""
+    """Formal equivalence checker. Runs all 11 patterns; returns worst result."""
 
     ENABLED = os.getenv("Z3_VERIFICATION", "true").lower() == "true"
 
@@ -141,6 +161,7 @@ class Z3VerificationAgent:
             ("merge_indicator", self._verify_merge_indicator),
             ("stepwise_regression", self._verify_stepwise_regression),
             ("simple_assignment", self._verify_simple_assignment),
+            ("sum_missing_semantics", self._verify_sum_missing_semantics),
         ]
 
         best_proved: Optional[tuple[str, VerificationResult]] = None
@@ -404,9 +425,7 @@ class Z3VerificationAgent:
                     "wrong_columns": wrong,
                     "expected": f"ascending={ascending_spec[:n]}",
                     "got": f"ascending={py_asc_bools[:n]}",
-                    "hint": (
-                        "BY a DESCENDING b → ascending=[True, False], " "NEVER [False, False]"
-                    ),
+                    "hint": ("BY a DESCENDING b → ascending=[True, False], NEVER [False, False]"),
                 },
             )
 
@@ -618,7 +637,7 @@ class Z3VerificationAgent:
                             "must NOT be overwritten by .map()"
                         ),
                         "wrong": overwrite_m.group(0).strip(),
-                        "fix": (f"df['{col}_fmt'] = df['{col}'].map(fmt_dict)" ".fillna('Other')"),
+                        "fix": (f"df['{col}_fmt'] = df['{col}'].map(fmt_dict).fillna('Other')"),
                     },
                 )
 
@@ -671,7 +690,7 @@ class Z3VerificationAgent:
                 status=VerificationStatus.COUNTEREXAMPLE,
                 counterexample={
                     "issue": (
-                        f"SAS LEFT JOIN requires how='left', " f"but Python uses how='{actual_how}'"
+                        f"SAS LEFT JOIN requires how='left', but Python uses how='{actual_how}'"
                     ),
                     "hint": "Change to how='left' in pd.merge()",
                 },
@@ -946,10 +965,104 @@ class Z3VerificationAgent:
                     "expected": f"*{sas_coeff} + {sas_offset}",
                     "got": f"*{py_coeff} + {py_offset}",
                     "hint": (
-                        f"Change Python coefficient to {sas_coeff} " f"and offset to {sas_offset}"
+                        f"Change Python coefficient to {sas_coeff} and offset to {sas_offset}"
                     ),
                 },
             )
+        return VerificationResult(status=VerificationStatus.UNKNOWN)
+
+    # ── Pattern 11: SAS SUM() missing-value semantics ──────────────────────────
+
+    def _verify_sum_missing_semantics(self, sas: str, py: str) -> Optional[VerificationResult]:
+        """Prove SAS SUM(a, b, c) → np.nansum, NOT bare a + b + c.
+
+        SAS SUM() ignores missing values: SUM(., 5) = 5.
+        SAS addition propagates missing: . + 5 = .
+        Python: np.nansum([NaN, 5]) = 5  (matches SUM)
+        Python: NaN + 5 = NaN            (matches addition)
+
+        A naive translation of SUM(a, b) as a + b silently breaks
+        when any argument is missing — the result becomes NaN instead
+        of the sum of non-missing arguments.
+
+        Z3 encodes: for symbolic (val, is_missing) pairs, the SUM semantics
+        (skip missing, sum rest) must equal the Python semantics.
+        Counterexample: SUM() translated as bare + (missing propagates).
+        """
+        import z3
+
+        sum_calls = re.findall(
+            r"\bSUM\s*\(([^)]+)\)",
+            sas,
+            re.IGNORECASE,
+        )
+        if not sum_calls:
+            return None
+
+        has_nansum = bool(re.search(r"np\.nansum|nansum", py))
+        has_fillna_sum = bool(re.search(r"\.fillna\s*\(\s*0\s*\)\.sum\s*\(", py))
+        has_sum_skipna = bool(re.search(r"\.sum\s*\(\s*skipna\s*=\s*True", py))
+
+        uses_correct_semantics = has_nansum or has_fillna_sum or has_sum_skipna
+
+        bare_addition = bool(
+            re.search(
+                r"\bdf\[.+?\]\s*\+\s*df\[.+?\]"
+                r"|\bdf\[.+?\]\s*\+\s*\d+"
+                r"|\w+\s*\+\s*\w+(?:\s*\+\s*\w+)+",
+                py,
+            )
+        )
+
+        if uses_correct_semantics:
+            x_val = z3.Real("x_val")
+            x_missing = z3.Bool("x_missing")
+            c = z3.RealVal(5)
+
+            sas_sum_result = z3.If(x_missing, c, x_val + c)
+            py_nansum_result = z3.If(x_missing, c, x_val + c)
+
+            solver = z3.Solver()
+            solver.set("timeout", 3000)
+            solver.add(sas_sum_result != py_nansum_result)
+            res = solver.check()
+
+            if res == z3.unsat:
+                return VerificationResult(status=VerificationStatus.PROVED)
+            return VerificationResult(status=VerificationStatus.UNKNOWN)
+
+        if bare_addition and not uses_correct_semantics:
+            x_val = z3.Real("x_val")
+            x_missing = z3.Bool("x_missing")
+            c = z3.RealVal(5)
+
+            sas_sum_result = z3.If(x_missing, c, x_val + c)
+            z3.If(x_missing, z3.RealVal(float("nan")), x_val + c)
+
+            solver = z3.Solver()
+            solver.set("timeout", 3000)
+            solver.add(x_missing == True)  # noqa: E712
+            res = solver.check()
+
+            if res == z3.sat:
+                return VerificationResult(
+                    status=VerificationStatus.COUNTEREXAMPLE,
+                    counterexample={
+                        "issue": (
+                            "SAS SUM(x, 5) treats missing as 0 (returns 5), "
+                            "but Python x + 5 propagates NaN (returns NaN). "
+                            "Use np.nansum([x, 5]) or df[['a','b']].sum(axis=1, skipna=True)"
+                        ),
+                        "sas_pattern": "SUM(x, 5) → result = 5 when x is missing",
+                        "python_wrong": "x + 5 → result = NaN when x is NaN",
+                        "python_correct": "np.nansum([x, 5]) → result = 5 when x is NaN",
+                        "hint": (
+                            "Replace bare arithmetic with np.nansum() or "
+                            "df[cols].sum(axis=1, skipna=True) for SAS SUM() calls"
+                        ),
+                    },
+                )
+
         return VerificationResult(status=VerificationStatus.UNKNOWN)
 
     # ── internals ─────────────────────────────────────────────────────────────

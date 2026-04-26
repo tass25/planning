@@ -27,7 +27,6 @@ import structlog
 
 from partition.base_agent import BaseAgent
 from partition.models.conversion_result import ConversionResult
-from partition.models.enums import ConversionStatus
 
 logger = structlog.get_logger()
 
@@ -37,6 +36,7 @@ VALIDATION_TIMEOUT = 15 if sys.platform == "win32" else 8
 
 
 # ── Sandbox ──────────────────────────────────────────────────────────────────
+
 
 class _AutoNamespace(dict):
     """Namespace dict that returns a synthetic DataFrame for any unknown key.
@@ -50,6 +50,7 @@ class _AutoNamespace(dict):
     def __missing__(self, key: str):
         # Let Python builtins, dunder names, and keywords fall through normally
         import builtins as _builtins
+
         if key.startswith("_") or hasattr(_builtins, key):
             raise KeyError(key)
         try:
@@ -58,33 +59,35 @@ class _AutoNamespace(dict):
 
             rng = _np.random.default_rng(42)
             # Build a DataFrame with many common SAS column name patterns
-            df = _pd.DataFrame({
-                "id":          range(1, 101),
-                "customer_id": range(1001, 1101),
-                "product_id":  range(201, 301),
-                "amount":      rng.uniform(10, 1000, 100).round(2),
-                "revenue":     rng.uniform(10, 5000, 100).round(2),
-                "units_sold":  rng.integers(1, 50, 100),
-                "score":       rng.uniform(0, 100, 100).round(2),
-                "age":         rng.integers(18, 80, 100),
-                "value":       rng.uniform(0, 100, 100).round(2),
-                "flag":        rng.integers(0, 2, 100),
-                "status":      rng.choice(["ACTIVE", "PENDING", "CLOSED"], 100),
-                "category":    rng.choice(["A", "B", "C", "D"], 100),
-                "region":      rng.choice(["NORTH", "SOUTH", "EAST", "WEST"], 100),
-                "product_line": rng.choice(["LINE1", "LINE2", "LINE3"], 100),
-                "month":       rng.integers(1, 13, 100),
-                "year":        rng.integers(2020, 2025, 100),
-                "date":        _pd.date_range("2023-01-01", periods=100, freq="D"),
-                "survey_date": _pd.date_range("2023-01-01", periods=100, freq="D"),
-                "close":       rng.uniform(10, 500, 100).round(2),
-                "open":        rng.uniform(10, 500, 100).round(2),
-                "high":        rng.uniform(10, 500, 100).round(2),
-                "low":         rng.uniform(10, 500, 100).round(2),
-                "volume":      rng.integers(1000, 100000, 100),
-                "name":        [f"record_{i}" for i in range(100)],
-                "product_name": [f"product_{i}" for i in range(100)],
-            })
+            df = _pd.DataFrame(
+                {
+                    "id": range(1, 101),
+                    "customer_id": range(1001, 1101),
+                    "product_id": range(201, 301),
+                    "amount": rng.uniform(10, 1000, 100).round(2),
+                    "revenue": rng.uniform(10, 5000, 100).round(2),
+                    "units_sold": rng.integers(1, 50, 100),
+                    "score": rng.uniform(0, 100, 100).round(2),
+                    "age": rng.integers(18, 80, 100),
+                    "value": rng.uniform(0, 100, 100).round(2),
+                    "flag": rng.integers(0, 2, 100),
+                    "status": rng.choice(["ACTIVE", "PENDING", "CLOSED"], 100),
+                    "category": rng.choice(["A", "B", "C", "D"], 100),
+                    "region": rng.choice(["NORTH", "SOUTH", "EAST", "WEST"], 100),
+                    "product_line": rng.choice(["LINE1", "LINE2", "LINE3"], 100),
+                    "month": rng.integers(1, 13, 100),
+                    "year": rng.integers(2020, 2025, 100),
+                    "date": _pd.date_range("2023-01-01", periods=100, freq="D"),
+                    "survey_date": _pd.date_range("2023-01-01", periods=100, freq="D"),
+                    "close": rng.uniform(10, 500, 100).round(2),
+                    "open": rng.uniform(10, 500, 100).round(2),
+                    "high": rng.uniform(10, 500, 100).round(2),
+                    "low": rng.uniform(10, 500, 100).round(2),
+                    "volume": rng.integers(1000, 100000, 100),
+                    "name": [f"record_{i}" for i in range(100)],
+                    "product_name": [f"product_{i}" for i in range(100)],
+                }
+            )
             self[key] = df
             return df
         except Exception:
@@ -98,6 +101,7 @@ def _snapshot_namespace(namespace: dict) -> dict:
     concrete variable state at the point of failure.
     """
     import pandas as _pd
+
     snapshot: dict[str, object] = {}
     for name, val in namespace.items():
         if name.startswith("_") or name in ("pd", "np", "io", "sys"):
@@ -142,37 +146,52 @@ def _sandbox_exec(code: str, result_queue: "multiprocessing.Queue") -> None:
     import numpy as _np
     import pandas as _pd
 
-    blocked = frozenset({
-        "open", "__import__", "exec", "eval", "compile",
-        "exit", "quit", "input", "breakpoint",
-        "memoryview",
-    })
+    blocked = frozenset(
+        {
+            "open",
+            "exec",
+            "eval",
+            "compile",
+            "exit",
+            "quit",
+            "input",
+            "breakpoint",
+            "memoryview",
+        }
+    )
+
+    _keep_dunders = frozenset({"__import__", "__name__", "__build_class__"})
 
     if isinstance(__builtins__, dict):
         safe_builtins = {
-            k: v for k, v in __builtins__.items()
-            if k not in blocked and not k.startswith("__")
+            k: v
+            for k, v in __builtins__.items()
+            if k not in blocked and (not k.startswith("__") or k in _keep_dunders)
         }
     else:
         safe_builtins = {
             k: getattr(__builtins__, k)
             for k in dir(__builtins__)
-            if k not in blocked and not k.startswith("__")
+            if k not in blocked and (not k.startswith("__") or k in _keep_dunders)
         }
 
-    namespace = _AutoNamespace({
-        "__builtins__": safe_builtins,
-        "pd": _pd,
-        "np": _np,
-        # Provide a default 'df' matching the original ValidationAgent contract
-        "df": _pd.DataFrame({
-            "id":       range(1, 101),
-            "amount":   _np.random.default_rng(42).uniform(10, 1000, 100).round(2),
-            "category": ["A", "B", "C", "D"] * 25,
-            "date":     _pd.date_range("2024-01-01", periods=100, freq="D"),
-            "flag":     [0, 1] * 50,
-        }),
-    })
+    namespace = _AutoNamespace(
+        {
+            "__builtins__": safe_builtins,
+            "pd": _pd,
+            "np": _np,
+            # Provide a default 'df' matching the original ValidationAgent contract
+            "df": _pd.DataFrame(
+                {
+                    "id": range(1, 101),
+                    "amount": _np.random.default_rng(42).uniform(10, 1000, 100).round(2),
+                    "category": ["A", "B", "C", "D"] * 25,
+                    "date": _pd.date_range("2024-01-01", periods=100, freq="D"),
+                    "flag": [0, 1] * 50,
+                }
+            ),
+        }
+    )
 
     # Capture stdout
     stdout_buf = _io.StringIO()
@@ -183,23 +202,27 @@ def _sandbox_exec(code: str, result_queue: "multiprocessing.Queue") -> None:
         _sys.stdout = _sys.__stdout__
         # EGS: capture output variable states on success too
         exec_states = _snapshot_namespace(namespace)
-        result_queue.put({
-            "ok": True,
-            "stdout": stdout_buf.getvalue()[:300],
-            "exec_states": exec_states,
-        })
+        result_queue.put(
+            {
+                "ok": True,
+                "stdout": stdout_buf.getvalue()[:300],
+                "exec_states": exec_states,
+            }
+        )
     except Exception as e:
         _sys.stdout = _sys.__stdout__
         full_tb = _tb.format_exc()
         # EGS: snapshot variable state at crash point
         exec_states = _snapshot_namespace(namespace)
-        result_queue.put({
-            "ok": False,
-            "error": str(e),
-            "traceback": full_tb[-2000:],   # last 2000 chars is most relevant
-            "stdout": stdout_buf.getvalue()[:300],
-            "exec_states": exec_states,
-        })
+        result_queue.put(
+            {
+                "ok": False,
+                "error": str(e),
+                "traceback": full_tb[-2000:],  # last 2000 chars is most relevant
+                "stdout": stdout_buf.getvalue()[:300],
+                "exec_states": exec_states,
+            }
+        )
 
 
 class ValidationResult:
@@ -220,7 +243,7 @@ class ValidationResult:
         error_category: str = "",
         traceback: str = "",
         exec_states: Optional[dict] = None,  # EGS: variable snapshot at crash
-        exec_stdout: str = "",               # EGS: stdout captured during exec
+        exec_stdout: str = "",  # EGS: stdout captured during exec
         fuzzing_failures: Optional[list[str]] = None,  # edge-case failures
     ):
         self.passed = passed
@@ -264,7 +287,9 @@ class ValidationResult:
                             f"empty={info['empty']}"
                         )
                     else:
-                        lines.append(f"  - `{name}` ({info.get('type','?')}): {info.get('value','?')}")
+                        lines.append(
+                            f"  - `{name}` ({info.get('type', '?')}): {info.get('value', '?')}"
+                        )
         if self.fuzzing_failures:
             lines.append("\n**Edge-case fuzzing failures** (fix must handle these inputs):")
             for f in self.fuzzing_failures[:4]:
@@ -341,7 +366,9 @@ class ValidationAgent(BaseAgent):
                 error_msg="structural_only — exec skipped",
             )
 
-        exec_ok, exec_error, output, exec_states, exec_stdout = self._execute_with_timeout(python_code)
+        exec_ok, exec_error, output, exec_states, exec_stdout = self._execute_with_timeout(
+            python_code
+        )
         if not exec_ok:
             logger.warning(
                 "validation_exec_fail",
@@ -433,29 +460,58 @@ class ValidationAgent(BaseAgent):
         This is a lightweight property-based testing pass (Claessen & Hughes, QuickCheck 2000).
         Only runs when the primary validation passes — used to surface hidden semantic bugs.
         """
-        import io
         import pandas as pd
-        import numpy as np
 
         failures: list[str] = []
 
         EDGE_CASES = [
-            ("empty_df",
-             pd.DataFrame(columns=["id", "amount", "category", "date", "flag", "name",
-                                   "customer_id", "product_id", "status", "region"])),
-            ("single_row",
-             pd.DataFrame({
-                 "id": [1], "amount": [100.0], "category": ["A"],
-                 "date": pd.to_datetime(["2024-01-01"]), "flag": [0],
-                 "name": ["test"], "customer_id": [1001], "product_id": [201],
-                 "status": ["ACTIVE"], "region": ["NORTH"],
-             })),
-            ("all_null_amount",
-             pd.DataFrame({
-                 "id": range(5), "amount": [None] * 5,
-                 "category": ["A"] * 5, "date": pd.date_range("2024-01-01", 5),
-                 "flag": [0] * 5, "status": ["ACTIVE"] * 5,
-             })),
+            (
+                "empty_df",
+                pd.DataFrame(
+                    columns=[
+                        "id",
+                        "amount",
+                        "category",
+                        "date",
+                        "flag",
+                        "name",
+                        "customer_id",
+                        "product_id",
+                        "status",
+                        "region",
+                    ]
+                ),
+            ),
+            (
+                "single_row",
+                pd.DataFrame(
+                    {
+                        "id": [1],
+                        "amount": [100.0],
+                        "category": ["A"],
+                        "date": pd.to_datetime(["2024-01-01"]),
+                        "flag": [0],
+                        "name": ["test"],
+                        "customer_id": [1001],
+                        "product_id": [201],
+                        "status": ["ACTIVE"],
+                        "region": ["NORTH"],
+                    }
+                ),
+            ),
+            (
+                "all_null_amount",
+                pd.DataFrame(
+                    {
+                        "id": range(5),
+                        "amount": [None] * 5,
+                        "category": ["A"] * 5,
+                        "date": pd.date_range("2024-01-01", 5),
+                        "flag": [0] * 5,
+                        "status": ["ACTIVE"] * 5,
+                    }
+                ),
+            ),
         ]
 
         for case_name, test_df in EDGE_CASES:

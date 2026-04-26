@@ -176,9 +176,9 @@ def _make_groq_cross_verifier():
 def _run(name: str, fn, *args) -> None:
     global _passed, _failed
     buf = io.StringIO()
-    print(f"\n{'='*60}", flush=True)
+    print(f"\n{'=' * 60}", flush=True)
     print(f"  Running: {name}", flush=True)
-    print(f"{'='*60}", flush=True)
+    print(f"{'=' * 60}", flush=True)
     try:
         with redirect_stdout(buf):
             fn(buf, *args)
@@ -256,12 +256,12 @@ def test_kb_query(out: io.StringIO, embedder: NomicEmbedder) -> None:
         if results:
             top = results[0]
             print(
-                f"  {ptype:<30} {len(results)} hits  sim={top.get('similarity',0):.3f}  t={elapsed:.3f}s",
+                f"  {ptype:<30} {len(results)} hits  sim={top.get('similarity', 0):.3f}  t={elapsed:.3f}s",
                 file=out,
             )
             for r in results:
                 print(
-                    f"    - {r.get('category')} | sim={r.get('similarity',0):.3f} | sas_lines={len(r.get('sas_code','').splitlines())}",
+                    f"    - {r.get('category')} | sim={r.get('similarity', 0):.3f} | sas_lines={len(r.get('sas_code', '').splitlines())}",
                     file=out,
                 )
         else:
@@ -276,7 +276,7 @@ def test_kb_query(out: io.StringIO, embedder: NomicEmbedder) -> None:
         dist = r.get("_distance", "N/A")
         sim = (1 - dist) if isinstance(dist, float) else "N/A"
         print(
-            f"  {r.get('category','?'):<30} dist={dist}  sim={sim if isinstance(sim,str) else f'{sim:.3f}'}",
+            f"  {r.get('category', '?'):<30} dist={dist}  sim={sim if isinstance(sim, str) else f'{sim:.3f}'}",
             file=out,
         )
 
@@ -316,11 +316,11 @@ def test_static_rag(out: io.StringIO, embedder: NomicEmbedder) -> None:
         print("\nTop KB examples retrieved:", file=out)
         for i, ex in enumerate(ctx["kb_examples"], 1):
             print(
-                f"  [{i}] category={ex.get('category')}  similarity={ex.get('similarity',0):.4f}",
+                f"  [{i}] category={ex.get('category')}  similarity={ex.get('similarity', 0):.4f}",
                 file=out,
             )
             print(
-                f"      sas_lines={len(ex.get('sas_code','').splitlines())}  py_lines={len(ex.get('python_code','').splitlines())}",
+                f"      sas_lines={len(ex.get('sas_code', '').splitlines())}  py_lines={len(ex.get('python_code', '').splitlines())}",
                 file=out,
             )
 
@@ -370,7 +370,7 @@ def test_graph_rag(out: io.StringIO, embedder: NomicEmbedder) -> None:
         print("\nTop KB examples retrieved:", file=out)
         for i, ex in enumerate(ctx["kb_examples"][:3], 1):
             print(
-                f"  [{i}] category={ex.get('category')}  similarity={ex.get('similarity',0):.4f}",
+                f"  [{i}] category={ex.get('category')}  similarity={ex.get('similarity', 0):.4f}",
                 file=out,
             )
 
@@ -426,12 +426,12 @@ def test_agentic_rag(out: io.StringIO, embedder: NomicEmbedder) -> None:
         if ctx["kb_examples"]:
             top = ctx["kb_examples"][0]
             print(
-                f"  top_hit:      {top.get('category')}  sim={top.get('similarity',0):.4f}",
+                f"  top_hit:      {top.get('category')}  sim={top.get('similarity', 0):.4f}",
                 file=out,
             )
-        assert (
-            ctx["raptor_level"] == expected_level
-        ), f"attempt={attempt}: expected {expected_level}, got {ctx['raptor_level']}"
+        assert ctx["raptor_level"] == expected_level, (
+            f"attempt={attempt}: expected {expected_level}, got {ctx['raptor_level']}"
+        )
         print("", file=out)
 
     # UNCERTAIN -> skips retrieval
@@ -482,7 +482,7 @@ def test_rag_router(out: io.StringIO, embedder: NomicEmbedder) -> None:
         f"{'Case':<20} {'Expected':<10} {'Got':<10} {'k':>3} {'level':<10} {'kb_ex':>5} {'time':>8}",
         file=out,
     )
-    print(f"{'-'*20} {'-'*10} {'-'*10} {'-'*3} {'-'*10} {'-'*5} {'-'*8}", file=out)
+    print(f"{'-' * 20} {'-' * 10} {'-' * 10} {'-' * 3} {'-' * 10} {'-' * 5} {'-' * 8}", file=out)
 
     for label, partition, expected_paradigm, kwargs in cases:
         t0 = time.perf_counter()
@@ -495,9 +495,9 @@ def test_rag_router(out: io.StringIO, embedder: NomicEmbedder) -> None:
             f"{len(ctx['kb_examples']):>5} {elapsed:>7.3f}s  {match}",
             file=out,
         )
-        assert (
-            ctx["paradigm"] == expected_paradigm
-        ), f"{label}: expected {expected_paradigm}, got {ctx['paradigm']}"
+        assert ctx["paradigm"] == expected_paradigm, (
+            f"{label}: expected {expected_paradigm}, got {ctx['paradigm']}"
+        )
         if label == "UNCERTAIN":
             assert ctx["kb_examples"] == []
 
@@ -584,9 +584,9 @@ def process_running_totals(sales_df: pd.DataFrame) -> pd.DataFrame:
     print(f"  KB count:         {count_before} -> {count_after}", file=out)
 
     if result.get("accepted"):
-        assert (
-            count_after == count_before + 1
-        ), f"KB should have grown: {count_before} -> {count_after}"
+        assert count_after == count_before + 1, (
+            f"KB should have grown: {count_before} -> {count_after}"
+        )
         print(
             f"\nResult: PASS -- correction accepted, KB grew {count_before} -> {count_after}",
             file=out,
@@ -727,7 +727,7 @@ def test_retrain_trigger(out: io.StringIO) -> None:
     ]
 
     print(f"{'Condition':<35} {'Expected':>8} {'Got':>8}  {'Reason'}", file=out)
-    print(f"{'-'*35} {'-'*8} {'-'*8}  {'-'*40}", file=out)
+    print(f"{'-' * 35} {'-' * 8} {'-' * 8}  {'-' * 40}", file=out)
 
     for label, kwargs, expect_retrain in tests:
         trigger = _fresh(**kwargs)
@@ -738,9 +738,9 @@ def test_retrain_trigger(out: io.StringIO) -> None:
             f"{decision.trigger_reason[:60]}  [{match}]",
             file=out,
         )
-        assert (
-            decision.should_retrain == expect_retrain
-        ), f"'{label}': expected {expect_retrain}, got {decision.should_retrain}"
+        assert decision.should_retrain == expect_retrain, (
+            f"'{label}': expected {expect_retrain}, got {decision.should_retrain}"
+        )
 
     print("\nResult: PASS -- all 4 trigger conditions verified", file=out)
 
@@ -786,7 +786,7 @@ def test_full_pipeline_rag(out: io.StringIO, embedder: NomicEmbedder) -> None:
 
         if ctx["kb_examples"]:
             print(
-                f"  top_hit:    {ctx['kb_examples'][0].get('category')}  sim={ctx['kb_examples'][0].get('similarity',0):.4f}",
+                f"  top_hit:    {ctx['kb_examples'][0].get('category')}  sim={ctx['kb_examples'][0].get('similarity', 0):.4f}",
                 file=out,
             )
 
@@ -794,9 +794,9 @@ def test_full_pipeline_rag(out: io.StringIO, embedder: NomicEmbedder) -> None:
         print(f"    {ctx['prompt'][:300].replace(chr(10), ' ')}", file=out)
         print("", file=out)
 
-        assert (
-            ctx["paradigm"] == expected_paradigm
-        ), f"{fname}: expected {expected_paradigm}, got {ctx['paradigm']}"
+        assert ctx["paradigm"] == expected_paradigm, (
+            f"{fname}: expected {expected_paradigm}, got {ctx['paradigm']}"
+        )
 
     print("Result: PASS", file=out)
 
@@ -815,7 +815,7 @@ def main() -> None:
     print("\nInitializing NomicEmbedder (CPU)...", flush=True)
     t0 = time.perf_counter()
     embedder = NomicEmbedder()
-    print(f"  Ready in {time.perf_counter()-t0:.2f}s", flush=True)
+    print(f"  Ready in {time.perf_counter() - t0:.2f}s", flush=True)
 
     _run("01_KB_Loaded", test_kb_loaded)
     _run("02_KB_Query", test_kb_query, embedder)

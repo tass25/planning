@@ -175,9 +175,9 @@ async def run() -> None:
         sys.exit(1)
 
     blocks = parse_blocks(sas_path)
-    print(f"\n{CYAN}{'-'*70}")
+    print(f"\n{CYAN}{'-' * 70}")
     print(f"  Codara translate_test - {len(blocks)} blocks from torture_test.sas")
-    print(f"{'-'*70}{RESET}\n")
+    print(f"{'-' * 70}{RESET}\n")
 
     pipeline = TranslationPipeline(target_runtime="python", duckdb_path="data/analytics.duckdb")
 
@@ -187,7 +187,7 @@ async def run() -> None:
     for i, (label, source) in enumerate(blocks):
         partition = make_partition(label, source, i)
         print(
-            f"[{i+1}/{len(blocks)}] {label[:55]:<55} risk={partition.risk_level.value:<10}",
+            f"[{i + 1}/{len(blocks)}] {label[:55]:<55} risk={partition.risk_level.value:<10}",
             end="",
             flush=True,
         )
@@ -209,9 +209,9 @@ async def run() -> None:
     total_elapsed = time.monotonic() - total_start
 
     # Summary table
-    print(f"\n{CYAN}{'-'*70}")
+    print(f"\n{CYAN}{'-' * 70}")
     print("  Summary")
-    print(f"{'-'*70}{RESET}")
+    print(f"{'-' * 70}{RESET}")
 
     success = sum(1 for _, r, _ in results if r.status == ConversionStatus.SUCCESS)
     partial = sum(1 for _, r, _ in results if r.status == ConversionStatus.PARTIAL)
@@ -220,8 +220,8 @@ async def run() -> None:
     total = len(results)
 
     print(f"  Blocks translated : {total}")
-    print(f"  SUCCESS           : {GREEN}{success}{RESET} ({success/total*100:.0f}%)")
-    print(f"  PARTIAL           : {YELLOW}{partial}{RESET} ({partial/total*100:.0f}%)")
+    print(f"  SUCCESS           : {GREEN}{success}{RESET} ({success / total * 100:.0f}%)")
+    print(f"  PARTIAL           : {YELLOW}{partial}{RESET} ({partial / total * 100:.0f}%)")
     print(f"  Z3 formal proofs  : {proved}")
     print(f"  Z3 counterexamples: {counterex}")
     print(f"  Total time        : {total_elapsed:.1f}s")
@@ -233,14 +233,14 @@ async def run() -> None:
     stem = sas_path.stem
     for i, (label, result, _) in enumerate(results):
         safe_label = _re.sub(r"[^\w]+", "_", label).strip("_")[:40]
-        out_file = out_dir / f"{stem}_block{i+1:02d}_{safe_label}.py"
+        out_file = out_dir / f"{stem}_block{i + 1:02d}_{safe_label}.py"
         out_file.write_text(result.python_code, encoding="utf-8")
     merged_file = out_dir / f"{stem}_all.py"
     merged_file.write_text(
         "\n\n# "
         + "=" * 70
         + "\n\n".join(
-            f"# Block {i+1}: {label}\n# {'='*70}\n\n{result.python_code}"
+            f"# Block {i + 1}: {label}\n# {'=' * 70}\n\n{result.python_code}"
             for i, (label, result, _) in enumerate(results)
         ),
         encoding="utf-8",
@@ -248,9 +248,9 @@ async def run() -> None:
     print(f"\n  Output saved to: {out_dir}/")
 
     # Print first few lines of each translation for inspection
-    print(f"{CYAN}{'-'*70}")
+    print(f"{CYAN}{'-' * 70}")
     print("  Translations preview (first 6 lines each)")
-    print(f"{'-'*70}{RESET}")
+    print(f"{'-' * 70}{RESET}")
     for label, result, _ in results:
         preview = "\n".join(result.python_code.splitlines()[:6])
         colour = STATUS_COLOUR.get(result.status, RESET)

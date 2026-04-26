@@ -1,4 +1,4 @@
-﻿"""StateAgent (#5)  Pure-Python finite-state machine for SAS parsing.
+"""StateAgent (#5)  Pure-Python finite-state machine for SAS parsing.
 
 Consumes ``LineChunk`` objects one at a time and maintains a ``ParsingState``
 snapshot that tracks:

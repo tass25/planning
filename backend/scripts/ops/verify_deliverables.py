@@ -85,10 +85,10 @@ def _check(items: list[tuple[str, Path]], required: bool) -> int:
 
 
 def main() -> None:
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("  Codara Deliverables Verification")
     print(f"  Root: {ROOT}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     print("REQUIRED FILES:")
     failures = _check(REQUIRED, required=True)
@@ -103,12 +103,12 @@ def main() -> None:
         gold_count = len(list(gs_dir.glob("*.gold.json")))
         print(f"\nGold standard corpus: {sas_count} .sas files, {gold_count} .gold.json files")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     if failures == 0:
         print("  [PASS] ALL REQUIRED DELIVERABLES PRESENT")
     else:
         print(f"  [FAIL] {failures} REQUIRED FILE(S) MISSING")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
     sys.exit(0 if failures == 0 else 1)
 
 

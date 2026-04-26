@@ -397,7 +397,7 @@ def save_translation(
         f"Model        : {model}",
         f"Generated    : {run_ts}",
         f"Blocks       : {total}",
-        f"Success      : {success}/{total}  ({success*100//total if total else 0}%)",
+        f"Success      : {success}/{total}  ({success * 100 // total if total else 0}%)",
         f"Z3 proved    : {proved}/{total}",
         f"Mean latency : {mean_lat:.1f}s",
         f"Total tokens : {total_tok:,}",
@@ -411,7 +411,7 @@ def save_translation(
         r = next((x for x in results if x.block_index == i), None)
         lines += [
             SEP,
-            f"# Block {i+1:02d}  {label}",
+            f"# Block {i + 1:02d}  {label}",
             f"# Risk       : {_risk(sas)}",
             f"# SAS lines  : {len([l for l in sas.splitlines() if l.strip()])}",
         ]
@@ -471,7 +471,7 @@ def write_benchmark_md(
         )
 
     def _pct(n, t):
-        return f"{n*100//t if t else 0}%"
+        return f"{n * 100 // t if t else 0}%"
 
     lines: list[str] = [
         "# Codara  --  Model Benchmark",
@@ -513,7 +513,7 @@ def write_benchmark_md(
     sh = [_short(m) for m in models]
     lines += [
         f"| Metric | {' | '.join(sh)} |",
-        f"|--------|{'|'.join(['----']*len(models))}|",
+        f"|--------|{'|'.join(['----'] * len(models))}|",
     ]
 
     def _row(label, fn):
@@ -543,11 +543,11 @@ def write_benchmark_md(
 
     for i, (label, sas) in enumerate(blocks):
         lines += [
-            f"### Block {i+1}: {label}",
+            f"### Block {i + 1}: {label}",
             f"Risk: {_risk(sas)} | SAS lines: {len([l for l in sas.splitlines() if l.strip()])}",
             "",
             f"| Metric | {' | '.join(sh)} |",
-            f"|--------|{'|'.join(['----']*len(models))}|",
+            f"|--------|{'|'.join(['----'] * len(models))}|",
         ]
 
         def _brow(lbl, fn):
@@ -581,7 +581,7 @@ def write_benchmark_md(
         "",
     ]
     for i, (label, _) in enumerate(blocks):
-        lines += [f"### Block {i+1}: {label}", ""]
+        lines += [f"### Block {i + 1}: {label}", ""]
         for model in models:
             r = next((x for x in all_results.get(model, []) if x.block_index == i), None)
             lines += [f"**{_short(model)}**", "```python"]
@@ -633,7 +633,7 @@ def run(sas_path: Path, models: list[str]) -> None:
         model_t0 = time.monotonic()
 
         for i, (label, sas) in enumerate(blocks):
-            short_lbl = f"[{i+1:2d}/{len(blocks)}] {label[:45]:<45}"
+            short_lbl = f"[{i + 1:2d}/{len(blocks)}] {label[:45]:<45}"
             print(f"  {short_lbl}", end="", flush=True)
 
             r = translate_block(model, i, label, sas, api_key, base_url)
@@ -710,29 +710,31 @@ def run(sas_path: Path, models: list[str]) -> None:
     total = len(blocks)
     _cmp(
         "Success rate",
-        lambda rs: f"{sum(1 for r in rs if r.status=='SUCCESS')*100//total if total else 0}%",
+        lambda rs: f"{sum(1 for r in rs if r.status == 'SUCCESS') * 100 // total if total else 0}%",
     )
     _cmp(
         "Syntax valid",
-        lambda rs: f"{sum(1 for r in rs if r.syntax_valid)*100//total if total else 0}%",
+        lambda rs: f"{sum(1 for r in rs if r.syntax_valid) * 100 // total if total else 0}%",
     )
     _cmp(
         "Mean confidence",
-        lambda rs: f"{sum(r.confidence for r in rs)/len(rs):.2f}" if rs else "N/A",
+        lambda rs: f"{sum(r.confidence for r in rs) / len(rs):.2f}" if rs else "N/A",
     )
     _cmp(
         "Mean latency (s)",
-        lambda rs: f"{sum(r.latency_s for r in rs)/len(rs):.1f}" if rs else "N/A",
+        lambda rs: f"{sum(r.latency_s for r in rs) / len(rs):.1f}" if rs else "N/A",
     )
     _cmp("Total tokens", lambda rs: f"{sum(r.total_tokens for r in rs):,}")
     _cmp(
         "Mean tok/s",
-        lambda rs: f"{sum(r.tokens_per_second for r in rs if r.tokens_per_second>0)/max(1,sum(1 for r in rs if r.tokens_per_second>0)):.0f}",
+        lambda rs: (
+            f"{sum(r.tokens_per_second for r in rs if r.tokens_per_second > 0) / max(1, sum(1 for r in rs if r.tokens_per_second > 0)):.0f}"
+        ),
     )
-    _cmp("Z3 proved", lambda rs: f"{sum(1 for r in rs if r.z3_status=='formal_proof')}/{total}")
+    _cmp("Z3 proved", lambda rs: f"{sum(1 for r in rs if r.z3_status == 'formal_proof')}/{total}")
     _cmp(
         "Z3 counterexamples",
-        lambda rs: f"{sum(1 for r in rs if r.z3_status=='counterexample')}/{total}",
+        lambda rs: f"{sum(1 for r in rs if r.z3_status == 'counterexample')}/{total}",
     )
     print()
 

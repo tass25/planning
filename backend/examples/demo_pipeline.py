@@ -54,7 +54,7 @@ async def main() -> None:
     print("\n[1/4] Streaming & state detection …")
     chunks_with_states = await run_streaming_pipeline(file_meta)
     total_lines = max(c.line_number for c, _ in chunks_with_states)
-    print(f"      {total_lines} lines streamed, " f"{len(chunks_with_states)} chunks produced")
+    print(f"      {total_lines} lines streamed, {len(chunks_with_states)} chunks produced")
 
     # ── 3. BoundaryDetectorAgent (no LLM) ────────────────────
     print("[2/4] Boundary detection (deterministic, no LLM) …")
@@ -82,7 +82,7 @@ async def main() -> None:
     print(f"  DETECTED BLOCKS  ({len(partitions)} total)")
     print("=" * 65)
     print(f"  {'#':<3} {'Type':<22} {'Lines':>12} {'Risk':<10} {'Strategy'}")
-    print(f"  {'-'*3} {'-'*22} {'-'*12} {'-'*10} {'-'*22}")
+    print(f"  {'-' * 3} {'-' * 22} {'-' * 12} {'-' * 10} {'-' * 22}")
 
     for i, p in enumerate(partitions, 1):
         ptype = p.partition_type.value
@@ -118,7 +118,7 @@ async def main() -> None:
         ("SQL_BLOCK", 30, 36, "PROC SQL filter + QUIT"),
     ]
     print(f"  {'#':<3} {'Type':<22} {'Lines':>12}   {'Description'}")
-    print(f"  {'-'*3} {'-'*22} {'-'*12}   {'-'*30}")
+    print(f"  {'-' * 3} {'-' * 22} {'-' * 12}   {'-' * 30}")
     for i, (t, s, e, desc) in enumerate(gold, 1):
         print(f"  {i:<3} {t:<22} {s}–{e:>3}          {desc}")
 

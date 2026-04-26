@@ -105,7 +105,9 @@ class NomicEmbedder:
                 show_progress_bar=len(uncached_texts) > 100,
             )
             for idx, emb, raw_text in zip(
-                uncached_indices, embeddings, texts  # raw_text for cache key
+                uncached_indices,
+                embeddings,
+                texts,  # raw_text for cache key
             ):
                 text_hash = hashlib.sha256(raw_text.encode()).hexdigest()
                 self._cache[text_hash] = emb

@@ -176,9 +176,7 @@ _PAIRS = [
         "category": "DATA_STEP_FILTER",
     },
     {
-        "sas_code": (
-            "data part;\n" "merge part(in=a) email(in=b);\n" "by comax;\n" "if a and b;\n" "run;"
-        ),
+        "sas_code": ("data part;\nmerge part(in=a) email(in=b);\nby comax;\nif a and b;\nrun;"),
         "python_code": "merged_data = pd.merge(part, email, on='COMAX', how='inner')",
         "category": "DATA_STEP_MERGE",
     },
@@ -195,13 +193,13 @@ _PAIRS = [
         "category": "DATA_STEP_KEEP",
     },
     {
-        "sas_code": ("proc sort data=part_ech;\n" "by codcsp liclag intensite mctota_r;\n" "run;"),
+        "sas_code": ("proc sort data=part_ech;\nby codcsp liclag intensite mctota_r;\nrun;"),
         "python_code": "part_ech = part_ech.sort_values(by=['CODCSP','LICLAG','intensite','MCTOTA_R'])",
         "category": "PROC_SORT",
     },
     {
         "sas_code": (
-            "proc freq data=echantillonage;\n" "table codcsp liclag intensite MCTOTA_R;\n" "run;"
+            "proc freq data=echantillonage;\ntable codcsp liclag intensite MCTOTA_R;\nrun;"
         ),
         "python_code": (
             "codcsp_freq = echantillonage['CODCSP'].value_counts()\n"
@@ -275,7 +273,7 @@ _PAIRS = [
             "run;"
         ),
         "python_code": (
-            "outfile = chem + '\\\\part.xlsx'\n" "echantillonage.to_excel(outfile, index=False)"
+            "outfile = chem + '\\\\part.xlsx'\nechantillonage.to_excel(outfile, index=False)"
         ),
         "category": "PROC_EXPORT",
     },
@@ -360,13 +358,7 @@ _PAIRS = [
     },
     {
         "sas_code": (
-            "data soc;\n"
-            "set soc;\n"
-            "keep comax;\n"
-            "run;\n"
-            "proc sort nodupkey;\n"
-            "by comax;\n"
-            "run;"
+            "data soc;\nset soc;\nkeep comax;\nrun;\nproc sort nodupkey;\nby comax;\nrun;"
         ),
         "python_code": (
             "soc = soc[['COMAX']]\n"

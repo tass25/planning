@@ -808,18 +808,18 @@ def record_benchmark(
     )
     print("-" * 105)
     for r in data["runs"]:
-        sas_l = f"{r.get('avg_sas_lines','-')}"
-        py_l = f"{r.get('avg_py_lines','-')}"
+        sas_l = f"{r.get('avg_sas_lines', '-')}"
+        py_l = f"{r.get('avg_py_lines', '-')}"
         print(
-            f"{r.get('run_id','?'):<8} "
-            f"{r.get('provider','?'):<10} "
-            f"{r.get('gen_model','?'):<38} "
-            f"{r.get('verified',0):>4} "
-            f"{r.get('acceptance_rate',0)*100:>4.0f}% "
-            f"{r.get('avg_confidence',0):>6.3f} "
-            f"{r.get('avg_latency_s',0):>5.1f}s "
-            f"{sas_l+'/'+py_l:>14} "
-            f"{int(r.get('avg_tokens_est',0)):>6}"
+            f"{r.get('run_id', '?'):<8} "
+            f"{r.get('provider', '?'):<10} "
+            f"{r.get('gen_model', '?'):<38} "
+            f"{r.get('verified', 0):>4} "
+            f"{r.get('acceptance_rate', 0) * 100:>4.0f}% "
+            f"{r.get('avg_confidence', 0):>6.3f} "
+            f"{r.get('avg_latency_s', 0):>5.1f}s "
+            f"{sas_l + '/' + py_l:>14} "
+            f"{int(r.get('avg_tokens_est', 0)):>6}"
         )
     print(f"\nSummary : {benchmark_path}")
     print(f"Per-pair: {detail_path}")
@@ -885,7 +885,7 @@ if __name__ == "__main__":
     print("\nKB Generation Complete:")
     print(f"  Provider:   {stats['provider']}  ({stats['gen_model']})")
     print(f"  Generated:  {stats['generated']}")
-    print(f"  Verified:   {stats['verified']}  (acceptance {stats['acceptance_rate']*100:.1f}%)")
+    print(f"  Verified:   {stats['verified']}  (acceptance {stats['acceptance_rate'] * 100:.1f}%)")
     print(f"  Rejected:   {stats['rejected']}")
     print(f"  Avg confidence: {stats['avg_confidence']:.4f}")
     print(f"  Avg latency:    {stats['avg_latency_s']:.1f}s / pair")

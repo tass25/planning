@@ -32,7 +32,7 @@ def agent():
 
 
 def test_proc_means_groupby_proved(agent):
-    sas = "proc means data=patients; class dept; var age; " "output out=stats mean=mean_age; run;"
+    sas = "proc means data=patients; class dept; var age; output out=stats mean=mean_age; run;"
     py = "stats = patients.groupby(['dept'], dropna=False).agg(mean_age=('age', 'mean'))"
     result = agent._verify_proc_means_groupby(sas, py)
     assert result is not None
@@ -172,7 +172,7 @@ def test_sort_nodupkey_not_matched_without_nodupkey(agent):
 def test_conditional_assignment_iterrows_counterexample(agent):
     """iterrows() for conditional assignment is always COUNTEREXAMPLE."""
     sas = "data out; set in; if x > 0 then y = 1; else y = 0; run;"
-    py = "for idx, row in df.iterrows():\n" "    df.at[idx, 'y'] = 1 if row['x'] > 0 else 0"
+    py = "for idx, row in df.iterrows():\n    df.at[idx, 'y'] = 1 if row['x'] > 0 else 0"
     result = agent._verify_conditional_assignment(sas, py)
     assert result is not None
     assert result.status == VerificationStatus.COUNTEREXAMPLE

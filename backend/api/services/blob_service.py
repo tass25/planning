@@ -124,13 +124,12 @@ class BlobStorageService:
     def _download_sync(self, file_id: str, filename: str) -> Path:
         blob_name = f"{file_id}/{filename}"
         blob_client = self._client.get_blob_client(container=self._container, blob=blob_name)
-        suffix = Path(filename).suffix
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+        tmp_dir = Path(tempfile.mkdtemp(prefix=f"codara_{file_id}_"))
+        tmp_path = tmp_dir / filename
         download = blob_client.download_blob()
-        tmp.write(download.readall())
-        tmp.close()
-        _log.debug("blob_downloaded_to_temp", blob=blob_name, tmp=tmp.name)
-        return Path(tmp.name)
+        tmp_path.write_bytes(download.readall())
+        _log.debug("blob_downloaded_to_temp", blob=blob_name, tmp=str(tmp_path))
+        return tmp_path
 
     # ── List ──────────────────────────────────────────────────────────────────
 

@@ -102,7 +102,7 @@ def find_translation(
     label: str, index: int, trans_dir: Path
 ) -> tuple[str, Path] | tuple[None, None]:
     """Find the Python file matching this block index."""
-    pattern = f"*block{index+1:02d}*.py"
+    pattern = f"*block{index + 1:02d}*.py"
     matches = list(trans_dir.glob(pattern))
     if matches:
         p = matches[0]
@@ -200,9 +200,9 @@ def write_md(rows: list[AuditRow], sas_path: Path, trans_dir: Path, out_path: Pa
         "| Metric | Value |",
         "|--------|-------|",
         f"| Blocks audited | {total} |",
-        f"| Formally proved | **{proved}** ({proved*100//total if total else 0}%) |",
-        f"| Counterexamples found | **{counterex}** ({counterex*100//total if total else 0}%) |",
-        f"| Outside Z3 scope | {unknown} ({unknown*100//total if total else 0}%) |",
+        f"| Formally proved | **{proved}** ({proved * 100 // total if total else 0}%) |",
+        f"| Counterexamples found | **{counterex}** ({counterex * 100 // total if total else 0}%) |",
+        f"| Outside Z3 scope | {unknown} ({unknown * 100 // total if total else 0}%) |",
         f"| Mean Z3 latency | {mean_lat:.1f} ms |",
         "| Pipeline overhead | negligible (vs >5000ms LLM latency) |",
         "",
@@ -294,7 +294,7 @@ def main(trans_dir: Path, sas_path: Path) -> None:
 
     col_w = 42
     print(f"  {'Block':<{col_w}} {'Before Z3':<14} {'After Z3':<22} {'Pattern / Issue'}")
-    print(f"  {'-'*col_w} {'-'*14} {'-'*22} {'-'*30}")
+    print(f"  {'-' * col_w} {'-' * 14} {'-' * 22} {'-' * 30}")
 
     for i, (label, sas_code) in enumerate(blocks):
         py_code, py_path = find_translation(label, i, trans_dir)
@@ -348,13 +348,15 @@ def main(trans_dir: Path, sas_path: Path) -> None:
     total = len(rows)
     mean_lat = sum(r.z3_latency_ms for r in rows) / total if rows else 0
 
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"  RESULTS  ({total} blocks)")
-    print(f"  Formally proved  : {proved}/{total}  ({proved*100//total if total else 0}%)")
-    print(f"  Counterexamples  : {counterex}/{total}  ({counterex*100//total if total else 0}%)")
-    print(f"  Outside scope    : {unknown}/{total}  ({unknown*100//total if total else 0}%)")
+    print(f"  Formally proved  : {proved}/{total}  ({proved * 100 // total if total else 0}%)")
+    print(
+        f"  Counterexamples  : {counterex}/{total}  ({counterex * 100 // total if total else 0}%)"
+    )
+    print(f"  Outside scope    : {unknown}/{total}  ({unknown * 100 // total if total else 0}%)")
     print(f"  Mean Z3 latency  : {mean_lat:.1f} ms")
-    print(f"{'='*80}\n")
+    print(f"{'=' * 80}\n")
 
     # Save JSON
     json_path = out_dir / "z3_audit_results.json"

@@ -61,7 +61,7 @@ class TableState:
 
     def describe(self) -> str:
         trust_tag = "✓" if self.trust_level == "materialized" else "~"
-        return f"{self.table_name}[{trust_tag}] " f"rows={self.nb_rows} cols={self.cols[:6]}" + (
+        return f"{self.table_name}[{trust_tag}] rows={self.nb_rows} cols={self.cols[:6]}" + (
             f" sorted_by={self.sorted_by}" if self.sorted_by else ""
         )
 

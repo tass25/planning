@@ -1,7 +1,7 @@
 """ComplexityAgent — L2-D risk scoring for SAS partitions.
 
 Assigns a ``RiskLevel`` (LOW / MODERATE / HIGH / UNCERTAIN) to every
-``PartitionIR`` block using a 6-feature LogReg + Platt-calibrated classifier
+``PartitionIR`` block using a 14-feature LogReg + Platt-calibrated classifier
 trained on the gold standard corpus.
 
 A rule-based fallback is always available so the agent works without fitting.
@@ -12,8 +12,11 @@ Key design choices
   gives reliable probabilities with the ~580 training samples available
   (80 % of 721 gold blocks).
 * **ECE target < 0.08** — measured on a held-out 20 % split.
-* **6 features** (see ``features.py``): line_count, nesting_depth,
-  macro_pct, has_call_execute, type_weight, is_ambiguous.
+* **14 features** (see ``features.py``): 6 structural (line_count,
+  nesting_depth, macro_pct, call_execute, type_weight, is_ambiguous)
+  + 8 SAS-specific (retain/first.last, merge/hash, sql_subquery,
+  array/loop, dataset_count, call_symput, conditional_density,
+  complex_proc).
 
 Usage
 -----
@@ -214,31 +217,89 @@ class ComplexityAgent(BaseAgent):
         return _INT_LABEL[label], conf
 
     def _predict_rules(self, feats: BlockFeatures) -> tuple[RiskLevel, float]:
-        """Rule-based fallback (no training required).
+        """Rule-based fallback using all 14 features.
 
-        Rules (in priority order):
-        1. CALL EXECUTE present → HIGH (0.90)
-        2. type_weight >= 2.0 AND line_count_norm >= HIGH_LINE/200 → HIGH (0.85)
-        3. nesting_depth_norm >= HIGH_NEST/5 → HIGH (0.80)
-        4. line_count_norm >= HIGH_LINE/200 → HIGH (0.75)
-        5. line_count_norm <= LOW_LINE/200 AND type_weight <= LOW_TYPE
-           AND nesting_depth_norm == 0 → LOW (0.82)
-        6. Otherwise → MODERATE (0.65)
+        HIGH signals (any one triggers HIGH):
+        1. CALL EXECUTE → HIGH (0.92)
+        2. SQL subquery → HIGH (0.88)
+        3. MERGE/hash join + RETAIN/FIRST.LAST → HIGH (0.87)
+        4. CALL SYMPUT (macro-data bridge) → HIGH (0.85)
+        5. nesting >= 3 AND has complex patterns → HIGH (0.84)
+        6. type_weight >= 2.0 AND lines >= 30 → HIGH (0.82)
+        7. lines >= 80 → HIGH (0.78)
+
+        MODERATE signals:
+        8. RETAIN or FIRST./LAST. → MODERATE (0.80)
+        9. MERGE or hash → MODERATE (0.78)
+        10. ARRAY/DO loop patterns → MODERATE (0.76)
+        11. nesting >= 2 → MODERATE (0.75)
+        12. lines >= 20 AND (type_weight >= 1.2 OR datasets >= 3) → MODERATE (0.72)
+        13. complex PROC (TRANSPOSE/REPORT) → MODERATE (0.74)
+        14. conditional_density >= 0.15 → MODERATE (0.70)
+
+        LOW: only if block is small, simple type, no SAS patterns.
         """
-        lc = feats.line_count_norm * _LINE_NORM  # un-normalise
+        lc = feats.line_count_norm * _LINE_NORM
         nd = feats.nesting_depth_norm * _NEST_NORM
+        datasets = feats.dataset_count_norm * 5.0
 
+        # Count how many SAS-specific signals fire
+        sas_signals = sum(
+            [
+                feats.has_retain_first_last,
+                feats.has_merge_hash,
+                feats.has_sql_subquery,
+                feats.has_array_loop,
+                feats.has_call_symput,
+                feats.has_complex_proc,
+            ]
+        )
+
+        # ── HIGH triggers ──
         if feats.has_call_execute:
-            return RiskLevel.HIGH, 0.90
-        if feats.type_weight >= _HIGH_TYPE and lc >= _HIGH_LINE:
+            return RiskLevel.HIGH, 0.92
+        if feats.has_sql_subquery:
+            return RiskLevel.HIGH, 0.88
+        if feats.has_merge_hash and feats.has_retain_first_last:
+            return RiskLevel.HIGH, 0.87
+        if feats.has_call_symput:
             return RiskLevel.HIGH, 0.85
-        if nd >= _HIGH_NEST:
+        if nd >= 3 and sas_signals >= 1:
+            return RiskLevel.HIGH, 0.84
+        if feats.type_weight >= 2.0 and lc >= 30:
+            return RiskLevel.HIGH, 0.82
+        if lc >= 80:
+            return RiskLevel.HIGH, 0.78
+        if sas_signals >= 3:
             return RiskLevel.HIGH, 0.80
-        if lc >= _HIGH_LINE:
-            return RiskLevel.HIGH, 0.75
-        if lc <= _LOW_LINE and feats.type_weight <= _LOW_TYPE and nd == 0:
-            return RiskLevel.LOW, 0.82
-        return RiskLevel.MODERATE, 0.65
+
+        # ── MODERATE triggers ──
+        if feats.has_retain_first_last:
+            return RiskLevel.MODERATE, 0.80
+        if feats.has_merge_hash:
+            return RiskLevel.MODERATE, 0.78
+        if feats.has_array_loop:
+            return RiskLevel.MODERATE, 0.76
+        if nd >= 2:
+            return RiskLevel.MODERATE, 0.75
+        if feats.has_complex_proc:
+            return RiskLevel.MODERATE, 0.74
+        if lc >= 20 and (feats.type_weight >= 1.2 or datasets >= 3):
+            return RiskLevel.MODERATE, 0.72
+        if feats.conditional_density >= 0.15:
+            return RiskLevel.MODERATE, 0.70
+        if sas_signals >= 1:
+            return RiskLevel.MODERATE, 0.68
+        if lc >= 30:
+            return RiskLevel.MODERATE, 0.65
+
+        # ── LOW: small + simple + no SAS patterns ──
+        if lc <= 15 and feats.type_weight <= 1.0 and nd <= 1 and sas_signals == 0:
+            return RiskLevel.LOW, 0.85
+        if lc <= 25 and sas_signals == 0 and nd == 0:
+            return RiskLevel.LOW, 0.75
+
+        return RiskLevel.MODERATE, 0.60
 
     @staticmethod
     def _load_gold_features(

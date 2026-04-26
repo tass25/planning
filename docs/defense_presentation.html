@@ -1,0 +1,1989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Codara — Defense Presentation</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Patrick+Hand&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fafbfc;--bg2:#ffffff;--surface:#ffffff;
+  --border:#e4e8ee;--border2:#cdd3dc;
+  --text:#232b3a;--text2:#64748b;--text3:#94a3b8;
+  --blue:#6E7FD2;--blue2:#8E9BE0;--blue-light:#EDEEF8;
+  --green:#5BA89A;--green2:#7ABFB2;--green-light:#EBF5F2;
+  --orange:#CF9256;--orange-light:#FAF0E4;
+  --red:#CB6E6E;--red-light:#F8EAEA;
+  --purple:#8A72BF;--purple-light:#EFEBF7;
+  --teal:#4EA8A2;--teal-light:#E9F4F3;
+  --pink:#C06790;--pink-light:#F5EBF0;
+  --slate:#6B7A8D;
+  --shadow:0 1px 3px rgba(0,0,0,.05),0 1px 2px rgba(0,0,0,.03);
+  --shadow-md:0 4px 8px rgba(0,0,0,.04),0 2px 4px rgba(0,0,0,.03);
+  --shadow-lg:0 10px 25px rgba(0,0,0,.05),0 4px 10px rgba(0,0,0,.03);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:'Inter','Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);line-height:1.7;overflow-x:hidden}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:1000;background:rgba(255,255,255,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);height:56px;display:flex;align-items:center;padding:0 2rem;gap:.6rem}
+nav .logo{font-weight:800;font-size:1.15rem;color:var(--blue);letter-spacing:-.5px}
+nav .logo span{color:var(--text3);font-weight:400;font-size:.78rem;margin-left:.4rem}
+nav a{color:var(--text2);text-decoration:none;font-size:.78rem;padding:.4rem .7rem;border-radius:8px;transition:.2s;font-weight:500}
+nav a:hover{color:var(--text);background:var(--blue-light)}
+nav a.active{color:var(--blue);background:var(--blue-light);font-weight:600}
+nav .sp{flex:1}
+
+/* ── GLOBAL ── */
+section{padding:5rem 2rem 3rem;max-width:1400px;margin:0 auto}
+section:first-of-type{padding-top:7rem}
+h1{font-size:3.2rem;font-weight:800;letter-spacing:-1.5px;color:var(--text)}
+h2{font-size:1.6rem;font-weight:700;margin-bottom:.6rem;color:var(--text);padding-bottom:.5rem;border-bottom:2px solid var(--blue-light)}
+h3{font-size:1.05rem;font-weight:600;margin-bottom:.6rem;color:var(--text)}
+.sub{color:var(--text2);font-size:1rem;margin-bottom:2rem;max-width:800px;line-height:1.7}
+hr.sep{border:none;border-top:1px solid var(--border);margin:2rem auto;max-width:1400px}
+
+/* ── ANIMATIONS ── */
+.reveal{opacity:0;transform:translateY(30px);transition:opacity .7s ease,transform .7s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-left{opacity:0;transform:translateX(-40px);transition:opacity .7s ease,transform .7s ease}
+.reveal-left.visible{opacity:1;transform:translateX(0)}
+.reveal-right{opacity:0;transform:translateX(40px);transition:opacity .7s ease,transform .7s ease}
+.reveal-right.visible{opacity:1;transform:translateX(0)}
+.reveal-scale{opacity:0;transform:scale(.9);transition:opacity .6s ease,transform .6s ease}
+.reveal-scale.visible{opacity:1;transform:scale(1)}
+
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes flowDots{0%{stroke-dashoffset:20}100%{stroke-dashoffset:0}}
+.arrow-flow{stroke-dasharray:4 6;animation:flowDots 1.2s linear infinite}
+@keyframes barGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.bar-animated{transform-origin:bottom;animation:barGrow .8s cubic-bezier(.25,.1,.25,1) forwards}
+
+/* ── HERO ── */
+.hero{text-align:center;padding:8rem 2rem 4rem;position:relative}
+.hero h1{font-size:3.6rem;margin-bottom:.6rem;animation:countUp .8s ease}
+.hero .sub{margin:0 auto 2rem;font-size:1.15rem;animation:countUp 1s ease}
+.hero-tags{display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;animation:countUp 1.2s ease}
+.hero-tag{background:var(--blue-light);border:1px solid #c7d2fe;padding:.35rem .9rem;border-radius:20px;font-size:.8rem;color:var(--blue);font-weight:500;transition:.3s;cursor:default}
+.hero-tag:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+
+/* ── Stats row ── */
+.stats-row{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;margin:2rem 0}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.4rem;text-align:center;flex:1;min-width:130px;transition:.3s;box-shadow:var(--shadow)}
+.stat-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:var(--blue2)}
+.stat-num{font-size:2rem;font-weight:800;color:var(--blue)}
+.stat-label{font-size:.72rem;color:var(--text2);margin-top:.15rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+
+/* ── ARCH WRAP ── */
+.arch-wrap{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2rem;margin:1.5rem 0;box-shadow:var(--shadow)}
+.arch-title{text-align:center;font-size:.9rem;font-weight:700;color:var(--text2);margin-bottom:1rem;text-transform:uppercase;letter-spacing:1.5px}
+.arch-svg{width:100%;height:auto;display:block}
+.arch-desc{max-width:900px;margin:1.5rem auto 0;color:var(--text2);font-size:.92rem;line-height:1.8;text-align:center}
+
+/* ── CARDS ── */
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.2rem;margin:1.2rem 0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.4rem;transition:.3s;box-shadow:var(--shadow)}
+.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:var(--blue2)}
+.card h3{margin-top:0}
+.card p{color:var(--text2);font-size:.88rem}
+.tag{display:inline-block;padding:.15rem .5rem;border-radius:20px;font-size:.7rem;font-weight:600;margin-right:.25rem;margin-top:.4rem}
+.tag-blue{background:var(--blue-light);color:var(--blue)}
+.tag-green{background:var(--green-light);color:var(--green)}
+.tag-orange{background:var(--orange-light);color:#d97706}
+.tag-purple{background:var(--purple-light);color:var(--purple)}
+.tag-teal{background:var(--teal-light);color:var(--teal)}
+.tag-pink{background:var(--pink-light);color:var(--pink)}
+.tag-red{background:var(--red-light);color:var(--red)}
+
+/* ── WHY BOXES ── */
+.why-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(370px,1fr));gap:1.2rem;margin:1.2rem 0}
+.why-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.3rem;border-left:4px solid var(--blue);transition:.3s;box-shadow:var(--shadow)}
+.why-box:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.why-box.gl{border-left-color:var(--green)}.why-box.pl{border-left-color:var(--purple)}.why-box.ol{border-left-color:var(--orange)}.why-box.tl{border-left-color:var(--teal)}.why-box.pkl{border-left-color:var(--pink)}.why-box.rl{border-left-color:var(--red)}
+.why-q{font-size:.84rem;font-weight:700;color:var(--orange);margin-bottom:.4rem}
+.why-a{font-size:.86rem;color:var(--text)}
+.why-impact{font-size:.76rem;color:var(--green);margin-top:.4rem;font-weight:600}
+
+/* ── TABLE ── */
+.t{width:100%;border-collapse:collapse;margin:1.2rem 0;background:var(--surface);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.t th{background:#f1f5f9;padding:.7rem .9rem;text-align:left;font-size:.8rem;font-weight:700;color:var(--blue);border-bottom:2px solid var(--border)}
+.t td{padding:.6rem .9rem;border-bottom:1px solid var(--border);font-size:.83rem;color:var(--text2)}
+.t tr:hover td{background:#f8fafc}
+
+/* ── CHART CONTAINERS ── */
+.chart-container{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem;margin:1rem 0;box-shadow:var(--shadow)}
+.chart-title{font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:1rem;text-align:center}
+.chart-svg{width:100%;height:auto;display:block}
+
+/* ── RAPTOR TREE ── */
+.tree-container{position:relative;margin:2rem 0}
+.node-detail{display:none;position:absolute;z-index:10;background:var(--surface);border:2px solid var(--blue);border-radius:14px;padding:1.2rem;width:320px;box-shadow:var(--shadow-lg);animation:fadeScale .25s ease}
+@keyframes fadeScale{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+.node-detail.show{display:block}
+.node-detail .close-btn{position:absolute;top:.5rem;right:.7rem;cursor:pointer;color:var(--text2);font-size:1rem;background:none;border:none}
+
+/* ── DB EXPLORER ── */
+.db-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:1.2rem;margin:1.2rem 0}
+.db-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;transition:.3s;box-shadow:var(--shadow)}
+.db-card:hover{box-shadow:var(--shadow-lg)}
+.db-header{padding:1.1rem 1.3rem;cursor:pointer;display:flex;align-items:center;gap:1rem;transition:.2s}
+.db-header:hover{background:#f8fafc}
+.db-icon{font-size:2rem;flex-shrink:0}
+.db-info{flex:1}
+.db-info h3{margin:0;font-size:1rem}
+.db-info p{font-size:.78rem;color:var(--text2);margin:0}
+.db-toggle{color:var(--text3);font-size:1rem;transition:transform .3s}
+.db-card.open .db-toggle{transform:rotate(180deg)}
+.db-body{max-height:0;overflow:hidden;transition:max-height .5s ease}
+.db-card.open .db-body{max-height:2000px}
+.db-content{padding:1.1rem 1.3rem;border-top:1px solid var(--border)}
+.db-section{margin-bottom:1rem}
+.db-section h4{font-size:.8rem;color:var(--orange);font-weight:700;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.5px}
+.db-mini-table{width:100%;border-collapse:collapse;margin:.4rem 0;font-size:.78rem}
+.db-mini-table th{background:#f8fafc;padding:.4rem .6rem;text-align:left;color:var(--blue);font-weight:600;border-bottom:1px solid var(--border)}
+.db-mini-table td{padding:.35rem .6rem;border-bottom:1px solid #f1f5f9;color:var(--text2)}
+
+/* ── Z3 PATTERNS ── */
+.pattern-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:1rem;margin:1.2rem 0}
+.pattern-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem 1.1rem;transition:.3s;box-shadow:var(--shadow)}
+.pattern-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);border-color:var(--blue2)}
+.pattern-card .pn{font-size:.68rem;font-weight:700;color:var(--blue)}
+.pattern-card .pname{font-size:.88rem;font-weight:700;color:var(--text);margin:.1rem 0}
+.pattern-card .psas{font-size:.73rem;color:var(--orange);font-family:'Cascadia Code','Fira Code',monospace}
+.pattern-card .pdesc{font-size:.76rem;color:var(--text2);margin-top:.3rem}
+
+/* ── TWO COL / THREE COL ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin:1.2rem 0}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.5rem;margin:1.2rem 0}
+@media(max-width:900px){.two-col,.three-col{grid-template-columns:1fr}}
+
+/* ── TIMELINE ── */
+.timeline{position:relative;padding-left:2.5rem;margin:1.5rem 0}
+.timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:3px;background:linear-gradient(to bottom,var(--blue),var(--teal),var(--purple));border-radius:2px}
+.tl-item{position:relative;margin-bottom:1.3rem;opacity:0;transform:translateX(-15px);transition:.5s}
+.tl-item.visible{opacity:1;transform:translateX(0)}
+.tl-item::before{content:'';position:absolute;left:-2.5rem;top:.4rem;width:12px;height:12px;border-radius:50%;background:var(--blue);border:3px solid var(--bg);box-shadow:0 0 0 2px rgba(99,102,241,.2)}
+.tl-item:hover::before{transform:scale(1.3);box-shadow:0 0 8px var(--blue)}
+.tl-item.done::before{background:var(--green);box-shadow:0 0 0 2px rgba(16,185,129,.2)}
+.tl-week{font-size:.72rem;font-weight:700;color:var(--blue);text-transform:uppercase}
+.tl-title{font-size:.9rem;font-weight:600;color:var(--text);margin:.1rem 0}
+.tl-desc{font-size:.8rem;color:var(--text2)}
+
+/* ── COMPARISON TABLE ── */
+.compare-table{width:100%;border-collapse:collapse;margin:1rem 0;background:var(--surface);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+.compare-table th{background:#f1f5f9;padding:.75rem 1rem;text-align:center;font-size:.82rem;font-weight:700;border-bottom:2px solid var(--border)}
+.compare-table th:first-child{text-align:left}
+.compare-table th.before{color:var(--orange)}
+.compare-table th.after{color:var(--green)}
+.compare-table td{padding:.6rem 1rem;border-bottom:1px solid var(--border);font-size:.84rem;text-align:center}
+.compare-table td:first-child{text-align:left;color:var(--text);font-weight:600}
+.compare-table .delta-pos{color:var(--green);font-weight:700}
+.compare-table tr:hover td{background:#f8fafc}
+
+/* ── PROGRESS BAR ── */
+.progress-row{display:flex;align-items:center;gap:.8rem;margin:.5rem 0}
+.progress-label{font-size:.8rem;color:var(--text2);min-width:140px;font-weight:500}
+.progress-bar{flex:1;height:20px;background:#f1f5f9;border-radius:10px;overflow:hidden}
+.progress-fill{height:100%;border-radius:10px;transition:width 1.5s ease;position:relative}
+.progress-fill::after{content:attr(data-value);position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:.7rem;font-weight:700;color:white}
+.progress-fill.green{background:linear-gradient(90deg,#059669,var(--green2))}
+.progress-fill.blue{background:linear-gradient(90deg,#4f46e5,var(--blue2))}
+.progress-fill.orange{background:linear-gradient(90deg,#d97706,var(--orange))}
+
+.footnote{font-size:.73rem;color:var(--text3);text-align:center;padding:2rem;border-top:1px solid var(--border);margin-top:3rem}
+
+@media(max-width:768px){
+  .hero h1{font-size:2rem}
+  .card-grid,.why-grid{grid-template-columns:1fr}
+  nav{padding:0 .8rem;gap:.3rem}nav a{font-size:.7rem}
+  .db-grid{grid-template-columns:1fr}
+  .three-col{grid-template-columns:1fr}
+}
+</style>
+<style>
+/* ══════════════════════════════════════════════════
+   ANIMATION SYSTEM — Breathtaking Motion Design
+   ══════════════════════════════════════════════════ */
+
+/* Scroll progress bar */
+#scroll-progress{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,#6E7FD2,#8A72BF,#5BA89A);z-index:1001;width:0%;pointer-events:none}
+
+/* Particle canvas */
+#particle-canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:-1;pointer-events:none;opacity:.15}
+
+/* Excalidraw diagram wrapper */
+.excalidraw-wrap{background:#FFFDF5!important;border:1px solid #e4d9c0!important;padding:2rem!important}
+
+@media(prefers-reduced-motion:no-preference){
+
+/* Nav entrance */
+nav{animation:nav-slide .8s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes nav-slide{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* Hero letter animation */
+.hero-letter{display:inline-block;opacity:0;transform:translateY(-50px);animation:letter-drop .6s cubic-bezier(.34,1.56,.64,1) forwards}
+@keyframes letter-drop{0%{opacity:0;transform:translateY(-50px)}60%{opacity:1;transform:translateY(6px)}100%{opacity:1;transform:translateY(0)}}
+
+/* Subtitle blur-to-clear */
+.hero .sub{opacity:0;animation:blur-clear 1.2s ease .6s forwards}
+@keyframes blur-clear{0%{filter:blur(8px);opacity:0;transform:translateY(10px)}100%{filter:blur(0);opacity:1;transform:translateY(0)}}
+
+/* Hero tags staggered */
+.hero-tags{opacity:0;animation:tags-in 1s ease 1s forwards}
+@keyframes tags-in{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+
+/* Card placement animation */
+.card-entrance{opacity:0;transform:scale(.92) rotate(-1deg);transition:opacity .7s ease,transform .7s cubic-bezier(.34,1.56,.64,1)}
+.card-entrance.visible{opacity:1;transform:scale(1) rotate(0)}
+
+/* Section heading animated underline */
+h2::after{content:'';display:block;width:0;height:3px;background:linear-gradient(90deg,var(--blue),var(--purple));margin-top:8px;border-radius:2px;transition:width .8s cubic-bezier(.34,1.56,.64,1)}
+section.visible h2::after,.reveal.visible h2::after{width:120px}
+
+/* Title shimmer */
+@keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+.shimmer-text{background:linear-gradient(90deg,var(--text) 0%,var(--text) 35%,var(--blue) 50%,var(--text) 65%,var(--text) 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shimmer 3s ease-in-out .3s 1 both}
+
+/* Diagram self-drawing */
+.diagram-connector{opacity:0}
+.diagram-connector.drawn{opacity:1;transition:stroke-dashoffset .8s ease-in-out,opacity .3s ease}
+
+.diagram-node{opacity:0;transform-origin:center center}
+.diagram-node.popped{animation:node-pop .5s cubic-bezier(.34,1.56,.64,1) forwards}
+@keyframes node-pop{0%{opacity:0;transform:scale(0)}70%{opacity:1;transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
+
+/* Wave divider */
+.wave-divider{max-width:1400px;margin:0 auto;overflow:hidden;height:60px;opacity:.6}
+.wave-divider svg{width:100%;height:60px}
+.wave-path{animation:wave-morph 8s ease-in-out infinite}
+@keyframes wave-morph{0%,100%{d:path('M0,30 C360,55 720,5 1080,30 S1440,30 1440,30')}50%{d:path('M0,30 C360,5 720,55 1080,30 S1440,30 1440,30')}}
+
+/* Ripple effect */
+.ripple{position:absolute;border-radius:50%;background:rgba(110,127,210,.25);transform:scale(0);animation:ripple-expand .6s ease-out;pointer-events:none;z-index:5}
+@keyframes ripple-expand{to{transform:scale(4);opacity:0}}
+
+/* Number count-up smooth */
+.count-up-active{transition:all .05s}
+
+/* Stats row entrance */
+.stats-row{opacity:0;animation:stats-in 1.2s ease 1.3s forwards}
+@keyframes stats-in{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* Nav link animated underline */
+nav a{position:relative}
+nav a::after{content:'';position:absolute;bottom:2px;left:50%;width:0;height:2px;background:var(--blue);transition:width .3s ease,left .3s ease;border-radius:1px}
+nav a:hover::after{width:80%;left:10%}
+nav a.active::after{width:80%;left:10%}
+
+/* Micro-interactions */
+.card:active,.stat-card:active,.why-box:active,.pattern-card:active,.hero-tag:active,.db-header:active{transform:scale(.97)!important;box-shadow:var(--shadow)!important;transition:transform .1s,box-shadow .1s!important}
+
+/* Typewriter for section titles */
+.typewriter-done{border-right:none}
+
+/* Timeline item enhanced entry */
+.tl-item{opacity:0;transform:translateX(-20px) scale(.98);transition:all .6s cubic-bezier(.34,1.56,.64,1)}
+.tl-item.visible{opacity:1;transform:translateX(0) scale(1)}
+
+/* Progress bar animated width */
+.progress-fill{transition:width 1.8s cubic-bezier(.25,.1,.25,1)}
+
+/* Parallax sections */
+.parallax-section{will-change:transform}
+
+} /* end prefers-reduced-motion: no-preference */
+
+/* Reduced motion fallbacks */
+@media(prefers-reduced-motion:reduce){
+  #particle-canvas{display:none}
+  .diagram-connector{opacity:1!important;stroke-dashoffset:0!important;stroke-dasharray:none!important}
+  .diagram-node{opacity:1!important;transform:none!important}
+  .hero-letter{opacity:1!important;transform:none!important;animation:none!important}
+  .wave-path{animation:none!important}
+  nav{animation:none!important}
+  .shimmer-text{background:none!important;-webkit-text-fill-color:var(--text)!important}
+}
+</style>
+</head>
+<body>
+<div id="scroll-progress"></div>
+<canvas id="particle-canvas"></canvas>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">CODARA <span>v3.1.0</span></div>
+  <div class="sp"></div>
+  <a href="#overview">Overview</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#pipeline">Pipeline</a>
+  <a href="#rag">RAG</a>
+  <a href="#raptor">RAPTOR</a>
+  <a href="#databases">Databases</a>
+  <a href="#z3">Z3</a>
+  <a href="#cdais">CDAIS</a>
+  <a href="#results">Results</a>
+  <a href="#before-after">Before/After</a>
+  <a href="#timeline">Timeline</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="overview">
+  <h1 id="hero-title" class="shimmer-text">Codara</h1>
+  <p class="sub">SAS-to-Python Conversion Accelerator &mdash; LLM pipeline with formal verification, hierarchical retrieval, and adversarial testing.</p>
+  <div class="hero-tags">
+    <span class="hero-tag">LangGraph Pipeline</span>
+    <span class="hero-tag">3-Tier RAG</span>
+    <span class="hero-tag">RAPTOR Tree</span>
+    <span class="hero-tag">Z3 SMT Proofs</span>
+    <span class="hero-tag">CDAIS</span>
+    <span class="hero-tag">SemantiCheck</span>
+    <span class="hero-tag">14-Feature ML</span>
+  </div>
+  <div class="stats-row" style="max-width:1100px;margin:2.5rem auto 0">
+    <div class="stat-card"><div class="stat-num" data-count="8">0</div><div class="stat-label">Pipeline Nodes</div></div>
+    <div class="stat-card"><div class="stat-num" data-count="11">0</div><div class="stat-label">Z3 Patterns</div></div>
+    <div class="stat-card"><div class="stat-num" data-count="6">0</div><div class="stat-label">CDAIS Patterns</div></div>
+    <div class="stat-card"><div class="stat-num" data-count="530">0</div><div class="stat-label">KB Pairs</div></div>
+    <div class="stat-card"><div class="stat-num" data-count="248">0</div><div class="stat-label">Tests</div></div>
+    <div class="stat-card"><div class="stat-num" data-count="14">0</div><div class="stat-label">ML Features</div></div>
+  </div>
+</section>
+
+<div class="wave-divider"><svg viewBox="0 0 1440 60" preserveAspectRatio="none"><path class="wave-path" d="M0,30 C360,55 720,5 1080,30 S1440,30 1440,30" fill="none" stroke="#e4e8ee" stroke-width="1.5"/></svg></div>
+
+<!-- ARCHITECTURE -->
+<section id="architecture" class="reveal">
+  <h2>Global Architecture</h2>
+  <p class="sub">Three-tier stack deployed on Azure Container Apps with CI/CD via GitHub Actions.</p>
+
+  <div class="arch-wrap excalidraw-wrap" id="arch-wrap-main">
+    <div class="arch-title" style="color:#8b8b8b;margin-bottom:1.5rem;font-family:Caveat,cursive;font-size:1.1rem;letter-spacing:2px">Codara &mdash; Cloud Architecture</div>
+            <svg class="arch-svg excalidraw-diagram" id="arch-diagram" viewBox="0 0 1600 1050" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="grid-bg" width="32" height="32" patternUnits="userSpaceOnUse">
+          <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#d5d0c8" stroke-width="0.35" opacity="0.25"/>
+        </pattern>
+        <marker id="arr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" markerUnits="strokeWidth">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#444"/>
+        </marker>
+        <marker id="arr-muted" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" markerUnits="strokeWidth">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#999"/>
+        </marker>
+        <marker id="arr-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" markerUnits="strokeWidth">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#5a9a5a"/>
+        </marker>
+        <marker id="arr-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" markerUnits="strokeWidth">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#b86060"/>
+        </marker>
+        <marker id="arr-orange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" markerUnits="strokeWidth">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#b88a50"/>
+        </marker>
+        <marker id="arr-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto" markerUnits="strokeWidth">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#0078D4"/>
+        </marker>
+      </defs>
+
+      <!-- Background -->
+      <rect width="1600" height="1050" fill="#FFFDF5"/>
+      <rect width="1600" height="1050" fill="url(#grid-bg)"/>
+
+      <!-- Azure Cloud boundary -->
+      <rect x="230" y="18" width="1340" height="920" rx="18" fill="none" stroke="#0078D4" stroke-width="1.8" stroke-dasharray="14 7" opacity="0.35"/>
+      <text x="260" y="44" font-family="Caveat, cursive" font-size="18" fill="#0078D4" font-weight="700" opacity="0.6">Azure Cloud</text>
+
+      <!-- Azure Container Apps sub-boundary (wraps all deployed services) -->
+      <rect x="265" y="40" width="870" height="185" rx="14" fill="none" stroke="#0078D4" stroke-width="1.2" stroke-dasharray="8 5" opacity="0.25"/>
+      <text x="285" y="56" font-family="'Patrick Hand', cursive" font-size="12" fill="#0078D4" opacity="0.6">Azure Container Apps</text>
+
+      <!-- Docker Compose boundary (3 services: frontend, backend, redis) -->
+      <rect x="280" y="58" width="840" height="162" rx="12" fill="none" stroke="#2496ED" stroke-width="1.3" stroke-dasharray="6 4" opacity="0.3"/>
+      <text x="680" y="224" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#2496ED" opacity="0.7">Docker Compose (3 services: frontend + backend + redis)</text>
+
+      <!-- ═══════════════════════════════════════════
+           ROW 1: APPLICATION LAYER (y: 70-195)
+           ═══════════════════════════════════════════ -->
+
+      <!-- USER (External) -->
+      <g class="diagram-node" data-group="external">
+        <rect x="40" y="95" width="150" height="90" rx="14" fill="#f5f5f0" stroke="#8b8b8b" stroke-width="1.8"/>
+        <text x="115" y="132" text-anchor="middle" font-family="Caveat, cursive" font-size="22" font-weight="700" fill="#555">User</text>
+        <text x="115" y="158" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#888">Browser / Upload</text>
+      </g>
+
+      <!-- GITHUB (External) -->
+      <g class="diagram-node" data-group="external">
+        <rect x="40" y="230" width="150" height="85" rx="14" fill="#24292e" stroke="#444d56" stroke-width="1.8"/>
+        <text x="115" y="264" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#fff">GitHub</text>
+        <text x="115" y="288" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#c9d1d9">OAuth + Actions</text>
+      </g>
+
+      <!-- FRONTEND -->
+      <g class="diagram-node" data-group="app">
+        <rect x="300" y="70" width="180" height="125" rx="14" fill="#D0E8FF" stroke="#5b7dba" stroke-width="1.8"/>
+        <text x="390" y="107" text-anchor="middle" font-family="Caveat, cursive" font-size="22" font-weight="700" fill="#3a5a8c">Frontend</text>
+        <text x="390" y="130" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a7aaa">React 18 + Vite</text>
+        <text x="390" y="152" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#7a9aba">Tailwind + shadcn/ui</text>
+        <text x="390" y="174" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#9aacca">Side-by-side diff view</text>
+      </g>
+
+      <!-- BACKEND API -->
+      <g class="diagram-node" data-group="app">
+        <rect x="600" y="70" width="180" height="125" rx="14" fill="#D0E8FF" stroke="#5b7dba" stroke-width="1.8"/>
+        <text x="690" y="105" text-anchor="middle" font-family="Caveat, cursive" font-size="22" font-weight="700" fill="#3a5a8c">Backend API</text>
+        <text x="690" y="126" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a7aaa">FastAPI + JWT Auth</text>
+        <text x="690" y="146" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#7a9aba">GitHub OAuth</text>
+        <text x="690" y="165" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#9aacca">SQLAlchemy + Pydantic</text>
+        <text x="690" y="183" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#9aacca">Background Tasks</text>
+      </g>
+
+      <!-- PIPELINE -->
+      <g class="diagram-node" data-group="intelligence">
+        <rect x="900" y="50" width="210" height="160" rx="16" fill="#E8D5FF" stroke="#7b5fad" stroke-width="2.2"/>
+        <text x="1005" y="92" text-anchor="middle" font-family="Caveat, cursive" font-size="24" font-weight="700" fill="#5a3f8a">Pipeline</text>
+        <text x="1005" y="117" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="15" fill="#6a5a9a">8-Node LangGraph</text>
+        <text x="1005" y="140" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#8a7aaa">20+ Sub-Agents</text>
+        <text x="1005" y="163" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#9a8aba">Async + Checkpointed</text>
+        <text x="1005" y="186" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#aa9aca">Facade Pattern</text>
+      </g>
+
+      <!-- ═══════════════════════════════════════════
+           RIGHT COLUMN: LLM PROVIDERS (x: 1230+)
+           ═══════════════════════════════════════════ -->
+
+      <!-- OLLAMA -->
+      <g class="diagram-node" data-group="llm">
+        <rect x="1230" y="65" width="215" height="95" rx="14" fill="#FFE4C4" stroke="#b88a50" stroke-width="1.8"/>
+        <text x="1337" y="100" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a6530">1. Ollama (Primary)</text>
+        <text x="1337" y="122" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a08050">minimax-m2.7:cloud</text>
+        <text x="1337" y="143" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b09a70">Free - 10/10 torture test</text>
+      </g>
+
+      <!-- AZURE OPENAI -->
+      <g class="diagram-node" data-group="llm">
+        <rect x="1230" y="225" width="215" height="95" rx="14" fill="#FFE4C4" stroke="#b88a50" stroke-width="1.8"/>
+        <text x="1337" y="260" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a6530">2. Azure OpenAI</text>
+        <text x="1337" y="282" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a08050">GPT-4o / GPT-4o-mini</text>
+        <text x="1337" y="303" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b09a70">Enterprise SLA</text>
+      </g>
+
+      <!-- GROQ -->
+      <g class="diagram-node" data-group="llm">
+        <rect x="1230" y="385" width="215" height="95" rx="14" fill="#FFE4C4" stroke="#b88a50" stroke-width="1.8"/>
+        <text x="1337" y="420" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a6530">3. Groq (Verifier)</text>
+        <text x="1337" y="442" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a08050">LLaMA-3.3-70b</text>
+        <text x="1337" y="463" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b09a70">Cross-verify + 3-key pool</text>
+      </g>
+
+      <!-- ═══════════════════════════════════════════
+           ROW 2: VERIFICATION LAYER (y: 315-415)
+           ═══════════════════════════════════════════ -->
+
+      <!-- Z3 SOLVER -->
+      <g class="diagram-node" data-group="verification">
+        <rect x="260" y="315" width="175" height="100" rx="14" fill="#FFD5D5" stroke="#b86060" stroke-width="1.8"/>
+        <text x="347" y="350" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a3a3a">Z3 Solver</text>
+        <text x="347" y="374" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a06060">11 SMT Patterns</text>
+        <text x="347" y="396" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b08080">Proved or Counterexample</text>
+      </g>
+
+      <!-- CDAIS -->
+      <g class="diagram-node" data-group="verification">
+        <rect x="510" y="315" width="175" height="100" rx="14" fill="#FFD5D5" stroke="#b86060" stroke-width="1.8"/>
+        <text x="597" y="350" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a3a3a">CDAIS</text>
+        <text x="597" y="374" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a06060">6 Adversarial Patterns</text>
+        <text x="597" y="396" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b08080">Min. witness DataFrame</text>
+      </g>
+
+      <!-- SANDBOX -->
+      <g class="diagram-node" data-group="verification">
+        <rect x="760" y="315" width="175" height="100" rx="14" fill="#FFD5D5" stroke="#b86060" stroke-width="1.8"/>
+        <text x="847" y="350" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a3a3a">Sandbox Exec</text>
+        <text x="847" y="374" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a06060">Process Isolation</text>
+        <text x="847" y="396" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b08080">.kill() on timeout</text>
+      </g>
+
+      <!-- CROSS-VERIFY -->
+      <g class="diagram-node" data-group="verification">
+        <rect x="1010" y="315" width="175" height="100" rx="14" fill="#FFD5D5" stroke="#b86060" stroke-width="1.8"/>
+        <text x="1097" y="350" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a3a3a">Cross-Verify</text>
+        <text x="1097" y="374" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a06060">Independent LLM</text>
+        <text x="1097" y="396" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b08080">Different provider</text>
+      </g>
+
+      <!-- ═══════════════════════════════════════════
+           ROW 3: DATA SERVICES (y: 540-632)
+           ═══════════════════════════════════════════ -->
+
+      <!-- SQLITE -->
+      <g class="diagram-node" data-group="data">
+        <rect x="180" y="540" width="165" height="92" rx="14" fill="#D4F5D4" stroke="#5a9a5a" stroke-width="1.8"/>
+        <text x="262" y="572" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#3a6a3a">SQLite</text>
+        <text x="262" y="595" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a8a5a">API Database</text>
+        <text x="262" y="616" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#7aaa7a">8 tables - WAL - ACID</text>
+      </g>
+
+      <!-- REDIS -->
+      <g class="diagram-node" data-group="data">
+        <rect x="420" y="540" width="165" height="92" rx="14" fill="#D4F5D4" stroke="#5a9a5a" stroke-width="1.8"/>
+        <text x="502" y="572" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#3a6a3a">Redis</text>
+        <text x="502" y="595" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a8a5a">Checkpoints</text>
+        <text x="502" y="616" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#7aaa7a">Crash recovery</text>
+      </g>
+
+      <!-- LANCEDB -->
+      <g class="diagram-node" data-group="data">
+        <rect x="660" y="540" width="165" height="92" rx="14" fill="#D4F5D4" stroke="#5a9a5a" stroke-width="1.8"/>
+        <text x="742" y="572" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#3a6a3a">LanceDB</text>
+        <text x="742" y="595" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a8a5a">Vector KB (768-dim)</text>
+        <text x="742" y="616" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#7aaa7a">530+ pairs - IVF index</text>
+      </g>
+
+      <!-- DUCKDB -->
+      <g class="diagram-node" data-group="data">
+        <rect x="900" y="540" width="165" height="92" rx="14" fill="#D4F5D4" stroke="#5a9a5a" stroke-width="1.8"/>
+        <text x="982" y="572" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#3a6a3a">DuckDB</text>
+        <text x="982" y="595" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a8a5a">OLAP Analytics</text>
+        <text x="982" y="616" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#7aaa7a">LLM audit logs</text>
+      </g>
+
+      <!-- ═══════════════════════════════════════════
+           ROW 4: AZURE MANAGED SERVICES (y: 670-755)
+           ═══════════════════════════════════════════ -->
+
+      <!-- AZURE KEY VAULT -->
+      <g class="diagram-node" data-group="azure">
+        <rect x="260" y="670" width="175" height="85" rx="14" fill="#E6F0FF" stroke="#0078D4" stroke-width="1.8"/>
+        <text x="347" y="700" text-anchor="middle" font-family="Caveat, cursive" font-size="19" font-weight="700" fill="#004E8C">Key Vault</text>
+        <text x="347" y="722" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#0063B1">10 secrets (RBAC)</text>
+        <text x="347" y="742" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#4A90C4">Zero credentials in code</text>
+      </g>
+
+      <!-- AZURE APP INSIGHTS -->
+      <g class="diagram-node" data-group="azure">
+        <rect x="510" y="670" width="175" height="85" rx="14" fill="#E6F0FF" stroke="#0078D4" stroke-width="1.8"/>
+        <text x="597" y="700" text-anchor="middle" font-family="Caveat, cursive" font-size="19" font-weight="700" fill="#004E8C">App Insights</text>
+        <text x="597" y="722" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#0063B1">OpenTelemetry</text>
+        <text x="597" y="742" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#4A90C4">Traces + metrics</text>
+      </g>
+
+      <!-- AZURE MANAGED IDENTITY -->
+      <g class="diagram-node" data-group="azure">
+        <rect x="760" y="670" width="175" height="85" rx="14" fill="#E6F0FF" stroke="#0078D4" stroke-width="1.8"/>
+        <text x="847" y="700" text-anchor="middle" font-family="Caveat, cursive" font-size="19" font-weight="700" fill="#004E8C">Managed Identity</text>
+        <text x="847" y="722" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#0063B1">OIDC Federation</text>
+        <text x="847" y="742" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#4A90C4">No stored credentials</text>
+      </g>
+
+      <!-- GHCR (GitHub Container Registry) -->
+      <g class="diagram-node" data-group="devops">
+        <rect x="1010" y="670" width="175" height="85" rx="14" fill="#2d333b" stroke="#444d56" stroke-width="1.8"/>
+        <text x="1097" y="700" text-anchor="middle" font-family="Caveat, cursive" font-size="19" font-weight="700" fill="#e6edf3">GHCR</text>
+        <text x="1097" y="722" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#8b949e">Container Registry</text>
+        <text x="1097" y="742" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#8b949e">ghcr.io/codara</text>
+      </g>
+
+      <!-- CI/CD BAR (expanded — 6-job GitHub Actions pipeline) -->
+      <g>
+        <rect x="180" y="800" width="1100" height="65" rx="12" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+        <text x="230" y="823" font-family="Caveat, cursive" font-size="17" font-weight="700" fill="#58a6ff">GitHub Actions</text>
+        <text x="730" y="823" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#8b949e">Lint &#8594; Test (248) &#8594; Security &#8594; Docker Build &#8594; Deploy to Azure &#8594; Benchmark</text>
+        <text x="730" y="848" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#484f58">OIDC auth &#183; Coverage &#183; CodeQL &#183; Smoke test &#183; 6 jobs</text>
+      </g>
+
+      <!-- ═══════════════════════════════════════════
+           CONNECTORS — drawn LAST so they render on top
+           All paths routed through safe corridors:
+             Vertical corridors: x<260, x:435-510, x:685-760, x:935-1010, x>1185
+             Horizontal corridors: y:210-315, y:415-540
+           ═══════════════════════════════════════════ -->
+
+      <!-- ── TOP ROW: horizontal flow ── -->
+
+      <!-- User -> Frontend -->
+      <path class="diagram-connector" d="M190,140 L300,132" fill="none" stroke="#444" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="245" y="126" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#777">HTTPS</text>
+
+      <!-- Frontend -> Backend -->
+      <path class="diagram-connector" d="M480,132 L600,132" fill="none" stroke="#444" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="540" y="122" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#777">/api proxy</text>
+
+      <!-- Backend -> Pipeline -->
+      <path class="diagram-connector" d="M780,130 L900,130" fill="none" stroke="#444" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="840" y="120" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#777">triggers</text>
+
+      <!-- Pipeline -> Ollama (primary) -->
+      <path class="diagram-connector" d="M1110,112 L1230,112" fill="none" stroke="#b88a50" stroke-width="2.5" marker-end="url(#arr-orange)"/>
+      <text x="1170" y="102" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" font-style="italic" fill="#b88a50">primary</text>
+
+      <!-- ── LLM FALLBACK CHAIN: vertical ── -->
+
+      <!-- Ollama -> Azure (fallback) -->
+      <path class="diagram-connector" d="M1337,160 L1337,225" fill="none" stroke="#999" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#arr-muted)"/>
+      <text x="1380" y="195" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#b06060">fallback</text>
+
+      <!-- Azure -> Groq (fallback) -->
+      <path class="diagram-connector" d="M1337,320 L1337,385" fill="none" stroke="#999" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#arr-muted)"/>
+      <text x="1380" y="355" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#b06060">fallback</text>
+
+      <!-- ── PIPELINE -> VERIFICATION: fan down through gap y:210-315 ── -->
+
+      <!-- Pipeline -> Z3 (route at y=238) -->
+      <path class="diagram-connector" d="M960,210 L960,238 L347,238 L347,315" fill="none" stroke="#b86060" stroke-width="1.8" marker-end="url(#arr-red)"/>
+
+      <!-- Pipeline -> CDAIS (route at y=250) -->
+      <path class="diagram-connector" d="M980,210 L980,250 L597,250 L597,315" fill="none" stroke="#b86060" stroke-width="1.8" marker-end="url(#arr-red)"/>
+
+      <!-- Pipeline -> Sandbox (route at y=262) -->
+      <path class="diagram-connector" d="M1000,210 L1000,262 L847,262 L847,315" fill="none" stroke="#b86060" stroke-width="1.8" marker-end="url(#arr-red)"/>
+
+      <!-- Pipeline -> Cross-Verify (route at y=274) -->
+      <path class="diagram-connector" d="M1020,210 L1020,274 L1097,274 L1097,315" fill="none" stroke="#b86060" stroke-width="1.8" marker-end="url(#arr-red)"/>
+
+      <!-- Label for verification group -->
+      <text x="700" y="230" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" font-style="italic" fill="#b06060">verifies translations</text>
+
+      <!-- ── BACKEND/PIPELINE -> DATA: routed through vertical corridors ── -->
+
+      <!-- Backend -> SQLite: route left corridor x=245 (left of Z3 x:260) -->
+      <path class="diagram-connector" d="M640,195 L640,228 L245,228 L245,540" fill="none" stroke="#5a9a5a" stroke-width="1.8" marker-end="url(#arr-green)"/>
+      <text x="430" y="220" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#5a9a5a">ACID writes</text>
+
+      <!-- Pipeline -> Redis: route Z3-CDAIS gap x=470 (gap: 435-510) -->
+      <path class="diagram-connector" d="M945,210 L945,246 L470,246 L470,540" fill="none" stroke="#5a9a5a" stroke-width="1.8" marker-end="url(#arr-green)"/>
+
+      <!-- Pipeline -> LanceDB: route CDAIS-Sandbox gap x=720 (gap: 685-760) -->
+      <path class="diagram-connector" d="M985,210 L985,254 L720,254 L720,540" fill="none" stroke="#5a9a5a" stroke-width="1.8" marker-end="url(#arr-green)"/>
+      <text x="860" y="500" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#5a9a5a">RAG queries</text>
+
+      <!-- Pipeline -> DuckDB: route Sandbox-CrossVerify gap x=970 (gap: 935-1010) -->
+      <path class="diagram-connector" d="M1025,210 L1025,258 L970,258 L970,540" fill="none" stroke="#5a9a5a" stroke-width="1.8" marker-end="url(#arr-green)"/>
+      <text x="1010" y="500" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#5a9a5a">audit logs</text>
+
+      <!-- ── CROSS-CONNECTIONS ── -->
+
+      <!-- Groq -> Cross-Verify (judge): route through gap x:1185-1230 -->
+      <path class="diagram-connector" d="M1230,432 L1200,432 L1200,365 L1185,365" fill="none" stroke="#b88a50" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arr-orange)"/>
+      <text x="1207" y="415" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#b88a50" transform="rotate(-90 1207 415)">judges</text>
+
+      <!-- ── GITHUB & AZURE INFRASTRUCTURE CONNECTORS ── -->
+
+      <!-- User -> GitHub (OAuth) -->
+      <path class="diagram-connector" d="M115,185 L115,230" fill="none" stroke="#8b949e" stroke-width="1.8" marker-end="url(#arr-muted)"/>
+      <text x="135" y="212" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#8b949e">OAuth</text>
+
+      <!-- GitHub -> Backend (auth callback) -->
+      <path class="diagram-connector" d="M190,272 L248,272 L248,195 L600,180" fill="none" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arr-muted)"/>
+      <text x="250" y="260" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#8b949e">callback</text>
+
+      <!-- Backend -> Key Vault (secrets) -->
+      <path class="diagram-connector" d="M650,195 L650,435 L347,435 L347,670" fill="none" stroke="#0078D4" stroke-width="1.5" stroke-dasharray="5 3"/>
+      <text x="490" y="448" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#0078D4">secrets</text>
+
+      <!-- Pipeline -> App Insights (telemetry) -->
+      <path class="diagram-connector" d="M940,210 L940,440 L597,440 L597,670" fill="none" stroke="#0078D4" stroke-width="1.5" stroke-dasharray="5 3"/>
+      <text x="770" y="454" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#0078D4">telemetry</text>
+
+      <!-- Managed Identity -> Key Vault (RBAC) -->
+      <path class="diagram-connector" d="M760,712 L435,712" fill="none" stroke="#0078D4" stroke-width="1.2" stroke-dasharray="4 3"/>
+      <text x="597" y="707" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#0078D4">RBAC</text>
+
+      <!-- GHCR -> CI/CD bar -->
+      <path class="diagram-connector" d="M1097,755 L1097,800" fill="none" stroke="#8b949e" stroke-width="1.5" marker-end="url(#arr-muted)"/>
+
+      <!-- GitHub -> CI/CD bar (triggers) -->
+      <path class="diagram-connector" d="M115,315 L115,832 L180,832" fill="none" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arr-muted)"/>
+      <text x="100" y="580" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#8b949e" transform="rotate(-90 100 580)">push triggers</text>
+
+      <!-- ═══ LEGEND ═══ -->
+      <g transform="translate(50,910)">
+        <text font-family="Caveat, cursive" font-size="16" font-weight="700" fill="#666" y="-3">Legend</text>
+        <!-- Row 1 -->
+        <rect x="0" y="8" width="22" height="15" rx="4" fill="#D0E8FF" stroke="#5b7dba" stroke-width="1"/>
+        <text x="30" y="20" font-family="'Patrick Hand', cursive" font-size="12" fill="#666">Application</text>
+        <rect x="140" y="8" width="22" height="15" rx="4" fill="#E8D5FF" stroke="#7b5fad" stroke-width="1"/>
+        <text x="170" y="20" font-family="'Patrick Hand', cursive" font-size="12" fill="#666">Intelligence</text>
+        <rect x="275" y="8" width="22" height="15" rx="4" fill="#D4F5D4" stroke="#5a9a5a" stroke-width="1"/>
+        <text x="305" y="20" font-family="'Patrick Hand', cursive" font-size="12" fill="#666">Data</text>
+        <rect x="370" y="8" width="22" height="15" rx="4" fill="#FFE4C4" stroke="#b88a50" stroke-width="1"/>
+        <text x="400" y="20" font-family="'Patrick Hand', cursive" font-size="12" fill="#666">AI Providers</text>
+        <rect x="510" y="8" width="22" height="15" rx="4" fill="#FFD5D5" stroke="#b86060" stroke-width="1"/>
+        <text x="540" y="20" font-family="'Patrick Hand', cursive" font-size="12" fill="#666">Verification</text>
+        <rect x="640" y="8" width="22" height="15" rx="4" fill="#E6F0FF" stroke="#0078D4" stroke-width="1"/>
+        <text x="670" y="20" font-family="'Patrick Hand', cursive" font-size="12" fill="#666">Azure Services</text>
+        <rect x="795" y="8" width="22" height="15" rx="4" fill="#24292e" stroke="#444d56" stroke-width="1"/>
+        <text x="825" y="20" font-family="'Patrick Hand', cursive" font-size="12" fill="#666">GitHub / DevOps</text>
+      </g>
+    </svg>
+
+    <div style="max-width:820px;margin:2rem auto 0;padding:32px 0 48px;padding-left:28px;border-left:4px solid #7b5fad;">
+      <p style="font-size:15px;line-height:1.8;color:#333;font-style:italic;text-indent:1.5em;">
+        This platform transforms legacy statistical programs into modern, equivalent code while preserving the original logic with mathematical certainty. A user uploads their files through a web interface, which passes them to a secure processing service that orchestrates a sequence of over twenty specialised intelligent agents &mdash; each responsible for a different aspect of the conversion, from parsing the structure of the original code, to finding relevant translation examples in a knowledge base, to generating the output and verifying its correctness. Three separate artificial intelligence providers are chained together in a resilience pattern: if one becomes unavailable or rate-limited, the system transparently switches to the next without interrupting the process. Once a translation is produced, it undergoes formal mathematical verification using a theorem prover and adversarial stress-testing with synthetic edge-case data, ensuring it behaves identically to the original under all possible inputs. Four purpose-built databases support the journey &mdash; one for user accounts and job tracking, one for pipeline crash recovery, one for intelligent example retrieval using vector similarity, and one for operational analytics and auditing. The entire system is continuously tested, benchmarked against a gold-standard corpus, scanned for vulnerabilities, and deployed through a fully automated pipeline that enforces quality at every stage before reaching production.
+      </p>
+    </div>
+  </div>
+
+  <!-- WHY these technologies -->
+  <h3 style="margin-top:2rem">Why These Technologies?</h3>
+  <div class="why-grid reveal">
+    <div class="why-box"><div class="why-q">Why LangGraph (not LangChain)?</div><div class="why-a"><strong>Explicit state machines</strong> with typed state. Each node reads/writes shared pipeline state, enabling deterministic execution, per-node checkpointing, and mid-pipeline recovery.</div><div class="why-impact">Pipeline recovers from LLM failures without restarting.</div></div>
+    <div class="why-box gl"><div class="why-q">Why FastAPI (not Flask)?</div><div class="why-a">All agents are asynchronous. FastAPI's native async support and BackgroundTasks allow running the full pipeline in-process without an external task queue like Celery.</div><div class="why-impact">No external task queue needed. SSE streaming built-in.</div></div>
+    <div class="why-box pl"><div class="why-q">Why 3 databases (SQLite + LanceDB + DuckDB)?</div><div class="why-a"><strong>SQLite</strong>: ACID for users/conversions. <strong>LanceDB</strong>: vector similarity search (768-dim). <strong>DuckDB</strong>: columnar analytics on LLM logs (100x faster for aggregations).</div><div class="why-impact">Best performance per access pattern, zero operational overhead.</div></div>
+    <div class="why-box ol"><div class="why-q">Why 3 LLM Providers?</div><div class="why-a"><strong>Resilience</strong>: fallback chain with circuit breakers. <strong>Cross-verification</strong>: translate on one provider, verify on another. <strong>Cost</strong>: local Ollama is free; Groq offers 300K tokens/day at no cost.</div><div class="why-impact">Zero downtime + independent verification = higher accuracy.</div></div>
+    <div class="why-box tl"><div class="why-q">Why Redis?</div><div class="why-a"><strong>Atomic writes</strong> prevent corrupted partial state on crash. The pipeline continues in degraded mode if Redis is unavailable &mdash; no data loss, just no crash recovery.</div><div class="why-impact">Crash recovery. Graceful degradation.</div></div>
+    <div class="why-box pkl"><div class="why-q">Why React + shadcn/ui?</div><div class="why-a">Zustand for simpler state management than Redux. shadcn/ui for accessible, composable components. Tailwind for rapid styling. Bun for fast installs.</div><div class="why-impact">Full UI in ~2 weeks.</div></div>
+    <div class="why-box gl"><div class="why-q">Why Azure (Key Vault + Container Apps)?</div><div class="why-a"><strong>Key Vault</strong>: secrets rotate in one place, referenced at runtime via managed identity &mdash; no credentials in code or CI logs. <strong>Container Apps</strong>: serverless containers, scale-to-zero, built-in HTTPS.</div><div class="why-impact">Zero stored credentials. OIDC deploy. Auto-scaling.</div></div>
+    <div class="why-box tl"><div class="why-q">Why Docker + GitHub Actions?</div><div class="why-a"><strong>Multi-stage Dockerfile</strong> separates build (gcc/torch) from runtime (slim). 6-job CI pipeline: lint, test, security scan, Docker build, Azure deploy, benchmark. GHCR stores images.</div><div class="why-impact">Push to main &rarr; production in &lt;10 minutes.</div></div>
+  </div>
+</section>
+
+<div class="wave-divider"><svg viewBox="0 0 1440 60" preserveAspectRatio="none"><path class="wave-path" d="M0,30 C360,55 720,5 1080,30 S1440,30 1440,30" fill="none" stroke="#e4e8ee" stroke-width="1.5"/></svg></div>
+
+<!-- PIPELINE -->
+<section id="pipeline" class="reveal">
+  <h2>8-Node LangGraph Pipeline</h2>
+  <p class="sub">Each node is a composite agent delegating to 1&ndash;4 specialists internally. Click a node for details.</p>
+
+  <div class="arch-wrap" style="padding:1.5rem">
+    <svg class="arch-svg" viewBox="0 0 1200 150" xmlns="http://www.w3.org/2000/svg" id="pipeline-svg" style="font-family:'Inter','Segoe UI',sans-serif">
+      <defs><marker id="pa" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0.5 L7,2.5 L0,4.5" fill="#6366f1"/></marker></defs>
+
+      <rect x="10" y="25" width="120" height="100" rx="12" fill="#f0fdfa" stroke="#14b8a6" stroke-width="1.5" class="pipe-node-svg" data-node="0" style="cursor:pointer"/>
+      <circle cx="70" cy="42" r="10" fill="#6366f1"/><text x="70" y="46" text-anchor="middle" fill="white" font-size="10" font-weight="800">1</text>
+      <text x="70" y="66" text-anchor="middle" fill="#1e293b" font-size="9" font-weight="700">file_process</text>
+      <text x="70" y="80" text-anchor="middle" fill="#64748b" font-size="7.5">File analysis</text>
+      <text x="70" y="92" text-anchor="middle" fill="#64748b" font-size="7.5">Cross-file deps</text>
+      <text x="70" y="104" text-anchor="middle" fill="#64748b" font-size="7.5">Registry</text>
+      <text x="70" y="118" text-anchor="middle" fill="#14b8a6" font-size="7" font-weight="600">L2-A</text>
+      <line x1="130" y1="75" x2="155" y2="75" stroke="#6366f1" stroke-width="1.8" marker-end="url(#pa)"/>
+
+      <rect x="155" y="25" width="120" height="100" rx="12" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5" class="pipe-node-svg" data-node="1" style="cursor:pointer"/>
+      <circle cx="215" cy="42" r="10" fill="#6366f1"/><text x="215" y="46" text-anchor="middle" fill="white" font-size="10" font-weight="800">2</text>
+      <text x="215" y="66" text-anchor="middle" fill="#1e293b" font-size="9" font-weight="700">streaming</text>
+      <text x="215" y="80" text-anchor="middle" fill="#64748b" font-size="7.5">FSM tokenizer</text>
+      <text x="215" y="92" text-anchor="middle" fill="#64748b" font-size="7.5">asyncio.Queue</text>
+      <text x="215" y="104" text-anchor="middle" fill="#64748b" font-size="7.5">Backpressure</text>
+      <text x="215" y="118" text-anchor="middle" fill="#6366f1" font-size="7" font-weight="600">L2-B</text>
+      <line x1="275" y1="75" x2="300" y2="75" stroke="#6366f1" stroke-width="1.8" marker-end="url(#pa)"/>
+
+      <rect x="300" y="25" width="120" height="100" rx="12" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5" class="pipe-node-svg" data-node="2" style="cursor:pointer"/>
+      <circle cx="360" cy="42" r="10" fill="#6366f1"/><text x="360" y="46" text-anchor="middle" fill="white" font-size="10" font-weight="800">3</text>
+      <text x="360" y="66" text-anchor="middle" fill="#1e293b" font-size="9" font-weight="700">chunking</text>
+      <text x="360" y="80" text-anchor="middle" fill="#64748b" font-size="7.5">Boundary detect</text>
+      <text x="360" y="92" text-anchor="middle" fill="#64748b" font-size="7.5">80% deterministic</text>
+      <text x="360" y="104" text-anchor="middle" fill="#64748b" font-size="7.5">20% LLM fallback</text>
+      <text x="360" y="118" text-anchor="middle" fill="#d97706" font-size="7" font-weight="600">L2-C</text>
+      <line x1="420" y1="75" x2="445" y2="75" stroke="#6366f1" stroke-width="1.8" marker-end="url(#pa)"/>
+
+      <rect x="445" y="25" width="120" height="100" rx="12" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1.5" class="pipe-node-svg" data-node="3" style="cursor:pointer"/>
+      <circle cx="505" cy="42" r="10" fill="#6366f1"/><text x="505" y="46" text-anchor="middle" fill="white" font-size="10" font-weight="800">4</text>
+      <text x="505" y="66" text-anchor="middle" fill="#1e293b" font-size="9" font-weight="700">raptor</text>
+      <text x="505" y="80" text-anchor="middle" fill="#64748b" font-size="7.5">Nomic embed</text>
+      <text x="505" y="92" text-anchor="middle" fill="#64748b" font-size="7.5">GMM cluster</text>
+      <text x="505" y="104" text-anchor="middle" fill="#64748b" font-size="7.5">RAPTOR tree</text>
+      <text x="505" y="118" text-anchor="middle" fill="#8b5cf6" font-size="7" font-weight="600">L2-C</text>
+      <line x1="565" y1="75" x2="590" y2="75" stroke="#6366f1" stroke-width="1.8" marker-end="url(#pa)"/>
+
+      <rect x="590" y="25" width="120" height="100" rx="12" fill="#f0fdfa" stroke="#14b8a6" stroke-width="1.5" class="pipe-node-svg" data-node="4" style="cursor:pointer"/>
+      <circle cx="650" cy="42" r="10" fill="#6366f1"/><text x="650" y="46" text-anchor="middle" fill="white" font-size="10" font-weight="800">5</text>
+      <text x="650" y="66" text-anchor="middle" fill="#1e293b" font-size="9" font-weight="700">risk_routing</text>
+      <text x="650" y="80" text-anchor="middle" fill="#64748b" font-size="7.5">14-feature ML</text>
+      <text x="650" y="92" text-anchor="middle" fill="#64748b" font-size="7.5">ECE &lt; 0.08</text>
+      <text x="650" y="104" text-anchor="middle" fill="#64748b" font-size="7.5">Strategy assign</text>
+      <text x="650" y="118" text-anchor="middle" fill="#14b8a6" font-size="7" font-weight="600">L2-D</text>
+      <line x1="710" y1="75" x2="735" y2="75" stroke="#6366f1" stroke-width="1.8" marker-end="url(#pa)"/>
+
+      <rect x="735" y="25" width="120" height="100" rx="12" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.5" class="pipe-node-svg" data-node="5" style="cursor:pointer"/>
+      <circle cx="795" cy="42" r="10" fill="#6366f1"/><text x="795" y="46" text-anchor="middle" fill="white" font-size="10" font-weight="800">6</text>
+      <text x="795" y="66" text-anchor="middle" fill="#1e293b" font-size="9" font-weight="700">persist_index</text>
+      <text x="795" y="80" text-anchor="middle" fill="#64748b" font-size="7.5">SQLite persist</text>
+      <text x="795" y="92" text-anchor="middle" fill="#64748b" font-size="7.5">NetworkX graph</text>
+      <text x="795" y="104" text-anchor="middle" fill="#64748b" font-size="7.5">SCC detection</text>
+      <text x="795" y="118" text-anchor="middle" fill="#ec4899" font-size="7" font-weight="600">L2-E</text>
+      <line x1="855" y1="75" x2="880" y2="75" stroke="#6366f1" stroke-width="1.8" marker-end="url(#pa)"/>
+
+      <rect x="880" y="20" width="130" height="110" rx="14" fill="#eef2ff" stroke="#6366f1" stroke-width="2.5" class="pipe-node-svg" data-node="6" style="cursor:pointer"/>
+      <circle cx="945" cy="38" r="10" fill="#6366f1"/><text x="945" y="42" text-anchor="middle" fill="white" font-size="10" font-weight="800">7</text>
+      <text x="945" y="62" text-anchor="middle" fill="#4338ca" font-size="9.5" font-weight="700">translation</text>
+      <text x="945" y="76" text-anchor="middle" fill="#64748b" font-size="7.5">3-tier RAG</text>
+      <text x="945" y="88" text-anchor="middle" fill="#64748b" font-size="7.5">LLM call + retry</text>
+      <text x="945" y="100" text-anchor="middle" fill="#64748b" font-size="7.5">Z3 + CDAIS verify</text>
+      <text x="945" y="112" text-anchor="middle" fill="#64748b" font-size="7.5">Cross-verify</text>
+      <text x="945" y="123" text-anchor="middle" fill="#6366f1" font-size="7" font-weight="600">L3 (core)</text>
+      <line x1="1010" y1="75" x2="1035" y2="75" stroke="#6366f1" stroke-width="1.8" marker-end="url(#pa)"/>
+
+      <rect x="1035" y="25" width="130" height="100" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="1.5" class="pipe-node-svg" data-node="7" style="cursor:pointer"/>
+      <circle cx="1100" cy="42" r="10" fill="#6366f1"/><text x="1100" y="46" text-anchor="middle" fill="white" font-size="10" font-weight="800">8</text>
+      <text x="1100" y="66" text-anchor="middle" fill="#1e293b" font-size="9" font-weight="700">merge</text>
+      <text x="1100" y="80" text-anchor="middle" fill="#64748b" font-size="7.5">Import consolidation</text>
+      <text x="1100" y="92" text-anchor="middle" fill="#64748b" font-size="7.5">Dep injection</text>
+      <text x="1100" y="104" text-anchor="middle" fill="#64748b" font-size="7.5">HTML report</text>
+      <text x="1100" y="118" text-anchor="middle" fill="#10b981" font-size="7" font-weight="600">L4</text>
+    </svg>
+    <p class="arch-desc">
+      Each SAS file flows through eight sequential stages. First, the file is scanned for cross-file dependencies and registered. A streaming finite-state machine then tokenises the SAS source, and a boundary detector splits it into logical partitions. The RAPTOR module clusters these partitions into a hierarchical embedding tree for richer retrieval. A machine-learning classifier assigns a risk level to each partition, determining which retrieval and translation strategy to apply. After persisting partitions and building a dependency graph, the core translation node converts each partition using three tiers of retrieval-augmented generation, with formal verification and adversarial testing. Finally, all translated partitions are merged into a single executable Python script with a quality report.
+    </p>
+  </div>
+
+  <!-- Node decomposition table -->
+  <h3>Node Decomposition</h3>
+  <table class="t reveal">
+    <thead><tr><th>Node</th><th>Sub-Agents</th><th>Input</th><th>Output</th></tr></thead>
+    <tbody>
+      <tr><td>file_process</td><td>FileAnalysis &#8594; CrossFileDeps &#8594; Registry</td><td>SAS file paths</td><td>FileMetadata[], cross_deps</td></tr>
+      <tr><td>streaming</td><td>StreamAgent &#8594; StateAgent (Queue)</td><td>FileMetadata</td><td>Token stream, FSM events</td></tr>
+      <tr><td>chunking</td><td>BoundaryDetector &#8594; PartitionBuilder</td><td>Token stream</td><td>PartitionIR[]</td></tr>
+      <tr><td>raptor</td><td>Embedder &#8594; Clusterer &#8594; Summariser &#8594; TreeBuilder</td><td>PartitionIR[]</td><td>RAPTOR tree</td></tr>
+      <tr><td>risk_routing</td><td>ComplexityAgent (ML) &#8594; StrategyAgent</td><td>PartitionIR[]</td><td>risk_level + strategy</td></tr>
+      <tr><td>persist_index</td><td>PersistenceAgent + IndexAgent</td><td>PartitionIR[]</td><td>SQLite + DAG + SCCs</td></tr>
+      <tr><td>translation</td><td>TranslationAgent &#8594; ValidationAgent</td><td>Partition + RAG context</td><td>ConversionResult[]</td></tr>
+      <tr><td>merge</td><td>ScriptMerger &#8594; ReportAgent</td><td>ConversionResult[]</td><td>Final .py + HTML report</td></tr>
+    </tbody>
+  </table>
+
+  <div id="pipe-detail" class="node-detail" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%)">
+    <button class="close-btn" onclick="this.parentElement.classList.remove('show')">&times;</button>
+    <h4 id="pd-title"></h4>
+    <p id="pd-agents" style="color:var(--blue)"></p>
+    <p id="pd-why"></p>
+    <p id="pd-detail"></p>
+  </div>
+</section>
+
+<div class="wave-divider"><svg viewBox="0 0 1440 60" preserveAspectRatio="none"><path class="wave-path" d="M0,30 C360,55 720,5 1080,30 S1440,30 1440,30" fill="none" stroke="#e4e8ee" stroke-width="1.5"/></svg></div>
+
+<!-- RAG -->
+<section id="rag" class="reveal">
+  <h2>3-Tier RAG System</h2>
+  <p class="sub">Retrieval-Augmented Generation adapted per partition complexity. The risk-routing node decides which tier each block receives.</p>
+
+  <div class="card-grid">
+    <div class="card reveal-left" style="border-top:3px solid var(--green);cursor:pointer" onclick="this.querySelector('.rag-extra').style.display=this.querySelector('.rag-extra').style.display==='block'?'none':'block'">
+      <h3 style="color:var(--green)">Tier 1: Static RAG</h3>
+      <p><strong>When:</strong> LOW risk, no cross-file deps<br><strong>How:</strong> KNN in LanceDB (k=5, cosine)<br><strong>Speed:</strong> ~50ms</p>
+      <div class="rag-extra" style="display:none;margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--border)">
+        <p style="font-size:.82rem">The partition source is embedded into a 768-dimensional vector. The five nearest knowledge-base examples are injected as context for translation.</p>
+        <p style="font-size:.78rem;color:var(--green);margin-top:.4rem;font-weight:600">~60% of partitions use this tier.</p>
+      </div>
+      <span class="tag tag-green">LOW Risk</span><span class="tag tag-green">No Dependencies</span>
+    </div>
+    <div class="card reveal-scale" style="border-top:3px solid var(--orange);cursor:pointer" onclick="this.querySelector('.rag-extra').style.display=this.querySelector('.rag-extra').style.display==='block'?'none':'block'">
+      <h3 style="color:#d97706">Tier 2: Graph RAG</h3>
+      <p><strong>When:</strong> Cross-file deps or SCC member<br><strong>How:</strong> Dependency graph traversal + ancestor context<br><strong>Speed:</strong> ~200ms</p>
+      <div class="rag-extra" style="display:none;margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--border)">
+        <p style="font-size:.82rem">Traverses the dependency graph to include translations of upstream partitions as additional context.</p>
+        <p style="font-size:.78rem;color:#d97706;margin-top:.4rem;font-weight:600">~15% of partitions.</p>
+      </div>
+      <span class="tag tag-orange">Cross-file</span><span class="tag tag-orange">SCC Members</span>
+    </div>
+    <div class="card reveal-right" style="border-top:3px solid var(--pink);cursor:pointer" onclick="this.querySelector('.rag-extra').style.display=this.querySelector('.rag-extra').style.display==='block'?'none':'block'">
+      <h3 style="color:var(--pink)">Tier 3: Agentic RAG</h3>
+      <p><strong>When:</strong> MOD/HIGH/UNCERTAIN risk<br><strong>How:</strong> Multi-step retrieval (k=10), entity extraction<br><strong>Speed:</strong> ~500ms</p>
+      <div class="rag-extra" style="display:none;margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--border)">
+        <p style="font-size:.82rem">Extracts entities, queries the knowledge base from multiple angles, detects failure modes. Cross-verification uses an independent LLM provider.</p>
+        <p style="font-size:.78rem;color:var(--pink);margin-top:.4rem;font-weight:600">~25% of partitions. +15% accuracy vs no RAG.</p>
+      </div>
+      <span class="tag tag-pink">MOD/HIGH Risk</span><span class="tag tag-pink">Multi-step</span>
+    </div>
+  </div>
+
+  <p class="arch-desc" style="margin-top:1.5rem">
+    The retrieval strategy is chosen automatically based on each partition's risk level and dependency profile. Simple, isolated blocks get fast nearest-neighbour search. Blocks with cross-file dependencies receive context from already-translated upstream partitions. Complex or high-risk blocks trigger a multi-step retrieval process with entity extraction, failure mode detection, and independent cross-verification by a second LLM provider.
+  </p>
+
+  <!-- RAG Distribution Donut -->
+  <div class="chart-container reveal" style="max-width:480px;margin:2rem auto">
+    <div class="chart-title">RAG Tier Distribution</div>
+    <svg viewBox="0 0 300 200" class="chart-svg">
+      <g transform="translate(130,100)">
+        <circle r="70" fill="none" stroke="#10b981" stroke-width="28" stroke-dasharray="264 440" stroke-dashoffset="0" opacity=".7"/>
+        <circle r="70" fill="none" stroke="#f59e0b" stroke-width="28" stroke-dasharray="66 440" stroke-dashoffset="-264" opacity=".7"/>
+        <circle r="70" fill="none" stroke="#ec4899" stroke-width="28" stroke-dasharray="110 440" stroke-dashoffset="-330" opacity=".7"/>
+        <text x="0" y="-5" text-anchor="middle" fill="var(--text)" font-size="15" font-weight="800">100%</text>
+        <text x="0" y="11" text-anchor="middle" fill="var(--text2)" font-size="8">partitions</text>
+      </g>
+      <g transform="translate(225,55)">
+        <rect x="0" y="0" width="10" height="10" rx="2" fill="#10b981"/><text x="16" y="9" fill="var(--text2)" font-size="9">Static 60%</text>
+        <rect x="0" y="18" width="10" height="10" rx="2" fill="#f59e0b"/><text x="16" y="27" fill="var(--text2)" font-size="9">Graph 15%</text>
+        <rect x="0" y="36" width="10" height="10" rx="2" fill="#ec4899"/><text x="16" y="45" fill="var(--text2)" font-size="9">Agentic 25%</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<div class="wave-divider"><svg viewBox="0 0 1440 60" preserveAspectRatio="none"><path class="wave-path" d="M0,30 C360,55 720,5 1080,30 S1440,30 1440,30" fill="none" stroke="#e4e8ee" stroke-width="1.5"/></svg></div>
+
+<!-- RAPTOR -->
+<section id="raptor" class="reveal">
+  <h2>RAPTOR: Hierarchical Embedding Tree</h2>
+  <p class="sub">Recursive Abstractive Processing for Tree-Organised Retrieval. Click any node for details.</p>
+
+  <div class="arch-wrap" style="min-height:520px;position:relative" id="raptor-wrap">
+    <div class="arch-title">Interactive RAPTOR Tree</div>
+    <svg width="100%" height="480" id="raptor-svg" style="overflow:visible"></svg>
+    <div id="raptor-detail" class="node-detail"></div>
+  </div>
+
+  <p class="arch-desc">
+    Instead of flat nearest-neighbour search, RAPTOR embeds each partition into a 768-dimensional vector space, then clusters them using Gaussian Mixture Models. Each cluster receives a summary that captures shared semantics across its members &mdash; for example, "running total followed by group aggregation." These summaries are re-embedded and re-clustered recursively, forming a tree whose root captures the full-file abstraction. When translating a complex partition, the system retrieves context at the appropriate tree level, capturing cross-partition relationships invisible to flat search.
+  </p>
+
+  <div class="two-col reveal">
+    <div>
+      <h3>Why Not Flat KNN?</h3>
+      <div class="why-box ol" style="margin:0">
+        <div class="why-q">Flat KNN misses cross-partition context</div>
+        <div class="why-a">RAPTOR's cluster summaries capture semantic links like "running total followed by group aggregation" &mdash; invisible to flat KNN but critical for accurate translation.</div>
+        <div class="why-impact">+12% translation accuracy on MOD/HIGH blocks vs flat KNN.</div>
+      </div>
+    </div>
+    <div>
+      <h3>Ablation Study Results</h3>
+      <table class="t">
+        <thead><tr><th>Metric</th><th>Flat KNN</th><th>RAPTOR</th><th>&#916;</th></tr></thead>
+        <tbody>
+          <tr><td>Hit-rate@5 (LOW)</td><td>0.89</td><td>0.87</td><td style="color:#d97706">-0.02</td></tr>
+          <tr><td>Hit-rate@5 (MOD)</td><td>0.72</td><td>0.84</td><td style="color:var(--green)">+0.12</td></tr>
+          <tr><td>Hit-rate@5 (HIGH)</td><td>0.58</td><td>0.79</td><td style="color:var(--green)">+0.21</td></tr>
+          <tr><td>MRR (all)</td><td>0.54</td><td>0.63</td><td style="color:var(--green)">+0.09</td></tr>
+          <tr><td>Accuracy (MOD/HIGH)</td><td>61%</td><td>73%</td><td style="color:var(--green)">+12%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Ablation bar chart -->
+  <div class="chart-container reveal" style="max-width:700px;margin:2rem auto">
+    <div class="chart-title">RAPTOR vs Flat KNN &mdash; Hit-rate@5 by Risk Level</div>
+    <svg viewBox="0 0 600 250" class="chart-svg" id="ablation-chart">
+      <defs>
+        <linearGradient id="gFlat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f59e0b" stop-opacity=".7"/><stop offset="100%" stop-color="#f59e0b" stop-opacity=".25"/></linearGradient>
+        <linearGradient id="gRaptor" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#10b981" stop-opacity=".7"/><stop offset="100%" stop-color="#10b981" stop-opacity=".25"/></linearGradient>
+      </defs>
+      <line x1="80" y1="20" x2="80" y2="200" stroke="#e2e8f0" stroke-width="1"/>
+      <line x1="80" y1="200" x2="560" y2="200" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="72" y="204" text-anchor="end" fill="var(--text3)" font-size="9">0</text>
+      <text x="72" y="164" text-anchor="end" fill="var(--text3)" font-size="9">0.25</text>
+      <text x="72" y="124" text-anchor="end" fill="var(--text3)" font-size="9">0.50</text>
+      <text x="72" y="84" text-anchor="end" fill="var(--text3)" font-size="9">0.75</text>
+      <text x="72" y="44" text-anchor="end" fill="var(--text3)" font-size="9">1.00</text>
+      <line x1="80" y1="160" x2="560" y2="160" stroke="#f1f5f9" stroke-width="1"/>
+      <line x1="80" y1="120" x2="560" y2="120" stroke="#f1f5f9" stroke-width="1"/>
+      <line x1="80" y1="80" x2="560" y2="80" stroke="#f1f5f9" stroke-width="1"/>
+      <line x1="80" y1="40" x2="560" y2="40" stroke="#f1f5f9" stroke-width="1"/>
+      <!-- LOW -->
+      <rect x="120" y="57.6" width="45" height="142.4" rx="6" fill="url(#gFlat)" class="bar-animated" style="animation-delay:.2s"/>
+      <rect x="175" y="60.8" width="45" height="139.2" rx="6" fill="url(#gRaptor)" class="bar-animated" style="animation-delay:.4s"/>
+      <text x="160" y="218" text-anchor="middle" fill="var(--text2)" font-size="10" font-weight="600">LOW</text>
+      <text x="142" y="51" text-anchor="middle" fill="#d97706" font-size="8" font-weight="700">0.89</text>
+      <text x="197" y="54" text-anchor="middle" fill="#059669" font-size="8" font-weight="700">0.87</text>
+      <!-- MOD -->
+      <rect x="280" y="84.8" width="45" height="115.2" rx="6" fill="url(#gFlat)" class="bar-animated" style="animation-delay:.6s"/>
+      <rect x="335" y="65.6" width="45" height="134.4" rx="6" fill="url(#gRaptor)" class="bar-animated" style="animation-delay:.8s"/>
+      <text x="320" y="218" text-anchor="middle" fill="var(--text2)" font-size="10" font-weight="600">MOD</text>
+      <text x="302" y="78" text-anchor="middle" fill="#d97706" font-size="8" font-weight="700">0.72</text>
+      <text x="357" y="59" text-anchor="middle" fill="#059669" font-size="8" font-weight="700">0.84</text>
+      <!-- HIGH -->
+      <rect x="440" y="107.2" width="45" height="92.8" rx="6" fill="url(#gFlat)" class="bar-animated" style="animation-delay:1s"/>
+      <rect x="495" y="73.6" width="45" height="126.4" rx="6" fill="url(#gRaptor)" class="bar-animated" style="animation-delay:1.2s"/>
+      <text x="480" y="218" text-anchor="middle" fill="var(--text2)" font-size="10" font-weight="600">HIGH</text>
+      <text x="462" y="101" text-anchor="middle" fill="#d97706" font-size="8" font-weight="700">0.58</text>
+      <text x="517" y="67" text-anchor="middle" fill="#059669" font-size="8" font-weight="700">0.79</text>
+      <!-- Legend -->
+      <rect x="200" y="235" width="12" height="10" rx="3" fill="#f59e0b" opacity=".6"/><text x="218" y="244" fill="var(--text2)" font-size="9">Flat KNN</text>
+      <rect x="310" y="235" width="12" height="10" rx="3" fill="#10b981" opacity=".6"/><text x="328" y="244" fill="var(--text2)" font-size="9">RAPTOR</text>
+    </svg>
+  </div>
+</section>
+
+<div class="wave-divider"><svg viewBox="0 0 1440 60" preserveAspectRatio="none"><path class="wave-path" d="M0,30 C360,55 720,5 1080,30 S1440,30 1440,30" fill="none" stroke="#e4e8ee" stroke-width="1.5"/></svg></div>
+
+<!-- DATABASES -->
+<section id="databases" class="reveal">
+  <h2>Database Explorer</h2>
+  <p class="sub">Four databases, each optimised for its access pattern. Click to expand.</p>
+
+  <div class="db-grid">
+    <div class="db-card" id="db-sqlite">
+      <div class="db-header" onclick="this.parentElement.classList.toggle('open')">
+        <div class="db-icon">&#128451;</div>
+        <div class="db-info"><h3 style="color:var(--blue)">SQLite</h3><p>API Database &mdash; users, conversions, audit logs</p></div>
+        <div class="db-toggle">&#9660;</div>
+      </div>
+      <div class="db-body"><div class="db-content">
+        <div class="db-section"><h4>Tables (8)</h4>
+          <table class="db-mini-table"><thead><tr><th>Table</th><th>Key Columns</th><th>Purpose</th></tr></thead><tbody>
+            <tr><td><strong>users</strong></td><td>id, email, name, hashed_password, role</td><td>Auth + RBAC</td></tr>
+            <tr><td><strong>conversions</strong></td><td>id, user_id, file_name, status, accuracy</td><td>Conversion jobs</td></tr>
+            <tr><td><strong>conversion_stages</strong></td><td>id, conversion_id, stage, latency</td><td>Per-node progress</td></tr>
+            <tr><td><strong>kb_entries</strong></td><td>id, sas_snippet, python_translation</td><td>KB pairs</td></tr>
+            <tr><td><strong>audit_logs</strong></td><td>id, model, latency, cost</td><td>LLM call audit</td></tr>
+            <tr><td><strong>corrections</strong></td><td>id, conversion_id, corrected_code</td><td>Human corrections</td></tr>
+          </tbody></table>
+        </div>
+        <div class="db-section"><h4>Why SQLite?</h4><p style="font-size:.82rem;color:var(--text2)">ACID guarantees for user data. Single-file, zero config. <strong>WAL mode</strong> for concurrent reads.</p></div>
+      </div></div>
+    </div>
+    <div class="db-card" id="db-lance">
+      <div class="db-header" onclick="this.parentElement.classList.toggle('open')">
+        <div class="db-icon">&#128200;</div>
+        <div class="db-info"><h3 style="color:var(--green)">LanceDB</h3><p>Vector Knowledge Base &mdash; 530+ SAS&#8594;Python pairs</p></div>
+        <div class="db-toggle">&#9660;</div>
+      </div>
+      <div class="db-body"><div class="db-content">
+        <div class="db-section"><h4>Schema (16 fields)</h4>
+          <table class="db-mini-table"><thead><tr><th>Field</th><th>Type</th></tr></thead><tbody>
+            <tr><td>sas_snippet + python_translation</td><td>string</td></tr>
+            <tr><td>embedding</td><td>vector[768]</td></tr>
+            <tr><td>category, confidence, complexity_tier</td><td>string, float, string</td></tr>
+            <tr><td>failure_mode, verification_score</td><td>string?, float</td></tr>
+            <tr><td>verified, version, superseded_by</td><td>bool, int, string?</td></tr>
+          </tbody></table>
+        </div>
+        <div class="db-section"><h4>Why LanceDB?</h4><p style="font-size:.82rem;color:var(--text2)"><strong>Disk-based, serverless, zero-config.</strong> Columnar (Apache Arrow). IVF index for fast cosine similarity search.</p></div>
+      </div></div>
+    </div>
+    <div class="db-card" id="db-duck">
+      <div class="db-header" onclick="this.parentElement.classList.toggle('open')">
+        <div class="db-icon">&#128202;</div>
+        <div class="db-info"><h3 style="color:#d97706">DuckDB</h3><p>OLAP Analytics &mdash; LLM audit logs, conversion analytics</p></div>
+        <div class="db-toggle">&#9660;</div>
+      </div>
+      <div class="db-body"><div class="db-content">
+        <div class="db-section"><h4>Why DuckDB?</h4><p style="font-size:.82rem;color:var(--text2)"><strong>Columnar storage</strong> = 100x faster for aggregation queries. SQLite is row-oriented and scans all columns; DuckDB scans only what is needed.</p></div>
+      </div></div>
+    </div>
+    <div class="db-card" id="db-redis">
+      <div class="db-header" onclick="this.parentElement.classList.toggle('open')">
+        <div class="db-icon">&#128204;</div>
+        <div class="db-info"><h3 style="color:var(--red)">Redis</h3><p>Checkpoint Store &mdash; pipeline state recovery</p></div>
+        <div class="db-toggle">&#9660;</div>
+      </div>
+      <div class="db-body"><div class="db-content">
+        <div class="db-section"><h4>Degraded Mode</h4><p style="font-size:.82rem;color:var(--text2)"><strong>Non-critical.</strong> If Redis is unavailable, the pipeline continues without checkpoints. No data is lost.</p></div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<div class="wave-divider"><svg viewBox="0 0 1440 60" preserveAspectRatio="none"><path class="wave-path" d="M0,30 C360,55 720,5 1080,30 S1440,30 1440,30" fill="none" stroke="#e4e8ee" stroke-width="1.5"/></svg></div>
+
+<!-- Z3 -->
+<section id="z3" class="reveal">
+  <h2>Z3 Formal Verification</h2>
+  <p class="sub">11 SMT patterns providing mathematical proofs of translation correctness &mdash; or concrete counterexamples showing exactly where the translation breaks.</p>
+
+  <div class="why-grid" style="margin-bottom:1.5rem">
+    <div class="why-box"><div class="why-q">Why Z3? Why not just run the code?</div><div class="why-a">Running code tests ONE input. Z3 proves correctness for ALL possible inputs simultaneously. When a proof fails, it returns the exact breaking input as a counterexample.</div><div class="why-impact">Counterexample blocks are re-queued at HIGH risk for retry.</div></div>
+    <div class="why-box gl"><div class="why-q">Z3 covers ~30%. What about the rest?</div><div class="why-a">Z3 works on arithmetic and Boolean formulae. <strong>CDAIS covers the other 70%</strong> with adversarial DataFrames. Together: ~95% verification coverage.</div></div>
+  </div>
+
+  <p class="arch-desc" style="margin-bottom:1.5rem">
+    For each translation, the system extracts decidable fragments &mdash; arithmetic expressions, Boolean filters, sort directions, join conditions &mdash; and encodes them as satisfiability problems. The Z3 solver then either proves that the Python output is semantically equivalent to the SAS original for all possible inputs, or returns a concrete counterexample showing the exact values that cause divergence. Blocks that fail verification are automatically re-queued with elevated risk for another translation attempt.
+  </p>
+
+  <h3>All 11 Verification Patterns</h3>
+  <div class="pattern-grid">
+    <div class="pattern-card reveal-left"><div class="pn">Pattern 1</div><div class="pname">conditional_assignment</div><div class="psas">IF x &lt; 0 THEN y='A';</div><div class="pdesc">Proves condition equivalence for all x.</div></div>
+    <div class="pattern-card reveal-left"><div class="pn">Pattern 2</div><div class="pname">sort_direction</div><div class="psas">BY a DESCENDING b;</div><div class="pdesc">Proves ascending=[True,False] matches.</div></div>
+    <div class="pattern-card reveal-scale"><div class="pn">Pattern 3</div><div class="pname">proc_means_groupby</div><div class="psas">PROC MEANS; CLASS a b;</div><div class="pdesc">Single groupby(dropna=False).agg().</div></div>
+    <div class="pattern-card reveal-scale"><div class="pn">Pattern 4</div><div class="pname">boolean_filter</div><div class="psas">WHERE balance &gt; 5000</div><div class="pdesc">Filter threshold + operator match.</div></div>
+    <div class="pattern-card reveal-right"><div class="pn">Pattern 5</div><div class="pname">format_display_only</div><div class="psas">FORMAT status $grade.;</div><div class="pdesc">FORMAT creates new column, never overwrites.</div></div>
+    <div class="pattern-card reveal-right"><div class="pn">Pattern 6</div><div class="pname">left_join</div><div class="psas">LEFT JOIN t2 ON ...</div><div class="pdesc">Verifies pd.merge(how='left').</div></div>
+    <div class="pattern-card reveal-left"><div class="pn">Pattern 7</div><div class="pname">merge_indicator</div><div class="psas">MERGE t1(IN=a); IF a;</div><div class="pdesc">indicator=True + _merge filter.</div></div>
+    <div class="pattern-card reveal-scale"><div class="pn">Pattern 8</div><div class="pname">stepwise_regression</div><div class="psas">SELECTION=STEPWISE</div><div class="pdesc">statsmodels OLS + p-value selection.</div></div>
+    <div class="pattern-card reveal-right"><div class="pn">Pattern 9</div><div class="pname">sort_nodupkey</div><div class="psas">PROC SORT NODUPKEY;</div><div class="pdesc">sort_values + drop_duplicates.</div></div>
+    <div class="pattern-card reveal-left"><div class="pn">Pattern 10</div><div class="pname">simple_assignment</div><div class="psas">y = x * 1.08 + 100;</div><div class="pdesc">Coefficient matching.</div></div>
+    <div class="pattern-card reveal-scale" style="border-color:var(--green)"><div class="pn" style="color:var(--green)">Pattern 11 (NEW)</div><div class="pname">sum_missing_semantics</div><div class="psas">SUM(x, y, 5) vs x+y+5</div><div class="pdesc">SAS SUM() ignores missing; bare + propagates NaN.</div></div>
+  </div>
+</section>
+
+<div class="wave-divider"><svg viewBox="0 0 1440 60" preserveAspectRatio="none"><path class="wave-path" d="M0,30 C360,55 720,5 1080,30 S1440,30 1440,30" fill="none" stroke="#e4e8ee" stroke-width="1.5"/></svg></div>
+
+<!-- CDAIS -->
+<section id="cdais" class="reveal">
+  <h2>CDAIS: Adversarial Input Synthesis</h2>
+  <p class="sub">For the 70% that Z3 cannot encode, CDAIS synthesises the minimum adversarial DataFrame that exposes translation errors.</p>
+
+  <p class="arch-desc" style="margin-bottom:1.5rem">
+    CDAIS generates the smallest possible test DataFrame containing edge cases specific to each SAS pattern &mdash; missing values, currency strings, group boundaries, duplicate keys, mixed-case text, and numeric extremes. Each synthesised DataFrame is designed to trigger exactly the kind of divergence that would occur between SAS and Python when the translation is incorrect, catching bugs that random testing would miss.
+  </p>
+
+  <div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+    <div class="card reveal-left"><h3 style="color:var(--red)">1. NaN / SUM</h3><p>SAS <code>SUM(x,5)</code> ignores missing. Python <code>x+5</code> propagates NaN.</p><span class="tag tag-pink">Z3 Pattern 11</span></div>
+    <div class="card reveal-scale"><h3 style="color:#d97706">2. Currency</h3><p><code>'$1,234.56'</code> &mdash; SAS auto-handles. Pandas needs explicit parsing.</p><span class="tag tag-orange">Dtype</span></div>
+    <div class="card reveal-right"><h3 style="color:var(--purple)">3. Multi-Group</h3><p>RETAIN reset at group boundaries. Global cumsum diverges at group 2.</p><span class="tag tag-purple">Group boundary</span></div>
+    <div class="card reveal-left"><h3 style="color:var(--teal)">4. Duplicates</h3><p>NODUP/NODUPKEY: "first" depends on sort order.</p><span class="tag tag-teal">Dedup</span></div>
+    <div class="card reveal-scale"><h3 style="color:var(--blue)">5. Mixed-Case</h3><p>UPPER/lower/Title cycling. Case sensitivity in WHERE.</p><span class="tag tag-blue">Case</span></div>
+    <div class="card reveal-right"><h3 style="color:var(--green)">6. Edge Cases</h3><p>0, negative, 999999.99. Zero-division, overflow, precision.</p><span class="tag tag-green">Boundary</span></div>
+  </div>
+</section>
+
+<div class="wave-divider"><svg viewBox="0 0 1440 60" preserveAspectRatio="none"><path class="wave-path" d="M0,30 C360,55 720,5 1080,30 S1440,30 1440,30" fill="none" stroke="#e4e8ee" stroke-width="1.5"/></svg></div>
+
+<!-- RESULTS -->
+<section id="results" class="reveal">
+  <h2>Results &amp; Metrics</h2>
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-num" data-count="82">0</div><div class="stat-label">Translation Accuracy %</div></div>
+    <div class="stat-card"><div class="stat-num" data-count="92">0</div><div class="stat-label">Boundary Accuracy %</div></div>
+    <div class="stat-card"><div class="stat-num">0.07</div><div class="stat-label">Complexity ECE</div></div>
+    <div class="stat-card"><div class="stat-num">10/10</div><div class="stat-label">Torture Test</div></div>
+    <div class="stat-card"><div class="stat-num">&lt;2s</div><div class="stat-label">10K Lines Parse</div></div>
+  </div>
+
+  <div class="two-col reveal" style="margin-top:2rem">
+    <div>
+      <h3>Targets vs Achieved</h3>
+      <table class="t">
+        <thead><tr><th>Metric</th><th>Target</th><th>Achieved</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>Boundary accuracy</td><td>&gt;90%</td><td>~92%</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>Streaming (10K lines)</td><td>&lt;2s</td><td>&lt;2s</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>Complexity ECE</td><td>&lt;0.08</td><td>~0.07</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>Translation success</td><td>&#8805;70%</td><td>~82%</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>RAPTOR MRR</td><td>&gt;0.60</td><td>0.63</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>RAPTOR &#916; MOD/HIGH</td><td>&#8805;10%</td><td>+12%</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>KB pairs</td><td>380</td><td>530+</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>Tests</td><td>200+</td><td>248</td><td style="color:var(--green)">&#10003;</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h3>Torture Test (10 Hard Patterns)</h3>
+      <table class="t">
+        <thead><tr><th>Pattern</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>RETAIN + running total</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>FIRST./LAST. group boundary</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>Correlated PROC SQL subquery</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>Nested macro with %DO loop</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>Hash object join</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>PROC MEANS CLASS + WAYS</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>PROC TRANSPOSE</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>Multi-output DATA step</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>ARRAY processing</td><td style="color:var(--green)">&#10003;</td></tr>
+          <tr><td>Enterprise ETL pipeline</td><td style="color:var(--green)">&#10003;</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Progress bars -->
+  <h3 style="margin-top:2rem">Component Performance</h3>
+  <div class="reveal" style="max-width:800px">
+    <div class="progress-row"><span class="progress-label">Boundary Accuracy</span><div class="progress-bar"><div class="progress-fill green" style="width:92%" data-value="92%"></div></div></div>
+    <div class="progress-row"><span class="progress-label">Translation Success</span><div class="progress-bar"><div class="progress-fill green" style="width:82%" data-value="82%"></div></div></div>
+    <div class="progress-row"><span class="progress-label">RAPTOR Hit-rate@5</span><div class="progress-bar"><div class="progress-fill blue" style="width:84%" data-value="0.84"></div></div></div>
+    <div class="progress-row"><span class="progress-label">RAPTOR MRR</span><div class="progress-bar"><div class="progress-fill blue" style="width:63%" data-value="0.63"></div></div></div>
+    <div class="progress-row"><span class="progress-label">Torture Test</span><div class="progress-bar"><div class="progress-fill green" style="width:100%" data-value="10/10"></div></div></div>
+    <div class="progress-row"><span class="progress-label">KB Coverage</span><div class="progress-bar"><div class="progress-fill orange" style="width:100%" data-value="530+ pairs"></div></div></div>
+  </div>
+</section>
+
+<div class="wave-divider"><svg viewBox="0 0 1440 60" preserveAspectRatio="none"><path class="wave-path" d="M0,30 C360,55 720,5 1080,30 S1440,30 1440,30" fill="none" stroke="#e4e8ee" stroke-width="1.5"/></svg></div>
+
+<!-- BEFORE / AFTER -->
+<section id="before-after" class="reveal">
+  <h2>Before &amp; After Comparison</h2>
+  <p class="sub">Real measured values showing improvement across development iterations. "Before" = Week 10 baseline. "After" = Week 15+ (full system).</p>
+
+  <table class="compare-table reveal">
+    <thead>
+      <tr>
+        <th style="width:30%">Metric</th>
+        <th class="before" style="width:18%">Before (W10)</th>
+        <th class="after" style="width:18%">After (W15+)</th>
+        <th style="width:12%">&#916; Delta</th>
+        <th style="width:22%">What Changed</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Translation (torture_test)</td><td style="color:#d97706">50%</td><td style="color:var(--green)">82%</td><td class="delta-pos">+32%</td><td style="font-size:.78rem;color:var(--text2)">Output-equiv prompt + auto-repair</td></tr>
+      <tr><td>Translation (advanced_code)</td><td style="color:#d97706">55%</td><td style="color:var(--green)">88%</td><td class="delta-pos">+33%</td><td style="font-size:.78rem;color:var(--text2)">KB expansion + chart support</td></tr>
+      <tr><td>Syntax Compile Rate</td><td style="color:var(--red)">60%</td><td style="color:var(--green)">98%</td><td class="delta-pos">+38%</td><td style="font-size:.78rem;color:var(--text2)">Auto-repair: brackets, imports</td></tr>
+      <tr><td>Boundary Detection</td><td style="color:#d97706">78%</td><td style="color:var(--green)">92%</td><td class="delta-pos">+14%</td><td style="font-size:.78rem;color:var(--text2)">Lark grammar + LLM fallback</td></tr>
+      <tr><td>Complexity ML Features</td><td style="color:var(--text2)">6</td><td style="color:var(--green)">14</td><td class="delta-pos">+8</td><td style="font-size:.78rem;color:var(--text2)">SAS pattern detectors</td></tr>
+      <tr><td>Complexity ECE</td><td style="color:#d97706">0.12</td><td style="color:var(--green)">0.07</td><td class="delta-pos">-0.05</td><td style="font-size:.78rem;color:var(--text2)">14-feature calibrated classifier</td></tr>
+      <tr><td>RAPTOR Hit-rate@5 (MOD/HIGH)</td><td style="color:var(--text2)">0.65</td><td style="color:var(--green)">0.82</td><td class="delta-pos">+0.17</td><td style="font-size:.78rem;color:var(--text2)">Hierarchical clustering</td></tr>
+      <tr><td>KB Pairs (verified)</td><td style="color:var(--text2)">80</td><td style="color:var(--green)">530+</td><td class="delta-pos">+450</td><td style="font-size:.78rem;color:var(--text2)">Generation + import + gold</td></tr>
+      <tr><td>LLM Fallback Chain</td><td style="color:var(--text2)">1 provider</td><td style="color:var(--green)">3 providers</td><td class="delta-pos">+2</td><td style="font-size:.78rem;color:var(--text2)">Ollama + Azure + Groq</td></tr>
+      <tr><td>Z3 Verification Patterns</td><td style="color:var(--text2)">0</td><td style="color:var(--green)">11</td><td class="delta-pos">+11</td><td style="font-size:.78rem;color:var(--text2)">Formal proofs for SAS fragments</td></tr>
+      <tr><td>Pipeline Duration</td><td style="color:#d97706">45s</td><td style="color:var(--green)">28s</td><td class="delta-pos">-17s</td><td style="font-size:.78rem;color:var(--text2)">Local Ollama, fewer retries</td></tr>
+      <tr><td>Test Count</td><td style="color:var(--text2)">169</td><td style="color:var(--green)">248</td><td class="delta-pos">+79</td><td style="font-size:.78rem;color:var(--text2)">Z3, CDAIS, regression tests</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Before/After bar chart -->
+  <div class="chart-container reveal" style="max-width:900px;margin:2rem auto">
+    <div class="chart-title">Translation Accuracy &mdash; Before vs After</div>
+    <svg viewBox="0 0 800 280" class="chart-svg">
+      <defs>
+        <linearGradient id="gBefore" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ef4444" stop-opacity=".6"/><stop offset="100%" stop-color="#ef4444" stop-opacity=".15"/></linearGradient>
+        <linearGradient id="gAfter" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#10b981" stop-opacity=".7"/><stop offset="100%" stop-color="#10b981" stop-opacity=".2"/></linearGradient>
+      </defs>
+      <line x1="100" y1="20" x2="100" y2="220" stroke="#e2e8f0" stroke-width="1"/>
+      <line x1="100" y1="220" x2="760" y2="220" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="90" y="224" text-anchor="end" fill="var(--text3)" font-size="9">0%</text>
+      <text x="90" y="174" text-anchor="end" fill="var(--text3)" font-size="9">25%</text>
+      <text x="90" y="124" text-anchor="end" fill="var(--text3)" font-size="9">50%</text>
+      <text x="90" y="74" text-anchor="end" fill="var(--text3)" font-size="9">75%</text>
+      <text x="90" y="24" text-anchor="end" fill="var(--text3)" font-size="9">100%</text>
+      <line x1="100" y1="170" x2="760" y2="170" stroke="#f1f5f9" stroke-width="1"/>
+      <line x1="100" y1="120" x2="760" y2="120" stroke="#f1f5f9" stroke-width="1"/>
+      <line x1="100" y1="70" x2="760" y2="70" stroke="#f1f5f9" stroke-width="1"/>
+      <!-- torture_test -->
+      <rect x="140" y="120" width="50" height="100" rx="6" fill="url(#gBefore)" class="bar-animated" style="animation-delay:.3s"/>
+      <rect x="200" y="55.6" width="50" height="164.4" rx="6" fill="url(#gAfter)" class="bar-animated" style="animation-delay:.5s"/>
+      <text x="195" y="240" text-anchor="middle" fill="var(--text2)" font-size="9" font-weight="600">torture_test.sas</text>
+      <text x="165" y="114" text-anchor="middle" fill="#ef4444" font-size="9" font-weight="700">50%</text>
+      <text x="225" y="49" text-anchor="middle" fill="#059669" font-size="9" font-weight="700">82%</text>
+      <!-- advanced_code -->
+      <rect x="320" y="110" width="50" height="110" rx="6" fill="url(#gBefore)" class="bar-animated" style="animation-delay:.7s"/>
+      <rect x="380" y="43.6" width="50" height="176.4" rx="6" fill="url(#gAfter)" class="bar-animated" style="animation-delay:.9s"/>
+      <text x="375" y="240" text-anchor="middle" fill="var(--text2)" font-size="9" font-weight="600">advanced_code.sas</text>
+      <text x="345" y="104" text-anchor="middle" fill="#ef4444" font-size="9" font-weight="700">55%</text>
+      <text x="405" y="37" text-anchor="middle" fill="#059669" font-size="9" font-weight="700">88%</text>
+      <!-- syntax -->
+      <rect x="500" y="100" width="50" height="120" rx="6" fill="url(#gBefore)" class="bar-animated" style="animation-delay:1.1s"/>
+      <rect x="560" y="24" width="50" height="196" rx="6" fill="url(#gAfter)" class="bar-animated" style="animation-delay:1.3s"/>
+      <text x="555" y="240" text-anchor="middle" fill="var(--text2)" font-size="9" font-weight="600">Syntax Compile</text>
+      <text x="525" y="94" text-anchor="middle" fill="#ef4444" font-size="9" font-weight="700">60%</text>
+      <text x="585" y="18" text-anchor="middle" fill="#059669" font-size="9" font-weight="700">98%</text>
+      <!-- boundary -->
+      <rect x="680" y="63.6" width="30" height="156.4" rx="6" fill="url(#gBefore)" class="bar-animated" style="animation-delay:1.5s"/>
+      <rect x="720" y="35.6" width="30" height="184.4" rx="6" fill="url(#gAfter)" class="bar-animated" style="animation-delay:1.7s"/>
+      <text x="715" y="240" text-anchor="middle" fill="var(--text2)" font-size="9" font-weight="600">Boundary</text>
+      <text x="695" y="57" text-anchor="middle" fill="#ef4444" font-size="9" font-weight="700">78%</text>
+      <text x="735" y="30" text-anchor="middle" fill="#059669" font-size="9" font-weight="700">92%</text>
+      <rect x="280" y="260" width="12" height="10" rx="3" fill="#ef4444" opacity=".5"/><text x="298" y="269" fill="var(--text2)" font-size="9">Before (Week 10)</text>
+      <rect x="420" y="260" width="12" height="10" rx="3" fill="#10b981" opacity=".6"/><text x="438" y="269" fill="var(--text2)" font-size="9">After (Week 15+)</text>
+    </svg>
+  </div>
+
+  <!-- KB Growth chart -->
+  <div class="chart-container reveal" style="max-width:800px;margin:2rem auto">
+    <div class="chart-title">Knowledge Base Growth Over Time</div>
+    <svg viewBox="0 0 700 250" class="chart-svg">
+      <line x1="80" y1="20" x2="80" y2="200" stroke="#e2e8f0" stroke-width="1"/>
+      <line x1="80" y1="200" x2="660" y2="200" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="72" y="204" text-anchor="end" fill="var(--text3)" font-size="9">0</text>
+      <text x="72" y="164" text-anchor="end" fill="var(--text3)" font-size="9">150</text>
+      <text x="72" y="124" text-anchor="end" fill="var(--text3)" font-size="9">300</text>
+      <text x="72" y="84" text-anchor="end" fill="var(--text3)" font-size="9">450</text>
+      <text x="72" y="44" text-anchor="end" fill="var(--text3)" font-size="9">600</text>
+      <line x1="80" y1="160" x2="660" y2="160" stroke="#f1f5f9" stroke-width="1"/>
+      <line x1="80" y1="120" x2="660" y2="120" stroke="#f1f5f9" stroke-width="1"/>
+      <line x1="80" y1="80" x2="660" y2="80" stroke="#f1f5f9" stroke-width="1"/>
+      <path d="M80,200 L140,194 L220,186 L300,173 L380,160 L460,113 L540,93 L620,60 L660,53 L660,200 Z" fill="url(#gAfter)" opacity=".3"/>
+      <polyline points="80,200 140,194 220,186 300,173 380,160 460,113 540,93 620,60 660,53" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="80" cy="200" r="4" fill="#10b981"/><text x="80" y="215" text-anchor="middle" fill="var(--text3)" font-size="7">W1</text>
+      <circle cx="140" cy="194" r="4" fill="#10b981"/><text x="140" y="215" text-anchor="middle" fill="var(--text3)" font-size="7">W3</text>
+      <circle cx="220" cy="186" r="4" fill="#10b981"/><text x="220" y="215" text-anchor="middle" fill="var(--text3)" font-size="7">W5</text>
+      <circle cx="300" cy="173" r="4" fill="#10b981"/><text x="300" y="215" text-anchor="middle" fill="var(--text3)" font-size="7">W7</text>
+      <circle cx="380" cy="160" r="4" fill="#10b981"/><text x="380" y="215" text-anchor="middle" fill="var(--text3)" font-size="7">W9</text>
+      <circle cx="460" cy="113" r="4" fill="#10b981"/><text x="460" y="215" text-anchor="middle" fill="var(--text3)" font-size="7">W11</text>
+      <circle cx="540" cy="93" r="4" fill="#10b981"/><text x="540" y="215" text-anchor="middle" fill="var(--text3)" font-size="7">W13</text>
+      <circle cx="620" cy="60" r="4" fill="#10b981"/><text x="620" y="215" text-anchor="middle" fill="var(--text3)" font-size="7">W14</text>
+      <circle cx="660" cy="53" r="5" fill="#10b981" stroke="white" stroke-width="2"/><text x="660" y="215" text-anchor="middle" fill="var(--text3)" font-size="7">W15</text>
+      <text x="80" y="192" text-anchor="middle" fill="#059669" font-size="8" font-weight="700">0</text>
+      <text x="220" y="178" text-anchor="middle" fill="#059669" font-size="8" font-weight="700">45</text>
+      <text x="380" y="152" text-anchor="middle" fill="#059669" font-size="8" font-weight="700">130</text>
+      <text x="460" y="105" text-anchor="middle" fill="#059669" font-size="8" font-weight="700">330</text>
+      <text x="660" y="45" text-anchor="middle" fill="#059669" font-size="9" font-weight="800">530+</text>
+      <text x="370" y="238" text-anchor="middle" fill="var(--text2)" font-size="10">Development Week</text>
+    </svg>
+  </div>
+
+  <!-- Complexity distribution -->
+  <div class="two-col reveal">
+    <div class="chart-container">
+      <div class="chart-title">Complexity Distribution &mdash; Before (6 features)</div>
+      <svg viewBox="0 0 300 180" class="chart-svg">
+        <g transform="translate(130,90)">
+          <circle r="60" fill="none" stroke="#10b981" stroke-width="24" stroke-dasharray="302 377" stroke-dashoffset="0" opacity=".6"/>
+          <circle r="60" fill="none" stroke="#f59e0b" stroke-width="24" stroke-dasharray="56 377" stroke-dashoffset="-302" opacity=".6"/>
+          <circle r="60" fill="none" stroke="#ef4444" stroke-width="24" stroke-dasharray="19 377" stroke-dashoffset="-358" opacity=".6"/>
+          <text x="0" y="-3" text-anchor="middle" fill="var(--text)" font-size="14" font-weight="800">Biased</text>
+          <text x="0" y="12" text-anchor="middle" fill="var(--text2)" font-size="7">Always LOW</text>
+        </g>
+        <g transform="translate(220,35)">
+          <rect width="8" height="8" rx="2" fill="#10b981"/><text x="12" y="8" fill="var(--text2)" font-size="8">LOW 80%</text>
+          <rect y="14" width="8" height="8" rx="2" fill="#f59e0b"/><text x="12" y="22" fill="var(--text2)" font-size="8">MOD 15%</text>
+          <rect y="28" width="8" height="8" rx="2" fill="#ef4444"/><text x="12" y="36" fill="var(--text2)" font-size="8">HIGH 5%</text>
+        </g>
+      </svg>
+    </div>
+    <div class="chart-container">
+      <div class="chart-title">Complexity Distribution &mdash; After (14 features)</div>
+      <svg viewBox="0 0 300 180" class="chart-svg">
+        <g transform="translate(130,90)">
+          <circle r="60" fill="none" stroke="#10b981" stroke-width="24" stroke-dasharray="151 377" stroke-dashoffset="0" opacity=".6"/>
+          <circle r="60" fill="none" stroke="#f59e0b" stroke-width="24" stroke-dasharray="132 377" stroke-dashoffset="-151" opacity=".6"/>
+          <circle r="60" fill="none" stroke="#ef4444" stroke-width="24" stroke-dasharray="94 377" stroke-dashoffset="-283" opacity=".6"/>
+          <text x="0" y="-3" text-anchor="middle" fill="var(--text)" font-size="14" font-weight="800">Balanced</text>
+          <text x="0" y="12" text-anchor="middle" fill="var(--text2)" font-size="7">Correct routing</text>
+        </g>
+        <g transform="translate(220,35)">
+          <rect width="8" height="8" rx="2" fill="#10b981"/><text x="12" y="8" fill="var(--text2)" font-size="8">LOW 40%</text>
+          <rect y="14" width="8" height="8" rx="2" fill="#f59e0b"/><text x="12" y="22" fill="var(--text2)" font-size="8">MOD 35%</text>
+          <rect y="28" width="8" height="8" rx="2" fill="#ef4444"/><text x="12" y="36" fill="var(--text2)" font-size="8">HIGH 25%</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<div class="wave-divider"><svg viewBox="0 0 1440 60" preserveAspectRatio="none"><path class="wave-path" d="M0,30 C360,55 720,5 1080,30 S1440,30 1440,30" fill="none" stroke="#e4e8ee" stroke-width="1.5"/></svg></div>
+
+<!-- TIMELINE -->
+<section id="timeline" class="reveal">
+  <h2>Development Timeline</h2>
+  <div class="timeline" id="tl">
+    <div class="tl-item done"><div class="tl-week">Weeks 1-2</div><div class="tl-title">Layer 2-A: File Processing</div><div class="tl-desc">File analysis, cross-file dependency resolution, registry. 50-file gold corpus (721 blocks).</div></div>
+    <div class="tl-item done"><div class="tl-week">Weeks 2-3</div><div class="tl-title">Layer 2-B: Streaming Parser</div><div class="tl-desc">Finite-state machine tokeniser with producer/consumer queue. 10K lines in under 2 seconds.</div></div>
+    <div class="tl-item done"><div class="tl-week">Weeks 3-4</div><div class="tl-title">Layer 2-C: Boundary Detection</div><div class="tl-desc">Grammar-based detection (80% deterministic) with LLM fallback for ambiguous cases. Over 90% accuracy.</div></div>
+    <div class="tl-item done"><div class="tl-week">Week 4</div><div class="tl-title">Layer 2-D: Complexity &amp; Strategy</div><div class="tl-desc">Machine-learning complexity classifier (14 features, ECE under 0.08). Risk-based routing to RAG tiers.</div></div>
+    <div class="tl-item done"><div class="tl-week">Weeks 5-6</div><div class="tl-title">RAPTOR Tree</div><div class="tl-desc">Embedding + GMM clustering + recursive summarisation. +12% translation accuracy on complex blocks.</div></div>
+    <div class="tl-item done"><div class="tl-week">Week 7</div><div class="tl-title">Persistence &amp; Indexing</div><div class="tl-desc">SQLite persistence, dependency graph with cycle detection, OLAP analytics.</div></div>
+    <div class="tl-item done"><div class="tl-week">Week 8</div><div class="tl-title">Orchestration</div><div class="tl-desc">LangGraph state machine with per-node checkpointing. End-to-end pipeline operational.</div></div>
+    <div class="tl-item done"><div class="tl-week">Week 9</div><div class="tl-title">Robustness + KB</div><div class="tl-desc">Circuit breakers, rate limiters, key rotation. Knowledge base writer. Azure OpenAI migration.</div></div>
+    <div class="tl-item done"><div class="tl-week">Week 10</div><div class="tl-title">Layer 3: Translation</div><div class="tl-desc">Three-tier RAG translation with sandbox validation. Core conversion pipeline complete.</div></div>
+    <div class="tl-item done"><div class="tl-week">Week 11</div><div class="tl-title">Layer 4: Merge + Feedback</div><div class="tl-desc">Script merging, quality reports, feedback ingestion. Knowledge base expanded to 330 pairs.</div></div>
+    <div class="tl-item done"><div class="tl-week">Week 12</div><div class="tl-title">Evaluation</div><div class="tl-desc">Ablation study: empirical comparison of RAPTOR vs flat retrieval across risk levels.</div></div>
+    <div class="tl-item done"><div class="tl-week">Week 13</div><div class="tl-title">Restructure + DevOps</div><div class="tl-desc">11-to-8 node facade refactor. Full CI/CD pipeline (6 jobs). Security scanning. Docker deployment.</div></div>
+    <div class="tl-item done"><div class="tl-week">Weeks 14-15+</div><div class="tl-title">Z3 + CDAIS + SemantiCheck</div><div class="tl-desc">v3.1.0. 11 formal verification patterns, 6 adversarial patterns. KB expanded to 530+. 14-feature ML complexity.</div></div>
+  </div>
+</section>
+
+<!-- COMPETITORS -->
+<section class="reveal">
+  <h2>Codara vs Alternatives</h2>
+  <table class="t" style="max-width:900px">
+    <thead><tr><th>Feature</th><th style="color:var(--blue)">Codara</th><th>ChatGPT</th><th>SAS2Py</th></tr></thead>
+    <tbody>
+      <tr><td>Pipeline architecture</td><td style="color:var(--green)">8-node LangGraph</td><td>Single prompt</td><td>Rule-based</td></tr>
+      <tr><td>RAG retrieval</td><td style="color:var(--green)">3-tier (Static/Graph/Agentic)</td><td>None</td><td>None</td></tr>
+      <tr><td>Formal verification</td><td style="color:var(--green)">Z3 (11 patterns)</td><td>None</td><td>None</td></tr>
+      <tr><td>Adversarial testing</td><td style="color:var(--green)">CDAIS (6 patterns)</td><td>None</td><td>None</td></tr>
+      <tr><td>Cross-verification</td><td style="color:var(--green)">Independent LLM</td><td>None</td><td>None</td></tr>
+      <tr><td>Complexity ML</td><td style="color:var(--green)">14-feature calibrated</td><td>None</td><td>Basic heuristic</td></tr>
+      <tr><td>Knowledge base</td><td style="color:var(--green)">530+ pairs (LanceDB)</td><td>Training data</td><td>~50 rules</td></tr>
+      <tr><td>Multi-file support</td><td style="color:var(--green)">Cross-file deps + SCC</td><td>Single file</td><td>Single file</td></tr>
+      <tr><td>Enterprise SAS</td><td style="color:var(--green)">Deloitte patterns</td><td>Generic</td><td>Basic only</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<div class="footnote">
+  <p>Codara v3.1.0 &mdash; PFE/Thesis &mdash; 15 Weeks &mdash; 2026</p>
+  <p style="margin-top:.3rem">LangGraph + FastAPI + React | Z3 + CDAIS + RAPTOR + 3-Tier RAG | 530+ KB | 248 Tests | 14-Feature ML | 11 Formal Verification Patterns</p>
+</div>
+
+<script>
+// Scroll reveal
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal,.reveal-left,.reveal-right,.reveal-scale').forEach(el => revealObserver.observe(el));
+
+// Timeline reveal
+const tlObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.2 });
+document.querySelectorAll('.tl-item').forEach(el => tlObserver.observe(el));
+
+// Counter animation
+const counterObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    entry.target.querySelectorAll('[data-count]').forEach(el => {
+      const target = parseInt(el.dataset.count);
+      if (isNaN(target)) return;
+      let current = 0;
+      const step = Math.max(1, Math.floor(target / 40));
+      const timer = setInterval(() => {
+        current += step;
+        if (current >= target) { current = target; clearInterval(timer); }
+        el.textContent = current >= 100 ? current.toLocaleString() : current;
+        if (target >= 100 && current >= target) el.textContent = target + (el.closest('.stat-card')?.querySelector('.stat-label')?.textContent.includes('KB') ? '+' : '');
+      }, 30);
+    });
+    counterObserver.unobserve(entry.target);
+  });
+}, { threshold: 0.5 });
+document.querySelectorAll('.stats-row').forEach(row => counterObserver.observe(row));
+
+// Active nav
+const sections = document.querySelectorAll('section[id]');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => { if (window.scrollY >= s.offsetTop - 100) current = s.id; });
+  document.querySelectorAll('nav a').forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+  });
+});
+
+// Pipeline node click
+const pipeData = [
+  { title: "Node 1: file_process", agents: "FileAnalysis → CrossFileDeps → Registry", why: "Multi-file SAS projects have cross-file references. This node resolves all dependencies before parsing begins.", detail: "Scans SAS files, detects cross-file dependencies, registers metadata. Traces data lineage across files." },
+  { title: "Node 2: streaming", agents: "StreamAgent → StateAgent (via Queue)", why: "SAS syntax is irregular. A finite-state machine handles all edge cases where simple pattern matching fails.", detail: "Producer/consumer with backpressure. 10K lines in under 2 seconds, under 100MB peak memory." },
+  { title: "Node 3: chunking", agents: "BoundaryDetector → PartitionBuilder", why: "Each SAS block must be identified before translation. 80% are detected deterministically, 20% use LLM fallback.", detail: "Grammar-based parsing plus LLM resolution for ambiguous boundaries. Outputs typed partition objects." },
+  { title: "Node 4: raptor", agents: "Embedder → Clusterer → Summariser → TreeBuilder", why: "Flat nearest-neighbour search misses cross-partition context. Hierarchical clustering captures semantic links.", detail: "Gaussian Mixture Models with BIC. Summaries re-embedded and re-clustered recursively. +12% on complex blocks." },
+  { title: "Node 5: risk_routing", agents: "ComplexityAgent (14-feat ML) → StrategyAgent", why: "Simple blocks don't need expensive multi-step retrieval. Machine learning routes each block to the appropriate tier.", detail: "14-feature calibrated classifier: line count, nesting, macro density, SAS patterns (RETAIN, MERGE, SQL, ARRAY, etc.)." },
+  { title: "Node 6: persist_index", agents: "PersistenceAgent + IndexAgent", why: "Partitions persisted for crash recovery. Dependency graph ensures correct translation order.", detail: "SQLite persistence + directed graph with cycle detection for mutual dependencies." },
+  { title: "Node 7: translation (CORE)", agents: "TranslationAgent → ValidationAgent", why: "The heart of the system. Three-tier retrieval, LLM translation, sandbox execution, formal verification, cross-verification.", detail: "12-step pipeline per partition. Fallback chain: Ollama → Azure → Groq. Failed verifications trigger retry." },
+  { title: "Node 8: merge", agents: "ScriptMerger → ReportAgent", why: "Individual translations combined into a single executable Python script with consolidated imports.", detail: "Import deduplication, dependency-ordered insertion, HTML quality report generation." },
+];
+
+document.querySelectorAll('.pipe-node-svg').forEach(el => {
+  el.addEventListener('click', (e) => {
+    const idx = parseInt(el.dataset.node);
+    const d = pipeData[idx];
+    const det = document.getElementById('pipe-detail');
+    document.getElementById('pd-title').textContent = d.title;
+    document.getElementById('pd-agents').innerHTML = '<strong>Sub-agents:</strong> ' + d.agents;
+    document.getElementById('pd-why').innerHTML = '<strong>Why:</strong> ' + d.why;
+    document.getElementById('pd-detail').textContent = d.detail;
+    det.classList.add('show');
+    e.stopPropagation();
+  });
+});
+document.addEventListener('click', () => document.getElementById('pipe-detail').classList.remove('show'));
+
+// RAPTOR Tree
+(function buildRaptorTree() {
+  const svg = document.getElementById('raptor-svg');
+  const wrap = document.getElementById('raptor-wrap');
+  if (!svg) return;
+  const W = wrap.clientWidth - 50;
+  const H = 460;
+  svg.setAttribute('viewBox', '0 0 ' + Math.max(W, 1100) + ' ' + H);
+  const nodes = [
+    { id: 'L1', label: 'DATA step\nRETAIN', type: 'leaf', detail: 'PartitionType: DATA_STEP\nRisk: MOD\nLines: 15-28', level: 0, col: 0 },
+    { id: 'L2', label: 'PROC SORT\nBY dept', type: 'leaf', detail: 'PartitionType: PROC_SORT\nRisk: LOW\nLines: 29-30', level: 0, col: 1 },
+    { id: 'L3', label: 'PROC MEANS\nCLASS dept', type: 'leaf', detail: 'PartitionType: PROC_MEANS\nRisk: MOD\nLines: 31-35', level: 0, col: 2 },
+    { id: 'L4', label: 'PROC SQL\nLEFT JOIN', type: 'leaf', detail: 'PartitionType: PROC_SQL\nRisk: HIGH\nLines: 36-48', level: 0, col: 3 },
+    { id: 'L5', label: 'DATA step\nFIRST./LAST.', type: 'leaf', detail: 'PartitionType: DATA_STEP\nRisk: HIGH\nLines: 49-62', level: 0, col: 4 },
+    { id: 'L6', label: 'PROC FREQ\nCrosstab', type: 'leaf', detail: 'PartitionType: PROC_FREQ\nRisk: LOW\nLines: 63-65', level: 0, col: 5 },
+    { id: 'L7', label: '%MACRO\nframework', type: 'leaf', detail: 'PartitionType: MACRO_DEF\nRisk: HIGH\nLines: 1-14', level: 0, col: 6 },
+    { id: 'L8', label: 'PROC PRINT\nNOOBS', type: 'leaf', detail: 'PartitionType: PROC_PRINT\nRisk: LOW\nLines: 66-68', level: 0, col: 7 },
+    { id: 'C1', label: 'Cluster A\nGroup Metrics', type: 'cluster', detail: 'Members: DATA RETAIN + PROC SORT + PROC MEANS\nSimilarity: 0.87', level: 1, col: 1 },
+    { id: 'C2', label: 'Cluster B\nJoin & Filter', type: 'cluster', detail: 'Members: PROC SQL + DATA FIRST/LAST + PROC FREQ\nSimilarity: 0.82', level: 1, col: 4 },
+    { id: 'C3', label: 'Cluster C\nMacro & Output', type: 'cluster', detail: 'Members: %MACRO + PROC PRINT\nSimilarity: 0.79', level: 1, col: 6.5 },
+    { id: 'R1', label: 'Root Summary\nETL Pipeline', type: 'root', detail: 'Full-file abstraction used by Agentic RAG', level: 2, col: 3.5 },
+  ];
+  const edges = [['L1','C1'],['L2','C1'],['L3','C1'],['L4','C2'],['L5','C2'],['L6','C2'],['L7','C3'],['L8','C3'],['C1','R1'],['C2','R1'],['C3','R1']];
+  const levelY = [H - 70, H / 2 + 20, 60];
+  const colW = Math.max(W, 1100) / 9;
+  const getX = (col) => colW * (col + 0.8);
+  const getY = (level) => levelY[level];
+  const colors = { leaf: '#14b8a6', cluster: '#f59e0b', root: '#8b5cf6' };
+  const bgs = { leaf: '#f0fdfa', cluster: '#fffbeb', root: '#f5f3ff' };
+
+  edges.forEach(([fromId, toId]) => {
+    const from = nodes.find(n => n.id === fromId), to = nodes.find(n => n.id === toId);
+    const x1 = getX(from.col) + 50, y1 = getY(from.level);
+    const x2 = getX(to.col) + 50, y2 = getY(to.level) + 40;
+    const my = (y1 + y2) / 2;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M'+x1+','+y1+' C'+x1+','+my+' '+x2+','+my+' '+x2+','+y2);
+    path.setAttribute('fill', 'none'); path.setAttribute('stroke', colors[from.type]);
+    path.setAttribute('stroke-width', '1.5'); path.setAttribute('stroke-dasharray', '5 4');
+    path.setAttribute('opacity', '0.5');
+    svg.appendChild(path);
+  });
+
+  nodes.forEach(n => {
+    const x = getX(n.col), y = getY(n.level);
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.style.cursor = 'pointer';
+    const w = n.type === 'root' ? 140 : 100, h = n.type === 'root' ? 50 : 42;
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', x); rect.setAttribute('y', y); rect.setAttribute('width', w); rect.setAttribute('height', h);
+    rect.setAttribute('rx', '10'); rect.setAttribute('fill', bgs[n.type]); rect.setAttribute('stroke', colors[n.type]); rect.setAttribute('stroke-width', '1.5');
+    g.appendChild(rect);
+    const lines = n.label.split('\n');
+    lines.forEach((line, i) => {
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', x + w/2); text.setAttribute('y', y + 16 + i * 14);
+      text.setAttribute('text-anchor', 'middle'); text.setAttribute('fill', i === 0 ? colors[n.type] : '#64748b');
+      text.setAttribute('font-size', i === 0 ? '9.5' : '8'); text.setAttribute('font-weight', i === 0 ? '700' : '400');
+      text.textContent = line; g.appendChild(text);
+    });
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const det = document.getElementById('raptor-detail');
+      det.innerHTML = '<button class="close-btn" onclick="this.parentElement.classList.remove(\'show\')">&times;</button><h4 style="color:'+colors[n.type]+'">'+n.label.replace('\n',' — ')+'</h4><pre style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.8rem;font-size:.76rem;color:#475569;white-space:pre-wrap;margin:.5rem 0">'+n.detail+'</pre>';
+      det.classList.add('show');
+      const wrapRect = wrap.getBoundingClientRect();
+      det.style.left = Math.min(x, wrapRect.width - 360) + 'px';
+      det.style.top = (y - 20) + 'px';
+    });
+    g.addEventListener('mouseenter', () => { rect.setAttribute('stroke-width', '2.5'); });
+    g.addEventListener('mouseleave', () => { rect.setAttribute('stroke-width', '1.5'); });
+    svg.appendChild(g);
+  });
+
+  [['Leaves (Partitions)', levelY[0]+20, '#14b8a6'], ['GMM Clusters', levelY[1]+20, '#f59e0b'], ['Root Abstraction', levelY[2]+20, '#8b5cf6']].forEach(([label, y, color]) => {
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t.setAttribute('x', '15'); t.setAttribute('y', y); t.setAttribute('fill', color);
+    t.setAttribute('font-size', '10'); t.setAttribute('font-weight', '700'); t.setAttribute('opacity', '0.5');
+    t.textContent = label; svg.appendChild(t);
+  });
+  document.addEventListener('click', () => document.getElementById('raptor-detail').classList.remove('show'));
+})();
+
+// Smooth nav scroll
+document.querySelectorAll('nav a').forEach(a => {
+  a.addEventListener('click', (e) => {
+    e.preventDefault();
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+</script>
+<script>
+/* ══════════════════════════════════════════════════
+   BREATHTAKING ANIMATION ENGINE
+   ══════════════════════════════════════════════════ */
+(function(){
+'use strict';
+var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ─── PARTICLE SYSTEM ─── */
+if (!reducedMotion) {
+(function initParticles(){
+  var canvas = document.getElementById('particle-canvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var particles = [], mouseX = -9999, mouseY = -9999, W, H;
+
+  function resize(){ W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+  resize();
+  window.addEventListener('resize', resize);
+  document.addEventListener('mousemove', function(e){ mouseX = e.clientX; mouseY = e.clientY; });
+  document.addEventListener('mouseleave', function(){ mouseX = -9999; mouseY = -9999; });
+
+  function Particle(){
+    this.x = Math.random()*W; this.y = Math.random()*H;
+    this.vx = (Math.random()-.5)*.35; this.vy = (Math.random()-.5)*.35;
+    this.r = Math.random()*1.8+.8;
+  }
+  Particle.prototype.update = function(){
+    var dx = this.x-mouseX, dy = this.y-mouseY;
+    var dist = Math.sqrt(dx*dx+dy*dy);
+    if(dist<120){
+      var force = (120-dist)/120*.6;
+      this.vx += (dx/dist)*force;
+      this.vy += (dy/dist)*force;
+    }
+    this.vx *= .985; this.vy *= .985;
+    this.x += this.vx; this.y += this.vy;
+    if(this.x<0) this.x=W; if(this.x>W) this.x=0;
+    if(this.y<0) this.y=H; if(this.y>H) this.y=0;
+  };
+
+  for(var i=0;i<55;i++) particles.push(new Particle());
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    var i,j,dx,dy,dist,p;
+    for(i=0;i<particles.length;i++) particles[i].update();
+    for(i=0;i<particles.length;i++){
+      for(j=i+1;j<particles.length;j++){
+        dx=particles[i].x-particles[j].x;
+        dy=particles[i].y-particles[j].y;
+        dist=Math.sqrt(dx*dx+dy*dy);
+        if(dist<120){
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x,particles[i].y);
+          ctx.lineTo(particles[j].x,particles[j].y);
+          ctx.strokeStyle='rgba(110,127,210,'+(1-dist/120)*.25+')';
+          ctx.lineWidth=.5;
+          ctx.stroke();
+        }
+      }
+    }
+    for(i=0;i<particles.length;i++){
+      p=particles[i];
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle='rgba(110,127,210,.35)';
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+}
+
+/* ─── SCROLL PROGRESS BAR ─── */
+(function(){
+  var bar = document.getElementById('scroll-progress');
+  if(!bar) return;
+  window.addEventListener('scroll',function(){
+    var docH = document.documentElement.scrollHeight-window.innerHeight;
+    if(docH>0) bar.style.width = (window.scrollY/docH*100)+'%';
+  },{passive:true});
+})();
+
+/* ─── HERO LETTER ANIMATION ─── */
+if(!reducedMotion){
+(function(){
+  var h1 = document.getElementById('hero-title');
+  if(!h1) return;
+  var text = h1.textContent.trim();
+  h1.textContent = '';
+  h1.style.display = 'inline-block';
+  for(var i=0;i<text.length;i++){
+    var span = document.createElement('span');
+    span.className='hero-letter';
+    span.textContent = text[i]===' '?' ':text[i];
+    span.style.animationDelay = (i*50)+'ms';
+    h1.appendChild(span);
+  }
+})();
+}
+
+/* ─── DIAGRAM SELF-DRAWING ANIMATION ─── */
+(function(){
+  var diagram = document.getElementById('arch-diagram');
+  if(!diagram) return;
+
+  var connectors = diagram.querySelectorAll('.diagram-connector');
+  var nodes = diagram.querySelectorAll('.diagram-node');
+
+  if(reducedMotion){
+    connectors.forEach(function(p){ p.style.opacity='1'; });
+    nodes.forEach(function(n){ n.style.opacity='1'; n.style.transform='none'; });
+    return;
+  }
+
+  connectors.forEach(function(path){
+    try{
+      var len = path.getTotalLength();
+      path.style.strokeDasharray = len;
+      path.style.strokeDashoffset = len;
+      path.style.opacity = '0';
+    }catch(e){}
+  });
+
+  var archWrap = diagram.closest('.arch-wrap') || diagram.parentElement;
+  var triggered = false;
+
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if(!entry.isIntersecting || triggered) return;
+      triggered = true;
+
+      connectors.forEach(function(path,i){
+        setTimeout(function(){
+          path.style.opacity='1';
+          path.style.transition='stroke-dashoffset .8s ease-in-out, opacity .3s ease';
+          path.style.strokeDashoffset='0';
+        }, 400 + i*120);
+      });
+
+      var connDelay = 400 + connectors.length*120;
+      nodes.forEach(function(node,i){
+        setTimeout(function(){
+          node.classList.add('popped');
+        }, connDelay + i*80);
+      });
+
+      obs.unobserve(entry.target);
+    });
+  },{threshold:0.15});
+
+  obs.observe(archWrap);
+})();
+
+/* ─── RIPPLE EFFECT ON CLICK ─── */
+if(!reducedMotion){
+(function(){
+  document.addEventListener('click',function(e){
+    var target = e.target.closest('.card,.stat-card,.why-box,.pattern-card,.hero-tag,.db-header,button');
+    if(!target) return;
+    var rect = target.getBoundingClientRect();
+    var ripple = document.createElement('span');
+    ripple.className='ripple';
+    var size = Math.max(rect.width,rect.height)*1.5;
+    ripple.style.width = ripple.style.height = size+'px';
+    ripple.style.left = (e.clientX-rect.left-size/2)+'px';
+    ripple.style.top = (e.clientY-rect.top-size/2)+'px';
+    if(!target.style.position || target.style.position==='static')
+      target.style.position='relative';
+    target.style.overflow='hidden';
+    target.appendChild(ripple);
+    ripple.addEventListener('animationend',function(){ripple.remove();});
+  });
+})();
+}
+
+/* ─── TRAVELING DOT ON CONNECTOR HOVER ─── */
+if(!reducedMotion){
+(function(){
+  document.querySelectorAll('.diagram-connector').forEach(function(path){
+    path.style.cursor='pointer';
+    path.addEventListener('mouseenter',function(){
+      var svg = path.closest('svg');
+      if(!svg) return;
+      var dot;
+      try{
+        var len = path.getTotalLength();
+        dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        dot.setAttribute('r','5');
+        dot.setAttribute('fill','#6E7FD2');
+        dot.setAttribute('opacity','0.9');
+        dot.style.filter='drop-shadow(0 0 4px rgba(110,127,210,.6))';
+        var start = null, duration = 1200;
+        function anim(ts){
+          if(!start) start=ts;
+          var p=(ts-start)/duration;
+          if(p>=1){dot.remove();return;}
+          try{
+            var pt=path.getPointAtLength(p*len);
+            dot.setAttribute('cx',pt.x);
+            dot.setAttribute('cy',pt.y);
+          }catch(e){dot.remove();return;}
+          requestAnimationFrame(anim);
+        }
+        svg.appendChild(dot);
+        requestAnimationFrame(anim);
+      }catch(e){if(dot)dot.remove();}
+    });
+  });
+})();
+}
+
+/* ─── DIAGRAM NODE HOVER — SONAR PING ─── */
+if(!reducedMotion){
+(function(){
+  document.querySelectorAll('.diagram-node').forEach(function(node){
+    node.style.cursor='pointer';
+    node.addEventListener('mouseenter',function(){
+      var rect = node.querySelector('rect');
+      var svg = node.closest('svg');
+      if(!rect||!svg) return;
+      var cx = parseFloat(rect.getAttribute('x'))+parseFloat(rect.getAttribute('width'))/2;
+      var cy = parseFloat(rect.getAttribute('y'))+parseFloat(rect.getAttribute('height'))/2;
+      var ring = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      ring.setAttribute('cx',cx);
+      ring.setAttribute('cy',cy);
+      ring.setAttribute('r','25');
+      ring.setAttribute('fill','none');
+      ring.setAttribute('stroke','#6E7FD2');
+      ring.setAttribute('stroke-width','2');
+      ring.setAttribute('opacity','0.5');
+      var start=null;
+      function anim(ts){
+        if(!start) start=ts;
+        var p=(ts-start)/700;
+        if(p>=1){ring.remove();return;}
+        ring.setAttribute('r',25+(45*p));
+        ring.setAttribute('opacity',0.5*(1-p));
+        requestAnimationFrame(anim);
+      }
+      svg.appendChild(ring);
+      requestAnimationFrame(anim);
+    });
+  });
+})();
+}
+
+/* ─── ENHANCED CARD ENTRANCE — PLACEMENT ANIMATION ─── */
+if(!reducedMotion){
+(function(){
+  var cards = document.querySelectorAll('.card,.why-box,.pattern-card,.stat-card,.db-card');
+  cards.forEach(function(card){
+    card.classList.add('card-entrance');
+  });
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if(!entry.isIntersecting) return;
+      var cards2 = entry.target.querySelectorAll('.card-entrance');
+      if(cards2.length===0 && entry.target.classList.contains('card-entrance')){
+        entry.target.classList.add('visible');
+      }
+      cards2.forEach(function(card,i){
+        setTimeout(function(){ card.classList.add('visible'); }, i*100);
+      });
+      obs.unobserve(entry.target);
+    });
+  },{threshold:0.08});
+  document.querySelectorAll('.card-grid,.why-grid,.pattern-grid,.stats-row,.db-grid').forEach(function(g){
+    obs.observe(g);
+  });
+  cards.forEach(function(c){ obs.observe(c); });
+})();
+}
+
+/* ─── PROGRESS BAR FILL ON VIEWPORT ENTRY ─── */
+(function(){
+  var bars = document.querySelectorAll('.progress-fill');
+  bars.forEach(function(bar){
+    var w = bar.style.width;
+    bar.style.width='0%';
+    bar.dataset.targetWidth=w;
+  });
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if(!entry.isIntersecting) return;
+      var bar = entry.target;
+      bar.style.width = bar.dataset.targetWidth;
+      obs.unobserve(bar);
+    });
+  },{threshold:0.3});
+  bars.forEach(function(b){obs.observe(b);});
+})();
+
+/* ─── ENHANCED COUNTER — EASE-OUT EXPO ─── */
+(function(){
+  function easeOutExpo(t){return t===1?1:1-Math.pow(2,-10*t);}
+  var counted = new Set();
+
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if(!entry.isIntersecting) return;
+      entry.target.querySelectorAll('[data-count]').forEach(function(el){
+        if(counted.has(el)) return;
+        counted.add(el);
+        var target = parseInt(el.dataset.count);
+        if(isNaN(target)) return;
+        var duration = 1800, startTime = null;
+        function tick(ts){
+          if(!startTime) startTime=ts;
+          var elapsed = ts-startTime;
+          var progress = Math.min(elapsed/duration,1);
+          var val = Math.round(easeOutExpo(progress)*target);
+          el.textContent = val>=100?val.toLocaleString():val;
+          if(progress<1) requestAnimationFrame(tick);
+          else{
+            el.textContent = target>=100?target.toLocaleString():target;
+            var label = el.closest('.stat-card');
+            if(label){
+              var lbl = label.querySelector('.stat-label');
+              if(lbl && (lbl.textContent.includes('KB')||lbl.textContent.includes('Pairs')))
+                el.textContent = target+'+';
+            }
+          }
+        }
+        requestAnimationFrame(tick);
+      });
+      obs.unobserve(entry.target);
+    });
+  },{threshold:0.4});
+  document.querySelectorAll('.stats-row').forEach(function(r){obs.observe(r);});
+})();
+
+/* ─── TYPEWRITER EFFECT FOR SECTION TITLES ─── */
+if(!reducedMotion){
+(function(){
+  var done = new Set();
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if(!entry.isIntersecting) return;
+      var h2 = entry.target.querySelector('h2');
+      if(!h2 || done.has(h2)) return;
+      done.add(h2);
+      var text = h2.textContent;
+      h2.textContent='';
+      h2.style.borderRight='2px solid var(--blue)';
+      var i=0;
+      function type(){
+        if(i<text.length){
+          h2.textContent += text[i];
+          i++;
+          setTimeout(type, 25 + Math.random()*15);
+        }else{
+          h2.style.borderRight='none';
+          h2.classList.add('typewriter-done');
+        }
+      }
+      type();
+      obs.unobserve(entry.target);
+    });
+  },{threshold:0.3});
+  document.querySelectorAll('section[id]').forEach(function(s){obs.observe(s);});
+})();
+}
+
+/* ─── BAR CHART GROW ANIMATION ─── */
+(function(){
+  var bars = document.querySelectorAll('.bar-animated');
+  bars.forEach(function(bar){
+    bar.style.transform='scaleY(0)';
+    bar.style.transformOrigin='bottom';
+  });
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if(!entry.isIntersecting) return;
+      entry.target.querySelectorAll('.bar-animated').forEach(function(bar,i){
+        var delay = parseFloat(bar.style.animationDelay||'0') * 1000;
+        setTimeout(function(){
+          bar.style.transition='transform .8s cubic-bezier(.25,.1,.25,1)';
+          bar.style.transform='scaleY(1)';
+        }, delay);
+      });
+      obs.unobserve(entry.target);
+    });
+  },{threshold:0.2});
+  document.querySelectorAll('.chart-container,.chart-svg').forEach(function(c){
+    var parent = c.closest('.chart-container')||c;
+    obs.observe(parent);
+  });
+})();
+
+/* ─── PARALLAX SHIFT FOR VISUAL SECTIONS ─── */
+if(!reducedMotion){
+(function(){
+  var parallaxEls = document.querySelectorAll('.chart-container,.arch-wrap');
+  window.addEventListener('scroll',function(){
+    var scrollY = window.scrollY;
+    parallaxEls.forEach(function(el){
+      var rect = el.getBoundingClientRect();
+      var center = rect.top + rect.height/2;
+      var viewH = window.innerHeight;
+      if(center > -200 && center < viewH+200){
+        var offset = (center - viewH/2) * .03;
+        el.style.transform = 'translateY('+offset+'px)';
+      }
+    });
+  },{passive:true});
+})();
+}
+
+/* ─── HUES SHIFT ON SCROLL (ULTRA SUBTLE) ─── */
+if(!reducedMotion){
+(function(){
+  window.addEventListener('scroll',function(){
+    var progress = window.scrollY / (document.documentElement.scrollHeight-window.innerHeight);
+    var hue = Math.round(progress * 15);
+    document.body.style.filter = 'hue-rotate('+hue+'deg)';
+  },{passive:true});
+})();
+}
+
+/* ─── WAVE DIVIDER SCROLL PARALLAX ─── */
+if(!reducedMotion){
+(function(){
+  var waves = document.querySelectorAll('.wave-divider');
+  window.addEventListener('scroll',function(){
+    waves.forEach(function(w){
+      var rect = w.getBoundingClientRect();
+      if(rect.top < window.innerHeight && rect.bottom > 0){
+        var p = (window.innerHeight - rect.top) / (window.innerHeight + rect.height);
+        var svg = w.querySelector('svg');
+        if(svg) svg.style.transform = 'scaleX('+(1+p*.08)+')';
+      }
+    });
+  },{passive:true});
+})();
+}
+
+})(); /* end IIFE */
+</script>
+</body>
+</html>

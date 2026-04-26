@@ -354,8 +354,8 @@ def test_real_file_pipeline():
     final = results[-1][1] if results else None
 
     # ── print a brief summary (visible with pytest -s) ───────────────
-    print(f"\n{'─'*60}")
-    print(f"  Real file : {p.name}  ({len(raw)/1024:.1f} KB, {meta.line_count} lines)")
+    print(f"\n{'─' * 60}")
+    print(f"  Real file : {p.name}  ({len(raw) / 1024:.1f} KB, {meta.line_count} lines)")
     print(f"  Chunks    : {len(results)}")
     print(f"  Elapsed   : {elapsed:.3f}s")
     print(f"  Peak mem  : {peak_mb:.1f} MB")
@@ -364,7 +364,7 @@ def test_real_file_pipeline():
     print(f"  Max macro stack  : {max_stack}")
     print(f"  Final nesting    : {final.nesting_depth if final else '?'}")
     print(f"  Final macro stack: {list(final.macro_stack) if final else '?'}")
-    print(f"{'─'*60}")
+    print(f"{'─' * 60}")
 
     # ── sanity assertions ────────────────────────────────────────────
     assert len(results) > 0, "Pipeline returned no results for real file"

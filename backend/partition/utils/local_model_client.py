@@ -99,7 +99,7 @@ class LocalModelClient:
             logger.info("local_model_loaded", seconds=f"{elapsed:.1f}")
         except ImportError:
             raise RuntimeError(
-                "llama-cpp-python is not installed. " "Run: pip install llama-cpp-python"
+                "llama-cpp-python is not installed. Run: pip install llama-cpp-python"
             )
 
     def _run_inference(

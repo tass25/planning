@@ -43,7 +43,6 @@ def _make_partition(
 
 
 class TestStrategyRouting:
-
     def test_high_risk_gets_structural_grouping(self):
         p = _make_partition(PartitionType.DATA_STEP, RiskLevel.HIGH)
         agent = StrategyAgent()
@@ -109,7 +108,6 @@ class TestStrategyRouting:
 
 
 class TestStrategyBatch:
-
     def test_all_blocks_get_strategy(self):
         blocks = [
             _make_partition(PartitionType.DATA_STEP, RiskLevel.LOW),

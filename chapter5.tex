@@ -787,12 +787,26 @@ Each CDAIS-generated test DataFrame contains all six adversarial patterns
 simultaneously:
 
 \begin{enumerate}
-  \item \textbf{NaN injection (8\% of numeric cells)}: exposes SAS
-    missing-value (\texttt{.}) vs pandas \texttt{NaN} arithmetic divergence.
-    In SAS, \texttt{. + 5 = .}; in pandas, \texttt{NaN + 5 = NaN}. These
-    agree for addition but may diverge for comparison operators
-    (\texttt{. < 0} is false in SAS; \texttt{NaN < 0} is false in pandas ---
-    but the reason differs and edge cases can diverge).
+  \item \textbf{NaN injection — SUM semantics (8\% of numeric cells)}: exposes
+    the critical divergence between SAS \texttt{SUM()} and bare addition.
+    SAS has two distinct missing-value semantics:
+    \begin{itemize}
+      \item \textbf{Addition}: \texttt{x + 5} propagates missing $\rightarrow$
+        result is \texttt{.} (missing) if any operand is missing.
+        Python \texttt{NaN + 5 = NaN} matches correctly.
+      \item \textbf{SUM function}: \texttt{SUM(x, 5)} \emph{ignores} missing
+        $\rightarrow$ result is \texttt{5} when \texttt{x} is missing.
+        A naive Python translation \texttt{x + 5} returns \texttt{NaN},
+        which is \emph{wrong}. The correct translation is
+        \texttt{np.nansum([x, 5])} or \texttt{df[cols].sum(axis=1, skipna=True)}.
+    \end{itemize}
+    The Z3 pattern \texttt{sum\_missing\_semantics} (Pattern~11 in the
+    verification agent) formalises this with boolean \texttt{is\_missing}
+    variables: for symbolic \texttt{(x\_val, x\_missing)}, it proves that
+    $\text{SUM}_{\text{SAS}}(x, c) = \texttt{If}(\text{missing}, c, x + c)$
+    must equal the Python implementation. A bare \texttt{+} operator produces a
+    counterexample at \texttt{x\_missing = True} because
+    $\texttt{NaN} + c \neq c$.
 
   \item \textbf{Currency strings}: column values formatted as \texttt{'\$1,234.56'}
     expose dtype coercion bugs where the LLM-translated code omits the

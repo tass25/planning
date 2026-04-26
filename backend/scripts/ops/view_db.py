@@ -104,10 +104,10 @@ def show_lancedb(search_query: str = ""):
                 results = t.search(vec).limit(5).to_pandas()
                 for i, row in results.iterrows():
                     print(
-                        f"\n  [{i+1}] category={row.get('category','')}  partition_type={row.get('partition_type','')}"
+                        f"\n  [{i + 1}] category={row.get('category', '')}  partition_type={row.get('partition_type', '')}"
                     )
-                    print(f"       SAS  : {str(row.get('sas_code',''))[:120].strip()}")
-                    print(f"       Python: {str(row.get('python_code',''))[:120].strip()}")
+                    print(f"       SAS  : {str(row.get('sas_code', ''))[:120].strip()}")
+                    print(f"       Python: {str(row.get('python_code', ''))[:120].strip()}")
             except Exception as e:
                 print(f"  [!] Search failed: {e}")
 

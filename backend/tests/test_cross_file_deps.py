@@ -71,7 +71,6 @@ def _insert_registry_row(engine, fm: FileMetadata):
 
 
 class TestCrossFileDependencyResolver:
-
     def test_resolved_include(self, tmp_path: Path, db_engine):
         """A %INCLUDE pointing to an existing file should be resolved."""
         target = _make_meta(tmp_path, "macros.sas", "/* macros */\n")

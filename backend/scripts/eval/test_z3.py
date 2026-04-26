@@ -164,11 +164,11 @@ async def run() -> int:
         print(f"{YELLOW}No SAS blocks found in {sas_path.name}{RESET}")
         return 1
 
-    print(f"\n{BOLD}{CYAN}{'='*72}")
+    print(f"\n{BOLD}{CYAN}{'=' * 72}")
     print("  Codara Z3 Verification Test")
     print(f"  File  : {sas_path.name}")
     print(f"  Blocks: {len(blocks)}")
-    print(f"{'='*72}{RESET}\n")
+    print(f"{'=' * 72}{RESET}\n")
 
     pipeline = TranslationPipeline(
         target_runtime="python",
@@ -182,7 +182,7 @@ async def run() -> int:
         part = make_partition(label, source, i)
         short_label = label[:52]
         print(
-            f"[{i+1:02d}/{len(blocks):02d}] {short_label:<52} " f"risk={part.risk_level.value:<10}",
+            f"[{i + 1:02d}/{len(blocks):02d}] {short_label:<52} risk={part.risk_level.value:<10}",
             end="",
             flush=True,
         )
@@ -237,9 +237,9 @@ async def run() -> int:
     no_match = sum(1 for _, r, _ in rows if not r.z3_pattern)
     total = len(rows)
 
-    print(f"\n{BOLD}{CYAN}{'='*72}")
+    print(f"\n{BOLD}{CYAN}{'=' * 72}")
     print("  Z3 Verification Summary")
-    print(f"{'='*72}{RESET}")
+    print(f"{'=' * 72}{RESET}")
     print(f"  Blocks total          : {total}")
     print(f"  Translation SUCCESS   : {GREEN}{success}{RESET} / {YELLOW}{partial} PARTIAL{RESET}")
     print(f"  Z3 PROVED             : {GREEN}{proved}{RESET}")
@@ -251,7 +251,7 @@ async def run() -> int:
 
     # Per-block Z3 breakdown table
     print(f"  {'Block':<40} {'Conv':<8} {'Z3 pattern':<28} {'Z3 result'}")
-    print(f"  {'-'*40} {'-'*8} {'-'*28} {'-'*15}")
+    print(f"  {'-' * 40} {'-' * 8} {'-' * 28} {'-' * 15}")
     for label, res, _ in rows:
         z3c = STATUS_COLOR.get(res.z3_status.value, RESET)
         print(
@@ -268,7 +268,9 @@ async def run() -> int:
     stem = sas_path.stem
     for i, (label, res, _) in enumerate(rows):
         safe = _re.sub(r"[^\w]+", "_", label).strip("_")[:40]
-        (out_dir / f"{stem}_block{i+1:02d}_{safe}.py").write_text(res.python_code, encoding="utf-8")
+        (out_dir / f"{stem}_block{i + 1:02d}_{safe}.py").write_text(
+            res.python_code, encoding="utf-8"
+        )
     print(f"  Output saved to: {out_dir}/\n")
 
     return 1 if counterexs > 0 else 0

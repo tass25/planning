@@ -157,16 +157,16 @@ def print_report(runs: list[dict], detail_rows: list[dict], out_lines: list[str]
         model = r.get("gen_model", "?")
         model_short = model.split("/")[-1][:40]
         p(
-            f"{r.get('run_id','?'):<10} "
-            f"{r.get('provider','?'):<10} "
+            f"{r.get('run_id', '?'):<10} "
+            f"{r.get('provider', '?'):<10} "
             f"{model_short:<42} "
-            f"{r.get('verified',0):>4} "
-            f"{r.get('generated',0):>4} "
-            f"{r.get('acceptance_rate',0)*100:>4.0f}% "
-            f"{r.get('avg_confidence',0):>8.3f} "
-            f"{r.get('min_confidence',r.get('avg_confidence',0)):>8.3f} "
-            f"{r.get('max_confidence',r.get('avg_confidence',0)):>8.3f} "
-            f"{r.get('avg_latency_s',0):>7.1f}s"
+            f"{r.get('verified', 0):>4} "
+            f"{r.get('generated', 0):>4} "
+            f"{r.get('acceptance_rate', 0) * 100:>4.0f}% "
+            f"{r.get('avg_confidence', 0):>8.3f} "
+            f"{r.get('min_confidence', r.get('avg_confidence', 0)):>8.3f} "
+            f"{r.get('max_confidence', r.get('avg_confidence', 0)):>8.3f} "
+            f"{r.get('avg_latency_s', 0):>7.1f}s"
         )
     p("-" * 110)
 
@@ -205,7 +205,7 @@ def print_report(runs: list[dict], detail_rows: list[dict], out_lines: list[str]
 
         # Header
         run_labels = [r.get("run_id", "?")[:8] for r in active_runs if r.get("run_id") in run_ids]
-        p(f"{'Category':<30} " + "  ".join(f"{'['+rid+']':>14}" for rid in run_labels))
+        p(f"{'Category':<30} " + "  ".join(f"{'[' + rid + ']':>14}" for rid in run_labels))
         p(f"{'':30} " + "  ".join(f"{'conf / lat':>14}" for _ in run_labels))
         p("-" * 110)
 
@@ -249,12 +249,12 @@ def print_report(runs: list[dict], detail_rows: list[dict], out_lines: list[str]
         model.split("/")[-1]
         p(f"\n  MODEL : {model}")
         p(
-            f"  Params: {meta.get('params', 'unknown'):<25}  Architecture: {meta.get('architecture','?')}"
+            f"  Params: {meta.get('params', 'unknown'):<25}  Architecture: {meta.get('architecture', '?')}"
         )
         p(
-            f"  Context: {meta.get('context_k','?')}K tokens        Provider: {meta.get('provider_tag','?')}"
+            f"  Context: {meta.get('context_k', '?')}K tokens        Provider: {meta.get('provider_tag', '?')}"
         )
-        p(f"  Notes : {meta.get('notes','')}")
+        p(f"  Notes : {meta.get('notes', '')}")
         pros = meta.get("pros", [])
         cons = meta.get("cons", [])
         if pros:
@@ -267,11 +267,11 @@ def print_report(runs: list[dict], detail_rows: list[dict], out_lines: list[str]
         if run_stats:
             best = max(run_stats, key=lambda x: x.get("verified", 0))
             p(
-                f"  BEST RUN [{best.get('run_id','')}]: "
-                f"{best.get('verified',0)} pairs | "
-                f"acc={best.get('acceptance_rate',0)*100:.0f}% | "
-                f"conf={best.get('avg_confidence',0):.3f} | "
-                f"lat={best.get('avg_latency_s',0):.1f}s/pair"
+                f"  BEST RUN [{best.get('run_id', '')}]: "
+                f"{best.get('verified', 0)} pairs | "
+                f"acc={best.get('acceptance_rate', 0) * 100:.0f}% | "
+                f"conf={best.get('avg_confidence', 0):.3f} | "
+                f"lat={best.get('avg_latency_s', 0):.1f}s/pair"
             )
         p("  " + "-" * 80)
 
@@ -280,26 +280,26 @@ def print_report(runs: list[dict], detail_rows: list[dict], out_lines: list[str]
     p("=" * 110)
     p(
         f"{'Metric':<35} "
-        + "  ".join(f"{r.get('gen_model','?').split('/')[-1][:25]:>27}" for r in active_runs)
+        + "  ".join(f"{r.get('gen_model', '?').split('/')[-1][:25]:>27}" for r in active_runs)
     )
     p("-" * 110)
 
     metrics_map = [
         ("Verified pairs", lambda r: str(r.get("verified", 0))),
-        ("Acceptance rate", lambda r: f"{r.get('acceptance_rate',0)*100:.0f}%"),
-        ("Avg confidence", lambda r: f"{r.get('avg_confidence',0):.3f}"),
-        ("Min confidence", lambda r: f"{r.get('min_confidence',r.get('avg_confidence',0)):.3f}"),
-        ("Avg total latency", lambda r: f"{r.get('avg_latency_s',0):.1f}s"),
-        ("Avg Prompt A (SAS gen)", lambda r: f"{r.get('avg_t_prompt_a',0):.1f}s"),
-        ("Avg Prompt B (PY conv)", lambda r: f"{r.get('avg_t_prompt_b',0):.1f}s"),
-        ("Avg Prompt C (verify)", lambda r: f"{r.get('avg_t_prompt_c',0):.2f}s"),
-        ("Avg SAS lines", lambda r: f"{r.get('avg_sas_lines',0):.0f}"),
-        ("Avg Python lines", lambda r: f"{r.get('avg_py_lines',0):.0f}"),
-        ("Avg tokens (est)", lambda r: f"{int(r.get('avg_tokens_est',0))}"),
+        ("Acceptance rate", lambda r: f"{r.get('acceptance_rate', 0) * 100:.0f}%"),
+        ("Avg confidence", lambda r: f"{r.get('avg_confidence', 0):.3f}"),
+        ("Min confidence", lambda r: f"{r.get('min_confidence', r.get('avg_confidence', 0)):.3f}"),
+        ("Avg total latency", lambda r: f"{r.get('avg_latency_s', 0):.1f}s"),
+        ("Avg Prompt A (SAS gen)", lambda r: f"{r.get('avg_t_prompt_a', 0):.1f}s"),
+        ("Avg Prompt B (PY conv)", lambda r: f"{r.get('avg_t_prompt_b', 0):.1f}s"),
+        ("Avg Prompt C (verify)", lambda r: f"{r.get('avg_t_prompt_c', 0):.2f}s"),
+        ("Avg SAS lines", lambda r: f"{r.get('avg_sas_lines', 0):.0f}"),
+        ("Avg Python lines", lambda r: f"{r.get('avg_py_lines', 0):.0f}"),
+        ("Avg tokens (est)", lambda r: f"{int(r.get('avg_tokens_est', 0))}"),
         ("Model params", lambda r: MODEL_META.get(r.get("gen_model", ""), {}).get("params", "?")),
         (
             "Context window",
-            lambda r: f"{MODEL_META.get(r.get('gen_model',''),{}).get('context_k','?')}K",
+            lambda r: f"{MODEL_META.get(r.get('gen_model', ''), {}).get('context_k', '?')}K",
         ),
         (
             "Free tier",
@@ -321,13 +321,13 @@ def print_report(runs: list[dict], detail_rows: list[dict], out_lines: list[str]
         best_speed = min(active_runs, key=lambda r: r.get("avg_latency_s", 999))
         best_yield = max(active_runs, key=lambda r: r.get("acceptance_rate", 0))
         p(
-            f"  Best quality (confidence) : {best_quality.get('gen_model','?')}  [{best_quality.get('avg_confidence',0):.3f}]"
+            f"  Best quality (confidence) : {best_quality.get('gen_model', '?')}  [{best_quality.get('avg_confidence', 0):.3f}]"
         )
         p(
-            f"  Best speed  (latency)     : {best_speed.get('gen_model','?')}  [{best_speed.get('avg_latency_s',0):.1f}s/pair]"
+            f"  Best speed  (latency)     : {best_speed.get('gen_model', '?')}  [{best_speed.get('avg_latency_s', 0):.1f}s/pair]"
         )
         p(
-            f"  Best yield  (acceptance%) : {best_yield.get('gen_model','?')}  [{best_yield.get('acceptance_rate',0)*100:.0f}%]"
+            f"  Best yield  (acceptance%) : {best_yield.get('gen_model', '?')}  [{best_yield.get('acceptance_rate', 0) * 100:.0f}%]"
         )
     else:
         p("  Only one model benchmarked so far. Run Kimi to enable comparison.")

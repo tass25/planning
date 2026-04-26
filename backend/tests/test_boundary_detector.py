@@ -43,7 +43,6 @@ def _run(coro):
 
 
 class TestBoundaryDetector:
-
     def test_simple_data_step(self):
         """DATA step: open on line 1, close on line 3."""
         file_id = uuid4()
@@ -163,7 +162,6 @@ class TestBoundaryDetector:
 
 
 class TestPartitionBuilderAgent:
-
     def _make_event(self, pt: PartitionType, line_start=1, line_end=3) -> BlockBoundaryEvent:
         return BlockBoundaryEvent(
             file_id=uuid4(),

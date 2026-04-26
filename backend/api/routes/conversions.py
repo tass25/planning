@@ -458,13 +458,35 @@ def download_html(conversion_id: str, current_user: dict = Depends(get_current_u
         safe_sas = html_mod.escape(conv.sas_code) if conv.sas_code else ""
         safe_python = html_mod.escape(conv.python_code) if conv.python_code else ""
 
+        # Extract output comparison HTML from merge_report if present
+        comparison_section = ""
+        clean_merge_report = safe_merge_report
+        raw_merge = conv.merge_report or ""
+        if "<!-- OUTPUT_COMPARISON_START -->" in raw_merge:
+            before, _, after = raw_merge.partition("<!-- OUTPUT_COMPARISON_START -->")
+            comp_html, _, _ = after.partition("<!-- OUTPUT_COMPARISON_END -->")
+            clean_merge_report = html_mod.escape(before.rstrip())
+            # comp_html contains raw HTML table rows — NOT escaped (intentional)
+            if comp_html.strip():
+                comparison_section = (
+                    "<h2>Output Comparison — SAS vs Python</h2>"
+                    "<table>"
+                    "<tr><th>Operation</th><th>SAS Output</th>"
+                    "<th>Python Output</th><th>Match</th><th>Note</th></tr>"
+                    f"{comp_html.strip()}"
+                    "</table>"
+                )
+
         html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Conversion Report — {safe_file_name}</title>
 <style>body{{font-family:system-ui;max-width:900px;margin:2rem auto;padding:0 1rem;color:#1a1a1a}}
 h1{{color:#7c3aed}}table{{border-collapse:collapse;width:100%}}th,td{{border:1px solid #ddd;padding:8px;text-align:left}}
 th{{background:#f5f3ff}}pre{{background:#f5f5f5;padding:1rem;border-radius:8px;overflow-x:auto}}
 .meta{{display:grid;grid-template-columns:repeat(2,1fr);gap:0.5rem;margin:1rem 0}}
-.meta span{{font-size:0.9rem}}.label{{font-weight:600;color:#555}}</style></head>
+.meta span{{font-size:0.9rem}}.label{{font-weight:600;color:#555}}
+tr.mismatch td{{background:#fee2e2;color:#991b1b}}
+td.mismatch{{background:#fee2e2;color:#991b1b}}
+td pre{{background:#f8f8f8;padding:6px 8px;border-radius:4px;font-size:0.8rem;margin:0;white-space:pre-wrap;word-break:break-word;max-width:280px}}</style></head>
 <body><h1>Conversion Report: {safe_file_name}</h1>
 <div class="meta">
 <span><span class="label">Status:</span> {safe_status}</span>
@@ -475,7 +497,8 @@ th{{background:#f5f3ff}}pre{{background:#f5f5f5;padding:1rem;border-radius:8px;o
 <h2>Pipeline Stages</h2>
 <table><tr><th>Stage</th><th>Status</th><th>Latency</th></tr>{stage_rows}</table>
 {"<h2>Validation Report</h2><pre>" + safe_val_report + "</pre>" if safe_val_report else ""}
-{"<h2>Merge Report</h2><pre>" + safe_merge_report + "</pre>" if safe_merge_report else ""}
+{comparison_section}
+{"<h2>Merge Report</h2><pre>" + clean_merge_report + "</pre>" if clean_merge_report else ""}
 {"<h2>Original SAS Code</h2><pre>" + safe_sas + "</pre>" if safe_sas else ""}
 {"<h2>Converted Python Code</h2><pre>" + safe_python + "</pre>" if safe_python else ""}
 </body></html>"""

@@ -1,4 +1,4 @@
-﻿import argparse
+import argparse
 import asyncio
 import hashlib
 import json
@@ -151,7 +151,7 @@ async def main():
             for m in report["missed"][:20]:
                 print(f"  {m['file']}: {m['gold_type']} L{m['gold_start']}-{m['gold_end']}")
             if len(report["missed"]) > 20:
-                print(f"  ... and {len(report['missed'])-20} more")
+                print(f"  ... and {len(report['missed']) - 20} more")
 
 
 if __name__ == "__main__":

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
@@ -68,9 +68,7 @@ class AzureStrategy(LLMStrategy):
         return "azure"
 
     def is_available(self) -> bool:
-        return bool(
-            os.getenv("AZURE_OPENAI_ENDPOINT") and os.getenv("AZURE_OPENAI_API_KEY")
-        )
+        return bool(os.getenv("AZURE_OPENAI_ENDPOINT") and os.getenv("AZURE_OPENAI_API_KEY"))
 
     def get_client(self, *, async_client: bool = True) -> Any:
         try:
@@ -125,9 +123,7 @@ class FallbackChain:
 
 
 # Default chain: Ollama → Azure → Groq (matches CLAUDE.md routing)
-DEFAULT_FALLBACK_CHAIN = FallbackChain(
-    [OllamaStrategy(), AzureStrategy(), GroqStrategy()]
-)
+DEFAULT_FALLBACK_CHAIN = FallbackChain([OllamaStrategy(), AzureStrategy(), GroqStrategy()])
 
 
 def get_azure_openai_client(*, async_client: bool = True):
@@ -162,22 +158,20 @@ def get_groq_client(*, async_client: bool = True):
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         raise RuntimeError(
-            "GROQ_API_KEY environment variable not set. "
-            "Get a free key at https://console.groq.com"
+            "GROQ_API_KEY environment variable not set. Get a free key at https://console.groq.com"
         )
 
     try:
         if async_client:
             from groq import AsyncGroq
+
             return AsyncGroq(api_key=api_key)
         else:
             from groq import Groq
+
             return Groq(api_key=api_key)
     except ImportError:
-        raise RuntimeError(
-            "The 'groq' package is not installed. "
-            "Install it with: pip install groq"
-        )
+        raise RuntimeError("The 'groq' package is not installed. Install it with: pip install groq")
 
 
 def get_deployment_name(tier: str = "mini") -> str:
@@ -257,10 +251,7 @@ class GroqPool:
             return
 
         self._clients = [
-            instructor.from_openai(
-                OpenAI(api_key=k, base_url=self._GROQ_BASE)
-            )
-            for k in keys
+            instructor.from_openai(OpenAI(api_key=k, base_url=self._GROQ_BASE)) for k in keys
         ]
         self._index = 0
         logger.info("groq_pool_init", keys_available=len(keys))
@@ -370,10 +361,10 @@ def get_ollama_client(*, async_client: bool = True):
 # ── Ollama model name constants ───────────────────────────────────────
 # Use OLLAMA_MODEL env var to switch at runtime.  Defaults to
 # qwen3-coder-next which scored best on the torture_test benchmark.
-OLLAMA_MODEL_NEMOTRON   = "nemotron-3-super:cloud" # PRIMARY — Nemotron via Ollama cloud
-OLLAMA_MODEL_MINIMAX    = "minimax-m2.7:cloud"    # 10/10 torture test (2026-04-06)
-OLLAMA_MODEL_QWEN3      = "qwen3-coder-next"       # strong reasoning, alternative
-OLLAMA_MODEL_DEEPSEEK   = "deepseek-v3.2"          # DeepSeek V3.2 via Ollama cloud
+OLLAMA_MODEL_NEMOTRON = "nemotron-3-super:cloud"  # PRIMARY — Nemotron via Ollama cloud
+OLLAMA_MODEL_MINIMAX = "minimax-m2.7:cloud"  # 10/10 torture test (2026-04-06)
+OLLAMA_MODEL_QWEN3 = "qwen3-coder-next"  # strong reasoning, alternative
+OLLAMA_MODEL_DEEPSEEK = "deepseek-v3.2"  # DeepSeek V3.2 via Ollama cloud
 
 
 def get_ollama_model() -> str:

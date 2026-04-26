@@ -181,9 +181,9 @@ class TestCDASISynthesizer:
         result = synthesizer.synthesize(ec, cfg)
         if result.sat and result.witness_df is not None:
             max_rows = cfg.n_groups * cfg.n_rows_per_group * 2
-            assert (
-                len(result.witness_df) <= max_rows
-            ), f"{class_name}: witness has {len(result.witness_df)} rows > {max_rows}"
+            assert len(result.witness_df) <= max_rows, (
+                f"{class_name}: witness has {len(result.witness_df)} rows > {max_rows}"
+            )
 
 
 # ── Tests: CDAISRunner.run_on_code() ──────────────────────────────────────────

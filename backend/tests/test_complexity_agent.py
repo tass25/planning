@@ -47,7 +47,6 @@ def _make_partition(
 
 
 class TestFeatureExtraction:
-
     def test_line_count_normalised(self):
         p = _make_partition(PartitionType.DATA_STEP, 1, 10)
         f = extract(p)
@@ -88,7 +87,6 @@ class TestFeatureExtraction:
 
 
 class TestRuleBasedPrediction:
-
     def test_short_data_step_is_low(self):
         p = _make_partition(PartitionType.DATA_STEP, 1, 5)
         agent = ComplexityAgent()
@@ -137,7 +135,6 @@ class TestRuleBasedPrediction:
 
 
 class TestECE:
-
     def test_perfect_calibration_ece_zero(self):
         """A perfectly calibrated model has ECE ≈ 0."""
         # All confidence = 1.0 for the correct class (overconfident but correct)
@@ -166,7 +163,6 @@ class TestECE:
     reason="Gold standard dir not found — run from sas_converter/",
 )
 class TestComplexityFit:
-
     def test_fit_returns_expected_keys(self):
         agent = ComplexityAgent()
         metrics = agent.fit(GOLD_DIR, test_size=0.20, seed=42)

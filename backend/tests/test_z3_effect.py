@@ -225,8 +225,8 @@ CASES: list[BugCase] = [
               from customers a
               left join segments b on a.customer_id = b.customer_id;
             quit;"""),
-        buggy_py=("enriched = pd.merge(customers, segments, " "on='customer_id', how='inner')"),
-        correct_py=("enriched = pd.merge(customers, segments, " "on='customer_id', how='left')"),
+        buggy_py=("enriched = pd.merge(customers, segments, on='customer_id', how='inner')"),
+        correct_py=("enriched = pd.merge(customers, segments, on='customer_id', how='left')"),
     ),
 ]
 
@@ -279,7 +279,7 @@ def _print_case(case: BugCase, idx: int, total: int) -> None:
 
     label = _STATUS_LABEL.get(case.buggy_z3_status, case.buggy_z3_status)
     print(
-        f"\n  +-- WITH Z3  ({case.buggy_z3_latency:.0f} ms) {'-'*(47 - len(str(int(case.buggy_z3_latency))))}+"
+        f"\n  +-- WITH Z3  ({case.buggy_z3_latency:.0f} ms) {'-' * (47 - len(str(int(case.buggy_z3_latency))))}+"
     )
     print(f"  |  Result  : {label}")
     if case.buggy_z3_pattern:
@@ -317,14 +317,9 @@ def _print_summary(cases: list[BugCase]) -> None:
     col_a = 26
     col_b = 16
     col_c = 22
-    hdr = (
-        f"  {'Pattern':<{col_a}}"
-        f"{'Without Z3':<{col_b}}"
-        f"{'Buggy + Z3':<{col_c}}"
-        f"Correct + Z3"
-    )
+    hdr = f"  {'Pattern':<{col_a}}{'Without Z3':<{col_b}}{'Buggy + Z3':<{col_c}}Correct + Z3"
     print(hdr)
-    print(f"  {'-'*col_a} {'-'*col_b} {'-'*col_c} {'-'*14}")
+    print(f"  {'-' * col_a} {'-' * col_b} {'-' * col_c} {'-' * 14}")
 
     for c in cases:
         no_z3 = "PASS (missed)"
@@ -332,7 +327,7 @@ def _print_summary(cases: list[BugCase]) -> None:
         correct = _STATUS_LABEL.get(c.correct_z3_status, c.correct_z3_status).strip("[] ")
         print(f"  {c.name:<{col_a}} {no_z3:<{col_b}} {with_z3:<{col_c}} {correct}")
 
-    print(f"\n  {'-'*68}")
+    print(f"\n  {'-' * 68}")
     print(f"  Bugs caught by Z3     : {bugs_caught}/{total}")
     print(f"  False positives       : {false_positive}/{total}")
     print(f"  Mean Z3 latency       : {mean_latency:.1f} ms per block")
@@ -471,9 +466,9 @@ def test_z3_effect_summary(agent):
     false_positive = sum(1 for c in CASES if c.correct_z3_status == "counterexample")
 
     assert bugs_caught == len(CASES), f"Z3 should catch all {len(CASES)} bugs, caught {bugs_caught}"
-    assert (
-        false_positive == 0
-    ), f"Z3 produced {false_positive} false positive(s) on correct translations"
+    assert false_positive == 0, (
+        f"Z3 produced {false_positive} false positive(s) on correct translations"
+    )
 
 
 # -------------------------------------------------------------------------

@@ -101,7 +101,7 @@ async def main():
     rows = session.query(DataLineageRow).all()
     if rows:
         print(f"\n  {'Type':<14} {'Direction':<13} {'Dataset':<30} {'Line':>5}")
-        print(f"  {'-'*14} {'-'*13} {'-'*30} {'-'*5}")
+        print(f"  {'-' * 14} {'-' * 13} {'-' * 30} {'-' * 5}")
         for r in rows:
             ds = r.source_dataset or r.target_dataset or "?"
             direction = "READ" if r.lineage_type == "TABLE_READ" else "WRITE"

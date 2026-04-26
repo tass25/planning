@@ -14,9 +14,8 @@ import re
 from pathlib import Path
 
 from ..base_agent import BaseAgent
+from ..db.sqlite_manager import DataLineageRow, get_session
 from ..models.file_metadata import FileMetadata
-from ..db.sqlite_manager import get_session, DataLineageRow
-
 
 # ── Regex patterns — Table-level reads ────────────────────────────────────────
 
@@ -31,7 +30,8 @@ MERGE_PATTERN = re.compile(
 )
 
 FROM_PATTERN = re.compile(
-    r"\bFROM\s+([\w.]+)", re.IGNORECASE,
+    r"\bFROM\s+([\w.]+)",
+    re.IGNORECASE,
 )
 
 JOIN_PATTERN = re.compile(
@@ -53,11 +53,13 @@ DATA_OUTPUT_PATTERN = re.compile(
 )
 
 CREATE_TABLE_PATTERN = re.compile(
-    r"\bCREATE\s+TABLE\s+([\w.]+)", re.IGNORECASE,
+    r"\bCREATE\s+TABLE\s+([\w.]+)",
+    re.IGNORECASE,
 )
 
 INSERT_INTO_PATTERN = re.compile(
-    r"\bINSERT\s+INTO\s+([\w.]+)", re.IGNORECASE,
+    r"\bINSERT\s+INTO\s+([\w.]+)",
+    re.IGNORECASE,
 )
 
 # OUTPUT OUT=dataset — output dataset in PROC steps (PROC MEANS, PROC FREQ, etc.)
@@ -72,9 +74,14 @@ OUTPUT_OUT_PATTERN = re.compile(
 _DATASET_NAME = re.compile(r"[\w.]+")
 
 # Keywords that should NOT be treated as dataset names
-_IGNORE_TOKENS = frozenset({
-    "_null_", "_data_", "_last_", "_infile_",
-})
+_IGNORE_TOKENS = frozenset(
+    {
+        "_null_",
+        "_data_",
+        "_last_",
+        "_infile_",
+    }
+)
 
 
 def _split_datasets(raw: str) -> list[str]:
@@ -86,10 +93,7 @@ def _split_datasets(raw: str) -> list[str]:
     # Remove parenthesised options first  e.g. "lib.ds (keep=x)"
     cleaned = re.sub(r"\([^)]*\)", "", raw)
     tokens = _DATASET_NAME.findall(cleaned)
-    return [
-        t for t in tokens
-        if t.lower() not in _IGNORE_TOKENS and not t.startswith("_")
-    ]
+    return [t for t in tokens if t.lower() not in _IGNORE_TOKENS and not t.startswith("_")]
 
 
 def _line_of(content: str, pos: int) -> int:
@@ -167,27 +171,31 @@ class DataLineageExtractor(BaseAgent):
         for m in SET_PATTERN.finditer(content):
             line = _line_of(content, m.start())
             for ds in _split_datasets(m.group(1)):
-                rows.append(DataLineageRow(
-                    source_file_id=source_file_id,
-                    lineage_type="TABLE_READ",
-                    source_dataset=ds,
-                    target_dataset=None,
-                    block_line_start=line,
-                    block_line_end=line,
-                ))
+                rows.append(
+                    DataLineageRow(
+                        source_file_id=source_file_id,
+                        lineage_type="TABLE_READ",
+                        source_dataset=ds,
+                        target_dataset=None,
+                        block_line_start=line,
+                        block_line_end=line,
+                    )
+                )
 
         # --- TABLE_READ: MERGE ---
         for m in MERGE_PATTERN.finditer(content):
             line = _line_of(content, m.start())
             for ds in _split_datasets(m.group(1)):
-                rows.append(DataLineageRow(
-                    source_file_id=source_file_id,
-                    lineage_type="TABLE_READ",
-                    source_dataset=ds,
-                    target_dataset=None,
-                    block_line_start=line,
-                    block_line_end=line,
-                ))
+                rows.append(
+                    DataLineageRow(
+                        source_file_id=source_file_id,
+                        lineage_type="TABLE_READ",
+                        source_dataset=ds,
+                        target_dataset=None,
+                        block_line_start=line,
+                        block_line_end=line,
+                    )
+                )
 
         # --- TABLE_READ: FROM  (PROC SQL / SQL views) ---
         for m in FROM_PATTERN.finditer(content):
@@ -195,14 +203,16 @@ class DataLineageExtractor(BaseAgent):
             if ds.lower() in _IGNORE_TOKENS:
                 continue
             line = _line_of(content, m.start())
-            rows.append(DataLineageRow(
-                source_file_id=source_file_id,
-                lineage_type="TABLE_READ",
-                source_dataset=ds,
-                target_dataset=None,
-                block_line_start=line,
-                block_line_end=line,
-            ))
+            rows.append(
+                DataLineageRow(
+                    source_file_id=source_file_id,
+                    lineage_type="TABLE_READ",
+                    source_dataset=ds,
+                    target_dataset=None,
+                    block_line_start=line,
+                    block_line_end=line,
+                )
+            )
 
         # --- TABLE_READ: JOIN ---
         for m in JOIN_PATTERN.finditer(content):
@@ -210,53 +220,61 @@ class DataLineageExtractor(BaseAgent):
             if ds.lower() in _IGNORE_TOKENS:
                 continue
             line = _line_of(content, m.start())
-            rows.append(DataLineageRow(
-                source_file_id=source_file_id,
-                lineage_type="TABLE_READ",
-                source_dataset=ds,
-                target_dataset=None,
-                block_line_start=line,
-                block_line_end=line,
-            ))
+            rows.append(
+                DataLineageRow(
+                    source_file_id=source_file_id,
+                    lineage_type="TABLE_READ",
+                    source_dataset=ds,
+                    target_dataset=None,
+                    block_line_start=line,
+                    block_line_end=line,
+                )
+            )
 
         # --- TABLE_WRITE: DATA output ---
         for m in DATA_OUTPUT_PATTERN.finditer(content):
             line = _line_of(content, m.start())
             for ds in _split_datasets(m.group(1)):
-                rows.append(DataLineageRow(
+                rows.append(
+                    DataLineageRow(
+                        source_file_id=source_file_id,
+                        lineage_type="TABLE_WRITE",
+                        source_dataset=None,
+                        target_dataset=ds,
+                        block_line_start=line,
+                        block_line_end=line,
+                    )
+                )
+
+        # --- TABLE_WRITE: CREATE TABLE ---
+        for m in CREATE_TABLE_PATTERN.finditer(content):
+            ds = m.group(1)
+            line = _line_of(content, m.start())
+            rows.append(
+                DataLineageRow(
                     source_file_id=source_file_id,
                     lineage_type="TABLE_WRITE",
                     source_dataset=None,
                     target_dataset=ds,
                     block_line_start=line,
                     block_line_end=line,
-                ))
-
-        # --- TABLE_WRITE: CREATE TABLE ---
-        for m in CREATE_TABLE_PATTERN.finditer(content):
-            ds = m.group(1)
-            line = _line_of(content, m.start())
-            rows.append(DataLineageRow(
-                source_file_id=source_file_id,
-                lineage_type="TABLE_WRITE",
-                source_dataset=None,
-                target_dataset=ds,
-                block_line_start=line,
-                block_line_end=line,
-            ))
+                )
+            )
 
         # --- TABLE_WRITE: INSERT INTO ---
         for m in INSERT_INTO_PATTERN.finditer(content):
             ds = m.group(1)
             line = _line_of(content, m.start())
-            rows.append(DataLineageRow(
-                source_file_id=source_file_id,
-                lineage_type="TABLE_WRITE",
-                source_dataset=None,
-                target_dataset=ds,
-                block_line_start=line,
-                block_line_end=line,
-            ))
+            rows.append(
+                DataLineageRow(
+                    source_file_id=source_file_id,
+                    lineage_type="TABLE_WRITE",
+                    source_dataset=None,
+                    target_dataset=ds,
+                    block_line_start=line,
+                    block_line_end=line,
+                )
+            )
 
         # --- TABLE_READ: PROC ... DATA=dataset ---
         for m in PROC_DATA_PATTERN.finditer(content):
@@ -264,26 +282,30 @@ class DataLineageExtractor(BaseAgent):
             if ds.lower() in _IGNORE_TOKENS:
                 continue
             line = _line_of(content, m.start())
-            rows.append(DataLineageRow(
-                source_file_id=source_file_id,
-                lineage_type="TABLE_READ",
-                source_dataset=ds,
-                target_dataset=None,
-                block_line_start=line,
-                block_line_end=line,
-            ))
+            rows.append(
+                DataLineageRow(
+                    source_file_id=source_file_id,
+                    lineage_type="TABLE_READ",
+                    source_dataset=ds,
+                    target_dataset=None,
+                    block_line_start=line,
+                    block_line_end=line,
+                )
+            )
 
         # --- TABLE_WRITE: OUTPUT OUT=dataset ---
         for m in OUTPUT_OUT_PATTERN.finditer(content):
             ds = m.group(1)
             line = _line_of(content, m.start())
-            rows.append(DataLineageRow(
-                source_file_id=source_file_id,
-                lineage_type="TABLE_WRITE",
-                source_dataset=None,
-                target_dataset=ds,
-                block_line_start=line,
-                block_line_end=line,
-            ))
+            rows.append(
+                DataLineageRow(
+                    source_file_id=source_file_id,
+                    lineage_type="TABLE_WRITE",
+                    source_dataset=None,
+                    target_dataset=ds,
+                    block_line_start=line,
+                    block_line_end=line,
+                )
+            )
 
         return rows

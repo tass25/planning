@@ -42,7 +42,6 @@ def db_engine(tmp_path: Path):
 
 
 class TestRegistryWriterAgent:
-
     def test_insert_single_file(self, db_engine):
         """A single FileMetadata should result in 1 inserted row."""
         fm = _make_meta("/data/test.sas")

@@ -243,7 +243,7 @@ def _convert_plain(sas_item: dict, provider_name: str) -> tuple[dict | None, flo
     prompt = (
         f"Convert this SAS code to Python (pandas).\n\n"
         f"SAS Code:\n```sas\n{sas_item['sas_code']}\n```\n\n"
-        f"Description: {sas_item.get('description','')}\n\n"
+        f"Description: {sas_item.get('description', '')}\n\n"
         f"{fm_rules}\n"
         "Requirements:\n"
         "- Valid Python with all necessary imports\n"
@@ -423,7 +423,6 @@ def convert_with_provider(sas_inputs: list[dict], provider_name: str) -> list[di
 
     results: list[dict] = []
     for i, sas_item in enumerate(sas_inputs, 1):
-
         # If provider-level error (missing key, unreachable), record for every pair
         if provider_error or client is None:
             results.append(
@@ -447,7 +446,7 @@ def convert_with_provider(sas_inputs: list[dict], provider_name: str) -> list[di
         prompt = (
             f"Convert this SAS code to Python (pandas).\n\n"
             f"SAS Code:\n```sas\n{sas_item['sas_code']}\n```\n\n"
-            f"Description: {sas_item.get('description','')}\n\n"
+            f"Description: {sas_item.get('description', '')}\n\n"
             f"{fm_rules}\n"
             "Requirements:\n"
             "- Valid Python with all necessary imports\n"
@@ -591,7 +590,7 @@ def verify_results(results: list[dict]) -> list[dict]:
         t_verify = round(time.perf_counter() - t0, 2)
         conf = verify.confidence if verify else 0.0
         print(
-            f"  [{i}/{ len(results)}] {r['category']} ({r['provider']}) conf={conf:.2f}  {t_verify}s"
+            f"  [{i}/{len(results)}] {r['category']} ({r['provider']}) conf={conf:.2f}  {t_verify}s"
         )
 
         r.update(
@@ -651,11 +650,11 @@ def print_tableau(all_results: list[dict], run_id: str, providers_used: list[str
             f"{model:<45} "
             f"{len(rows):>6} "
             f"{len(ok):>4} "
-            f"{len(ok)/max(len(rows),1)*100:>4.0f}% "
-            f"{sum(confs)/max(len(confs),1):>8.3f} "
+            f"{len(ok) / max(len(rows), 1) * 100:>4.0f}% "
+            f"{sum(confs) / max(len(confs), 1):>8.3f} "
             f"{min(confs) if confs else 0:>8.3f} "
-            f"{sum(conv_times)/max(len(conv_times),1):>9.1f}s "
-            f"{sum(verify_times)/max(len(verify_times),1):>8.2f}s"
+            f"{sum(conv_times) / max(len(conv_times), 1):>9.1f}s "
+            f"{sum(verify_times) / max(len(verify_times), 1):>8.2f}s"
         )
         # Show failure reason if any pairs failed
         if failed:
@@ -681,20 +680,20 @@ def print_tableau(all_results: list[dict], run_id: str, providers_used: list[str
     for idx in sorted(sas_inputs_uniq.keys()):
         base = sas_inputs_uniq[idx]
         p(
-            f"\n  PAIR {idx+1}/6  |  Category: {base['category']}  |  Complexity: {base['complexity']}  |  Failure mode: {base.get('failure_mode') or 'none'}"
+            f"\n  PAIR {idx + 1}/6  |  Category: {base['category']}  |  Complexity: {base['complexity']}  |  Failure mode: {base.get('failure_mode') or 'none'}"
         )
-        p(f"  Description: {base.get('description','')[:100]}")
+        p(f"  Description: {base.get('description', '')[:100]}")
         p()
-        p(f"  SAS CODE ({base['sas_code'].count(chr(10))+1} lines):")
+        p(f"  SAS CODE ({base['sas_code'].count(chr(10)) + 1} lines):")
         for line in base["sas_code"].split("\n")[:8]:
             p(f"    {line}")
         if base["sas_code"].count("\n") > 8:
-            p(f"    ... ({base['sas_code'].count(chr(10))+1 - 8} more lines)")
+            p(f"    ... ({base['sas_code'].count(chr(10)) + 1 - 8} more lines)")
         p()
 
         pair_rows = [r for r in all_results if r.get("task_index") == idx]
         p(f"  {'Provider':<12} {'Conf':>6} {'Eq?':>5} {'Lines':>6} {'Time':>8}  {'Issues / Error'}")
-        p(f"  {'-'*12} {'-'*6} {'-'*5} {'-'*6} {'-'*8}  {'-'*55}")
+        p(f"  {'-' * 12} {'-' * 6} {'-' * 5} {'-' * 6} {'-' * 8}  {'-' * 55}")
         for r in sorted(pair_rows, key=lambda x: x.get("confidence", 0), reverse=True):
             if r.get("convert_ok"):
                 issues_str = ", ".join(r.get("issues", [])) or "none"
@@ -702,10 +701,10 @@ def print_tableau(all_results: list[dict], run_id: str, providers_used: list[str
                 eq_str = "YES" if r.get("equivalent") else "NO "
                 p(
                     f"  {r['provider']:<12} "
-                    f"{r.get('confidence',0):>6.3f} "
+                    f"{r.get('confidence', 0):>6.3f} "
                     f"{eq_str:>5} "
                     f"{py_lines:>6} "
-                    f"{r.get('t_convert_s',0):>7.1f}s  "
+                    f"{r.get('t_convert_s', 0):>7.1f}s  "
                     f"{issues_str[:55]}"
                 )
             else:
@@ -715,7 +714,7 @@ def print_tableau(all_results: list[dict], run_id: str, providers_used: list[str
                     f"{'---':>6} "
                     f"{'ERR':>5} "
                     f"{'0':>6} "
-                    f"{r.get('t_convert_s',0):>7.1f}s  "
+                    f"{r.get('t_convert_s', 0):>7.1f}s  "
                     f"FAILED: {err_label[:55]}"
                 )
 
@@ -723,11 +722,11 @@ def print_tableau(all_results: list[dict], run_id: str, providers_used: list[str
         p()
         for r in sorted(pair_rows, key=lambda x: x.get("confidence", 0), reverse=True):
             if r.get("python_code"):
-                p(f"  -- Python [{r['provider']}] (conf={r.get('confidence',0):.2f}) --")
+                p(f"  -- Python [{r['provider']}] (conf={r.get('confidence', 0):.2f}) --")
                 for line in r["python_code"].split("\n")[:6]:
                     p(f"    {line}")
                 if r["python_code"].count("\n") > 6:
-                    p(f"    ... ({r['python_code'].count(chr(10))+1 - 6} more lines)")
+                    p(f"    ... ({r['python_code'].count(chr(10)) + 1 - 6} more lines)")
                 p()
 
         p("  " + "=" * 80)
@@ -736,14 +735,14 @@ def print_tableau(all_results: list[dict], run_id: str, providers_used: list[str
     p("\n[C] HEAD-TO-HEAD QUALITY MATRIX (confidence per pair per provider)")
     p("-" * 120)
     pair_labels = [
-        f"P{i+1}:{sas_inputs_uniq[i]['category'][:18]}" for i in sorted(sas_inputs_uniq.keys())
+        f"P{i + 1}:{sas_inputs_uniq[i]['category'][:18]}" for i in sorted(sas_inputs_uniq.keys())
     ]
     p(
         f"  {'Provider':<14} "
         + "  ".join(f"{lbl[:20]:>22}" for lbl in pair_labels)
         + f"  {'AVG':>6}"
     )
-    p(f"  {'-'*14} " + "  ".join("-" * 22 for _ in pair_labels) + f"  {'---':>6}")
+    p(f"  {'-' * 14} " + "  ".join("-" * 22 for _ in pair_labels) + f"  {'---':>6}")
 
     for prov in providers_used:
         row_confs = []
@@ -830,12 +829,12 @@ def print_tableau(all_results: list[dict], run_id: str, providers_used: list[str
         ok = [r for r in rows if r.get("convert_ok")]
         confs = [r.get("confidence", 0) for r in rows]
         avg_conf = sum(confs) / max(len(confs), 1)
-        p(f"\n  [{prov.upper()}]  {rows[0].get('model','?') if rows else '?'}")
-        p(f"    Params    : {info.get('params','?')}")
-        p(f"    Arch      : {info.get('arch','?')}")
-        p(f"    Context   : {info.get('ctx','?')}")
-        p(f"    Speed     : {info.get('speed','?')}")
-        p(f"    Notes     : {info.get('notes','?')}")
+        p(f"\n  [{prov.upper()}]  {rows[0].get('model', '?') if rows else '?'}")
+        p(f"    Params    : {info.get('params', '?')}")
+        p(f"    Arch      : {info.get('arch', '?')}")
+        p(f"    Context   : {info.get('ctx', '?')}")
+        p(f"    Speed     : {info.get('speed', '?')}")
+        p(f"    Notes     : {info.get('notes', '?')}")
         p(f"    Results   : {len(ok)}/{len(rows)} converted  |  avg confidence={avg_conf:.3f}")
         top_issues: dict[str, int] = {}
         for r in rows:

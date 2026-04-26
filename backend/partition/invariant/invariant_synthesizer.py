@@ -126,8 +126,8 @@ INVARIANT_LIBRARY: list[CandidateInvariant] = [
         name="COLUMN_SUPERSET",
         description="Data step output must contain at least all input columns.",
         sas_pattern=r"\bdata\b",
-        check=lambda inp, out: (
-            set(c.lower() for c in inp.columns).issubset(set(c.lower() for c in out.columns))
+        check=lambda inp, out: set(c.lower() for c in inp.columns).issubset(
+            set(c.lower() for c in out.columns)
         ),
         category="structural",
     ),
@@ -281,10 +281,12 @@ INVARIANT_LIBRARY: list[CandidateInvariant] = [
         description="PROC MEANS output must not have duplicate class-column combinations.",
         sas_pattern=r"\bproc\s+means\b",
         check=lambda inp, out: _safe(
-            lambda: not any(
-                out[c].duplicated().any()
-                for c in out.columns
-                if c not in inp.columns and "group" in c.lower()
+            lambda: (
+                not any(
+                    out[c].duplicated().any()
+                    for c in out.columns
+                    if c not in inp.columns and "group" in c.lower()
+                )
             ),
             default=True,
         ),

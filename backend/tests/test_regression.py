@@ -123,9 +123,9 @@ def test_deterministic_fires_for_known_patterns(name: str, sas_code: str, gold_m
     # For simple (single-proc) files, we expect a hit
     gold_tier = gold_meta.get("tier", "")
     if gold_tier == "simple":
-        assert (
-            result is not None
-        ), f"{name}: expected deterministic translation for simple tier, got None"
+        assert result is not None, (
+            f"{name}: expected deterministic translation for simple tier, got None"
+        )
 
 
 # ── Lineage guard tests ───────────────────────────────────────────────────────
@@ -155,9 +155,9 @@ def test_no_def_main_in_deterministic(name: str, sas_code: str, gold_meta: dict)
     if result is None:
         pytest.skip(f"{name}: no deterministic rule matched")
 
-    assert not _has_def_main(
-        result.code
-    ), f"{name}: deterministic code contains illegal def main() wrapper"
+    assert not _has_def_main(result.code), (
+        f"{name}: deterministic code contains illegal def main() wrapper"
+    )
 
 
 # ── Error classifier unit tests ───────────────────────────────────────────────

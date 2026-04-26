@@ -54,7 +54,7 @@ class RetrainTrigger:
             return RetrainDecision(
                 should_retrain=True,
                 trigger_reason=(
-                    f"KB grew by {kb_growth} examples " f"(threshold: {self.kb_growth_threshold})"
+                    f"KB grew by {kb_growth} examples (threshold: {self.kb_growth_threshold})"
                 ),
             )
 
