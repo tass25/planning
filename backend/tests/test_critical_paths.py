@@ -37,11 +37,11 @@ async def test_all_llm_tiers_unavailable_returns_partial():
     must return PARTIAL status rather than hanging or raising."""
     import uuid
 
+    import structlog
+
     from partition.models.enums import ConversionStatus, PartitionType, RiskLevel
     from partition.models.partition_ir import PartitionIR
     from partition.translation.translation_agent import TranslationAgent
-
-    import structlog
 
     agent = TranslationAgent.__new__(TranslationAgent)
     agent.target_runtime = "python"
