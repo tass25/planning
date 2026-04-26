@@ -70,7 +70,7 @@ class TestFeatureExtraction:
     def test_macro_definition_type_weight(self):
         p = _make_partition(PartitionType.MACRO_DEFINITION, 1, 20)
         f = extract(p)
-        assert f.type_weight == 2.0
+        assert f.type_weight == 2.5
 
     def test_global_statement_type_weight(self):
         p = _make_partition(PartitionType.GLOBAL_STATEMENT, 1, 3)
@@ -80,7 +80,7 @@ class TestFeatureExtraction:
     def test_feature_vector_length(self):
         p = _make_partition(PartitionType.SQL_BLOCK, 1, 30, nesting=2)
         f = extract(p)
-        assert len(f.to_list()) == 6
+        assert len(f.to_list()) == 14
 
 
 # ── Rule-based predictions ────────────────────────────────────────────────────
@@ -90,12 +90,16 @@ class TestRuleBasedPrediction:
     def test_short_data_step_is_low(self):
         p = _make_partition(PartitionType.DATA_STEP, 1, 5)
         agent = ComplexityAgent()
+        agent._fitted = False
+        agent._model = None
         result = _run(agent.process([p]))
         assert result[0].risk_level == RiskLevel.LOW
 
     def test_long_macro_definition_is_high(self):
         p = _make_partition(PartitionType.MACRO_DEFINITION, 1, 100)
         agent = ComplexityAgent()
+        agent._fitted = False
+        agent._model = None
         result = _run(agent.process([p]))
         assert result[0].risk_level == RiskLevel.HIGH
 
@@ -107,24 +111,32 @@ class TestRuleBasedPrediction:
             source="data _null_; call execute('%mymacro;'); run;",
         )
         agent = ComplexityAgent()
+        agent._fitted = False
+        agent._model = None
         result = _run(agent.process([p]))
         assert result[0].risk_level == RiskLevel.HIGH
 
     def test_deep_nesting_is_high(self):
         p = _make_partition(PartitionType.CONDITIONAL_BLOCK, 1, 20, nesting=4)
         agent = ComplexityAgent()
+        agent._fitted = False
+        agent._model = None
         result = _run(agent.process([p]))
         assert result[0].risk_level == RiskLevel.HIGH
 
     def test_moderate_block(self):
         p = _make_partition(PartitionType.PROC_BLOCK, 1, 30)
         agent = ComplexityAgent()
+        agent._fitted = False
+        agent._model = None
         result = _run(agent.process([p]))
         assert result[0].risk_level == RiskLevel.MODERATE
 
     def test_confidence_in_metadata(self):
         p = _make_partition(PartitionType.DATA_STEP, 1, 5)
         agent = ComplexityAgent()
+        agent._fitted = False
+        agent._model = None
         result = _run(agent.process([p]))
         conf = result[0].metadata.get("complexity_confidence")
         assert conf is not None

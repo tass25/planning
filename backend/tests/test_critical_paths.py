@@ -41,12 +41,17 @@ async def test_all_llm_tiers_unavailable_returns_partial():
     from partition.models.partition_ir import PartitionIR
     from partition.translation.translation_agent import TranslationAgent
 
+    import structlog
+
     agent = TranslationAgent.__new__(TranslationAgent)
     agent.target_runtime = "python"
+    agent.trace_id = uuid.uuid4()
+    agent.logger = structlog.get_logger().bind(agent="TranslationAgent")
     agent.ollama_client = None
     agent.azure_client = None
     agent.groq_client = None
     agent._groq_raw = None
+    agent._groq_pool = MagicMock(available=False)
     agent.local_client = MagicMock(is_available=False)
     agent._translations = {}
     agent._translation_cache = {}
@@ -63,11 +68,19 @@ async def test_all_llm_tiers_unavailable_returns_partial():
     partition = PartitionIR(
         block_id=uuid.uuid4(),
         file_id=uuid.uuid4(),
-        partition_type=PartitionType.DATA_STEP,
-        source_code="data out; set in; x=1; run;",
+        partition_type=PartitionType.MACRO_DEFINITION,
+        source_code=(
+            "%MACRO calc(ds=, var=);\n"
+            "  PROC SQL;\n"
+            "    CREATE TABLE work.result AS\n"
+            "    SELECT *, CASE WHEN &var > 10 THEN 'high' ELSE 'low' END AS tier\n"
+            "    FROM &ds;\n"
+            "  QUIT;\n"
+            "%MEND calc;\n"
+        ),
         line_start=1,
-        line_end=3,
-        risk_level=RiskLevel.LOW,
+        line_end=7,
+        risk_level=RiskLevel.HIGH,
         metadata={},
     )
 

@@ -402,6 +402,7 @@ class TestKBWriter:
             "version": version,
             "superseded_by": None,
             "created_at": "2025-01-01T00:00:00",
+            "issues_text": "",
         }
 
     def test_empty_count(self, writer):

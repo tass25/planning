@@ -86,6 +86,12 @@ def _make_orchestrator(tmp_path: Path) -> PartitionOrchestrator:
 class TestPipelineIntegration:
     """End-to-end pipeline integration using real agent instances."""
 
+    @pytest.fixture(autouse=True)
+    def _ensure_data_dir(self):
+        """Ensure backend/data/ directory exists for SQLite file registry."""
+        data_dir = Path(__file__).resolve().parent.parent / "data"
+        data_dir.mkdir(exist_ok=True)
+
     @pytest.mark.asyncio
     async def test_graph_has_eight_nodes(self, tmp_path):
         """The compiled graph must contain exactly 8 pipeline nodes."""

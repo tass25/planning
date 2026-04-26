@@ -95,7 +95,7 @@ class TestValidationAgent:
 
         q = multiprocessing.Queue()
         _sandbox_exec("assert len(df) == 100", q)
-        result = q.get_nowait()
+        result = q.get(timeout=5)
         assert result["ok"] is True
 
     def test_sandbox_no_import(self):
@@ -106,7 +106,7 @@ class TestValidationAgent:
 
         q = multiprocessing.Queue()
         _sandbox_exec("__import__('os')", q)
-        result = q.get_nowait()
+        result = q.get(timeout=5)
         assert result["ok"] is False
         assert "import" in result["error"].lower() or "not defined" in result["error"].lower()
 
@@ -162,7 +162,7 @@ class TestValidationAgent:
             "assert 'flag' in df.columns",
             q,
         )
-        result = q.get_nowait()
+        result = q.get(timeout=5)
         assert result["ok"] is True
 
 

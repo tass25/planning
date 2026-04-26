@@ -237,7 +237,7 @@ jobs:
           # Using `update` instead of `up` avoids resetting the secret references.
           az containerapp update \
             --name ca-codara-backend \
-            --resource-group rg-codara \
+            --resource-group PFE_rg \
             --image "$IMAGE" \
             --output table
 
@@ -245,7 +245,7 @@ jobs:
         run: |
           APP_URL=$(az containerapp show \
             --name ca-codara-backend \
-            --resource-group rg-codara \
+            --resource-group PFE_rg \
             --query "properties.configuration.ingress.fqdn" -o tsv)
 
           echo "Deployed to: https://$APP_URL"
@@ -267,7 +267,7 @@ jobs:
         run: |
           APP_URL=$(az containerapp show \
             --name ca-codara-backend \
-            --resource-group rg-codara \
+            --resource-group PFE_rg \
             --query "properties.configuration.ingress.fqdn" -o tsv)
 
           gh api \

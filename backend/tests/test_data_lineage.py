@@ -93,7 +93,7 @@ RUN;
 """,
         )
         fm = _make_metadata(sas)
-        engine = get_engine(str(tmp_path / "test.db"))
+        engine = get_engine(str(tmp_path / "test.db"), _allow_any_path=True)
         init_db(engine)
         _insert_registry(engine, fm)
 
@@ -123,7 +123,7 @@ RUN;
 """,
         )
         fm = _make_metadata(sas)
-        engine = get_engine(str(tmp_path / "test.db"))
+        engine = get_engine(str(tmp_path / "test.db"), _allow_any_path=True)
         init_db(engine)
         _insert_registry(engine, fm)
 
@@ -150,7 +150,7 @@ QUIT;
 """,
         )
         fm = _make_metadata(sas)
-        engine = get_engine(str(tmp_path / "test.db"))
+        engine = get_engine(str(tmp_path / "test.db"), _allow_any_path=True)
         init_db(engine)
         _insert_registry(engine, fm)
 
@@ -180,7 +180,7 @@ QUIT;
 """,
         )
         fm = _make_metadata(sas)
-        engine = get_engine(str(tmp_path / "test.db"))
+        engine = get_engine(str(tmp_path / "test.db"), _allow_any_path=True)
         init_db(engine)
         _insert_registry(engine, fm)
 
@@ -204,7 +204,7 @@ RUN;
 """,
         )
         fm = _make_metadata(sas)
-        engine = get_engine(str(tmp_path / "test.db"))
+        engine = get_engine(str(tmp_path / "test.db"), _allow_any_path=True)
         init_db(engine)
         _insert_registry(engine, fm)
 
@@ -236,7 +236,7 @@ RUN;
 """,
         )
         fm = _make_metadata(sas)
-        engine = get_engine(str(tmp_path / "test.db"))
+        engine = get_engine(str(tmp_path / "test.db"), _allow_any_path=True)
         init_db(engine)
         _insert_registry(engine, fm)
 
@@ -266,7 +266,7 @@ RUN;
 """,
         )
         fm = _make_metadata(sas)
-        engine = get_engine(str(tmp_path / "test.db"))
+        engine = get_engine(str(tmp_path / "test.db"), _allow_any_path=True)
         init_db(engine)
         _insert_registry(engine, fm)
 

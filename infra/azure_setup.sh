@@ -12,10 +12,10 @@
 
 set -euo pipefail
 
-RESOURCE_GROUP="rg-codara"
-LOCATION="westeurope"
+RESOURCE_GROUP="PFE_rg"
+LOCATION="francecentral"
 APP_INSIGHTS="ai-codara"
-KEY_VAULT="kv-codara"
+KEY_VAULT="codara-kv"
 CONTAINER_APP_ENV="cae-codara"
 CONTAINER_APP="ca-codara-backend"
 MANAGED_IDENTITY="id-codara-ci"
