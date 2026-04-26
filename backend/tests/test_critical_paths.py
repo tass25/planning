@@ -38,7 +38,6 @@ async def test_all_llm_tiers_unavailable_returns_partial():
     import uuid
 
     import structlog
-
     from partition.models.enums import ConversionStatus, PartitionType, RiskLevel
     from partition.models.partition_ir import PartitionIR
     from partition.translation.translation_agent import TranslationAgent
