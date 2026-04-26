@@ -160,7 +160,7 @@ def _sandbox_exec(code: str, result_queue: "multiprocessing.Queue") -> None:
         }
     )
 
-    _keep_dunders = frozenset({"__import__", "__name__", "__build_class__"})
+    _keep_dunders = frozenset({"__name__", "__build_class__"})
 
     if isinstance(__builtins__, dict):
         safe_builtins = {

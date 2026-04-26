@@ -224,7 +224,8 @@ class ComplexityAgent(BaseAgent):
         2. SQL subquery → HIGH (0.88)
         3. MERGE/hash join + RETAIN/FIRST.LAST → HIGH (0.87)
         4. CALL SYMPUT (macro-data bridge) → HIGH (0.85)
-        5. nesting >= 3 AND has complex patterns → HIGH (0.84)
+        5. nesting >= 4 → HIGH (0.84)
+        5b. nesting >= 3 AND has complex patterns → HIGH (0.84)
         6. type_weight >= 2.0 AND lines >= 30 → HIGH (0.82)
         7. lines >= 80 → HIGH (0.78)
 
@@ -264,6 +265,8 @@ class ComplexityAgent(BaseAgent):
             return RiskLevel.HIGH, 0.87
         if feats.has_call_symput:
             return RiskLevel.HIGH, 0.85
+        if nd >= 4:
+            return RiskLevel.HIGH, 0.84
         if nd >= 3 and sas_signals >= 1:
             return RiskLevel.HIGH, 0.84
         if feats.type_weight >= 2.0 and lc >= 30:
