@@ -74,7 +74,8 @@
   {\LARGE \textbf{\codara{}}}\\[0.5cm]
   {\large \textit{A Multi-Agent SAS-to-Python/PySpark Conversion Accelerator}}\\[0.3cm]
   {\normalsize Using LangGraph Orchestration, RAPTOR Semantic Clustering,}\\
-  {\normalsize and 3-Tier LLM Fallback Translation with Z3 Formal Verification}\\[2cm]
+  {\normalsize 3-Tier LLM Fallback Translation, Z3 Formal Verification,}\\
+  {\normalsize and SemantiCheck 4-Layer Semantic Verification}\\[2cm]
   \begin{tabular}{ll}
     \textbf{Presented by:} & [Author Name] \\[0.3cm]
     \textbf{Supervisor:}   & [Supervisor Name], [Title] \\[0.3cm]
@@ -113,9 +114,11 @@
 \addcontentsline{toc}{chapter}{List of Abbreviations}
 \thispagestyle{plain}
 
-\begin{acronym}[RAPTOR]
+\begin{acronym}[HyperRAPTOR]
   \acro{API}{Application Programming Interface}
+  \acro{AST}{Abstract Syntax Tree}
   \acro{ASGI}{Asynchronous Server Gateway Interface}
+  \acro{CDAIS}{Constraint-Driven Adversarial Input Synthesis}
   \acro{CEGAR}{Counterexample-Guided Abstraction Refinement}
   \acro{CI/CD}{Continuous Integration / Continuous Delivery}
   \acro{CRISP-DM}{Cross-Industry Standard Process for Data Mining}
@@ -136,9 +139,11 @@
   \acro{REST}{Representational State Transfer}
   \acro{SAS}{Statistical Analysis System}
   \acro{SCC}{Strongly Connected Component}
+  \acro{SCS}{SemantiCheck Score}
   \acro{SDLC}{Software Development Life Cycle}
   \acro{SMT}{Satisfiability Modulo Theories}
   \acro{SSE}{Server-Sent Events}
+  \acro{STG}{Semantic Transformation Graph}
 \end{acronym}
 
 % =============================================================================
@@ -276,6 +281,21 @@
   \subsection{CEGAR: Counterexample-Guided Abstraction Refinement}
   \label{subsec:cegar-theory}
 
+  \subsection{Scope and Limits of Formal Verification}
+  \label{subsec:fv-scope}
+
+\section{Semantic Equivalence Verification Beyond SMT}
+\label{sec:semantic-equiv-theory}
+
+  \subsection{Oracle-Based Behavioural Testing}
+  \label{subsec:oracle-testing-theory}
+
+  \subsection{Adversarial Test Synthesis}
+  \label{subsec:adversarial-synthesis-theory}
+
+  \subsection{Composite Verification Scoring}
+  \label{subsec:composite-scoring-theory}
+
 \section{Machine Learning for Complexity Scoring}
 \label{sec:ml-theory}
 
@@ -366,6 +386,13 @@
 
   \subsection{LLM Benchmarking and Provider Selection}
   \label{subsec:llm-benchmarking}
+  % Chain as of v3.1.0 (April 2026):
+  % Primary: Azure GPT-4o (all risk levels)
+  % Fallback 1: Ollama nemotron-3-super:cloud
+  % Fallback 2: Groq LLaMA-3.3-70b (last resort + cross-verifier)
+  % Determined empirically: minimax-m2.7:cloud scored 10/10 on torture_test
+  % then nemotron-3-super:cloud adopted; Azure promoted to primary for
+  % production reliability; Ollama demoted to warm fallback.
 
   \subsection{Embedding Model and Vector Store Selection}
   \label{subsec:embedding-selection}
@@ -403,17 +430,34 @@
   \subsection{Redis Checkpoint Store}
   \label{subsec:redis-schema}
 
+  \subsection{Azure Blob and Queue Storage}
+  \label{subsec:azure-storage-schema}
+  % BlobStorageService: upload/download/list/delete against Azure Blob Storage.
+  % Graceful local-disk fallback (backend/uploads/) when not configured.
+  % PipelineQueueService: producer + daemon consumer thread; enqueues JSON
+  % payloads base64-encoded into Azure Queue (visibility_timeout=300 s);
+  % poison-message guard at 5 dequeue attempts.
+
 \section{API and Service Layer Design}
 \label{sec:api-design}
 
   \subsection{Layered Architecture: Routes \texorpdfstring{$\to$}{->} Services \texorpdfstring{$\to$}{->} Core}
   \label{subsec:layered-api}
+  % Three service modules extracted in Week 15:
+  % pipeline_service.py: run_pipeline_sync() — runs 8 stages, handles
+  %   blob download/temp-file cleanup.
+  % blob_service.py: BlobStorageService — file I/O abstraction.
+  % queue_service.py: PipelineQueueService — async job dispatch.
 
   \subsection{Key API Endpoints}
   \label{subsec:key-endpoints}
 
   \subsection{Authentication and Authorisation Design}
   \label{subsec:auth-design}
+  % JWT HS256, 24 h expiry. bcrypt password hashing.
+  % Rate limiting: 5 attempts / IP / 60 s on /login and /register.
+  % Passwords: generated via secrets.token_urlsafe(18) on first boot;
+  %   pinned via CODARA_ADMIN_PASSWORD / CODARA_USER_PASSWORD env vars.
 
 \section{Gold Standard Corpus Construction}
 \label{sec:corpus-construction}
@@ -488,12 +532,72 @@
 
   \subsection{LLM Fallback Chain Implementation}
   \label{subsec:fallback-impl}
+  % Chain: Azure GPT-4o (primary) → Ollama nemotron-3-super:cloud (fallback 1)
+  % → Groq LLaMA-3.3-70b (fallback 2 + cross-verifier).
+  % Circuit breakers: Azure (5 failures → 60 s open),
+  %   Groq (3 failures → 120 s open).
+  % Rate limiters: Azure (10 concurrent), Groq (3 concurrent).
+  % All LLM calls wrapped in asyncio.wait_for(timeout=60 s) for
+  % Python 3.10 compatibility (asyncio.timeout() requires 3.11+).
+
+  \subsection{Deterministic Translation Rules}
+  \label{subsec:deterministic-rules}
+  % deterministic_translator.py: short-circuits LLM for structurally
+  % unambiguous SAS constructs. Two new rules added in Week 15+:
+  %
+  % Rule 1 — PROC FORMAT VALUE (discrete label mappings):
+  %   Converts VALUE blocks with string/integer → label entries to a Python
+  %   dict. Numeric range formats (18-64, low-high) detected and rejected
+  %   to LLM. Output: sexfmt_fmt = {'M': 'Male', 'F': 'Female'} style.
+  %
+  % Rule 2 — PROC SQL simple SELECT:
+  %   Handles single-table SELECT with no subqueries, GROUP BY, or HAVING.
+  %   Maps directly to pandas df[cols] or df.query() expressions.
+  %
+  % Both rules registered in _RULES and tried before LLM dispatch.
+
+  \subsection{Error Analysis and Program Slicing}
+  \label{subsec:error-analysis-slicing}
+  % error_analyst.py — fault localisation for the repair LLM.
+  %
+  % Based on Weiser (1984) backward program slicing: given a failing
+  % statement, the slice is the minimal subset of statements that
+  % causally influence its value.
+  %
+  % Implementation:
+  %   _extract_failing_lineno(): parses "File ..., line X" from tracebacks.
+  %   _slice_around_line(): returns ±3 lines with >>> marker.
+  %   _slice_for_columns(): AST-walks translated Python for df['col'] /
+  %     df.col accesses matching affected column names; expands ±2 lines.
+  %
+  % Effect: repair prompt contains only the relevant excerpt instead of
+  % the full translated script (which may be 200+ lines), improving
+  % repair precision and reducing token cost.
 
   \subsection{ValidationAgent Sandbox}
   \label{subsec:sandbox-impl}
+  % multiprocessing.Process isolation: removed builtins (open, __import__,
+  % exec, eval, compile, exit, quit, input, breakpoint).
+  % Killed via .kill() on timeout (not .join(timeout) which leaks threads).
+  % Windows-compatible (no signal.alarm).
+
+  \subsection{Oracle-Based Semantic Validation}
+  \label{subsec:semantic-validator-impl}
+  % semantic_validator.py: runs translated Python against a reference
+  % (oracle) implementation derived from deterministic SAS semantics.
+  % Validates: column set, row count, dtype consistency, group aggregates.
+  % Complement to syntax sandbox: sandbox catches crashes;
+  % semantic validator catches wrong-but-running translations.
 
   \subsection{Cross-Verification and Reflexion}
   \label{subsec:crossverify-impl}
+
+  \subsection{Lineage Guard}
+  \label{subsec:lineage-guard-impl}
+  % lineage_guard.py: disk-reload check (original) extended with macro
+  % reference check. Flags partitions that reference %macro_name symbols
+  % without a corresponding definition in the dependency graph, preventing
+  % silent unresolved-reference failures at merge time.
 
 \section{Z3 Formal Verification Layer}
 \label{sec:z3-impl}
@@ -503,9 +607,152 @@
 
   \subsection{SMT Encoding Patterns}
   \label{subsec:z3-patterns}
+  % 4 patterns: linear arithmetic, boolean filter, sort/dedup, assignment.
+  % Coverage: ~30\% of SAS constructs amenable to SMT encoding.
 
   \subsection{CEGAR Loop}
   \label{subsec:cegar-impl}
+
+\section{Constraint-Driven Adversarial Input Synthesis (CDAIS)}
+\label{sec:cdais-impl}
+
+  \subsection{Motivation and Design Rationale}
+  \label{subsec:cdais-motivation}
+  % Existing ValidationAgent fuzzes with: empty DataFrame, single-row,
+  % all-null column. These catch crashes. They do NOT catch semantic errors:
+  % empty DataFrame returns trivial output; single row never fires
+  % RETAIN/FIRST./LAST. group boundaries.
+  % CDAIS synthesises adversarial inputs specifically tuned to expose the
+  % six known SAS→Python migration failure modes.
+
+  \subsection{The Six Adversarial Patterns}
+  \label{subsec:cdais-patterns}
+  % Six patterns injected into every generated DataFrame:
+  % 1. NaN injection (8\% of numeric cells) — SAS missing (.) vs pandas NaN
+  %    arithmetic divergence.
+  % 2. Currency strings — dtype coercion bugs in LLM-translated code.
+  % 3. Multi-group BY layout (3 groups × 10 rows, pre-sorted) — exercises
+  %    RETAIN reset and FIRST./LAST. boundaries.
+  % 4. Exact duplicate rows (2 extra) — NODUP/NODUPKEY translation bugs.
+  % 5. Mixed-case strings (UPPER/lower/Title cycling) — SAS case-sensitive
+  %    comparison vs Python.
+  % 6. Numeric edge cases (0, negative, 999999.99) — overflow, zero-div,
+  %    negative-cumsum.
+
+  \subsection{Z3-Driven Minimum Witness Synthesis}
+  \label{subsec:cdais-z3}
+  % For structural failure classes (e.g.\ RETAIN\_RESET), Z3 encodes the
+  % correct cumsum-per-group and incorrect global-cumsum as symbolic
+  % constraints, then minimises Σ values subject to divergence.
+  % Result: the smallest concrete DataFrame guaranteed to expose the error
+  % class. Differs from z3_agent.py (verification) — here Z3 produces
+  % test inputs, not proofs.
+
+  \subsection{Coverage Certificates}
+  \label{subsec:cdais-certificates}
+  % A translation that passes test T(C) for error class C receives a
+  % formal coverage certificate: "free from error class C for any dataset
+  % of structural shape S." Heuristic test data cannot provide this
+  % guarantee. CDAIS goes from "we tested it" to "we proved it doesn't
+  % have this bug."
+
+  \subsection{Column Type Inference}
+  \label{subsec:cdais-type-inference}
+  % Deterministic regex analysis of SAS source (no LLM):
+  % retain / sum / mean / lag() / arithmetic → numeric columns.
+  % = "literal" / IN (...) / UPCASE() / INPUT col $ → string columns.
+  % BY columns → categorical string groups.
+
+\section{SemantiCheck: 4-Layer Semantic Verification Framework}
+\label{sec:semanticheck-impl}
+
+  \subsection{Motivation}
+  \label{subsec:semanticheck-motivation}
+  % CodeBLEU compares token sequences: two semantically identical
+  % translations can score low if styled differently. LLM confidence
+  % scores are self-reported and biased. Z3 covers ~30\% of SAS patterns.
+  % SemantiCheck composes four orthogonal verification signals into a
+  % single \ac{SCS} ∈ [0, 1].
+
+  \subsection{Score Composition}
+  \label{subsec:semanticheck-score}
+  % SCS = 0.30 × L1 + 0.30 × L2 + 0.20 × L3 + 0.20 × L4
+  %
+  % Verdicts:
+  %   VERIFIED         SCS ≥ 0.85
+  %   LIKELY_CORRECT   SCS ≥ 0.65
+  %   UNCERTAIN        SCS ≥ 0.40
+  %   LIKELY_INCORRECT SCS < 0.40
+
+  \subsection{Layer 1 --- Formal (Z3 SMT)}
+  \label{subsec:sc-l1}
+  % Weight: 30\%. Reuses Z3VerificationAgent's 4 SMT patterns.
+  % Produces: formal\_proof / z3\_unknown / unverifiable.
+
+  \subsection{Layer 2 --- Behavioural (CDAIS Witness Execution)}
+  \label{subsec:sc-l2}
+  % Weight: 30\%. Runs translated code on the minimum witness DataFrame
+  % synthesised by CDAIS for each applicable error class.
+  % Pass → 1.0; partial → proportional; fail → 0.0.
+
+  \subsection{Layer 3 --- Contract (Semantic Transformation Graph)}
+  \label{subsec:sc-l3}
+  % Weight: 20\%. Extracts a language-agnostic \ac{STG} from both
+  % the SAS source (regex + heuristics) and the Python translation
+  % (AST walk). STG nodes: READ, FILTER, SORT, GROUP, AGGREGATE,
+  % COMPUTE, MERGE, DEDUP, TRANSPOSE, WRITE.
+  % Score: Jaccard similarity of the two operation-type sets.
+  % Syntax-independent: two different implementations of identical logic
+  % score identically.
+
+  \subsection{Layer 4 --- Oracle (LLM-as-SAS-Interpreter)}
+  \label{subsec:sc-l4}
+  % Weight: 20\%. Synthesises a representative 3-row input DataFrame
+  % from column names found in the SAS source. Asks the LLM to predict
+  % (a) SAS output and (b) Python output on the same input using
+  % independent prompts. Scores agreement on:
+  %   column set (50\%), row-count direction (30\%), transformation
+  %   keywords (20\%).
+  % First tool to use LLM-as-SAS-oracle for behavioural testing without
+  % a SAS licence.
+
+  \subsection{Orthogonality with Z3 Verification}
+  \label{subsec:sc-orthogonality}
+  % z3_agent.py covers: linear arithmetic, boolean filter, sort/dedup,
+  % assignment (SMT arithmetic patterns).
+  % CDAIS + SemantiCheck cover: RETAIN, LAG, SORT stability, NULL
+  % arithmetic, JOIN type, GROUP boundaries (dataflow semantic patterns).
+  % Together the two systems cover the full semantic surface.
+
+\section{Namespace Safety and Merge-Time Checks}
+\label{sec:namespace-impl}
+
+  \subsection{AST Namespace Checker}
+  \label{subsec:namespace-checker-impl}
+  % namespace_checker.py: AST-level use-before-def and variable shadow
+  % checker inserted into MergeAgent before script output.
+  % Detects: references to names not yet assigned in the merged script;
+  % local assignments that shadow outer-scope variables unexpectedly.
+
+  \subsection{Execution State Tracker}
+  \label{subsec:execution-state-impl}
+  % execution_state.py: maintains a registry of materialised DataFrame
+  % schemas throughout the pipeline. Each node that produces or transforms
+  % a DataFrame records its column set, dtypes, and row-count bound.
+  % Enables downstream agents (ValidationAgent, namespace checker) to
+  % resolve column references without executing code.
+
+\section{Regression Testing Infrastructure}
+\label{sec:regression-impl}
+
+  \subsection{Oracle Regression Runner}
+  \label{subsec:regression-runner-impl}
+  % benchmark/regression_runner.py: CI-safe oracle regression runner.
+  % For each gold standard pair: generates adversarial DataFrame via
+  % DummyDataGenerator, runs reference Python (gold) and translated
+  % Python, compares output DataFrames with tolerance for float drift.
+  % Integrated into GitHub Actions pipeline; fails CI on semantic
+  % regression (not just syntax errors).
 
 \section{Functional Scenario Testing}
 \label{sec:scenario-testing}
@@ -539,8 +786,43 @@
   \subsection{FastAPI Structure, Endpoints, and Background Tasks}
   \label{subsec:fastapi-structure}
 
+  \subsection{Service Layer: Pipeline, Blob, and Queue}
+  \label{subsec:service-layer}
+  % Three service modules extracted to decouple the API routes from
+  % infrastructure concerns:
+  %
+  % pipeline_service.py (run_pipeline_sync): downloads the SAS file via
+  %   blob_service, executes the 8-node LangGraph pipeline, cleans up
+  %   the temp file. Called by queue_service consumer or BackgroundTasks.
+  %
+  % blob_service.py (BlobStorageService): upload / download_to_temp /
+  %   list_files / delete_folder. Targets Azure Blob Storage;
+  %   falls back to local disk (backend/uploads/) when
+  %   AZURE_STORAGE_CONNECTION_STRING is absent.
+  %
+  % queue_service.py (PipelineQueueService): enqueues JSON jobs into
+  %   Azure Queue Storage (base64-encoded, visibility_timeout=300 s).
+  %   Daemon consumer thread polls every 2 s and calls run_pipeline_sync.
+  %   Poison-message guard: dead-letters after 5 dequeue attempts.
+  %   Falls back to BackgroundTasks when not configured.
+
   \subsection{Containerisation and CI/CD}
   \label{subsec:docker}
+  % Docker Compose: redis:7-alpine + backend + frontend (nginx).
+  % GitHub Actions: 6-job pipeline — lint, test, benchmark,
+  %   docker-build, CodeQL, azure-deploy.
+  % Azure deploy: az containerapp update --image (image-only update;
+  %   secrets untouched). Replaces az containerapp up which reset
+  %   all secrets on every deploy.
+
+  \subsection{Azure Key Vault Integration}
+  \label{subsec:keyvault}
+  % azure_setup.sh provisions secrets in Key Vault and grants the
+  % Container App's managed identity the Key Vault Secrets User role.
+  % Container App references secrets via --secrets keyvaultref: URIs.
+  % Secrets added: OLLAMA_API_KEY, OLLAMA_BASE_URL, FRONTEND_URL
+  % (CORS), GROQ_API_KEY, CODARA_JWT_SECRET, AZURE_OPENAI_API_KEY.
+  % CORS_ORIGINS and OLLAMA_MODEL env vars added to Container App.
 
 \section{Frontend Dashboard}
 \label{sec:frontend-deployment}
@@ -616,8 +898,37 @@
   \subsection{Overall Translation Success Rate}
   \label{subsec:overall-success}
 
+  \subsection{Torture Test: 10/10 Success}
+  \label{subsec:torture-test-results}
+  % 10-block torture test (RETAIN + BY-group FIRST./LAST., missing value
+  % logic, PROC SQL correlated subquery, Macro + \%DO loop, PROC MEANS
+  % CLASS OUTPUT, PROC SORT NODUPKEY, hash object, multi-level nested
+  % macro, PROC TRANSPOSE, complex WHERE + FORMAT).
+  % Result: 10/10 SUCCESS, 3 Z3 formal proofs, 0 counterexamples.
+  % Total time: 104.2 s. Model: Ollama nemotron-3-super:cloud (Azure
+  % circuit-breaker open locally during test run).
+
   \subsection{Z3 Verification Outcomes}
   \label{subsec:z3-outcomes}
+
+  \subsection{SemantiCheck Results}
+  \label{subsec:semanticheck-results}
+  % SemantiCheck (L3+L4 only; L1/L2 standalone eval) on 10-block
+  % torture test:
+  %
+  % Avg SCS: 0.552 | VERIFIED or LIKELY\_CORRECT: 5/10
+  % Avg L3 (STG): 0.508 | Avg L4 (Oracle): 0.595
+  %
+  % Notable findings:
+  % - RETAIN + BY-group: SCS 0.900 (VERIFIED) — L3=1.00, L4=0.80
+  % - PROC SORT NODUPKEY: SCS 0.925 (VERIFIED) — L3=1.00, L4=0.85
+  % - PROC TRANSPOSE: SCS 0.150 (LIKELY\_INCORRECT) — translation
+  %   executes but does not preserve structural intent.
+  % - Multi-level macro: SCS 0.275 (LIKELY\_INCORRECT) — macros remain
+  %   the primary semantic failure class.
+  % Key finding: CodeBLEU would not have flagged TRANSPOSE or macro
+  % translations as wrong; SemantiCheck catches structural intent loss
+  % that execution-only testing misses.
 
   \subsection{Failure Mode Analysis}
   \label{subsec:failure-mode-analysis}
@@ -646,6 +957,15 @@
   \subsection{Z3 Formal Verification Catches Real Semantic Errors}
   \label{subsec:strength-z3}
 
+  \subsection{SemantiCheck: Beyond Execution Correctness}
+  \label{subsec:strength-semanticheck}
+  % SemantiCheck identifies structural intent loss that passes both
+  % syntax and execution checks. The composite SCS provides a
+  % calibrated confidence signal independent of the generating LLM.
+
+  \subsection{CDAIS: Formal Coverage Guarantees for Adversarial Patterns}
+  \label{subsec:strength-cdais}
+
   \subsection{Modularity and Production-Ready Deployment}
   \label{subsec:strength-modularity}
 
@@ -657,6 +977,18 @@
 
   \subsection{Macro Meta-Programming: Primary Failure Mode}
   \label{subsec:limit-macros}
+  % SemantiCheck confirms macros as the primary semantic failure class:
+  % LIKELY\_INCORRECT on both macro-heavy torture blocks (SCS 0.275).
+  % L3 score = 0.00 for Macro + \%DO (no STG operations matched),
+  % indicating the translation structurally diverges from the intent.
+
+  \subsection{SemantiCheck L3/L4 Calibration Limitations}
+  \label{subsec:limit-sc-calibration}
+  % L4 oracle relies on LLM-simulated SAS execution: the LLM may
+  % mispredict complex SAS semantics (e.g.\ PROC TRANSPOSE reshaping).
+  % L3 STG extraction uses regex heuristics on SAS source — does not
+  % parse the full SAS grammar. Both layers have known blind spots for
+  % deeply nested macros and IML procedures.
 
   \subsection{Operational and Scope Limitations}
   \label{subsec:limit-operational}
@@ -675,15 +1007,35 @@
 
   \subsection{Novelty Claims}
   \label{subsec:novelty}
+  % Five distinct novelty claims:
+  % 1. 3-tier RAG with RAPTOR hierarchical clustering for SAS migration.
+  % 2. Z3 SMT formal verification of generated Python code (4 patterns).
+  % 3. CDAIS: Z3-driven minimum-witness adversarial test synthesis with
+  %    formal coverage certificates for 6 SAS semantic error classes.
+  % 4. SemantiCheck: 4-layer composite semantic verification (Formal +
+  %    Behavioural + Contract/STG + Oracle/LLM) producing a calibrated
+  %    SCS independent of the generating LLM.
+  % 5. LLM-as-SAS-oracle (L4): behavioural testing without a SAS licence,
+  %    using the LLM to simulate SAS execution on synthesised inputs.
 
 \section{Future Work and Research Directions}
 \label{sec:future-work}
 
   \subsection{Short-Term Improvements}
   \label{subsec:future-short-term}
+  % - Integrate SemantiCheck L1/L2 into the main pipeline
+  %   (currently standalone eval script only).
+  % - Integrate full \%MACRO/\%MEND block-level pre-expansion (beyond the
+  %   existing \%LET symbolic substitution already wired in the pipeline).
+  % - Expand KB: 330 → 380 pairs (target: weak macro/TRANSPOSE categories).
+  % - Frontend deployment (Azure Static Web Apps or second Container App).
 
   \subsection{Medium-Term Research Directions}
   \label{subsec:future-mid-term}
+  % - Full SAS grammar parser for L3 STG extraction (replace heuristics).
+  % - Fine-tuned local model (QLoRA on Qwen2.5-Coder) for Tier 0 offline.
+  % - HyperRAPTOR (Poincaré ball) full evaluation on MOD/HIGH partitions.
+  % - CDAIS extension to JOIN type and LAG queue failure classes.
 
   \subsection{Long-Term Scalability and Integration}
   \label{subsec:future-long-term}
@@ -711,6 +1063,9 @@
   \item Z3 Theorem Prover. \url{https://github.com/Z3Prover/z3} [Accessed: April 2026]
   \item Nomic Embed v1.5. \url{https://www.nomic.ai/blog/posts/nomic-embed-text-v1} [Accessed: April 2026]
   \item SAS Language Reference. \url{https://support.sas.com/documentation/} [Accessed: April 2026]
+  \item Azure Blob Storage. \url{https://learn.microsoft.com/azure/storage/blobs/} [Accessed: April 2026]
+  \item Azure Queue Storage. \url{https://learn.microsoft.com/azure/storage/queues/} [Accessed: April 2026]
+  \item Weiser, M. (1984). Program slicing. \textit{IEEE Transactions on Software Engineering}, 10(4), 352--357.
 \end{itemize}
 
 \appendix
@@ -730,6 +1085,12 @@
 
 \chapter{Torture Test --- Annotated SAS Fixture}
 \label{app:torture-test}
+
+\chapter{SemantiCheck Score Breakdown --- Torture Test}
+\label{app:semanticheck-scores}
+
+\chapter{CDAIS Constraint Catalogue}
+\label{app:cdais-catalogue}
 
 \chapter{API Endpoint Reference}
 \label{app:api-reference}

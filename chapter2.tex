@@ -1,0 +1,868 @@
+% =============================================================================
+% chapter2.tex — Theoretical Foundations and Related Work
+% Chapter 2 of the Codara PFE Report
+% =============================================================================
+
+\chapter{Theoretical Foundations and Related Work}
+\label{ch:foundations}
+
+% ---------------------------------------------------------------------------
+\section{Introduction}
+\label{sec:ch2-intro}
+% ---------------------------------------------------------------------------
+
+A system as architecturally layered as \codara{} draws on a wide and
+heterogeneous body of knowledge. The translation pipeline alone combines
+classical parsing theory, modern \ac{LLM}-based generation, three distinct
+\ac{RAG} paradigms, a machine-learning calibrated risk scorer, and an
+\ac{SMT}-based formal verifier. Before these components can be assembled and
+evaluated with rigour, each must be grounded in its theoretical lineage.
+
+This chapter covers the foundations strictly necessary to understand the
+pipeline and its evaluation. Section~\ref{sec:sas-language} establishes the
+SAS language constructs that make automated migration challenging.
+Section~\ref{sec:code-translation} surveys automated code-translation
+approaches and their limitations. Sections~\ref{sec:rag-theory}
+and~\ref{sec:mas-theory} introduce retrieval-augmented generation and
+multi-agent orchestration at a level of detail sufficient to motivate the
+architectural decisions in Chapter~\ref{ch:architecture}.
+Section~\ref{sec:formal-verification-theory} covers formal verification and
+its scope within the system. Section~\ref{sec:semantic-equiv-theory}
+surveys the complementary behavioural and oracle-based verification approaches.
+Section~\ref{sec:ml-theory} reviews calibrated complexity scoring. The chapter
+closes with a survey of related work and a synthesis of the research gap that
+motivates this project. Implementation detail --- CEGAR repair steps, program
+slicing for fault localisation, adversarial pattern construction --- is
+reserved for Chapter~\ref{ch:implementation}.
+
+% ---------------------------------------------------------------------------
+\section{The SAS Language: Constructs and Migration Challenges}
+\label{sec:sas-language}
+% ---------------------------------------------------------------------------
+
+\subsection{Core Language Constructs}
+\label{subsec:sas-constructs}
+
+SAS, developed by the SAS Institute from the late 1960s onward and standardised
+in its current form with SAS 9.4~[1], is a fourth-generation language designed
+around the concept of the \emph{program data vector} (PDV): a transient,
+row-wide scratch buffer that the DATA-step engine populates from each input
+observation before writing to an output dataset. This execution model is
+fundamentally different from the set-oriented evaluation of SQL or the
+functional transformation model of pandas, and it is precisely this difference
+that makes automated translation non-trivial.
+
+The language comprises two primary step types. A \textbf{DATA step} reads
+datasets sequentially, manipulates variables in the PDV, and writes output
+records explicitly or implicitly at the end of each iteration. A \textbf{PROC
+step} invokes a named analytical procedure --- \texttt{PROC SORT},
+\texttt{PROC MEANS}, \texttt{PROC SQL}, \texttt{PROC TRANSPOSE}, and so on ---
+that operates on one or more datasets and produces either a new dataset or
+printed output. The two step types interleave freely in a SAS programme.
+
+Beyond these structural primitives, four constructs are particularly important
+from a migration perspective:
+
+\begin{enumerate}
+  \item \textbf{RETAIN and BY-group processing.} The \texttt{RETAIN} statement
+    prevents the PDV from resetting a variable to missing at the start of each
+    observation, enabling running totals, cumulative flags, and lag computations
+    across rows. Combined with a \texttt{BY} clause and the implicit
+    \texttt{FIRST.var}/\texttt{LAST.var} group-boundary indicators, this
+    pattern implements groupwise aggregation without any explicit loop
+    construct.
+
+  \item \textbf{Macro language.} SAS macros (\texttt{\%MACRO}/\texttt{\%MEND})
+    are a preprocessor that generates SAS code before the compiler sees it.
+    Parameterised macros can produce arbitrarily complex DATA- or PROC-step
+    sequences from compact invocations. The macro language has its own variable
+    scope (\texttt{\%LOCAL}/\texttt{\%GLOBAL}), conditional logic
+    (\texttt{\%IF}/\texttt{\%THEN}), and iteration (\texttt{\%DO}), making it
+    effectively a meta-programming language embedded within SAS~[1].
+
+  \item \textbf{PROC SQL.} SAS ships a SQL engine that extends standard SQL
+    with SAS-specific syntax for correlated subqueries, dataset-aliased
+    references, and macro variable assignment via \texttt{INTO :macvar}.
+    The resulting SQL dialects are subtly incompatible with both standard SQL
+    and pandas \texttt{merge} semantics.
+
+  \item \textbf{Hash objects.} Introduced in SAS 9, hash objects provide an
+    in-memory key-value store that enables O(1) lookup within DATA steps. They
+    are commonly used for fast table lookup and dataset consolidation, and
+    they have no direct single-function equivalent in standard Python.
+\end{enumerate}
+
+[FIGURE 2.1 --- Caption: ``Representative SAS DATA step using RETAIN,
+FIRST./LAST., and BY-group processing, annotated with the corresponding
+Python/pandas translation challenge.'' --- Suggested: side-by-side SAS code
+and Python code with colour-coded annotations.]
+
+\subsection{Python and PySpark Equivalents}
+\label{subsec:python-equivalents}
+
+The target translation languages are Python (with pandas and NumPy) and
+PySpark (for distributed execution on Azure Databricks). The mapping between
+SAS constructs and Python is well-defined in many cases and under-defined in
+others.
+
+For standard ETL patterns, the correspondences are reasonably clean:
+\texttt{SET}/\texttt{MERGE} in a DATA step maps to \texttt{pd.concat} and
+\texttt{pd.merge}; \texttt{PROC SORT} maps to \texttt{df.sort\_values};
+\texttt{PROC FREQ} maps to \texttt{df.value\_counts} or
+\texttt{pd.crosstab}; simple \texttt{PROC MEANS} output maps to
+\texttt{df.groupby().agg()}. For these patterns, deterministic rule-based
+translation is both feasible and preferable to probabilistic \ac{LLM}
+generation --- it is faster, produces reproducible output, and does not
+consume API tokens.
+
+The challenging cases are those where the PDV semantics of SAS have no
+idiomatic pandas equivalent. RETAIN-based cumulative aggregation across sorted
+groups is most naturally expressed in Python using \texttt{groupby} combined
+with \texttt{cumsum} or \texttt{shift}, but the exact mapping depends on
+whether the SAS RETAIN is reset on group boundaries, which in turn depends on
+the BY-group sort order. Missing-value arithmetic differs: SAS propagates its
+\texttt{.} (dot) missing indicator through arithmetic to produce missing
+outputs, whereas pandas \texttt{NaN} propagates through most but not all
+arithmetic operations identically. These subtle divergences are precisely the
+failure modes that the adversarial test synthesis layer of \codara{} is
+designed to expose.
+
+PySpark translation follows the same conceptual mapping but replaces pandas
+\ac{API} calls with their \texttt{pyspark.sql.functions} equivalents and
+adds explicit schema declarations. Since the primary use case at the host
+company is Python-first, PySpark output is treated as an opt-in flag on the
+translation request rather than the default target.
+
+\subsection{Complexity Taxonomy for Migration}
+\label{subsec:complexity-taxonomy}
+
+A key design requirement for \codara{} is that translation strategy must scale
+with code complexity: spending full agentic \ac{RAG} retrieval budget on a
+trivial two-line \texttt{PROC SORT} is wasteful, while applying only static
+nearest-neighbour retrieval to a 200-line macro-parameterised ETL pipeline is
+insufficient. This motivates a formal complexity taxonomy.
+
+We identify four risk levels, encoded as the \texttt{RiskLevel} enumeration
+in the system:
+
+\begin{itemize}
+  \item \textbf{LOW}: procedurally simple DATA steps or common PROC calls with
+    no macro references or cross-file dependencies.
+  \item \textbf{MODERATE}: multi-step data transformations, PROC SQL with joins,
+    or use of hash objects; manageable with graph-structured retrieval.
+  \item \textbf{HIGH}: macro-parameterised logic, RETAIN with complex BY-group
+    semantics, or cross-file dependency chains; requires full agentic retrieval.
+  \item \textbf{UNCERTAIN}: constructs not seen in the training corpus or
+    containing syntactic ambiguities not resolved by the deterministic parser;
+    treated conservatively as HIGH.
+\end{itemize}
+
+This four-level taxonomy aligns with the theoretical complexity classifications
+used in program analysis literature~[2] and provides the routing key used by
+the \texttt{StrategyAgent} to select the appropriate \ac{RAG} paradigm for
+each partition.
+
+[TABLE 2.1 --- Caption: ``Complexity taxonomy for SAS migration: risk levels,
+representative constructs, and assigned RAG strategy.'' --- Columns: Risk
+Level, Representative SAS Constructs, RAG Strategy, Typical Token Budget.]
+
+% ---------------------------------------------------------------------------
+\section{Automated Code Translation}
+\label{sec:code-translation}
+% ---------------------------------------------------------------------------
+
+\subsection{Rule-Based Transpilers}
+\label{subsec:rule-based}
+
+The oldest and most interpretable approach to automated code translation is the
+rule-based transpiler: a system that maps syntactic patterns in the source
+language to equivalent patterns in the target language through a finite set of
+hand-authored transformation rules. Transpilers of this kind have a long
+engineering history, from early Fortran-to-C converters to modern tools such as
+\textit{Babel} for JavaScript dialects~[3].
+
+Rule-based systems have two significant virtues. First, they are deterministic:
+the same input always produces the same output, which simplifies debugging and
+acceptance testing. Second, they are interpretable: an engineer can read the
+rule set and understand exactly what transformation was applied. For SAS
+migration, rule-based transpilers work well on the ``long tail'' of structurally
+unambiguous constructs --- simple PROC SORT calls, basic variable assignments,
+standard format/informat declarations. In \codara{}, the
+\texttt{deterministic\_translator.py} module embodies this principle: two rules
+handle \texttt{PROC FORMAT VALUE} label mappings and single-table
+\texttt{PROC SQL SELECT} statements with short-circuit logic that bypasses the
+\ac{LLM} entirely for these patterns.
+
+The fundamental limitation of pure rule-based translation is \emph{coverage}.
+SAS is a large language with significant syntactic variability, and the macro
+pre-processor means that the effective source language is not even context-free:
+the same syntactic form can expand to completely different DATA-step logic
+depending on macro parameter values. No finite rule set can cover this space.
+
+\subsection{LLM-Based Code Translation}
+\label{subsec:llm-translation}
+
+The advent of transformer-based \acp{LLM} pre-trained on large code corpora ---
+Codex~[4], StarCoder~[5], and their successors --- opened a fundamentally
+different approach to code translation. Rather than encoding transformation
+knowledge as explicit rules, these models learn implicit mappings from the
+statistical patterns in billions of source-code tokens. In principle, a
+sufficiently capable model can handle the full diversity of SAS constructs,
+including macro meta-programming, because it has observed similar patterns
+during pre-training.
+
+In practice, raw \ac{LLM} translation exhibits four well-documented failure
+modes for enterprise code migration. First, \emph{context length} limits
+prevent whole-file translation of large programmes; the model must receive
+code in chunks, losing global context. Second, \emph{hallucination} produces
+syntactically plausible but semantically wrong translations that pass a
+superficial code review. Third, \emph{training distribution shift} degrades
+performance on domain-specific idioms --- company-specific macro libraries and
+proprietary dataset naming conventions are not in the pre-training corpus.
+Fourth, \emph{non-determinism} makes the output a probabilistic sample rather
+than a guaranteed correct answer: the same prompt produces different translations
+on different calls.
+
+These limitations motivate the retrieval-augmented and verification-backed
+architecture of \codara{} rather than a simpler direct-prompting approach.
+
+\subsection{Hybrid Approaches}
+\label{subsec:hybrid-translation}
+
+Hybrid approaches combine rule-based determinism for simple cases with
+\ac{LLM}-based generation for complex ones, and increasingly add retrieval
+to ground the \ac{LLM} in relevant examples. \textit{CodeTransOcean}~[6] is
+a notable example: it provides multi-language code translation benchmarks and
+analyses the performance gap between rule-based and \ac{LLM}-based systems
+across difficulty levels. Research by Rozière et al.\ on
+\textit{TransCoder}~[7] demonstrated that models specifically trained on
+parallel code corpora significantly outperform general-purpose \acp{LLM} for
+code translation tasks.
+
+The insight common to these hybrid approaches is that translation quality is
+not a fixed property of the model: it depends heavily on the availability of
+relevant reference translations at inference time. This is the central
+motivation for the \ac{RAG} augmentation in \codara{}.
+
+\subsection{Limitations of Existing Tools}
+\label{subsec:existing-limitations}
+
+A synthesis of the surveyed approaches reveals a common set of limitations
+that none of the existing tools fully addresses:
+
+\begin{enumerate}
+  \item \textbf{No macro resolution.} Both commercial and academic tools treat
+    SAS macros as opaque text strings. They either reproduce the macro call
+    unchanged (incorrect) or refuse to translate macro-heavy files.
+  \item \textbf{No cross-file scope.} Tools process a single SAS file in
+    isolation. The cross-file \texttt{\%INCLUDE} graph and shared libref
+    conventions of enterprise code are ignored.
+  \item \textbf{No semantic verification.} No existing open-source tool
+    provides machine-checkable evidence that the translated code is
+    behaviourally equivalent to the source. The user must run both the
+    original SAS and the translated Python on production data to discover
+    discrepancies.
+  \item \textbf{No confidence signal.} Tools produce a single translation with
+    no accompanying calibrated confidence estimate. The user cannot distinguish
+    between a high-confidence LOW-complexity translation and a speculative
+    HIGH-complexity one without reading the code in detail.
+\end{enumerate}
+
+\codara{} addresses all four limitations: macro dependencies are resolved
+through the cross-file dependency resolver and the \texttt{LineageGuard};
+cross-file scope is maintained via a NetworkX dependency graph; semantic
+correctness is formally checked through Z3 \ac{SMT} verification and
+behaviourally tested through \ac{CDAIS} adversarial synthesis; and every
+translation carries a \textit{SemantiCheck Score} as a calibrated confidence
+signal.
+
+% ---------------------------------------------------------------------------
+\section{Retrieval-Augmented Generation}
+\label{sec:rag-theory}
+% ---------------------------------------------------------------------------
+
+\subsection{Foundations of RAG}
+\label{subsec:rag-foundations}
+
+\ac{RAG} was introduced by Lewis et al.~[8] as a method for augmenting
+parametric \ac{LLM} knowledge with non-parametric, retrieved information.
+In its canonical form, a retrieval model (typically a dense bi-encoder
+producing semantic embeddings) searches a document corpus to find passages
+most relevant to the query, and these passages are prepended to the generation
+prompt, grounding the \ac{LLM}'s response in up-to-date, domain-specific
+knowledge not present in its pre-training data.
+
+For code translation, \ac{RAG} serves a specific function: it allows the
+translating \ac{LLM} to condition its output on verified, high-quality
+reference translations of similar SAS constructs drawn from a curated knowledge
+base. Rather than asking the model to rely entirely on general-purpose
+pre-training knowledge, we supply it with the five or ten most semantically
+similar SAS--Python example pairs from the system's 330-entry verified \ac{KB}.
+This \emph{example-guided translation} substantially reduces hallucination rates
+for common SAS patterns.
+
+The core technical component of \ac{RAG} is the embedding model. We use
+\textit{Nomic Embed v1.5}~[9], a 768-dimensional sentence embedding model
+optimised for code-mixed text. Embeddings are stored in \textit{LanceDB}~[10],
+a columnar vector store with \ac{IVF} indexing, enabling approximate nearest
+neighbour search with cosine similarity over the full \ac{KB} in milliseconds.
+
+[FIGURE 2.2 --- Caption: ``Canonical RAG pipeline: a dense retriever selects
+relevant KB examples, which are concatenated with the query and fed to the
+generator LLM.'' --- Suggested: three-box flow: Query → Retriever → KB →
+Context → Generator → Translation.]
+
+\subsection{RAPTOR: Recursive Abstractive Processing}
+\label{subsec:raptor-theory}
+
+Standard flat-index \ac{RAG} has a structural weakness for long or compositional
+queries: it retrieves individual leaf-level documents but cannot represent the
+hierarchical, cross-document context that complex SAS programmes require.
+A query about a macro-parameterised ETL pipeline needs not just similar leaf
+snippets but also cluster-level summaries that capture the \emph{category} of
+transformation, enabling the retriever to surface relevant examples even when
+no single leaf is a close match.
+
+\ac{RAPTOR} (Recursive Abstractive Processing for Tree-Organised Retrieval),
+introduced by Sarthi et al.~[11], addresses this limitation by constructing a
+multi-level tree of document summaries. Leaf nodes are the original documents;
+parent nodes are abstractive summaries of their children, produced by an
+\ac{LLM}. The tree is built bottom-up through recursive clustering and
+summarisation. At query time, the retriever can match at any level of the
+tree: a specific query matches leaf nodes, while a broad query matches
+higher-level summaries, dramatically improving recall for compositional queries.
+
+In \codara{}, \ac{RAPTOR} clusters the partitioned SAS code blocks using a
+\ac{GMM} over their Nomic embeddings. Each cluster receives an
+\ac{LLM}-generated summary that characterises the transformation type (e.g.,
+``BY-group running total with RETAIN reset''), and these summaries are stored
+alongside the leaf nodes in LanceDB. The resulting retrieval index supports
+both specific leaf-level queries (for low-complexity partitions) and
+abstract cluster-level queries (for high-complexity ones), enabling the three-tier
+\ac{RAG} routing logic described in Chapter~\ref{ch:implementation}.
+
+\subsection{Graph RAG}
+\label{subsec:graph-rag-theory}
+
+Graph \ac{RAG}~[12] extends flat retrieval to code dependency graphs: rather
+than retrieving by semantic similarity alone, the retriever traverses a
+structural dependency graph to include code units that are syntactically or
+semantically related to the query partition. In the context of SAS migration,
+this is essential for cross-file scenarios: a DATA step that calls a macro
+defined in another file cannot be correctly translated without access to that
+macro's definition, even if the macro definition is not semantically similar to
+any examples in the \ac{KB}.
+
+The dependency graph in \codara{} is implemented using \textit{NetworkX}~[13],
+a Python graph library. The graph's nodes are individual code partitions; its
+edges encode data dependencies, macro call sites, \texttt{\%INCLUDE} links, and
+shared libref references. Strongly \ac{SCC} analysis of the graph identifies
+groups of mutually dependent partitions that must be translated together or in
+topological order. Graph \ac{RAG} retrieval follows these edges to include
+upstream context automatically.
+
+\subsection{Agentic RAG}
+\label{subsec:agentic-rag-theory}
+
+Agentic \ac{RAG}~[14] introduces an autonomous retrieval agent that iteratively
+refines its query based on intermediate results, rather than performing a single
+retrieval step. For a high-complexity SAS partition with multiple interacting
+constructs, a single nearest-neighbour query is often insufficient: the agent
+may need to issue a broad initial query, inspect the retrieved examples,
+identify which specific sub-constructs are not well covered, and issue targeted
+follow-up queries for those sub-constructs.
+
+This multi-step retrieval pattern is implemented in \codara{}'s
+\texttt{agentic\_rag.py} with escalated \emph{k} values (more candidates
+retrieved per query) and iterative refinement logic. It is activated
+exclusively for partitions assigned the MOD, HIGH, or UNCERTAIN risk levels
+by the \texttt{ComplexityAgent}, ensuring that the additional retrieval cost
+is incurred only when the expected translation quality gain justifies it.
+
+% ---------------------------------------------------------------------------
+\section{Multi-Agent Orchestration}
+\label{sec:mas-theory}
+% ---------------------------------------------------------------------------
+
+\subsection{Multi-Agent System Principles}
+\label{subsec:mas-principles}
+
+A \ac{MAS} is a system composed of multiple autonomous agents, each with its
+own local perception, decision-making capability, and action repertoire, that
+interact to achieve goals that would be beyond the capability of any individual
+agent~[15]. The value of the multi-agent decomposition is modularity: each
+agent can be designed, tested, and evolved independently, and the system's
+behaviour emerges from the interaction protocol rather than monolithic logic.
+
+For software engineering tasks, multi-agent systems offer a second advantage:
+\emph{specialisation}. A single prompt to a general-purpose \ac{LLM} asking it
+to ``parse the file, detect boundaries, assess complexity, retrieve examples,
+translate, validate, and merge'' would produce a prompt so long and
+under-constrained that the model's performance on each sub-task would be poor.
+Decomposing the same workflow into eight specialised agents, each receiving a
+focused prompt with relevant context, consistently outperforms the monolithic
+alternative~[16].
+
+\subsection{LangGraph as Orchestration Framework}
+\label{subsec:langgraph-theory}
+
+LangGraph~[17] is a library built on LangChain that represents multi-agent
+workflows as directed graphs over a shared \texttt{TypedDict} state. Each node
+in the graph is a Python coroutine that reads from and writes to the shared
+state; edges define the execution order and can be conditional (routing) or
+unconditional (sequential). The framework handles state passing, error
+propagation, and checkpoint management transparently, allowing the developer
+to focus on agent logic rather than orchestration plumbing.
+
+Several properties of LangGraph made it the preferred framework for \codara{}
+over alternatives such as CrewAI or AutoGen:
+
+\begin{itemize}
+  \item \textbf{Deterministic graph topology}: the pipeline's eight nodes
+    execute in a fixed linear order, with no dynamic agent spawning. LangGraph's
+    \texttt{StateGraph} enforces this topology at compilation time.
+  \item \textbf{Typed shared state}: the \texttt{PipelineState} \texttt{TypedDict}
+    provides compile-time guarantees that every node reads and writes
+    well-typed fields, catching integration errors early.
+  \item \textbf{Redis checkpointing}: LangGraph's native checkpoint interface
+    allows the pipeline to save intermediate state to Redis every 50 processed
+    blocks, enabling restart from the last checkpoint on transient failure.
+  \item \textbf{Async-native}: all nodes are \texttt{async def} coroutines,
+    enabling concurrent \ac{LLM} calls within the translation node via
+    \texttt{asyncio.gather}.
+\end{itemize}
+
+\subsection{Why Multi-Agent for SAS Migration}
+\label{subsec:mas-justification}
+
+The choice of a multi-agent architecture for SAS migration is not a stylistic
+preference; it is a structural necessity. The migration problem decomposes
+naturally into concerns that are best handled by agents with radically
+different knowledge and toolsets: a streaming FSM parser that reads SAS tokens
+has nothing in common with a Z3 \ac{SMT} verifier that encodes Python
+semantics as arithmetic constraints. Combining these responsibilities in a
+single monolithic component would produce a system that is both harder to test
+and harder to evolve.
+
+More concretely, the eight nodes of the \codara{} pipeline are arranged in
+four logical phases --- input parsing (nodes 1--2), partitioning (nodes 3--4),
+routing and translation (nodes 5--7), and merge (node 8) --- each of which
+requires qualitatively different capabilities. The composite node design pattern
+(a thin orchestrator node that delegates to multiple specialist sub-agents)
+provides the best of both worlds: the pipeline sees eight nodes, but internally
+each node is itself a small multi-agent system.
+
+% ---------------------------------------------------------------------------
+\section{Formal Verification for Generated Code}
+\label{sec:formal-verification-theory}
+% ---------------------------------------------------------------------------
+
+\subsection{Satisfiability Modulo Theories (SMT)}
+\label{subsec:smt-theory}
+
+\ac{SMT} is a decision procedure for logical formulae in first-order logic
+extended with background theories such as linear arithmetic over integers and
+reals, bitvectors, and uninterpreted functions~[18]. An \ac{SMT} solver such
+as Z3~[19] takes a formula and determines whether it is satisfiable (there
+exists a model that makes it true) or unsatisfiable (no such model exists).
+
+In the context of code verification, \ac{SMT} solvers are used to encode the
+\emph{semantics} of a programme as a logical formula. To verify that two
+programmes compute the same function, one encodes both as formulae and asks the
+solver to find a counterexample: an input for which the two programmes produce
+different outputs. If the solver returns \emph{unsatisfiable}, the two
+programmes are proved equivalent for all inputs in the encoded domain; if it
+returns a model, that model is a concrete counterexample that witnesses the
+discrepancy.
+
+Z3, developed at Microsoft Research and released as open source~[19], supports
+the arithmetic and data-structure theories required to encode the SAS constructs
+amenable to formal verification: integer and real arithmetic (for RETAIN
+accumulations), Boolean propositional logic (for filter conditions), and
+sort/deduplication operations (for PROC SORT NODUPKEY semantics).
+
+\subsection{Code Equivalence Checking}
+\label{subsec:equivalence-checking}
+
+Automated equivalence checking of programs --- determining whether two
+implementations compute the same function --- is in general undecidable by
+Rice's theorem~[20]. Practical approaches restrict the problem to decidable
+subsets: bounded model checking limits the search to finite loop unrollings;
+symbolic execution~[21] explores all paths through the programme up to a given
+depth; and \ac{SMT}-based equivalence checking encodes both programmes as
+arithmetic formulae and queries for divergence.
+
+For the specific patterns that arise in SAS-to-Python translation, the
+arithmetic encoding is tractable. The four \ac{SMT} patterns implemented in
+\codara{}'s \texttt{Z3VerificationAgent} --- linear arithmetic (for RETAIN
+accumulations), Boolean filter (for WHERE clause semantics), sort/dedup (for
+PROC SORT NODUPKEY), and assignment (for simple variable assignments) --- cover
+approximately 30\% of the SAS constructs encountered in practice. For the
+remaining 70\%, verification falls back to the behavioural and oracle-based
+layers of the SemantiCheck framework.
+
+\subsection{CEGAR: Counterexample-Guided Abstraction Refinement}
+\label{subsec:cegar-theory}
+
+\ac{CEGAR}, introduced by Clarke et al.~[22], is a refinement loop that turns
+a verifier's counterexample into a repair directive. When an \ac{SMT} query
+returns a concrete witness of divergence between two programmes, the witness is
+fed back into the model --- either to refine the abstract representation or, in
+the \ac{LLM} setting, to guide a targeted re-generation. The loop continues
+until the repair passes verification or a budget is exhausted. The detailed
+implementation of the \ac{CEGAR} repair step in \codara{} is described in
+Section~\ref{subsec:cegar-impl}.
+
+\subsection{Scope and Limits of Formal Verification}
+\label{subsec:fv-scope}
+
+A precise understanding of what \codara{}'s formal verification layer
+\emph{does} and \emph{does not} guarantee is essential for interpreting the
+evaluation results in Chapter~\ref{ch:evaluation}.
+
+\textbf{What is proved.} The \texttt{Z3VerificationAgent} encodes four
+structural patterns --- linear arithmetic (RETAIN accumulations), Boolean
+filter (WHERE clause semantics), sort/deduplication (PROC SORT NODUPKEY), and
+simple variable assignment --- as \ac{SMT} formulae. For a translation that
+matches one of these patterns, Z3 provides a \emph{sound} proof that the SAS
+source and the Python translation produce identical outputs for all inputs in
+the encoded domain. This is a genuine formal guarantee, not a test result.
+
+\textbf{What is not proved.} General semantic equivalence of arbitrary
+programmes is undecidable by Rice's theorem. The four \ac{SMT} patterns cover
+approximately 30\% of the SAS constructs encountered in practice. For the
+remaining 70\% --- including PROC TRANSPOSE, LAG queues, deeply nested macros,
+and multi-step JOIN semantics --- Z3 cannot encode the semantics tractably. For
+these patterns, the system falls back to the behavioural and oracle-based layers
+of the SemantiCheck framework described in Section~\ref{sec:semantic-equiv-theory}.
+
+\textbf{The complementary role of testing.} Z3 formal proofs and \ac{CEGAR}
+counterexamples address structural correctness of encodable patterns. The
+\ac{CDAIS} adversarial test synthesis and oracle-based \ac{LLM} simulation
+(Layers 2 and 4 of SemantiCheck) address behavioural correctness of the
+remaining patterns. Together, the two approaches provide multi-layer evidence
+of translation quality without requiring a SAS licence for reference execution.
+
+% ---------------------------------------------------------------------------
+\section{Semantic Equivalence Verification Beyond SMT}
+\label{sec:semantic-equiv-theory}
+% ---------------------------------------------------------------------------
+
+\subsection{Oracle-Based Behavioural Testing}
+\label{subsec:oracle-testing-theory}
+
+Oracle-based testing~[24] is a validation paradigm in which the expected output
+of a system under test is provided by a trusted reference implementation (the
+oracle). The test framework runs both the system under test and the oracle on
+the same inputs and compares their outputs. Discrepancies reveal failures.
+
+In the context of SAS-to-Python translation, the oracle is the SAS programme
+itself: given an input dataset, the correct output is whatever SAS would
+produce. Since running SAS requires a commercial licence, \codara{} uses the
+deterministic \texttt{semantic\_validator.py} to derive expected output for
+structurally simple patterns (column set, row count, dtype consistency, group
+aggregates), and the \ac{LLM}-as-oracle mechanism in SemantiCheck Layer 4 to
+approximate SAS execution on synthesised inputs without a SAS licence.
+
+\subsection{Adversarial Test Synthesis}
+\label{subsec:adversarial-synthesis-theory}
+
+Adversarial test synthesis~[25] goes beyond random fuzzing by constructing
+inputs specifically designed to trigger known failure modes. For machine
+learning models, adversarial examples are input perturbations that cause
+misclassification~[26]; for code translation, adversarial inputs are datasets
+whose structure exposes the semantic divergences most likely to occur in
+SAS-to-Python migration.
+
+The \ac{CDAIS} framework in \codara{} formalises this idea. It targets six
+structural properties of SAS programmes that are systematically mistranslated
+by current \acp{LLM}: missing-value arithmetic, string dtype coercion, BY-group
+boundary detection (RETAIN reset), exact duplicate handling (NODUP/NODUPKEY),
+mixed-case string comparison, and numeric edge cases. Rather than relying on
+random fuzzing, \ac{CDAIS} synthesises adversarial inputs guaranteed by
+construction to expose each failure class if the translation is incorrect.
+The Z3 solver is used to produce a formal minimum-witness certificate
+(the smallest input sufficient to trigger the divergence), a process described
+in detail in Section~\ref{subsec:cdais-z3}.
+
+\subsection{Composite Verification Scoring}
+\label{subsec:composite-scoring-theory}
+
+A single verification signal, however theoretically grounded, has coverage
+limitations. Z3 \ac{SMT} covers linear arithmetic and Boolean patterns but not
+data-shuffling operations like PROC TRANSPOSE or queue-based patterns like LAG.
+Oracle-based testing covers behavioural correctness but not structural intent.
+CodeBLEU~[27] measures surface similarity between the reference and generated
+code but is insensitive to semantically equivalent reformulations: two correct
+translations that express the same logic differently may score low on CodeBLEU.
+
+The \ac{SCS} produced by the SemantiCheck framework addresses this by
+composing four orthogonal verification signals with learned weights. The
+theoretical motivation for composite scoring comes from Bayesian model
+averaging~[28]: when individual estimators have different error profiles,
+their weighted combination achieves lower variance than any single estimator,
+provided the errors are not perfectly correlated. The four layers of
+SemantiCheck are designed to be structurally orthogonal --- they test
+different aspects of semantic equivalence and can therefore be expected to
+exhibit low error correlation.
+
+% ---------------------------------------------------------------------------
+\section{Machine Learning for Complexity Scoring}
+\label{sec:ml-theory}
+% ---------------------------------------------------------------------------
+
+\subsection{Logistic Regression and Calibration}
+\label{subsec:lr-calibration}
+
+Logistic regression~[29] is a binary (or multinomial, in the four-class
+case) classifier that models the log-odds of each class as a linear function
+of the input features. Despite its simplicity relative to deep learning, it
+has two properties that make it well-suited for the complexity-scoring task in
+\codara{}. First, it is \emph{interpretable}: the coefficient assigned to each
+feature directly indicates its contribution to the predicted risk level.
+Second, its output probabilities are better calibrated than those of
+tree-based or neural models, meaning that a predicted probability of 0.75 for
+HIGH risk corresponds more closely to an empirical frequency of 75\% than it
+would for, say, a random forest.
+
+Probability calibration is formally measured by the \ac{ECE}~[30]:
+
+\begin{equation}
+  \mathrm{ECE} = \sum_{m=1}^{M} \frac{|B_m|}{N}
+    \left| \mathrm{acc}(B_m) - \mathrm{conf}(B_m) \right|
+  \label{eq:ece}
+\end{equation}
+
+where $B_m$ are confidence bins, $\mathrm{acc}(B_m)$ is the empirical accuracy
+within bin $m$, and $\mathrm{conf}(B_m)$ is the mean predicted confidence.
+A perfectly calibrated model achieves $\mathrm{ECE} = 0$. The project targets
+$\mathrm{ECE} < 0.08$ on the held-out 20\% evaluation split.
+
+Platt scaling~[31] (fitting a logistic regression on the model's raw output
+scores using a held-out calibration set) is applied post-training to correct
+any systematic over- or under-confidence in the raw classifier outputs. This
+two-stage pipeline --- train the classifier, then calibrate its probabilities ---
+is standard practice in any system that uses predicted probabilities for
+downstream decision-making, as the routing logic in \codara{} does.
+
+\subsection{Feature Engineering for Code Complexity}
+\label{subsec:code-features}
+
+The features fed to the complexity classifier are lexical and syntactic
+properties of each code partition, extracted without \ac{LLM} assistance.
+The feature set includes token counts (total tokens, unique identifiers,
+distinct procedure names), structural indicators (nesting depth, number of
+\texttt{BY} clauses, number of macro references), dependency indicators
+(number of inter-file dependency edges, number of cross-libref references),
+and textual indicators (presence of hash objects, presence of
+\texttt{PROC SQL} with subqueries, presence of \texttt{RETAIN} with \texttt{BY}
+groups).
+
+These features were selected based on two criteria: discriminative power
+(empirically verified on the gold-standard corpus) and computational cheapness
+(all features are computable in linear time over the tokenised source). The
+use of ML-calibrated scoring --- rather than a hand-authored decision tree ---
+allows the weight of each feature to be learned from data, capturing
+interaction effects that are difficult to specify manually.
+
+% ---------------------------------------------------------------------------
+\section{Related Work}
+\label{sec:related-work}
+% ---------------------------------------------------------------------------
+
+\subsection{Migration Tools, Validation, and Multi-Agent Approaches}
+\label{subsec:related-migration}
+
+The space of automated SAS migration tools spans commercial, academic, and
+open-source contributions. On the commercial side, \textit{Analytium's SAS
+Converter} and \textit{WhereScape's data transformation tooling} offer
+GUI-driven pattern matching; both are closed-source, single-file, and provide
+no semantic verification. On the academic side, \textit{TransCoder}~[7]
+demonstrates that models trained on parallel code corpora outperform
+general-purpose \acp{LLM} for code translation, but it does not address
+enterprise-scale cross-file dependencies or provide any formal verification.
+\textit{CodeTransOcean}~[6] provides a multi-language benchmark but does not
+propose a migration architecture.
+
+In the broader code generation and verification space, AlphaCode~[32] and
+CodeT~[33] demonstrate that combining code generation with test execution
+significantly improves correctness, an insight directly relevant to
+\codara{}'s validation sandbox approach. The multi-agent decomposition of code
+review tasks was explored by Dong et al.~[16], who showed that a pipeline of
+specialised agents (generator, critic, repairman) outperforms a single
+general-purpose \ac{LLM} on code correction benchmarks.
+
+For formal verification of generated code, work by Lahiri et al.~[34] on
+\ac{LLM}-assisted programme verification and by Chakraborty et al.~[35] on
+symbolic execution for \ac{LLM} output safety are the closest related efforts.
+Neither applies \ac{CEGAR} repair loops to \ac{LLM}-generated translations,
+which is a distinguishing feature of \codara{}.
+
+The SemantiCheck framework has conceptual antecedents in metamorphic testing~[36]
+(verifying properties that should hold across related inputs) and in the
+oracle-based validation literature~[24]. The use of an \ac{LLM} as a SAS
+semantic oracle without a SAS licence is, to the best of our knowledge, novel.
+
+\subsection{Research Gap and Positioning of This Project}
+\label{subsec:research-gap}
+
+[TABLE 2.2 --- Caption: ``Positioning of \codara{} relative to prior work
+across six dimensions.'' --- Columns: System, Macro Resolution, Cross-File,
+Formal Verification, Adversarial Testing, Confidence Signal, Production
+Deployment.]
+
+The synthesis of the above survey reveals a consistent research gap. Existing
+tools address at most two of the following five dimensions simultaneously:
+(1)~macro-aware parsing; (2)~cross-file dependency resolution; (3)~formal
+semantic verification; (4)~adversarial test synthesis with coverage
+certificates; (5)~composite, calibrated confidence scoring. \codara{} is the
+first system, to the best of our knowledge, to address all five in a single,
+production-ready architecture.
+
+This positioning is not merely a claim of feature completeness. The novel
+scientific contributions are the combination of Z3 \ac{SMT} verification with
+\ac{CEGAR} repair in the context of \ac{LLM}-generated translations; the
+\ac{CDAIS} framework for synthesising minimum-witness adversarial inputs with
+formal coverage certificates; and the SemantiCheck four-layer composite scoring
+system using an \ac{LLM}-as-SAS-oracle that operates without a SAS licence.
+These contributions are evaluated quantitatively in Chapter~\ref{ch:evaluation}.
+
+% ---------------------------------------------------------------------------
+\section{Synthesis}
+\label{sec:ch2-synthesis}
+% ---------------------------------------------------------------------------
+
+The theoretical landscape surveyed in this chapter translates directly into
+a set of architectural imperatives for \codara{}:
+
+\begin{enumerate}
+  \item The PDV execution model of SAS and its fundamentally non-pandas semantics
+    require a \emph{partition-aware} translation architecture: code must be
+    split into semantically coherent units before translation, not fed to the
+    \ac{LLM} in fixed-size token windows.
+
+  \item The coverage limitations of rule-based systems and the hallucination
+    risk of raw \ac{LLM} translation together motivate a \emph{three-tier
+    retrieval strategy}: deterministic rules for unambiguous constructs, static
+    \ac{RAG} for simple patterns with known examples, and agentic \ac{RAG} for
+    complex constructs with no close neighbours in the \ac{KB}.
+
+  \item The known failure modes of SAS-to-Python translation --- particularly
+    missing-value arithmetic, RETAIN group semantics, and macro expansion ---
+    require \emph{targeted adversarial testing}, not just random fuzzing, to be
+    reliably detected.
+
+  \item The undecidability of general code equivalence requires a
+    \emph{layered verification strategy}: \ac{SMT} formal proofs where
+    tractable, behavioural testing on adversarial witnesses where not,
+    structural contract checking for the remaining surface, and \ac{LLM}-oracle
+    testing as a last resort.
+
+  \item Probability calibration is a prerequisite for using complexity scores
+    as routing keys: uncalibrated scores would systematically over-route or
+    under-route partitions, degrading both translation quality and system
+    efficiency.
+\end{enumerate}
+
+These imperatives map one-to-one onto architectural components described in
+Chapter~\ref{ch:architecture}: the boundary detector and partition builder, the
+\ac{RAG} router and three retrieval paradigms, \ac{CDAIS}, the SemantiCheck
+four-layer framework, and the Platt-scaled complexity classifier, respectively.
+
+% ---------------------------------------------------------------------------
+\section{Conclusion}
+\label{sec:ch2-conclusion}
+% ---------------------------------------------------------------------------
+
+This chapter has established the theoretical foundations that underpin every
+major component of \codara{}. We traced the SAS language's procedural execution
+model to the specific translation challenges it poses, surveyed the landscape
+of automated code translation from rule-based transpilers to \ac{LLM}-based
+generation to hybrid \ac{RAG}-augmented approaches, and identified the
+persistent gap that none of the existing tools fills: the simultaneous handling
+of macro meta-programming, cross-file scope, and formally verifiable semantic
+correctness. We then grounded each of the system's novel components --- three-tier
+\ac{RAG} with \ac{RAPTOR} hierarchical clustering, Z3 \ac{SMT} verification
+with \ac{CEGAR} repair, \ac{CDAIS} adversarial synthesis, SemantiCheck composite
+scoring, program slicing for repair precision, and Platt-scaled complexity
+calibration --- in its respective theoretical lineage.
+
+The project specifications that formalise these theoretical imperatives into
+measurable requirements are presented in the following chapter.
+
+% ---------------------------------------------------------------------------
+% References for Chapter 2 (IEEE numeric, order of appearance)
+% ---------------------------------------------------------------------------
+%
+% [1]  SAS Institute Inc., SAS 9.4 Language Reference: Concepts, 5th ed.
+%      Cary, NC: SAS Institute Inc., 2016.
+% [2]  McCabe, T. J., "A Complexity Measure", IEEE Trans. Softw. Eng.,
+%      vol. SE-2, no. 4, pp. 308-320, Dec. 1976.
+% [3]  Zaytsev, V. and Bagge, A. H., "Parsing in a Broad Sense",
+%      in Proc. MODELS, 2014, pp. 50-67.
+% [4]  Chen, M. et al., "Evaluating Large Language Models Trained on Code",
+%      arXiv:2107.03374, 2021.
+% [5]  Li, R. et al., "StarCoder: May the Source Be with You!",
+%      arXiv:2305.06161, 2023.
+% [6]  Zhu, M. et al., "CodeTransOcean: A Comprehensive Multilingual Benchmark
+%      for Code Translation", in Findings EMNLP, 2023.
+% [7]  Rozière, B. et al., "Unsupervised Translation of Programming Languages",
+%      in Proc. NeurIPS, 2020.
+% [8]  Lewis, P. et al., "Retrieval-Augmented Generation for
+%      Knowledge-Intensive NLP Tasks", in Proc. NeurIPS, 2020.
+% [9]  Nussbaum, Z. et al., "Nomic Embed: Training a Reproducible Long
+%      Context Text Embedder", arXiv:2402.01613, 2024.
+% [10] LanceDB, "LanceDB: Developer-friendly, serverless vector database,"
+%      https://lancedb.github.io/lancedb/, 2024.
+% [11] Sarthi, P. et al., "RAPTOR: Recursive Abstractive Processing for
+%      Tree-Organized Retrieval", in Proc. ICLR, 2024.
+% [12] Edge, D. et al., "From Local to Global: A Graph RAG Approach to
+%      Query-Focused Summarization", arXiv:2404.16130, 2024.
+% [13] Hagberg, A. et al., "Exploring Network Structure, Dynamics, and
+%      Function using NetworkX", in Proc. SciPy, 2008, pp. 11-15.
+% [14] Asai, A. et al., "Self-RAG: Learning to Retrieve, Generate, and
+%      Critique through Self-Reflection", in Proc. ICLR, 2024.
+% [15] Wooldridge, M., An Introduction to MultiAgent Systems, 2nd ed.
+%      Chichester: Wiley, 2009.
+% [16] Dong, Y. et al., "Self-collaboration Code Generation via ChatGPT",
+%      ACM Trans. Softw. Eng. Methodol., vol. 33, no. 7, 2024.
+% [17] LangChain AI, "LangGraph: Build stateful multi-actor applications
+%      with LLMs," https://langchain-ai.github.io/langgraph/, 2024.
+% [18] Barrett, C. et al., "Satisfiability Modulo Theories", in Handbook
+%      of Model Checking. Springer, 2018, pp. 305-343.
+% [19] de Moura, L. and Bjørner, N., "Z3: An Efficient SMT Solver",
+%      in Proc. TACAS, LNCS 4963, 2008, pp. 337-340.
+% [20] Rice, H. G., "Classes of Recursively Enumerable Sets and Their
+%      Decision Problems", Trans. Amer. Math. Soc., vol. 74, pp. 358-366, 1953.
+% [21] King, J. C., "Symbolic Execution and Program Testing",
+%      Commun. ACM, vol. 19, no. 7, pp. 385-394, 1976.
+% [22] Clarke, E. et al., "Counterexample-Guided Abstraction Refinement",
+%      in Proc. CAV, LNCS 1855, 2000, pp. 154-169.
+% [23] Weiser, M., "Program Slicing", IEEE Trans. Softw. Eng.,
+%      vol. 10, no. 4, pp. 352-357, Jul. 1984.
+% [24] Barr, E. T. et al., "The Oracle Problem in Software Testing:
+%      A Survey", IEEE Trans. Softw. Eng., vol. 41, no. 5, pp. 507-525, 2015.
+% [25] Goodfellow, I. J. et al., "Explaining and Harnessing Adversarial
+%      Examples", in Proc. ICLR, 2015.
+% [26] Szegedy, C. et al., "Intriguing Properties of Neural Networks",
+%      in Proc. ICLR, 2014.
+% [27] Ren, S. et al., "CodeBLEU: A Method for Automatic Evaluation
+%      of Code Synthesis", arXiv:2009.10297, 2020.
+% [28] Hoeting, J. A. et al., "Bayesian Model Averaging: A Tutorial",
+%      Stat. Sci., vol. 14, no. 4, pp. 382-417, 1999.
+% [29] Bishop, C. M., Pattern Recognition and Machine Learning.
+%      New York: Springer, 2006, ch. 4.
+% [30] Guo, C. et al., "On Calibration of Modern Neural Networks",
+%      in Proc. ICML, 2017.
+% [31] Platt, J., "Probabilistic Outputs for Support Vector Machines",
+%      in Advances in Large Margin Classifiers. MIT Press, 2000, pp. 61-74.
+% [32] Li, Y. et al., "Competition-Level Code Generation with AlphaCode",
+%      Science, vol. 378, no. 6624, pp. 1092-1097, 2022.
+% [33] Chen, B. et al., "CodeT: Code Generation with Generated Tests",
+%      in Proc. ICLR, 2023.
+% [34] Lahiri, S. K. et al., "Interactive Code Generation via Test-Driven
+%      User-Intent Formalization", arXiv:2208.05950, 2022.
+% [35] Chakraborty, S. et al., "Codit: Code Editing with Tree-Based Neural
+%      Models", IEEE Trans. Softw. Eng., vol. 48, no. 4, 2022.
+% [36] Chen, T. Y. et al., "Metamorphic Testing: A Review of Challenges
+%      and Opportunities", ACM Comput. Surv., vol. 51, no. 1, 2018.

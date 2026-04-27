@@ -1,0 +1,432 @@
+% =============================================================================
+% chapter1.tex — Project Context and Foundation
+% Chapter 1 of the Codara PFE Report
+% =============================================================================
+
+\chapter{Project Context and Foundation}
+\label{ch:context}
+
+% ---------------------------------------------------------------------------
+\section{Introduction}
+\label{sec:ch1-intro}
+% ---------------------------------------------------------------------------
+
+Every large-scale software migration project begins with the same uncomfortable
+truth: the code that must be moved is precisely the code nobody fully
+understands any more. In data-intensive enterprises, that code is most often
+written in \ac{SAS} --- a proprietary, fourth-generation language that has
+accumulated three decades of business logic, macro meta-programming patterns,
+and procedural idioms that resist straightforward automated translation.
+Rewriting these assets manually is slow, expensive, and error-prone; yet the
+commercial pressure to abandon costly SAS licences and to embrace open-source
+Python ecosystems has never been stronger.
+
+This opening chapter establishes the ground on which every subsequent design
+decision rests. We begin by situating the work within its academic and
+industrial frames, then move to a precise characterisation of the migration
+problem, a critical survey of existing tools, and a description of the solution
+we chose to build. The chapter closes with a discussion of the methodological
+framework that guided the fifteen-week development sprint from first prototype
+to production-ready system.
+
+Understanding the \emph{why} before the \emph{how} is not merely a formal
+requirement of the PFE report genre; it is epistemically necessary. The
+architectural choices examined in Chapters~\ref{ch:architecture} and
+\ref{ch:implementation} --- eight orchestrated agents, three \ac{RAG} tiers,
+\ac{SMT}-based formal verification, and a four-layer semantic scoring framework
+--- each trace back to a concrete deficiency identified in this chapter's
+problem statement.
+
+% ---------------------------------------------------------------------------
+\section{Academic Institution}
+\label{sec:institution}
+% ---------------------------------------------------------------------------
+
+This project was carried out in partial fulfilment of the requirements for an
+Engineering Degree at \textbf{[Institution Name]}, Faculty of
+\textbf{[Faculty / Department]}. The programme combines rigorous theoretical
+foundations in software engineering, artificial intelligence, and distributed
+systems with a mandatory industry-facing end-of-study project (PFE). The
+academic supervisor provided guidance on research methodology, evaluation
+design, and the scientific framing of results, while the industrial host
+company shaped the problem definition, feasibility constraints, and acceptance
+criteria that governed the implementation.
+
+The project was evaluated by a jury comprising a president, an examiner, and
+the academic supervisor (see title page). The jury assessment criteria
+emphasised not only working software but also the quality of the scientific
+contribution: the novelty of the proposed solution relative to the state of
+the art, the rigour of the evaluation methodology, and the clarity with which
+design trade-offs are argued.
+
+% ---------------------------------------------------------------------------
+\section{Host Company}
+\label{sec:host-company}
+% ---------------------------------------------------------------------------
+
+\subsection{Company Profile and Business Context}
+\label{subsec:company-overview}
+
+The internship was conducted at \textbf{[Company Name]}, a
+\textbf{[sector, e.g.\ financial services / data engineering consultancy]}
+organisation whose data engineering teams rely heavily on \ac{SAS} for
+\ac{ETL} processing, statistical modelling, and regulatory reporting. Like
+many large enterprises that adopted SAS in the 1990s and 2000s, the organisation
+faces a strategic inflection point: SAS licence costs have risen steadily, the
+talent pool of experienced SAS developers is contracting, and internal
+stakeholders increasingly demand Python-native analytics pipelines compatible
+with cloud-based data platforms.
+
+[FIGURE 1.1 --- Caption: ``Organisational chart of the host company and the
+position of the internship team within the data engineering division.'' ---
+Suggested: simplified org-chart with the data-engineering department
+highlighted.]
+
+The company's \ac{SAS} codebase is substantial. It spans multiple business
+domains, includes cross-file macro libraries, and contains several hundred
+thousand lines of production code accumulated over two decades. This scale
+makes purely manual migration impractical: estimates from the project sponsor
+placed the manual effort at several person-years, with unacceptable risk of
+semantic errors being silently introduced during rewriting.
+
+\subsection{Mission, Services, and Technological Focus}
+\label{subsec:mission-vision}
+
+The organisation's data engineering division is responsible for maintaining the
+analytical pipelines that feed both internal decision-making systems and
+external regulatory submissions. Its primary technology stack as of the start of
+this internship included SAS 9.4 (batch and interactive), Oracle SQL, and an
+emerging Python/PySpark layer deployed on Azure Databricks. The migration
+initiative was therefore not an isolated experiment but a core component of a
+multi-year modernisation roadmap.
+
+From a technological standpoint, the host company had already made a strategic
+commitment to the Microsoft Azure ecosystem, including Azure Blob Storage for
+file persistence, Azure Queue Storage for asynchronous job dispatch, Azure
+Container Apps for containerised workloads, and Azure Key Vault for secrets
+management. This pre-existing infrastructure commitment directly influenced
+several architectural choices described in Chapter~\ref{ch:architecture} ---
+notably the cloud-native deployment design of \codara{}.
+
+\subsection{Internship Scope}
+\label{subsec:internship-scope}
+
+The internship ran for approximately fifteen weeks, from early January to
+mid-April 2026. The agreed scope covered the complete design, implementation,
+testing, and documentation of an automated SAS-to-Python conversion accelerator,
+with the following boundaries explicitly negotiated at the outset:
+
+\begin{itemize}
+  \item \textbf{In scope}: SAS Base (DATA steps, PROC steps, macro language
+    constructs, cross-file dependencies), translation to standard Python with
+    pandas and NumPy, and partial support for PySpark output where explicitly
+    flagged by the user.
+  \item \textbf{Out of scope}: SAS/STAT procedures beyond PROC MEANS and
+    PROC FREQ, SAS/IML matrix algebra, SAS/GRAPH visualisation procedures,
+    and interactive SAS sessions.
+  \item \textbf{Quality bar}: a working, deployable system with a documented
+    evaluation against a gold-standard corpus, not merely a proof-of-concept
+    script.
+\end{itemize}
+
+The scope boundaries were not arbitrary. They reflected an 80/20 analysis of
+the company's actual codebase: the vast majority of production SAS files fall
+within Base SAS, and the tail of exotic procedures was deemed acceptable to
+handle as an exception via the system's partial-conversion pathway.
+
+% ---------------------------------------------------------------------------
+\section{Project Presentation}
+\label{sec:project-presentation}
+% ---------------------------------------------------------------------------
+
+\subsection{Initial Situation and Problem Statement}
+\label{subsec:problem}
+
+The technical problem can be stated precisely. A SAS program is a sequence of
+\emph{steps} --- DATA steps that manipulate datasets row by row and PROC steps
+that invoke built-in analytical procedures. The language is inherently
+procedural: control flows through implicit program data vectors, RETAIN
+statements carry values across observations, and \texttt{FIRST.}/\texttt{LAST.}
+variables detect group boundaries. None of these constructs has a direct Python
+equivalent; each requires a semantic-preserving transformation that is
+non-trivial to automate.
+
+Three layers of difficulty compound the core translation problem:
+
+\begin{enumerate}
+  \item \textbf{Macro meta-programming.} SAS macros are a preprocessor language
+    that generates SAS code before execution. A macro call such as
+    \texttt{\%apply\_etl(input=raw, output=clean, year=2024)} may expand into
+    hundreds of lines of DATA-step code whose structure depends entirely on the
+    macro definition and its parameter values. Resolving macro dependencies
+    across files and correctly expanding their logic is the hardest single
+    problem in SAS migration.
+
+  \item \textbf{Cross-file dependencies.} Enterprise SAS programmes are rarely
+    self-contained. They \texttt{\%INCLUDE} external macro libraries, reference
+    datasets by libref, and chain multiple programmes through agreed intermediate
+    dataset names. Any translation tool that treats files in isolation will
+    silently break these inter-file contracts.
+
+  \item \textbf{Semantic correctness at scale.} A translator that produces
+    syntactically valid Python code is not necessarily correct. Missing-value
+    arithmetic (SAS missing versus pandas \texttt{NaN}), BY-group processing
+    semantics, and PROC SQL join behaviour all differ subtly between the two
+    languages. Without a verification mechanism, semantic errors accumulate
+    invisibly in the translated output.
+\end{enumerate}
+
+These three dimensions --- macro complexity, cross-file scope, and semantic
+correctness --- form the core requirements that any credible solution must
+address, and they are directly reflected in the architecture of \codara{}.
+
+[FIGURE 1.2 --- Caption: ``Three-layer complexity model for SAS migration:
+structural (macro meta-programming), topological (cross-file dependencies),
+and semantic (behavioural equivalence).'' --- Suggested: three nested rings
+or a three-column table with example constructs in each layer.]
+
+\subsection{Study and Critique of Existing Solutions}
+\label{subsec:existing-solutions}
+
+Before committing to a bespoke solution, we surveyed the landscape of available
+tools along two axes: commercial migration products and academic
+research approaches.
+
+\textbf{Commercial tools.} Several vendors offer SAS-to-Python migration
+assistants. Products such as \textit{Analytium SAS Converter},
+\textit{WhereScape} migration utilities, and bespoke consulting engagements
+typically rely on pattern-matching rule sets. While effective for simple DATA
+steps and common PROCs, rule-based systems fail on macro-heavy code --- they
+cannot expand parameterised macros without execution --- and they produce no
+confidence signal alongside the translation. The user has no way to know, from
+the tool's output alone, whether the translated code is semantically equivalent
+to the original. Furthermore, these tools are inherently single-file: they
+process each SAS programme in isolation without resolving cross-file macro
+dependencies.
+
+\textbf{\ac{LLM}-based approaches.} The emergence of code-capable \acp{LLM}
+such as GPT-4 and Code LLaMA opened a new avenue: asking the model to translate
+SAS snippets directly. Early experiments within the host company confirmed that
+raw LLM translation is surprisingly effective for isolated, low-complexity DATA
+steps but degrades rapidly for longer files, macro-parameterised constructs, and
+cross-file references. The model has no persistent memory across translation
+calls, no mechanism to verify its output, and no way to retrieve relevant
+company-specific translation patterns from prior work. Token-limit constraints
+also prevent whole-file translation of large SAS programmes.
+
+\textbf{Research tools.} Academic literature on automated code migration has
+produced systems such as \textit{CodeTransOcean} and various
+transpiler-based approaches~[1, 2], but these are generally evaluated on
+small, self-contained code snippets and do not address the enterprise-scale
+challenges of macro resolution, cross-file dependencies, or formal semantic
+verification.
+
+[TABLE 1.1 --- Caption: ``Comparison of existing SAS migration approaches.''
+--- Columns: Tool/Approach, Macro Resolution, Cross-File Support, Semantic
+Verification, Output Confidence Signal, Open Source.]
+
+The critical gap that this analysis revealed is not merely a matter of
+translation accuracy. It is the absence of any tool that simultaneously
+addresses all three dimensions of the problem: macro-aware parsing, cross-file
+dependency resolution, and \emph{verifiable} semantic correctness. \codara{}
+was designed to fill precisely this gap.
+
+\subsection{Proposed Solution Overview}
+\label{subsec:proposed-solution}
+
+\codara{} is a multi-agent \ac{SAS}-to-Python/PySpark conversion accelerator.
+It takes one or more SAS source files as input and produces equivalent Python
+scripts accompanied by a structured validation report. Internally, the system
+routes each input through an eight-node \ac{LangGraph} pipeline in which
+specialised agents handle distinct concerns in sequence: file parsing and
+cross-file dependency resolution, token-level streaming and boundary detection,
+\ac{RAPTOR} semantic clustering, complexity scoring and strategy routing,
+persistence and dependency indexing, three-tier \ac{RAG}-augmented translation,
+and finally script merging and report generation.
+
+The system version delivered at the close of this internship is \textbf{v3.1.0},
+which adds Z3 \ac{SMT} formal verification, the \ac{CDAIS} adversarial test
+synthesis framework, and the \textit{SemantiCheck} four-layer semantic scoring
+system on top of the core translation pipeline. The knowledge base comprises
+330 verified SAS–Python example pairs stored in a 768-dimensional vector index.
+The full test suite contains 309 unit and integration tests (0 failures in the
+Week 15 CI run), and the system received an audit grade of A- following four
+rounds of security and code-quality review.
+
+\codara{} is not a point solution. It exposes a documented REST API, a
+React-based web dashboard, a Docker Compose deployment configuration, and a
+six-job GitHub Actions \ac{CI/CD} pipeline targeting Azure Container Apps.
+This production orientation was a deliberate project requirement, not an
+afterthought.
+
+[FIGURE 1.3 --- Caption: ``High-level overview of the \codara{} system: a
+multi-agent LangGraph pipeline bridging SAS source files and validated
+Python/PySpark output.'' --- Suggested: block-flow diagram from SAS input
+through the 8-node pipeline to Python output + validation report.]
+
+\subsection{Expected Deliverables}
+\label{subsec:deliverables}
+
+The deliverables negotiated with the host company and the academic supervisor
+at project kick-off were as follows:
+
+\begin{enumerate}
+  \item A working backend service implementing the eight-node translation
+    pipeline, exposed via a documented \ac{REST} \ac{API}.
+  \item A React web frontend providing upload, conversion monitoring,
+    side-by-side diff view, and admin panels for knowledge-base management,
+    audit logs, and system health.
+  \item A gold-standard evaluation corpus of 50 annotated SAS files
+    (45 with hand-verified Python translations), covering 721 individual blocks
+    across three difficulty tiers (basic, medium, hard), used to measure
+    boundary detection accuracy, retrieval quality, and translation success
+    rate.
+  \item A formal evaluation report quantifying performance against the targets
+    established in the project specification (see Chapter~\ref{ch:specifications}).
+  \item Production deployment artefacts: Dockerfile, Docker Compose
+    configuration, GitHub Actions pipeline, and Azure Key Vault integration.
+  \item This end-of-study report documenting all design decisions, theoretical
+    foundations, experimental results, and critical assessment.
+\end{enumerate}
+
+All six deliverables were completed within the fifteen-week sprint. The status
+of each is detailed in Chapter~\ref{ch:evaluation}.
+
+% ---------------------------------------------------------------------------
+\section{Methodology Orientation}
+\label{sec:methodology}
+% ---------------------------------------------------------------------------
+
+\subsection{Overview of Candidate Methodologies}
+\label{subsec:methodologies-overview}
+
+Choosing a methodology for a project of this kind requires balancing two
+competing demands. On one hand, the project is a research artefact: it
+proposes novel solutions (three-tier \ac{RAG}, \ac{CDAIS}, SemantiCheck) that
+must be situated within and compared against a body of prior work. On the other
+hand, it is a software engineering deliverable with a hard completion deadline
+and an industrial client who needs a working system. Pure research methodologies
+such as \ac{CRISP-DM} or the Hypothetico-Deductive model are ill-suited to
+iterative software construction; pure agile methods such as Scrum provide no
+scaffolding for scientific evaluation and knowledge contribution.
+
+Three candidate methodologies were considered:
+
+\begin{itemize}
+  \item \textbf{Scrum / Agile}: strong on iterative delivery and customer
+    feedback, weak on scientific rigour and reproducibility of experiments.
+  \item \textbf{\ac{CRISP-DM}}: appropriate for data-mining projects with
+    well-defined datasets and models, but not designed for the construction
+    of novel software artefacts.
+  \item \textbf{\ac{DSR}}: a research paradigm from the Information Systems
+    discipline~[3] that frames the research product as a designed artefact and
+    requires its evaluation against explicit utility claims. \ac{DSR} explicitly
+    accommodates the construction-plus-evaluation cycle needed here.
+\end{itemize}
+
+\subsection{Design Science Research (DSR)}
+\label{subsec:dsr}
+
+\ac{DSR}, as codified by Hevner et al.~[3], provides a seven-guideline
+framework for research that produces and evaluates designed artefacts. Its
+central tenet is that the artefact must be shown to solve a \emph{relevant
+problem} better than existing alternatives, and this demonstration must meet
+\emph{research rigour} standards --- reproducible experiments, explicit metrics,
+and honest critical assessment of limitations.
+
+In the \ac{DSR} framing, \codara{} is a \emph{system artefact}: a fully
+implemented software system whose utility is evaluated against measurable
+performance targets. The five design cycles identified in \ac{DSR} map
+naturally onto the project's week-by-week sprints:
+
+\begin{enumerate}
+  \item \textbf{Problem awareness}: the migration problem and its three-layer
+    complexity characterised in Section~\ref{subsec:problem}.
+  \item \textbf{Suggestion}: the multi-agent, \ac{RAG}-augmented, verification-
+    backed architecture proposed as the solution.
+  \item \textbf{Development}: fifteen weeks of iterative implementation
+    (Chapters~\ref{ch:architecture} and~\ref{ch:implementation}).
+  \item \textbf{Evaluation}: gold-standard benchmarking, ablation studies, and
+    torture-test execution (Chapter~\ref{ch:evaluation}).
+  \item \textbf{Conclusion}: generalisation of findings and future-work
+    directions (Chapter~\ref{ch:evaluation}, Section~\ref{sec:future-work}).
+\end{enumerate}
+
+\ac{DSR} also mandates that novelty claims be explicitly stated and argued.
+Section~\ref{subsec:novelty} in Chapter~\ref{ch:evaluation} enumerates the
+five distinct novelty claims of this work and situates each relative to prior
+literature.
+
+\subsection{Adopted Hybrid Methodology: DSR + Agile}
+\label{subsec:hybrid-methodology}
+
+In practice, a pure \ac{DSR} approach would front-load the full system design
+before any implementation begins --- a luxury incompatible with a fifteen-week
+deadline and the inherent uncertainty of working with \acp{LLM} whose
+capabilities are only revealed through empirical probing. We therefore adopted
+a hybrid methodology that uses \ac{DSR} for the research framing and Agile
+(specifically two-week sprint cycles) for the development execution.
+
+[FIGURE 1.4 --- Caption: ``Hybrid DSR + Agile methodology: outer DSR cycle
+governing problem-solution-evaluation, inner Agile sprints driving
+iterative implementation.'' --- Suggested: concentric rings or two-lane
+swimlane diagram with DSR on the outer ring and numbered Agile sprints on
+the inner.]
+
+The sprint structure was as follows. Weeks 1--2 focused on file analysis
+and cross-file dependency resolution (pipeline layer L2-A). Weeks 3--4
+delivered the FSM-based streaming parser and boundary detector (L2-B and
+L2-C). Weeks 5--6 added RAPTOR clustering and complexity scoring (L2-C/D).
+Weeks 7--8 implemented orchestration, persistence, and the audit infrastructure
+(L2-E and orchestration). Week 9 introduced the rate-limiting, circuit-breaker,
+and knowledge-base subsystems. Weeks 10--11 completed the three-tier
+translation and merge pipeline (L3 and L4). Week 12 built the ablation
+evaluation infrastructure. Week 13 performed a major architectural consolidation
+(11 nodes reduced to 8) and introduced CI/CD, Docker, and CodeQL security
+scanning. Weeks 14--15 added Z3 formal verification, \ac{CDAIS}, and
+SemantiCheck, and produced the final evaluation dataset.
+
+The \ac{DSR} evaluation cycle was not a one-off end-of-project exercise. Each
+sprint produced a measurable artefact --- a benchmark run, an ablation result,
+a test coverage report --- that fed back into the design of the next sprint.
+This tight coupling between development and evaluation is precisely what
+distinguishes the hybrid approach from naive iterative development, and it is
+what allowed the project to claim not only a working system but a rigorously
+evaluated one.
+
+[TABLE 1.2 --- Caption: ``Sprint schedule and key deliverables.'' --- Columns:
+Weeks, Layer, Key Deliverable, Cumulative Tests.]
+
+% ---------------------------------------------------------------------------
+\section{Conclusion}
+\label{sec:ch1-conclusion}
+% ---------------------------------------------------------------------------
+
+This chapter has laid the contextual foundation for everything that follows.
+We identified a genuine, industry-scale problem --- the automated migration of
+enterprise SAS code to Python --- characterised its three-layer technical
+complexity (macro meta-programming, cross-file topology, and semantic
+equivalence), and demonstrated through a comparative survey that no existing
+tool addresses all three layers simultaneously. The proposed solution,
+\codara{}, is a multi-agent, \ac{RAG}-augmented, formally verified conversion
+accelerator delivered as a production-ready system over a fifteen-week sprint.
+
+The methodological choice of a hybrid \ac{DSR}+Agile approach was deliberate:
+it provides the scientific scaffolding needed to frame, evaluate, and situate
+the novelty of the work, while preserving the iterative flexibility required
+to navigate the empirical uncertainties inherent in \ac{LLM}-based systems.
+
+The theoretical foundations that underpin the architectural choices are examined
+in the following chapter.
+
+% ---------------------------------------------------------------------------
+% References for Chapter 1
+% (IEEE numeric, sorted by order of appearance)
+% ---------------------------------------------------------------------------
+%
+% [1] Agashe, K. et al., "SWE-bench: Can Language Models Resolve Real-World
+%     GitHub Issues?", ICLR 2024.
+% [2] Zhu, M. et al., "CodeTransOcean: A Comprehensive Multilingual Benchmark
+%     for Code Translation", EMNLP 2023 Findings.
+% [3] Hevner, A. R. et al., "Design Science in Information Systems Research",
+%     MIS Quarterly, vol. 28, no. 1, pp. 75-105, Mar. 2004.
