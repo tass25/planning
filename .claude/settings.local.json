@@ -40,7 +40,18 @@
       "Bash(C:/Users/labou/Desktop/Stage/venv/Scripts/python -m ruff check .)",
       "Bash(C:/Users/labou/Desktop/Stage/venv/Scripts/python -m ruff check . --fix --unsafe-fixes)",
       "Bash(C:/Users/labou/Desktop/Stage/venv/Scripts/python -m ruff format --check .)",
-      "Bash(C:/Users/labou/Desktop/Stage/venv/Scripts/python -m ruff format .)"
+      "Bash(C:/Users/labou/Desktop/Stage/venv/Scripts/python -m ruff format .)",
+      "Bash(C:/Users/labou/Desktop/Stage/venv/Scripts/python -m black backend/ --line-length 100)",
+      "Bash(C:/Users/labou/Desktop/Stage/venv/Scripts/python -m black --check backend/ --line-length 100)",
+      "Bash(C:/Users/labou/Desktop/Stage/venv/Scripts/python -m pytest tests/test_cdais.py tests/test_rag.py tests/test_regression.py --collect-only)",
+      "Bash(C:/Users/labou/Desktop/Stage/venv/Scripts/python -m pytest tests/test_cdais.py tests/test_rag.py tests/test_regression.py --co)",
+      "Bash(C:/Users/labou/Desktop/Stage/venv/Scripts/python -c \"from partition.testing.cdais.synthesizer import CDASISynthesizer; print\\('ok'\\)\")",
+      "Bash(C:/Users/labou/Desktop/Stage/venv/Scripts/python -c \"from partition.translation.deterministic_translator import try_deterministic; print\\('ok'\\)\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(../venv/Scripts/python -m pytest tests/test_complexity_agent.py::TestRuleBasedPrediction::test_deep_nesting_is_high tests/test_translation.py::TestValidationAgent::test_sandbox_no_import -v --tb=short)",
+      "Bash(../venv/Scripts/python -c ' *)"
     ]
   }
 }

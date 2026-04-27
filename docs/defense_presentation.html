@@ -360,7 +360,7 @@ nav a.active::after{width:80%;left:10%}
 
   <div class="arch-wrap excalidraw-wrap" id="arch-wrap-main">
     <div class="arch-title" style="color:#8b8b8b;margin-bottom:1.5rem;font-family:Caveat,cursive;font-size:1.1rem;letter-spacing:2px">Codara &mdash; Cloud Architecture</div>
-            <svg class="arch-svg excalidraw-diagram" id="arch-diagram" viewBox="0 0 1600 1050" xmlns="http://www.w3.org/2000/svg">
+            <svg class="arch-svg excalidraw-diagram" id="arch-diagram" viewBox="0 0 1650 1200" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <pattern id="grid-bg" width="32" height="32" patternUnits="userSpaceOnUse">
           <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#d5d0c8" stroke-width="0.35" opacity="0.25"/>
@@ -386,318 +386,336 @@ nav a.active::after{width:80%;left:10%}
       </defs>
 
       <!-- Background -->
-      <rect width="1600" height="1050" fill="#FFFDF5"/>
-      <rect width="1600" height="1050" fill="url(#grid-bg)"/>
+      <rect width="1650" height="1200" fill="#FFFDF5"/>
+      <rect width="1650" height="1200" fill="url(#grid-bg)"/>
 
       <!-- Azure Cloud boundary -->
-      <rect x="230" y="18" width="1340" height="920" rx="18" fill="none" stroke="#0078D4" stroke-width="1.8" stroke-dasharray="14 7" opacity="0.35"/>
-      <text x="260" y="44" font-family="Caveat, cursive" font-size="18" fill="#0078D4" font-weight="700" opacity="0.6">Azure Cloud</text>
+      <rect x="210" y="15" width="1340" height="1060" rx="18" fill="none" stroke="#0078D4" stroke-width="1.8" stroke-dasharray="14 7" opacity="0.35"/>
+      <text x="240" y="40" font-family="Caveat, cursive" font-size="18" fill="#0078D4" font-weight="700" opacity="0.6">Azure Cloud</text>
 
-      <!-- Azure Container Apps sub-boundary (wraps all deployed services) -->
-      <rect x="265" y="40" width="870" height="185" rx="14" fill="none" stroke="#0078D4" stroke-width="1.2" stroke-dasharray="8 5" opacity="0.25"/>
-      <text x="285" y="56" font-family="'Patrick Hand', cursive" font-size="12" fill="#0078D4" opacity="0.6">Azure Container Apps</text>
+      <!-- Azure Container Apps sub-boundary -->
+      <rect x="270" y="42" width="815" height="195" rx="14" fill="none" stroke="#0078D4" stroke-width="1.2" stroke-dasharray="8 5" opacity="0.25"/>
+      <text x="290" y="58" font-family="'Patrick Hand', cursive" font-size="12" fill="#0078D4" opacity="0.6">Azure Container Apps</text>
 
-      <!-- Docker Compose boundary (3 services: frontend, backend, redis) -->
-      <rect x="280" y="58" width="840" height="162" rx="12" fill="none" stroke="#2496ED" stroke-width="1.3" stroke-dasharray="6 4" opacity="0.3"/>
-      <text x="680" y="224" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#2496ED" opacity="0.7">Docker Compose (3 services: frontend + backend + redis)</text>
+      <!-- Docker Compose boundary -->
+      <rect x="280" y="58" width="800" height="170" rx="12" fill="none" stroke="#2496ED" stroke-width="1.3" stroke-dasharray="6 4" opacity="0.3"/>
+      <text x="680" y="242" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#2496ED" opacity="0.7">Docker Compose (3 services: frontend + backend + redis)</text>
 
       <!-- ═══════════════════════════════════════════
-           ROW 1: APPLICATION LAYER (y: 70-195)
+           ROW 1: APPLICATION LAYER (y: 80–225)
            ═══════════════════════════════════════════ -->
 
       <!-- USER (External) -->
       <g class="diagram-node" data-group="external">
-        <rect x="40" y="95" width="150" height="90" rx="14" fill="#f5f5f0" stroke="#8b8b8b" stroke-width="1.8"/>
-        <text x="115" y="132" text-anchor="middle" font-family="Caveat, cursive" font-size="22" font-weight="700" fill="#555">User</text>
-        <text x="115" y="158" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#888">Browser / Upload</text>
+        <rect x="35" y="95" width="150" height="90" rx="14" fill="#f5f5f0" stroke="#8b8b8b" stroke-width="1.8"/>
+        <text x="110" y="132" text-anchor="middle" font-family="Caveat, cursive" font-size="22" font-weight="700" fill="#555">User</text>
+        <text x="110" y="158" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#888">Browser / Upload</text>
       </g>
 
       <!-- GITHUB (External) -->
       <g class="diagram-node" data-group="external">
-        <rect x="40" y="230" width="150" height="85" rx="14" fill="#24292e" stroke="#444d56" stroke-width="1.8"/>
-        <text x="115" y="264" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#fff">GitHub</text>
-        <text x="115" y="288" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#c9d1d9">OAuth + Actions</text>
+        <rect x="35" y="260" width="150" height="80" rx="14" fill="#24292e" stroke="#444d56" stroke-width="1.8"/>
+        <text x="110" y="294" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#fff">GitHub</text>
+        <text x="110" y="316" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#c9d1d9">OAuth + Actions</text>
       </g>
 
       <!-- FRONTEND -->
       <g class="diagram-node" data-group="app">
-        <rect x="300" y="70" width="180" height="125" rx="14" fill="#D0E8FF" stroke="#5b7dba" stroke-width="1.8"/>
-        <text x="390" y="107" text-anchor="middle" font-family="Caveat, cursive" font-size="22" font-weight="700" fill="#3a5a8c">Frontend</text>
-        <text x="390" y="130" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a7aaa">React 18 + Vite</text>
-        <text x="390" y="152" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#7a9aba">Tailwind + shadcn/ui</text>
-        <text x="390" y="174" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#9aacca">Side-by-side diff view</text>
+        <rect x="290" y="80" width="180" height="125" rx="14" fill="#D0E8FF" stroke="#5b7dba" stroke-width="1.8"/>
+        <text x="380" y="117" text-anchor="middle" font-family="Caveat, cursive" font-size="22" font-weight="700" fill="#3a5a8c">Frontend</text>
+        <text x="380" y="140" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a7aaa">React 18 + Vite</text>
+        <text x="380" y="162" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#7a9aba">Tailwind + shadcn/ui</text>
+        <text x="380" y="184" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#9aacca">Side-by-side diff view</text>
       </g>
 
       <!-- BACKEND API -->
       <g class="diagram-node" data-group="app">
-        <rect x="600" y="70" width="180" height="125" rx="14" fill="#D0E8FF" stroke="#5b7dba" stroke-width="1.8"/>
-        <text x="690" y="105" text-anchor="middle" font-family="Caveat, cursive" font-size="22" font-weight="700" fill="#3a5a8c">Backend API</text>
-        <text x="690" y="126" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a7aaa">FastAPI + JWT Auth</text>
-        <text x="690" y="146" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#7a9aba">GitHub OAuth</text>
-        <text x="690" y="165" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#9aacca">SQLAlchemy + Pydantic</text>
-        <text x="690" y="183" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#9aacca">Background Tasks</text>
+        <rect x="570" y="80" width="180" height="125" rx="14" fill="#D0E8FF" stroke="#5b7dba" stroke-width="1.8"/>
+        <text x="660" y="115" text-anchor="middle" font-family="Caveat, cursive" font-size="22" font-weight="700" fill="#3a5a8c">Backend API</text>
+        <text x="660" y="136" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a7aaa">FastAPI + JWT Auth</text>
+        <text x="660" y="156" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#7a9aba">GitHub OAuth</text>
+        <text x="660" y="175" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#9aacca">SQLAlchemy + Pydantic</text>
+        <text x="660" y="193" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#9aacca">Background Tasks</text>
       </g>
 
       <!-- PIPELINE -->
       <g class="diagram-node" data-group="intelligence">
-        <rect x="900" y="50" width="210" height="160" rx="16" fill="#E8D5FF" stroke="#7b5fad" stroke-width="2.2"/>
-        <text x="1005" y="92" text-anchor="middle" font-family="Caveat, cursive" font-size="24" font-weight="700" fill="#5a3f8a">Pipeline</text>
-        <text x="1005" y="117" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="15" fill="#6a5a9a">8-Node LangGraph</text>
-        <text x="1005" y="140" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#8a7aaa">20+ Sub-Agents</text>
-        <text x="1005" y="163" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#9a8aba">Async + Checkpointed</text>
-        <text x="1005" y="186" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#aa9aca">Facade Pattern</text>
+        <rect x="860" y="60" width="210" height="165" rx="16" fill="#E8D5FF" stroke="#7b5fad" stroke-width="2.2"/>
+        <text x="965" y="102" text-anchor="middle" font-family="Caveat, cursive" font-size="24" font-weight="700" fill="#5a3f8a">Pipeline</text>
+        <text x="965" y="127" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="15" fill="#6a5a9a">8-Node LangGraph</text>
+        <text x="965" y="150" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#8a7aaa">20+ Sub-Agents</text>
+        <text x="965" y="173" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#9a8aba">Async + Checkpointed</text>
+        <text x="965" y="196" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#aa9aca">Facade Pattern</text>
       </g>
 
       <!-- ═══════════════════════════════════════════
-           RIGHT COLUMN: LLM PROVIDERS (x: 1230+)
+           RIGHT COLUMN: LLM PROVIDERS (x: 1250+)
            ═══════════════════════════════════════════ -->
 
       <!-- OLLAMA -->
       <g class="diagram-node" data-group="llm">
-        <rect x="1230" y="65" width="215" height="95" rx="14" fill="#FFE4C4" stroke="#b88a50" stroke-width="1.8"/>
-        <text x="1337" y="100" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a6530">1. Ollama (Primary)</text>
-        <text x="1337" y="122" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a08050">minimax-m2.7:cloud</text>
-        <text x="1337" y="143" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b09a70">Free - 10/10 torture test</text>
+        <rect x="1250" y="70" width="215" height="95" rx="14" fill="#FFE4C4" stroke="#b88a50" stroke-width="1.8"/>
+        <text x="1357" y="105" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a6530">1. Ollama (Primary)</text>
+        <text x="1357" y="127" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a08050">minimax-m2.7:cloud</text>
+        <text x="1357" y="148" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b09a70">Free - 10/10 torture test</text>
       </g>
 
       <!-- AZURE OPENAI -->
       <g class="diagram-node" data-group="llm">
-        <rect x="1230" y="225" width="215" height="95" rx="14" fill="#FFE4C4" stroke="#b88a50" stroke-width="1.8"/>
-        <text x="1337" y="260" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a6530">2. Azure OpenAI</text>
-        <text x="1337" y="282" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a08050">GPT-4o / GPT-4o-mini</text>
-        <text x="1337" y="303" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b09a70">Enterprise SLA</text>
+        <rect x="1250" y="250" width="215" height="95" rx="14" fill="#FFE4C4" stroke="#b88a50" stroke-width="1.8"/>
+        <text x="1357" y="285" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a6530">2. Azure OpenAI</text>
+        <text x="1357" y="307" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a08050">GPT-4o / GPT-4o-mini</text>
+        <text x="1357" y="328" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b09a70">Enterprise SLA</text>
       </g>
 
       <!-- GROQ -->
       <g class="diagram-node" data-group="llm">
-        <rect x="1230" y="385" width="215" height="95" rx="14" fill="#FFE4C4" stroke="#b88a50" stroke-width="1.8"/>
-        <text x="1337" y="420" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a6530">3. Groq (Verifier)</text>
-        <text x="1337" y="442" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a08050">LLaMA-3.3-70b</text>
-        <text x="1337" y="463" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b09a70">Cross-verify + 3-key pool</text>
+        <rect x="1250" y="420" width="215" height="95" rx="14" fill="#FFE4C4" stroke="#b88a50" stroke-width="1.8"/>
+        <text x="1357" y="455" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a6530">3. Groq (Verifier)</text>
+        <text x="1357" y="477" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a08050">LLaMA-3.3-70b</text>
+        <text x="1357" y="498" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b09a70">Cross-verify + 3-key pool</text>
       </g>
 
       <!-- ═══════════════════════════════════════════
-           ROW 2: VERIFICATION LAYER (y: 315-415)
+           ROW 2: VERIFICATION LAYER (y: 400–500)
+           Gap from Row 1: 175px — room for connector routing
            ═══════════════════════════════════════════ -->
+
+      <text x="690" y="388" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b06060" opacity="0.5" letter-spacing="3">VERIFICATION LAYER</text>
 
       <!-- Z3 SOLVER -->
       <g class="diagram-node" data-group="verification">
-        <rect x="260" y="315" width="175" height="100" rx="14" fill="#FFD5D5" stroke="#b86060" stroke-width="1.8"/>
-        <text x="347" y="350" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a3a3a">Z3 Solver</text>
-        <text x="347" y="374" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a06060">11 SMT Patterns</text>
-        <text x="347" y="396" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b08080">Proved or Counterexample</text>
+        <rect x="270" y="400" width="170" height="100" rx="14" fill="#FFD5D5" stroke="#b86060" stroke-width="1.8"/>
+        <text x="355" y="437" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a3a3a">Z3 Solver</text>
+        <text x="355" y="461" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a06060">11 SMT Patterns</text>
+        <text x="355" y="483" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b08080">Proved or Counterexample</text>
       </g>
 
       <!-- CDAIS -->
       <g class="diagram-node" data-group="verification">
-        <rect x="510" y="315" width="175" height="100" rx="14" fill="#FFD5D5" stroke="#b86060" stroke-width="1.8"/>
-        <text x="597" y="350" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a3a3a">CDAIS</text>
-        <text x="597" y="374" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a06060">6 Adversarial Patterns</text>
-        <text x="597" y="396" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b08080">Min. witness DataFrame</text>
+        <rect x="510" y="400" width="170" height="100" rx="14" fill="#FFD5D5" stroke="#b86060" stroke-width="1.8"/>
+        <text x="595" y="437" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a3a3a">CDAIS</text>
+        <text x="595" y="461" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a06060">6 Adversarial Patterns</text>
+        <text x="595" y="483" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b08080">Min. witness DataFrame</text>
       </g>
 
       <!-- SANDBOX -->
       <g class="diagram-node" data-group="verification">
-        <rect x="760" y="315" width="175" height="100" rx="14" fill="#FFD5D5" stroke="#b86060" stroke-width="1.8"/>
-        <text x="847" y="350" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a3a3a">Sandbox Exec</text>
-        <text x="847" y="374" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a06060">Process Isolation</text>
-        <text x="847" y="396" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b08080">.kill() on timeout</text>
+        <rect x="750" y="400" width="170" height="100" rx="14" fill="#FFD5D5" stroke="#b86060" stroke-width="1.8"/>
+        <text x="835" y="437" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a3a3a">Sandbox Exec</text>
+        <text x="835" y="461" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a06060">Process Isolation</text>
+        <text x="835" y="483" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b08080">.kill() on timeout</text>
       </g>
 
       <!-- CROSS-VERIFY -->
       <g class="diagram-node" data-group="verification">
-        <rect x="1010" y="315" width="175" height="100" rx="14" fill="#FFD5D5" stroke="#b86060" stroke-width="1.8"/>
-        <text x="1097" y="350" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a3a3a">Cross-Verify</text>
-        <text x="1097" y="374" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a06060">Independent LLM</text>
-        <text x="1097" y="396" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b08080">Different provider</text>
+        <rect x="990" y="400" width="170" height="100" rx="14" fill="#FFD5D5" stroke="#b86060" stroke-width="1.8"/>
+        <text x="1075" y="437" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#8a3a3a">Cross-Verify</text>
+        <text x="1075" y="461" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#a06060">Independent LLM</text>
+        <text x="1075" y="483" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#b08080">Different provider</text>
       </g>
 
       <!-- ═══════════════════════════════════════════
-           ROW 3: DATA SERVICES (y: 540-632)
+           ROW 3: DATA LAYER (y: 630–720)
+           Gap from Row 2: 130px
            ═══════════════════════════════════════════ -->
+
+      <text x="600" y="620" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#5a9a5a" opacity="0.5" letter-spacing="3">DATA LAYER</text>
 
       <!-- SQLITE -->
       <g class="diagram-node" data-group="data">
-        <rect x="180" y="540" width="165" height="92" rx="14" fill="#D4F5D4" stroke="#5a9a5a" stroke-width="1.8"/>
-        <text x="262" y="572" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#3a6a3a">SQLite</text>
-        <text x="262" y="595" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a8a5a">API Database</text>
-        <text x="262" y="616" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#7aaa7a">8 tables - WAL - ACID</text>
+        <rect x="200" y="632" width="165" height="90" rx="14" fill="#D4F5D4" stroke="#5a9a5a" stroke-width="1.8"/>
+        <text x="282" y="664" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#3a6a3a">SQLite</text>
+        <text x="282" y="687" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a8a5a">API Database</text>
+        <text x="282" y="708" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#7aaa7a">8 tables - WAL - ACID</text>
       </g>
 
       <!-- REDIS -->
       <g class="diagram-node" data-group="data">
-        <rect x="420" y="540" width="165" height="92" rx="14" fill="#D4F5D4" stroke="#5a9a5a" stroke-width="1.8"/>
-        <text x="502" y="572" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#3a6a3a">Redis</text>
-        <text x="502" y="595" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a8a5a">Checkpoints</text>
-        <text x="502" y="616" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#7aaa7a">Crash recovery</text>
+        <rect x="435" y="632" width="165" height="90" rx="14" fill="#D4F5D4" stroke="#5a9a5a" stroke-width="1.8"/>
+        <text x="517" y="664" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#3a6a3a">Redis</text>
+        <text x="517" y="687" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a8a5a">Checkpoints</text>
+        <text x="517" y="708" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#7aaa7a">Crash recovery</text>
       </g>
 
       <!-- LANCEDB -->
       <g class="diagram-node" data-group="data">
-        <rect x="660" y="540" width="165" height="92" rx="14" fill="#D4F5D4" stroke="#5a9a5a" stroke-width="1.8"/>
-        <text x="742" y="572" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#3a6a3a">LanceDB</text>
-        <text x="742" y="595" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a8a5a">Vector KB (768-dim)</text>
-        <text x="742" y="616" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#7aaa7a">530+ pairs - IVF index</text>
+        <rect x="670" y="632" width="165" height="90" rx="14" fill="#D4F5D4" stroke="#5a9a5a" stroke-width="1.8"/>
+        <text x="752" y="664" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#3a6a3a">LanceDB</text>
+        <text x="752" y="687" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a8a5a">Vector KB (768-dim)</text>
+        <text x="752" y="708" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#7aaa7a">530+ pairs - IVF index</text>
       </g>
 
       <!-- DUCKDB -->
       <g class="diagram-node" data-group="data">
-        <rect x="900" y="540" width="165" height="92" rx="14" fill="#D4F5D4" stroke="#5a9a5a" stroke-width="1.8"/>
-        <text x="982" y="572" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#3a6a3a">DuckDB</text>
-        <text x="982" y="595" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a8a5a">OLAP Analytics</text>
-        <text x="982" y="616" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#7aaa7a">LLM audit logs</text>
+        <rect x="905" y="632" width="165" height="90" rx="14" fill="#D4F5D4" stroke="#5a9a5a" stroke-width="1.8"/>
+        <text x="987" y="664" text-anchor="middle" font-family="Caveat, cursive" font-size="20" font-weight="700" fill="#3a6a3a">DuckDB</text>
+        <text x="987" y="687" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#5a8a5a">OLAP Analytics</text>
+        <text x="987" y="708" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#7aaa7a">LLM audit logs</text>
       </g>
 
       <!-- ═══════════════════════════════════════════
-           ROW 4: AZURE MANAGED SERVICES (y: 670-755)
+           ROW 4: AZURE MANAGED SERVICES (y: 820–905)
            ═══════════════════════════════════════════ -->
+
+      <text x="690" y="810" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#0078D4" opacity="0.5" letter-spacing="3">AZURE MANAGED SERVICES</text>
 
       <!-- AZURE KEY VAULT -->
       <g class="diagram-node" data-group="azure">
-        <rect x="260" y="670" width="175" height="85" rx="14" fill="#E6F0FF" stroke="#0078D4" stroke-width="1.8"/>
-        <text x="347" y="700" text-anchor="middle" font-family="Caveat, cursive" font-size="19" font-weight="700" fill="#004E8C">Key Vault</text>
-        <text x="347" y="722" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#0063B1">10 secrets (RBAC)</text>
-        <text x="347" y="742" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#4A90C4">Zero credentials in code</text>
+        <rect x="270" y="822" width="170" height="85" rx="14" fill="#E6F0FF" stroke="#0078D4" stroke-width="1.8"/>
+        <text x="355" y="852" text-anchor="middle" font-family="Caveat, cursive" font-size="19" font-weight="700" fill="#004E8C">Key Vault</text>
+        <text x="355" y="874" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#0063B1">10 secrets (RBAC)</text>
+        <text x="355" y="894" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#4A90C4">Zero credentials in code</text>
       </g>
 
       <!-- AZURE APP INSIGHTS -->
       <g class="diagram-node" data-group="azure">
-        <rect x="510" y="670" width="175" height="85" rx="14" fill="#E6F0FF" stroke="#0078D4" stroke-width="1.8"/>
-        <text x="597" y="700" text-anchor="middle" font-family="Caveat, cursive" font-size="19" font-weight="700" fill="#004E8C">App Insights</text>
-        <text x="597" y="722" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#0063B1">OpenTelemetry</text>
-        <text x="597" y="742" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#4A90C4">Traces + metrics</text>
+        <rect x="510" y="822" width="170" height="85" rx="14" fill="#E6F0FF" stroke="#0078D4" stroke-width="1.8"/>
+        <text x="595" y="852" text-anchor="middle" font-family="Caveat, cursive" font-size="19" font-weight="700" fill="#004E8C">App Insights</text>
+        <text x="595" y="874" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#0063B1">OpenTelemetry</text>
+        <text x="595" y="894" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#4A90C4">Traces + metrics</text>
       </g>
 
       <!-- AZURE MANAGED IDENTITY -->
       <g class="diagram-node" data-group="azure">
-        <rect x="760" y="670" width="175" height="85" rx="14" fill="#E6F0FF" stroke="#0078D4" stroke-width="1.8"/>
-        <text x="847" y="700" text-anchor="middle" font-family="Caveat, cursive" font-size="19" font-weight="700" fill="#004E8C">Managed Identity</text>
-        <text x="847" y="722" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#0063B1">OIDC Federation</text>
-        <text x="847" y="742" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#4A90C4">No stored credentials</text>
+        <rect x="750" y="822" width="170" height="85" rx="14" fill="#E6F0FF" stroke="#0078D4" stroke-width="1.8"/>
+        <text x="835" y="852" text-anchor="middle" font-family="Caveat, cursive" font-size="19" font-weight="700" fill="#004E8C">Managed Identity</text>
+        <text x="835" y="874" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#0063B1">OIDC Federation</text>
+        <text x="835" y="894" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#4A90C4">No stored credentials</text>
       </g>
 
-      <!-- GHCR (GitHub Container Registry) -->
+      <!-- GHCR -->
       <g class="diagram-node" data-group="devops">
-        <rect x="1010" y="670" width="175" height="85" rx="14" fill="#2d333b" stroke="#444d56" stroke-width="1.8"/>
-        <text x="1097" y="700" text-anchor="middle" font-family="Caveat, cursive" font-size="19" font-weight="700" fill="#e6edf3">GHCR</text>
-        <text x="1097" y="722" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#8b949e">Container Registry</text>
-        <text x="1097" y="742" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#8b949e">ghcr.io/codara</text>
-      </g>
-
-      <!-- CI/CD BAR (expanded — 6-job GitHub Actions pipeline) -->
-      <g>
-        <rect x="180" y="800" width="1100" height="65" rx="12" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
-        <text x="230" y="823" font-family="Caveat, cursive" font-size="17" font-weight="700" fill="#58a6ff">GitHub Actions</text>
-        <text x="730" y="823" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#8b949e">Lint &#8594; Test (248) &#8594; Security &#8594; Docker Build &#8594; Deploy to Azure &#8594; Benchmark</text>
-        <text x="730" y="848" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#484f58">OIDC auth &#183; Coverage &#183; CodeQL &#183; Smoke test &#183; 6 jobs</text>
+        <rect x="990" y="822" width="170" height="85" rx="14" fill="#2d333b" stroke="#444d56" stroke-width="1.8"/>
+        <text x="1075" y="852" text-anchor="middle" font-family="Caveat, cursive" font-size="19" font-weight="700" fill="#e6edf3">GHCR</text>
+        <text x="1075" y="874" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="13" fill="#8b949e">Container Registry</text>
+        <text x="1075" y="894" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" fill="#8b949e">ghcr.io/codara</text>
       </g>
 
       <!-- ═══════════════════════════════════════════
-           CONNECTORS — drawn LAST so they render on top
-           All paths routed through safe corridors:
-             Vertical corridors: x<260, x:435-510, x:685-760, x:935-1010, x>1185
-             Horizontal corridors: y:210-315, y:415-540
+           ROW 5: CI/CD BAR (y: 970–1035)
            ═══════════════════════════════════════════ -->
 
-      <!-- ── TOP ROW: horizontal flow ── -->
+      <g>
+        <rect x="200" y="970" width="1100" height="65" rx="12" fill="#161b22" stroke="#30363d" stroke-width="1.5"/>
+        <text x="250" y="995" font-family="Caveat, cursive" font-size="17" font-weight="700" fill="#58a6ff">GitHub Actions</text>
+        <text x="750" y="995" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="14" fill="#8b949e">Lint &#8594; Test (248) &#8594; Security &#8594; Docker Build &#8594; Deploy to Azure &#8594; Benchmark</text>
+        <text x="750" y="1020" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" fill="#484f58">OIDC auth &#183; Coverage &#183; CodeQL &#183; Smoke test &#183; 6 jobs</text>
+      </g>
 
-      <!-- User -> Frontend -->
-      <path class="diagram-connector" d="M190,140 L300,132" fill="none" stroke="#444" stroke-width="2" marker-end="url(#arr)"/>
-      <text x="245" y="126" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#777">HTTPS</text>
+      <!-- ═══════════════════════════════════════════════════
+           CONNECTORS — drawn LAST so they render on top.
 
-      <!-- Frontend -> Backend -->
-      <path class="diagram-connector" d="M480,132 L600,132" fill="none" stroke="#444" stroke-width="2" marker-end="url(#arr)"/>
-      <text x="540" y="122" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#777">/api proxy</text>
+           Routing corridors used:
+           ● Verification fan-out horizontals: y=270, 295, 320, 345  (25px apart)
+           ● Data verticals through verification gaps:
+               x=250  (left of Z3, x<270)
+               x=475  (gap Z3↔CDAIS, 440–510)
+               x=715  (gap CDAIS↔Sandbox, 680–750)
+               x=955  (gap Sandbox↔CrossVerify, 920–990)
+           ● Infrastructure lines: x=195 (far-left), x=1175 (far-right)
+           ═══════════════════════════════════════════════════ -->
 
-      <!-- Backend -> Pipeline -->
-      <path class="diagram-connector" d="M780,130 L900,130" fill="none" stroke="#444" stroke-width="2" marker-end="url(#arr)"/>
-      <text x="840" y="120" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#777">triggers</text>
+      <!-- ── ROW 1: horizontal flow ── -->
 
-      <!-- Pipeline -> Ollama (primary) -->
-      <path class="diagram-connector" d="M1110,112 L1230,112" fill="none" stroke="#b88a50" stroke-width="2.5" marker-end="url(#arr-orange)"/>
-      <text x="1170" y="102" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" font-style="italic" fill="#b88a50">primary</text>
+      <!-- User → Frontend -->
+      <path class="diagram-connector" d="M185,140 L290,140" fill="none" stroke="#444" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="237" y="131" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#777">HTTPS</text>
+
+      <!-- Frontend → Backend -->
+      <path class="diagram-connector" d="M470,140 L570,140" fill="none" stroke="#444" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="520" y="131" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#777">/api proxy</text>
+
+      <!-- Backend → Pipeline -->
+      <path class="diagram-connector" d="M750,140 L860,140" fill="none" stroke="#444" stroke-width="2" marker-end="url(#arr)"/>
+      <text x="805" y="131" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#777">triggers</text>
+
+      <!-- Pipeline → Ollama (primary) -->
+      <path class="diagram-connector" d="M1070,117 L1250,117" fill="none" stroke="#b88a50" stroke-width="2.5" marker-end="url(#arr-orange)"/>
+      <text x="1160" y="108" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" font-style="italic" fill="#b88a50">primary</text>
 
       <!-- ── LLM FALLBACK CHAIN: vertical ── -->
 
-      <!-- Ollama -> Azure (fallback) -->
-      <path class="diagram-connector" d="M1337,160 L1337,225" fill="none" stroke="#999" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#arr-muted)"/>
-      <text x="1380" y="195" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#b06060">fallback</text>
+      <!-- Ollama → Azure (fallback) -->
+      <path class="diagram-connector" d="M1357,165 L1357,250" fill="none" stroke="#999" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#arr-muted)"/>
+      <text x="1400" y="210" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#b06060">fallback</text>
 
-      <!-- Azure -> Groq (fallback) -->
-      <path class="diagram-connector" d="M1337,320 L1337,385" fill="none" stroke="#999" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#arr-muted)"/>
-      <text x="1380" y="355" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#b06060">fallback</text>
+      <!-- Azure → Groq (fallback) -->
+      <path class="diagram-connector" d="M1357,345 L1357,420" fill="none" stroke="#999" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#arr-muted)"/>
+      <text x="1400" y="385" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#b06060">fallback</text>
 
-      <!-- ── PIPELINE -> VERIFICATION: fan down through gap y:210-315 ── -->
+      <!-- ── PIPELINE → VERIFICATION (fan-out, 25px spacing, NO crossings) ── -->
 
-      <!-- Pipeline -> Z3 (route at y=238) -->
-      <path class="diagram-connector" d="M960,210 L960,238 L347,238 L347,315" fill="none" stroke="#b86060" stroke-width="1.8" marker-end="url(#arr-red)"/>
+      <!-- Pipeline → Z3 (horizontal at y=270) -->
+      <path class="diagram-connector" d="M900,225 L900,270 L355,270 L355,400" fill="none" stroke="#b86060" stroke-width="1.8" marker-end="url(#arr-red)"/>
 
-      <!-- Pipeline -> CDAIS (route at y=250) -->
-      <path class="diagram-connector" d="M980,210 L980,250 L597,250 L597,315" fill="none" stroke="#b86060" stroke-width="1.8" marker-end="url(#arr-red)"/>
+      <!-- Pipeline → CDAIS (horizontal at y=295) -->
+      <path class="diagram-connector" d="M925,225 L925,295 L595,295 L595,400" fill="none" stroke="#b86060" stroke-width="1.8" marker-end="url(#arr-red)"/>
 
-      <!-- Pipeline -> Sandbox (route at y=262) -->
-      <path class="diagram-connector" d="M1000,210 L1000,262 L847,262 L847,315" fill="none" stroke="#b86060" stroke-width="1.8" marker-end="url(#arr-red)"/>
+      <!-- Pipeline → Sandbox (horizontal at y=320) -->
+      <path class="diagram-connector" d="M950,225 L950,320 L835,320 L835,400" fill="none" stroke="#b86060" stroke-width="1.8" marker-end="url(#arr-red)"/>
 
-      <!-- Pipeline -> Cross-Verify (route at y=274) -->
-      <path class="diagram-connector" d="M1020,210 L1020,274 L1097,274 L1097,315" fill="none" stroke="#b86060" stroke-width="1.8" marker-end="url(#arr-red)"/>
+      <!-- Pipeline → Cross-Verify (horizontal at y=345) -->
+      <path class="diagram-connector" d="M975,225 L975,345 L1075,345 L1075,400" fill="none" stroke="#b86060" stroke-width="1.8" marker-end="url(#arr-red)"/>
 
-      <!-- Label for verification group -->
-      <text x="700" y="230" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" font-style="italic" fill="#b06060">verifies translations</text>
+      <!-- Verification group label -->
+      <text x="630" y="365" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="12" font-style="italic" fill="#b06060">verifies translations</text>
 
-      <!-- ── BACKEND/PIPELINE -> DATA: routed through vertical corridors ── -->
+      <!-- ── DATA CONNECTIONS (green, through gaps between verification boxes) ── -->
 
-      <!-- Backend -> SQLite: route left corridor x=245 (left of Z3 x:260) -->
-      <path class="diagram-connector" d="M640,195 L640,228 L245,228 L245,540" fill="none" stroke="#5a9a5a" stroke-width="1.8" marker-end="url(#arr-green)"/>
-      <text x="430" y="220" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#5a9a5a">ACID writes</text>
+      <!-- Backend → SQLite (via x=250, LEFT of Z3) -->
+      <path class="diagram-connector" d="M660,205 L660,248 L250,248 L250,632" fill="none" stroke="#5a9a5a" stroke-width="1.8" marker-end="url(#arr-green)"/>
+      <text x="448" y="240" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#5a9a5a">ACID writes</text>
 
-      <!-- Pipeline -> Redis: route Z3-CDAIS gap x=470 (gap: 435-510) -->
-      <path class="diagram-connector" d="M945,210 L945,246 L470,246 L470,540" fill="none" stroke="#5a9a5a" stroke-width="1.8" marker-end="url(#arr-green)"/>
+      <!-- Pipeline → Redis (via x=475, gap Z3↔CDAIS) -->
+      <path class="diagram-connector" d="M893,225 L893,253 L475,253 L475,632" fill="none" stroke="#5a9a5a" stroke-width="1.8" marker-end="url(#arr-green)"/>
+      <text x="475" y="590" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#5a9a5a">checkpoints</text>
 
-      <!-- Pipeline -> LanceDB: route CDAIS-Sandbox gap x=720 (gap: 685-760) -->
-      <path class="diagram-connector" d="M985,210 L985,254 L720,254 L720,540" fill="none" stroke="#5a9a5a" stroke-width="1.8" marker-end="url(#arr-green)"/>
-      <text x="860" y="500" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#5a9a5a">RAG queries</text>
+      <!-- Pipeline → LanceDB (via x=715, gap CDAIS↔Sandbox) -->
+      <path class="diagram-connector" d="M918,225 L918,258 L715,258 L715,632" fill="none" stroke="#5a9a5a" stroke-width="1.8" marker-end="url(#arr-green)"/>
+      <text x="715" y="590" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#5a9a5a">RAG queries</text>
 
-      <!-- Pipeline -> DuckDB: route Sandbox-CrossVerify gap x=970 (gap: 935-1010) -->
-      <path class="diagram-connector" d="M1025,210 L1025,258 L970,258 L970,540" fill="none" stroke="#5a9a5a" stroke-width="1.8" marker-end="url(#arr-green)"/>
-      <text x="1010" y="500" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="11" font-style="italic" fill="#5a9a5a">audit logs</text>
+      <!-- Pipeline → DuckDB (via x=955, gap Sandbox↔CrossVerify) -->
+      <path class="diagram-connector" d="M943,225 L943,263 L955,263 L955,632" fill="none" stroke="#5a9a5a" stroke-width="1.8" marker-end="url(#arr-green)"/>
+      <text x="955" y="590" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#5a9a5a">audit logs</text>
 
-      <!-- ── CROSS-CONNECTIONS ── -->
+      <!-- ── EXTERNAL CONNECTIONS ── -->
 
-      <!-- Groq -> Cross-Verify (judge): route through gap x:1185-1230 -->
-      <path class="diagram-connector" d="M1230,432 L1200,432 L1200,365 L1185,365" fill="none" stroke="#b88a50" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arr-orange)"/>
-      <text x="1207" y="415" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#b88a50" transform="rotate(-90 1207 415)">judges</text>
+      <!-- User → GitHub (OAuth) -->
+      <path class="diagram-connector" d="M110,185 L110,260" fill="none" stroke="#8b949e" stroke-width="1.5" marker-end="url(#arr-muted)"/>
+      <text x="130" y="225" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#8b949e">OAuth</text>
 
-      <!-- ── GITHUB & AZURE INFRASTRUCTURE CONNECTORS ── -->
+      <!-- GitHub → Backend (callback) -->
+      <path class="diagram-connector" d="M185,295 L230,295 L230,195 L570,195" fill="none" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arr-muted)"/>
+      <text x="260" y="288" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#8b949e">callback</text>
 
-      <!-- User -> GitHub (OAuth) -->
-      <path class="diagram-connector" d="M115,185 L115,230" fill="none" stroke="#8b949e" stroke-width="1.8" marker-end="url(#arr-muted)"/>
-      <text x="135" y="212" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#8b949e">OAuth</text>
+      <!-- Groq → Cross-Verify (judges) -->
+      <path class="diagram-connector" d="M1250,467 L1185,467 L1185,450 L1160,450" fill="none" stroke="#b88a50" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arr-orange)"/>
+      <text x="1218" y="480" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#b88a50">judges</text>
 
-      <!-- GitHub -> Backend (auth callback) -->
-      <path class="diagram-connector" d="M190,272 L248,272 L248,195 L600,180" fill="none" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arr-muted)"/>
-      <text x="250" y="260" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#8b949e">callback</text>
+      <!-- ── AZURE INFRASTRUCTURE (subtle, routed along edges) ── -->
 
-      <!-- Backend -> Key Vault (secrets) -->
-      <path class="diagram-connector" d="M650,195 L650,435 L347,435 L347,670" fill="none" stroke="#0078D4" stroke-width="1.5" stroke-dasharray="5 3"/>
-      <text x="490" y="448" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#0078D4">secrets</text>
+      <!-- Backend → Key Vault (far-left corridor x=195) -->
+      <path class="diagram-connector" d="M570,170 L195,170 L195,855 L270,855" fill="none" stroke="#0078D4" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.5"/>
+      <text x="195" y="525" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#0078D4" opacity="0.6" transform="rotate(-90 195 525)">secrets</text>
 
-      <!-- Pipeline -> App Insights (telemetry) -->
-      <path class="diagram-connector" d="M940,210 L940,440 L597,440 L597,670" fill="none" stroke="#0078D4" stroke-width="1.5" stroke-dasharray="5 3"/>
-      <text x="770" y="454" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#0078D4">telemetry</text>
+      <!-- Managed Identity → Key Vault (same row, short) -->
+      <path class="diagram-connector" d="M750,862 L440,862" fill="none" stroke="#0078D4" stroke-width="1.2" stroke-dasharray="4 3"/>
+      <text x="595" y="856" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#0078D4">RBAC</text>
 
-      <!-- Managed Identity -> Key Vault (RBAC) -->
-      <path class="diagram-connector" d="M760,712 L435,712" fill="none" stroke="#0078D4" stroke-width="1.2" stroke-dasharray="4 3"/>
-      <text x="597" y="707" text-anchor="middle" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#0078D4">RBAC</text>
+      <!-- Pipeline → App Insights (far-right corridor x=1175) -->
+      <path class="diagram-connector" d="M1070,180 L1175,180 L1175,940 L595,940 L595,907" fill="none" stroke="#0078D4" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.5"/>
+      <text x="1175" y="560" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#0078D4" opacity="0.6" transform="rotate(-90 1175 560)">telemetry</text>
 
-      <!-- GHCR -> CI/CD bar -->
-      <path class="diagram-connector" d="M1097,755 L1097,800" fill="none" stroke="#8b949e" stroke-width="1.5" marker-end="url(#arr-muted)"/>
+      <!-- GHCR → CI/CD bar -->
+      <path class="diagram-connector" d="M1075,907 L1075,970" fill="none" stroke="#8b949e" stroke-width="1.5" marker-end="url(#arr-muted)"/>
 
-      <!-- GitHub -> CI/CD bar (triggers) -->
-      <path class="diagram-connector" d="M115,315 L115,832 L180,832" fill="none" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arr-muted)"/>
-      <text x="100" y="580" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#8b949e" transform="rotate(-90 100 580)">push triggers</text>
+      <!-- GitHub → CI/CD bar (push triggers) -->
+      <path class="diagram-connector" d="M110,340 L110,1000 L200,1000" fill="none" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arr-muted)"/>
+      <text x="95" y="670" font-family="'Patrick Hand', cursive" font-size="10" font-style="italic" fill="#8b949e" transform="rotate(-90 95 670)">push triggers</text>
 
       <!-- ═══ LEGEND ═══ -->
-      <g transform="translate(50,910)">
+      <g transform="translate(50,1090)">
         <text font-family="Caveat, cursive" font-size="16" font-weight="700" fill="#666" y="-3">Legend</text>
         <!-- Row 1 -->
         <rect x="0" y="8" width="22" height="15" rx="4" fill="#D0E8FF" stroke="#5b7dba" stroke-width="1"/>

@@ -638,7 +638,13 @@ def run_pipeline_sync(
         header_lines = [
             f'"""Auto-converted from {file_path.name} by Codara pipeline."""',
             "",
+            "import os",
+            "os.makedirs('./output', exist_ok=True)",
+            "",
         ]
+        # If the code produces charts, ensure non-interactive backend
+        if python_code and ("plt." in python_code or "matplotlib" in python_code):
+            header_lines.insert(2, "import matplotlib; matplotlib.use('Agg')")
         final_code = "\n".join(header_lines) + python_code
         conv.python_code = final_code
         session.commit()

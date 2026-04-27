@@ -363,20 +363,44 @@ def _auto_repair(code: str) -> str:
     code = re.sub(r"how\s*=\s*['\"]inner_left['\"]", "how='left'", code)
     code = re.sub(r"how\s*=\s*['\"]outer_left['\"]", "how='left'", code)
 
-    # Ensure charts save to PNG, not just plt.show()
-    # Replace plt.show() with plt.savefig() + plt.close() if no savefig nearby
-    if "plt.show()" in code and "plt.savefig(" not in code:
-        _chart_n = [0]
+    # ── Rewrite absolute file paths to ./output/ ──────────────────────────
+    # SAS uses absolute LIBNAME / OUTFILE paths (/output/file.csv, /data/prod/report.xlsx).
+    # Rewrite them so the script writes to a local ./output/ folder when run.
+    _FILE_EXT = r"\.(?:csv|xlsx?|tsv|png|jpe?g|gif|html?|txt|pdf|json|log|dat)"
+    code = re.sub(
+        rf"""(['"])/(?:[^'"]*/)([^'"]+?{_FILE_EXT})(['"])""",
+        r"\1./output/\2\3",
+        code,
+    )
+    # Windows absolute paths: C:\data\output\file.csv → ./output/file.csv
+    code = re.sub(
+        rf"""(['"])[A-Za-z]:[/\\\\](?:.*?[/\\\\])?([^/\\\\'"]+?{_FILE_EXT})(['"])""",
+        r"\1./output/\2\3",
+        code,
+    )
 
-        def _replace_show(m):
-            _chart_n[0] += 1
-            indent = m.group(1)
-            return (
-                f"{indent}plt.savefig('chart_{_chart_n[0]}.png', dpi=150, bbox_inches='tight')\n"
-                f"{indent}plt.close()"
-            )
+    # ── Ensure charts save to PNG ───────────��────────────────────────────
+    # Replace plt.show() with plt.savefig() + plt.close()
+    _chart_n = [0]
 
+    def _replace_show(m):
+        _chart_n[0] += 1
+        indent = m.group(1)
+        return (
+            f"{indent}plt.savefig('./output/chart_{_chart_n[0]}.png', dpi=150, bbox_inches='tight')\n"
+            f"{indent}plt.close()"
+        )
+
+    if "plt.show()" in code:
         code = re.sub(r"^(\s*)plt\.show\(\)", _replace_show, code, flags=re.MULTILINE)
+
+    # Also fix savefig calls that write to bare filenames (no directory)
+    # 'chart_1.png' → './output/chart_1.png'
+    code = re.sub(
+        r"""plt\.savefig\(\s*(['"])(?!\./output/)([^'"/]+\.(?:png|jpe?g|gif|svg|pdf))(['"])""",
+        r"plt.savefig(\1./output/\2\3",
+        code,
+    )
 
     # Fix PROC FREQ crosstab column sorting: sorted(X.columns) on Categoricals
     # sorts by label order, not alphabetically. Force string-based sort.

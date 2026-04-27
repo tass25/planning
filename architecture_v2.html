@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Partition Layer — Architecture v2</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0e14;
+    --surface: #13161f;
+    --surface2: #1a1e2a;
+    --border: #252a38;
+    --accent: #4f9eff;
+    --accent2: #7c5cfc;
+    --accent3: #00d9a3;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --heading: #f8fafc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; line-height: 1.65; }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, #0c0e14 0%, #0f1525 50%, #0c0e14 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 56px 40px 44px;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content:''; position:absolute; inset:0;
+    background: radial-gradient(ellipse 80% 60% at 60% 40%, rgba(79,158,255,.07) 0%, transparent 70%),
+                radial-gradient(ellipse 50% 40% at 20% 80%, rgba(124,92,252,.05) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .hero-tag { display:inline-block; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); border:1px solid rgba(79,158,255,.25); padding:4px 12px; border-radius:20px; margin-bottom:18px; }
+  .hero h1 { font-size:clamp(26px,4vw,50px); font-weight:800; color:var(--heading); line-height:1.1; max-width:760px; }
+  .hero h1 span { color:var(--accent); }
+  .hero-sub { margin-top:12px; color:var(--muted); font-size:15px; max-width:580px; }
+  .hero-badges { display:flex; gap:10px; flex-wrap:wrap; margin-top:20px; }
+  .hero-badge { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; padding:4px 10px; border-radius:4px; }
+  .hero-badge.paper  { background:rgba(245,158,11,.12); color:#f59e0b; border:1px solid rgba(245,158,11,.25); }
+  .hero-badge.agents { background:rgba(79,158,255,.1);  color:#4f9eff; border:1px solid rgba(79,158,255,.2); }
+  .hero-badge.tier   { background:rgba(0,217,163,.1);   color:#00d9a3; border:1px solid rgba(0,217,163,.2); }
+  .hero-badge.v      { background:rgba(124,92,252,.1);  color:#7c5cfc; border:1px solid rgba(124,92,252,.2); }
+
+  /* LAYOUT */
+  .container { max-width:1200px; margin:0 auto; padding:0 40px 80px; }
+
+  /* SECTIONS */
+  .section { margin-top:60px; }
+  .section-label { font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.15em; text-transform:uppercase; color:var(--accent2); margin-bottom:10px; }
+  .section h2 { font-size:24px; font-weight:700; color:var(--heading); margin-bottom:18px; display:flex; align-items:center; gap:12px; }
+  .section h2 .num { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; background:rgba(79,158,255,.12); border:1px solid rgba(79,158,255,.25); border-radius:8px; font-size:13px; color:var(--accent); flex-shrink:0; }
+  .section h3 { font-size:16px; font-weight:600; color:var(--heading); margin:28px 0 12px; }
+  p { color:var(--text); font-size:15px; margin-bottom:12px; }
+  code { font-family:'JetBrains Mono',monospace; font-size:12px; background:rgba(79,158,255,.08); padding:2px 6px; border-radius:4px; color:#93c5fd; }
+
+  /* PAPER CARD */
+  .paper-card {
+    background: linear-gradient(135deg, rgba(245,158,11,.06) 0%, rgba(124,92,252,.06) 100%);
+    border: 1px solid rgba(245,158,11,.25);
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin: 20px 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .paper-card::before {
+    content: '\201C';
+    position: absolute;
+    top: -10px; left: 20px;
+    font-size: 120px;
+    color: rgba(245,158,11,.06);
+    font-family: Georgia, serif;
+    line-height: 1;
+  }
+  .paper-citation { font-family:'JetBrains Mono',monospace; font-size:12px; color:#fcd34d; margin-bottom:14px; line-height:1.6; }
+  .paper-title { font-size:18px; font-weight:700; color:#fbbf24; margin-bottom:6px; }
+  .paper-venue { font-size:12px; color:var(--muted); margin-bottom:16px; font-family:'JetBrains Mono',monospace; }
+  .paper-adapt { font-size:14px; color:var(--text); line-height:1.7; }
+  .paper-adapt strong { color:#fbbf24; }
+
+  /* DIAGRAM CARDS */
+  .diagram-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; margin-top:20px; }
+  .diagram-header { display:flex; align-items:center; gap:10px; padding:14px 20px; border-bottom:1px solid var(--border); background:var(--surface2); }
+  .diagram-dot { width:8px; height:8px; border-radius:50%; }
+  .diagram-header .title { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); flex:1; }
+  .diagram-body { padding:24px; overflow-x:auto; }
+  .diagram-body .mermaid { display:flex; justify-content:center; }
+
+  /* TABLES */
+  .table-wrap { overflow-x:auto; margin-top:16px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead tr { background:var(--surface2); }
+  th { padding:10px 14px; text-align:left; color:var(--accent); font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase; border-bottom:1px solid var(--border); white-space:nowrap; }
+  td { padding:10px 14px; border-bottom:1px solid rgba(37,42,56,.6); color:var(--text); vertical-align:top; }
+  tr:last-child td { border-bottom:none; }
+  tr:hover td { background:rgba(79,158,255,.03); }
+  td.good { color:var(--accent3); font-weight:600; }
+  td.bad  { color:var(--danger); }
+  td.muted { color:var(--muted); font-style:italic; }
+  td code { font-size:11px; }
+
+  /* RAPTOR CONFIG */
+  .config-block {
+    background: #0d1117;
+    border: 1px solid rgba(245,158,11,.2);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-top: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    color: #e2e8f0;
+  }
+  .config-block .comment { color: #4a5568; }
+  .config-block .key { color: #93c5fd; }
+  .config-block .val { color: #fcd34d; }
+  .config-block .section-key { color: #c084fc; }
+
+  /* CALLOUT */
+  .callout { background:rgba(245,158,11,.06); border:1px solid rgba(245,158,11,.25); border-radius:10px; padding:14px 18px; font-size:14px; color:#fcd34d; margin:16px 0; }
+  .callout strong { color:#fbbf24; }
+  .callout-blue { background:rgba(79,158,255,.06); border-color:rgba(79,158,255,.25); color:#93c5fd; }
+  .callout-blue strong { color:#4f9eff; }
+  .callout-green { background:rgba(0,217,163,.06); border-color:rgba(0,217,163,.25); color:#6ee7b7; }
+  .callout-green strong { color:#00d9a3; }
+
+  /* METRICS GRID */
+  .metrics-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:12px; margin-top:16px; }
+  .metric-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 18px; }
+  .metric-val { font-size:28px; font-weight:800; color:var(--accent3); font-family:'JetBrains Mono',monospace; }
+  .metric-label { font-size:11px; color:var(--muted); margin-top:4px; font-family:'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:.06em; }
+  .metric-card.warn .metric-val { color:#f59e0b; }
+  .metric-card.purple .metric-val { color:#c084fc; }
+  .metric-card.blue .metric-val { color:#4f9eff; }
+
+  /* PROGRESS BAR */
+  .progress-wrap { margin-top:16px; }
+  .progress-label { display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); margin-bottom:6px; }
+  .progress-bar { height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; }
+  .progress-fill { height:100%; border-radius:4px; transition: width 0.4s ease; }
+  .progress-fill.green { background: linear-gradient(90deg, #00d9a3, #34d399); }
+  .progress-fill.blue  { background: linear-gradient(90deg, #4f9eff, #93c5fd); }
+  .progress-fill.amber { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+
+  /* STATUS BADGE */
+  .status { display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; padding:3px 8px; border-radius:4px; }
+  .status.done    { background:rgba(0,217,163,.15); color:#00d9a3; border:1px solid rgba(0,217,163,.3); }
+  .status.wip     { background:rgba(79,158,255,.12); color:#4f9eff; border:1px solid rgba(79,158,255,.25); }
+  .status.planned { background:rgba(100,116,139,.12); color:#94a3b8; border:1px solid rgba(100,116,139,.25); }
+
+  hr { border:none; border-top:1px solid var(--border); margin:48px 0; }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-tag">Partition Layer · Architecture v2.1 · Updated from Spec v4.2</div>
+  <h1>SAS → Python / PySpark <span>Partition Layer</span><br>System Architecture</h1>
+  <p class="hero-sub">RAPTOR-based semantic chunking · 16-agent lean pipeline · React frontend + Admin dashboard · Optimization suggestions with accept/reject · Continuous Learning</p>
+  <div class="hero-badges">
+    <span class="hero-badge paper">RAPTOR · Sarthi et al., ICLR 2024</span>
+    <span class="hero-badge agents">16 Agents + API + Frontend</span>
+    <span class="hero-badge tier">Gold Standard · 50 files · 721 blocks · 3 tiers</span>
+    <span class="hero-badge v">End-to-End Pipeline · v2.1</span>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ══ 1. RESEARCH PAPER ══ -->
+<div class="section">
+  <div class="section-label">Section 01</div>
+  <h2><span class="num">1</span> Research Foundation — RAPTOR (ICLR 2024)</h2>
+
+  <div class="paper-card">
+    <div class="paper-title">RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval</div>
+    <div class="paper-venue">ICLR 2024 · arXiv:2401.18059 · Sarthi, Abdullah, Goldie, Liskovich, Sherstinsky, Potts &amp; Manning (Stanford NLP)</div>
+    <div class="paper-citation">https://arxiv.org/abs/2401.18059</div>
+    <div class="paper-adapt">
+      <strong>Original contribution:</strong> Builds hierarchical tree summaries of long documents using Gaussian Mixture clustering and recursive LLM summarization, enabling retrieval at multiple abstraction levels — leaf (fine-grained fact), cluster (thematic group), root (document intent).<br><br>
+      <strong>Our adaptation to SAS partitioning:</strong> Instead of treating every DATA step or PROC block as a flat, independent chunk, we cluster semantically related SAS blocks into a recursive tree. Downstream RAG layers retrieve at exactly the right level: leaf for simple block lookup (Static RAG), cluster for macro families (GraphRAG), root for file-level planning (Agentic RAG). This directly addresses the core failure mode of flat partitioning — losing context across <code>%INCLUDE</code> chains that span 50+ files.<br><br>
+      <strong>Key algorithmic reuse:</strong> GMM clustering with BIC minimization for k-selection (Sarthi et al. §3.1), recursive re-embedding of cluster summaries (§3.2), and dynamic depth based on content density (macro_density &gt; 0.4 trigger).
+    </div>
+  </div>
+
+  <div class="metrics-grid">
+    <div class="metric-card"><div class="metric-val">&gt;90%</div><div class="metric-label">Boundary accuracy target</div></div>
+    <div class="metric-card"><div class="metric-val">&gt;82%</div><div class="metric-label">RAPTOR hit-rate @5</div></div>
+    <div class="metric-card warn"><div class="metric-val">&lt;0.08</div><div class="metric-label">ECE (calibration)</div></div>
+    <div class="metric-card purple"><div class="metric-val">16</div><div class="metric-label">Real agents (strict SRP)</div></div>
+    <div class="metric-card blue"><div class="metric-val">721</div><div class="metric-label">Gold standard blocks</div></div>
+    <div class="metric-card warn"><div class="metric-val">9</div><div class="metric-label">Canonical partition types</div></div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ══ 2. GLOBAL ARCHITECTURE ══ -->
+<div class="section">
+  <div class="section-label">Section 02</div>
+  <h2><span class="num">2</span> Global Architecture — End-to-End Pipeline</h2>
+  <p>From raw <code>.sas</code> files through entry scanning, data lineage extraction, RAPTOR semantic chunking, complexity scoring, translation, validation, merge, reporting, and continuous learning feedback loop.</p>
+
+  <div class="diagram-card">
+    <div class="diagram-header">
+      <div class="diagram-dot" style="background:#ef4444"></div>
+      <div class="diagram-dot" style="background:#f59e0b"></div>
+      <div class="diagram-dot" style="background:#22c55e"></div>
+      <span class="title">global-architecture-v2.mermaid</span>
+    </div>
+    <div class="diagram-body">
+      <div class="mermaid">
+flowchart TB
+  subgraph INPUT["📁 INPUT"]
+    SAS["SAS Files (.sas corpus)\n50 gold standard · 3 tiers\n721 annotated blocks"]
+    KB_RAW["Raw KB Coverage Matrix\n(generate_pairs.py)"]
+  end
+
+  subgraph L2A["L2-A · Entry &amp; Scan &amp; Data Lineage"]
+    FAA["#1 FileAnalysisAgent\npathlib + chardet + regex pre-validate"]
+    CFR["#2 CrossFileDependencyResolver\n%INCLUDE + LIBNAME regex scan"]
+    DLE["#4 DataLineageExtractor\n7 regex patterns · SET/MERGE/FROM\nJOIN/DATA/CREATE TABLE/INSERT INTO"]
+    RWA["#3 RegistryWriterAgent\nSHA-256 dedup · INSERT OR IGNORE"]
+    FR[("SQLite DB\nfile_registry\ncross_file_deps\ndata_lineage")]
+    FAA --> CFR --> RWA --> FR
+    FAA --> DLE --> FR
+  end
+
+  subgraph L2B["L2-B · Streaming Core"]
+    SA["#5 StreamAgent\naiofiles async 8KB buffer"]
+    STA["#6 StateAgent\nFSM: block_type + nesting + macro_stack"]
+    BPQ["asyncio.Queue(maxsize=200)\nBackpressure"]
+    SA --> STA --> BPQ
+  end
+
+  subgraph L2C["L2-C · RAPTOR Chunking ☀"]
+    BDA["#7 BoundaryDetectorAgent\nLark LALR — 80% rule-based"]
+    LLM8["LLM Resolver Llama 3.1 8B\nOllama — 20% ambiguous + tiktoken guard"]
+    PBA["#8 PartitionBuilderAgent\n9 types + test_coverage_type"]
+    EMB["Nomic Embed v1.5\n768-dim local"]
+    GMM["GMM Clustering\nk ∈ [2, √N capped 20] + BIC + τ=0.72"]
+    SUM["ClusterSummarizer\nLlama 70B Groq + hash cache + summary_tier"]
+    TREE["#9 RAPTORTreeBuilder\nleaf→L1→L2→root · BIC delta &lt; 0.01 stop"]
+    BDA --> PBA
+    BDA -->|ambiguous| LLM8 --> PBA
+    PBA --> EMB --> GMM --> SUM --> TREE
+  end
+
+  subgraph L2D["L2-D · Complexity &amp; Strategy"]
+    CA["#10 ComplexityAgent\nradon CC + 5 features"]
+    LR["sklearn LR\nPlatt calibration · ECE &lt; 0.08"]
+    STRA["#11 StrategyAgent\nrisk_level + PartitionStrategy"]
+    CA --> LR --> STRA
+  end
+
+  subgraph KB["📚 Knowledge Base\n330 pairs · 15 categories · Dual-LLM · Python + PySpark"]
+    MATRIX["Coverage Matrix\n15 SAS construct families"]
+    GEN["generate_pairs.py\nPrompt A→B→C verify chain"]
+    FM["Failure Mode Examples\n6 types × 10 pairs each"]
+    KB_STORE[("LanceDB sas_python_examples\n768-dim + failure_mode + summary_tier\n+ version + superseded_by")]
+    MATRIX --> GEN --> FM --> KB_STORE
+  end
+
+  subgraph L2E["L2-E · Persistence &amp; Index"]
+    PA["#12 PersistenceAgent\nSQLite / Postgres / Parquet"]
+    RW["RAPTORWriter → LanceDB"]
+    IA["#13 IndexAgent\nNetworkX + SCC condensation\n+ dag_longest_path_length hop cap"]
+    NXG[("NetworkX Graph\nDEPENDS_ON + MACRO_CALLS + scc_id")]
+    RC["RedisCheckpoint\nevery 50 blocks · TTL 24h"]
+    PA & RW & IA & RC
+    IA --> NXG
+  end
+
+  subgraph L3["Layer 3 · Translation + Validation"]
+    TA["#14 TranslationAgent\n3 RAG paradigms: Static · GraphRAG · Agentic\n8B/70B routing + cross-verify\ntarget: Python | PySpark"]
+    VA["#15 ValidationAgent\nexec() on synthetic 100-row DataFrame\nsandboxed namespace · 5s timeout"]
+    CR[("conversion_results table")]
+    TA --> VA --> CR
+  end
+
+  subgraph L4["Layer 4 · Merge + Report"]
+    IC["ImportConsolidator"]
+    DI["DependencyInjector\nvariable name registry"]
+    SM["ScriptMerger\nast.parse() gate + stubs"]
+    RA["#16 ReportAgent\nMarkdown/HTML conversion report\nCodeBLEU + validation results"]
+    OPT["OptimizationSuggester\nper-block line-range suggestions\naccept/reject per suggestion"]
+    OUT[("merged_scripts table\n+ output/*.py files\n+ conversion reports\n+ optimization_suggestions")]
+    IC &amp; DI --> SM --> RA --> OUT
+    SM --> OPT --> OUT
+  end
+
+  subgraph L5["Layer 5 · Frontend + API"]
+    API["FastAPI Gateway\nREST + WebSocket\nJWT auth · CORS"]
+    REACT["React Frontend (Lovable)\nUpload · Progress · Code Review\nOptimization Accept/Reject"]
+    ADMIN["Admin Dashboard\nPipeline Monitor · Agent Health\nAudit Logs · User Mgmt"]
+    REACT --> API
+    ADMIN --> API
+  end
+
+  subgraph CL["Continuous Learning"]
+    FIA["FeedbackIngestionAgent\nCLI + automated corrections\n+ frontend accept/reject decisions"]
+    CQM["ConversionQualityMonitor\nsuccess_rate + failure_mode_dist"]
+    RT["RetrainingTrigger\nECE drift + quality_drop + KB gap"]
+    FIA --> KB_STORE
+    CQM --> RT --> LR
+  end
+
+  subgraph ORCH["⚙️ Orchestration"]
+    PO["PartitionOrchestrator\nLangGraph StateGraph\n+CROSS_FILE_RESOLVE +TRANSLATING +MERGING"]
+    AUDIT[("DuckDB\nllm_audit + quality_metrics\n+ feedback_log + ablation\n+ kb_changelog + conversion_reports")]
+  end
+
+  SAS --> FAA
+  KB_RAW --> MATRIX
+  FR --> SA
+  BPQ --> BDA
+  PBA --> CA
+  STRA --> PO
+  TREE --> RW
+  PO --> PA &amp; RW &amp; IA &amp; RC
+  PO --> TA
+  CR --> IC
+  SM --> CQM
+  RA --> AUDIT
+  PO --> AUDIT
+  KB_STORE --> TA
+  API --> PO
+  OUT --> API
+  API --> FIA
+  AUDIT --> API
+
+  style INPUT fill:#1a1e2a,stroke:#4f9eff,color:#e2e8f0
+  style L2A fill:#1a1e2a,stroke:#4f9eff,color:#e2e8f0
+  style L2B fill:#1a1e2a,stroke:#7c5cfc,color:#e2e8f0
+  style L2C fill:#1a1e2a,stroke:#f59e0b,color:#e2e8f0
+  style L2D fill:#1a1e2a,stroke:#4f9eff,color:#e2e8f0
+  style KB fill:#1a1e2a,stroke:#00d9a3,color:#e2e8f0
+  style L2E fill:#1a1e2a,stroke:#7c5cfc,color:#e2e8f0
+  style L3 fill:#1a1e2a,stroke:#4f9eff,color:#e2e8f0
+  style L4 fill:#1a1e2a,stroke:#7c5cfc,color:#e2e8f0
+  style L5 fill:#1a1e2a,stroke:#f97316,color:#e2e8f0
+  style CL fill:#1a1e2a,stroke:#00d9a3,color:#e2e8f0
+  style ORCH fill:#200f0f,stroke:#ef4444,color:#e2e8f0
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ══ 3. AGENT CATALOGUE ══ -->
+<div class="section">
+  <div class="section-label">Section 03</div>
+  <h2><span class="num">3</span> Agent Catalogue — 16 Agents</h2>
+  <p>Every agent inherits from <code>BaseAgent(ABC)</code> with <code>trace_id</code>, bound <code>structlog</code> logger, abstract <code>process()</code>, and the <code>@with_retry</code> exponential-backoff decorator.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Agent</th><th>Layer</th><th>Inputs</th><th>Outputs</th><th>Key Tech</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td><code>FileAnalysisAgent</code></td><td>L2-A</td><td>project_root</td><td>list[FileMetadata]</td><td>pathlib, chardet, regex pre-validate</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>2</td><td><code>CrossFileDependencyResolver</code></td><td>L2-A</td><td>files, project_root, engine</td><td>cross_file_deps rows</td><td>3 regex patterns, path resolution</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>3</td><td><code>RegistryWriterAgent</code></td><td>L2-A</td><td>files, engine</td><td>file_registry rows</td><td>SQLAlchemy, SHA-256 dedup</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>4</td><td><code>DataLineageExtractor</code></td><td>L2-A</td><td>files, engine</td><td>data_lineage rows</td><td>7 regex patterns (SET/MERGE/FROM/JOIN/DATA/CREATE/INSERT)</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>5</td><td><code>StreamAgent</code></td><td>L2-B</td><td>file_path</td><td>async token stream</td><td>aiofiles, 8KB buffer, backpressure</td><td><span class="status planned">Week 2-3</span></td></tr>
+        <tr><td>6</td><td><code>StateAgent</code></td><td>L2-B</td><td>token stream</td><td>FSM state updates</td><td>Finite state machine, nesting tracker</td><td><span class="status planned">Week 2-3</span></td></tr>
+        <tr><td>7</td><td><code>BoundaryDetectorAgent</code></td><td>L2-C</td><td>token stream + FSM</td><td>block boundaries</td><td>Lark LALR + LLM fallback (20%)</td><td><span class="status planned">Week 3-4</span></td></tr>
+        <tr><td>8</td><td><code>PartitionBuilderAgent</code></td><td>L2-C</td><td>boundaries</td><td>PartitionIR[]</td><td>9 partition types, test_coverage_type</td><td><span class="status planned">Week 3-4</span></td></tr>
+        <tr><td>9</td><td><code>RAPTORPartitionAgent</code></td><td>L2-C</td><td>PartitionIR[]</td><td>RAPTOR tree</td><td>Nomic Embed, GMM+BIC, Groq summaries</td><td><span class="status planned">Week 5-6</span></td></tr>
+        <tr><td>10</td><td><code>ComplexityAgent</code></td><td>L2-D</td><td>PartitionIR</td><td>risk scores</td><td>radon CC, 5 features, sklearn LR</td><td><span class="status planned">Week 4</span></td></tr>
+        <tr><td>11</td><td><code>StrategyAgent</code></td><td>L2-D</td><td>risk scores</td><td>PartitionStrategy</td><td>Threshold routing, Platt calibration</td><td><span class="status planned">Week 4</span></td></tr>
+        <tr><td>12</td><td><code>PersistenceAgent</code></td><td>L2-E</td><td>PartitionIR[]</td><td>DB rows</td><td>SQLite / Postgres / Parquet</td><td><span class="status planned">Week 7</span></td></tr>
+        <tr><td>13</td><td><code>IndexAgent</code></td><td>L2-E</td><td>deps graph</td><td>NetworkX graph</td><td>NetworkX SCC, dag_longest_path</td><td><span class="status planned">Week 7</span></td></tr>
+        <tr><td>14</td><td><code>TranslationAgent</code></td><td>L3</td><td>PartitionIR + KB + Graph</td><td>Python/PySpark code + rag_paradigm</td><td>3 RAG paradigms (Static / GraphRAG / Agentic), adaptive k, RAPTOR level escalation</td><td><span class="status planned">Week 10</span></td></tr>
+        <tr><td>15</td><td><code>ValidationAgent</code></td><td>L3</td><td>generated code</td><td>pass/fail</td><td>exec() sandbox, synthetic DataFrames</td><td><span class="status planned">Week 10</span></td></tr>
+        <tr><td>16</td><td><code>ReportAgent</code></td><td>L4</td><td>conversion results</td><td>reports</td><td>Markdown/HTML, CodeBLEU</td><td><span class="status planned">Week 11</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-label"><span>Implementation Progress</span><span>4 / 16 agents (25%)</span></div>
+    <div class="progress-bar"><div class="progress-fill green" style="width:25%"></div></div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ══ 4. RAPTOR DETAIL ══ -->
+<div class="section">
+  <div class="section-label">Section 04</div>
+  <h2><span class="num">4</span> RAPTOR Tree — Detailed Algorithm (Sarthi et al. adaptation)</h2>
+
+  <div class="callout">
+    <strong>Key diff from paper:</strong> Sarthi et al. apply RAPTOR to natural-language documents. We apply it to SAS code blocks. The GMM clustering and recursive summarization are unchanged — only the leaf content (SAS code instead of text paragraphs) and the convergence trigger (macro_density &gt; 0.4 → depth=5) are domain-specific additions.
+  </div>
+
+  <div class="diagram-card">
+    <div class="diagram-header">
+      <div class="diagram-dot" style="background:#f59e0b"></div>
+      <span class="title">raptor-algorithm-v2.mermaid</span>
+    </div>
+    <div class="diagram-body">
+      <div class="mermaid">
+flowchart TB
+  PARTS["PartitionIR[] leaf blocks\n(9 canonical types)"]
+
+  subgraph STAGE1["Stage 1 · Embed"]
+    NOMIC["Nomic Embed v1.5\nlocal · 768-dim\nbatch=32 · CUDA alloc 512MB"]
+    CACHE_E["Embedding cache\ndict[partition_id → vector]"]
+    NOMIC --> CACHE_E
+  end
+
+  subgraph STAGE2["Stage 2 · GMM Cluster"]
+    NORM["L2 normalize"]
+    K_SEL["k ∈ [2, min(√N, 20)]\nBIC minimization per k"]
+    GMM_FIT["GaussianMixture.fit()\ncovariance_type=full"]
+    TAU["τ=0.72 threshold check\nmax cluster prob &lt; τ → outlier leaf"]
+    MIN_SZ["min_cluster_size=2\nmerge singletons → nearest neighbour"]
+    NORM --> K_SEL --> GMM_FIT --> TAU --> MIN_SZ
+    FAIL{"fit fail × 3?"}
+    GMM_FIT --> FAIL -->|yes| FLAT["flat_partition\nno clustering"]
+  end
+
+  subgraph DEPTH["Dynamic Depth"]
+    MD{"macro_density\n> 0.4?"}
+    D5["max_depth = 5"]
+    D3["max_depth = 3"]
+    MD -->|yes| D5
+    MD -->|no| D3
+  end
+
+  subgraph STAGE3["Stage 3 · Summarize Clusters"]
+    HASH_CHK{"embedding hash\nin cache?"}
+    SUM_CACHE["return cached summary\n(repeated macro families)"]
+    GROQ_C["Llama 70B · Groq\nsummary_tier = groq"]
+    OLLAMA_C["Llama 70B · Ollama\nsummary_tier = ollama_fallback"]
+    HEUR["heuristic summary\ntype counts only\nsummary_tier = heuristic_fallback"]
+    TIKTOKEN["tiktoken budget check\nmax 6000 tokens → truncate"]
+    GROQ_429{"429 / timeout?"}
+    HASH_CHK -->|yes| SUM_CACHE
+    HASH_CHK -->|no| TIKTOKEN --> GROQ_C
+    GROQ_C --> GROQ_429
+    GROQ_429 -->|no| SUM_OUT["summary text"]
+    GROQ_429 -->|yes| OLLAMA_C -->|fail| HEUR
+    OLLAMA_C --> SUM_OUT
+    HEUR --> SUM_OUT
+  end
+
+  subgraph STAGE4["Stage 4 · Recurse"]
+    REEMBED["Re-embed cluster summaries\nNomic Embed"]
+    STOP{"k=1 OR depth≥max\nOR |BIC_t - BIC_t-1| &lt; 0.01?"}
+    RECURSE["recurse → cluster summaries\nbecome new leaves"]
+    ROOT["single root node\nfile-level summary\nτ_cluster=0.65"]
+    NODES["RAPTORNode[]\nnode_id · level · embedding\nsummary · child_ids · summary_tier"]
+    REEMBED --> STOP
+    STOP -->|no| RECURSE --> REEMBED
+    STOP -->|yes| ROOT --> NODES
+  end
+
+  PARTS --> NOMIC
+  CACHE_E --> NORM
+  MIN_SZ --> MD
+  MIN_SZ --> HASH_CHK
+  SUM_OUT --> REEMBED
+
+  style STAGE1 fill:#241800,stroke:#f59e0b,color:#e2e8f0
+  style STAGE2 fill:#241800,stroke:#f59e0b,color:#e2e8f0
+  style DEPTH fill:#1a1e2a,stroke:#4f9eff,color:#e2e8f0
+  style STAGE3 fill:#241800,stroke:#f59e0b,color:#e2e8f0
+  style STAGE4 fill:#241800,stroke:#f59e0b,color:#e2e8f0
+      </div>
+    </div>
+  </div>
+
+  <h3>RAPTOR Configuration (raptor.yaml — complete)</h3>
+  <div class="config-block">
+    <span class="section-key">raptor:</span><br>
+    &nbsp;&nbsp;<span class="key">default_max_depth:</span>          <span class="val">3</span>         <span class="comment"># standard SAS files</span><br>
+    &nbsp;&nbsp;<span class="key">macro_heavy_max_depth:</span>      <span class="val">5</span>         <span class="comment"># triggered when macro_density > 0.40</span><br>
+    &nbsp;&nbsp;<span class="key">bic_convergence_epsilon:</span>    <span class="val">0.01</span>      <span class="comment"># stop recursion if |BIC_t - BIC_t-1| &lt; this</span><br>
+    &nbsp;&nbsp;<span class="key">min_cluster_size:</span>           <span class="val">2</span>         <span class="comment"># prevent singleton clusters</span><br>
+    &nbsp;&nbsp;<span class="key">similarity_threshold_leaf:</span>  <span class="val">0.72</span>      <span class="comment"># min cosine prob to assign leaf to cluster</span><br>
+    &nbsp;&nbsp;<span class="key">similarity_threshold_cluster:</span> <span class="val">0.65</span>    <span class="comment"># min cosine sim for cluster→cluster grouping</span><br>
+    &nbsp;&nbsp;<span class="key">k_min:</span>                      <span class="val">2</span>         <span class="comment"># never k=1 at cluster level</span><br>
+    &nbsp;&nbsp;<span class="key">k_max_formula:</span>             <span class="val">"min(sqrt(n), 20)"</span>  <span class="comment"># Sarthi et al. §3.1</span><br>
+    &nbsp;&nbsp;<span class="key">summary_cache_enabled:</span>     <span class="val">true</span>      <span class="comment"># skip re-summarizing identical macro families</span><br>
+    &nbsp;&nbsp;<span class="key">token_budget_groq:</span>         <span class="val">6000</span>      <span class="comment"># tiktoken guard before every Groq call</span>
+  </div>
+</div>
+
+<hr>
+
+<!-- ══ 5. DATA LINEAGE ══ -->
+<div class="section">
+  <div class="section-label">Section 05</div>
+  <h2><span class="num">5</span> Data Lineage — Table-Level Extraction</h2>
+  <p>The <code>DataLineageExtractor</code> (Agent #4) scans decoded SAS content for dataset reads and writes using 7 regex patterns, persisting edges to the <code>data_lineage</code> SQLite table. This answers: which output datasets depend on which input datasets?</p>
+
+  <div class="diagram-card">
+    <div class="diagram-header">
+      <div class="diagram-dot" style="background:#00d9a3"></div>
+      <span class="title">data-lineage-extractor.mermaid</span>
+    </div>
+    <div class="diagram-body">
+      <div class="mermaid">
+flowchart TB
+  subgraph READ_PATTERNS["TABLE_READ Patterns"]
+    P1["SET pattern\nSET lib.dataset;"]
+    P2["MERGE pattern\nMERGE lib.ds1 lib.ds2;"]
+    P3["FROM pattern\nFROM lib.table"]
+    P4["JOIN pattern\nINNER/LEFT/RIGHT JOIN lib.table"]
+  end
+
+  subgraph WRITE_PATTERNS["TABLE_WRITE Patterns"]
+    P5["DATA output\nDATA lib.output;"]
+    P6["CREATE TABLE\nCREATE TABLE lib.new"]
+    P7["INSERT INTO\nINSERT INTO lib.target"]
+  end
+
+  subgraph EXTRACT["DataLineageExtractor · process()"]
+    DECODE["Read &amp; decode SAS file\nchardet encoding"]
+    REGEX["Apply 7 regex patterns\nper file"]
+    SPLIT["_split_datasets()\nParse multi-dataset tokens\nFilter _NULL_, _DATA_, etc."]
+    LINEPOS["_line_of()\nChar position → 1-based line number"]
+    ROWS["Build DataLineageRow[]\nlineage_type · source/target dataset\nblock_line_start/end"]
+  end
+
+  subgraph PERSIST["SQLite · data_lineage table"]
+    DB[("data_lineage\nid · source_file_id (FK)\nlineage_type · source_dataset\ntarget_dataset · source_columns\ntarget_column · transform_expr\nblock_line_start · block_line_end")]
+  end
+
+  READ_PATTERNS --> REGEX
+  WRITE_PATTERNS --> REGEX
+  DECODE --> REGEX --> SPLIT --> LINEPOS --> ROWS --> DB
+
+  style READ_PATTERNS fill:#0f2820,stroke:#00d9a3,color:#e2e8f0
+  style WRITE_PATTERNS fill:#241800,stroke:#f59e0b,color:#e2e8f0
+  style EXTRACT fill:#1a1e2a,stroke:#4f9eff,color:#e2e8f0
+  style PERSIST fill:#1a1535,stroke:#7c5cfc,color:#e2e8f0
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout-green">
+    <strong>Phase 1 (Week 1–2) ✓:</strong> Table-level lineage via regex — detects which datasets each block reads from and writes to.<br>
+    <strong>Phase 2 (Week 3–4):</strong> Column-level lineage — after Lark grammar is built, extract assignment expressions to track column derivations (e.g., <code>revenue = SUM(unit_price * quantity)</code> → <code>revenue</code> ← <code>unit_price</code>, <code>quantity</code>).
+  </div>
+</div>
+
+<hr>
+
+<!-- ══ 6. SCC CONDENSATION ══ -->
+<div class="section">
+  <div class="section-label">Section 06</div>
+  <h2><span class="num">6</span> IndexAgent — SCC Condensation + Dynamic Hop Cap</h2>
+  <p>Enterprise SAS projects often have circular <code>%INCLUDE</code> chains (A includes B includes C includes A). Standard DAG algorithms fail on cycles. The IndexAgent collapses them into super-nodes via Strongly Connected Component (SCC) condensation using NetworkX.</p>
+
+  <div class="diagram-card">
+    <div class="diagram-header">
+      <div class="diagram-dot" style="background:#7c5cfc"></div>
+      <span class="title">index-agent-scc-v2.mermaid</span>
+    </div>
+    <div class="diagram-body">
+      <div class="mermaid">
+flowchart TB
+  PARTS_IN["PartitionIR[] + cross_file_deps + data_lineage"]
+
+  subgraph BUILD["DAG Construction"]
+    NX_BUILD["NetworkX DiGraph\nedges from dependency_refs + cross_file_deps + data_lineage"]
+    DEPREFS["DEPENDS_ON edges\ndataset refs + LIBNAME + %INCLUDE (resolved)"]
+    MACRO_E["MACRO_CALLS edges\nmacro_scope cross-partition"]
+    DATA_E["DATA_FLOW edges\nfrom data_lineage TABLE_READ/WRITE"]
+    NX_BUILD --> DEPREFS & MACRO_E & DATA_E
+  end
+
+  subgraph SCC["SCC Condensation"]
+    SCC_FIND["nx.strongly_connected_components(dag)\nfind all dependency cycles"]
+    CYCLE_CHK{"SCC size\n> 1?"}
+    SCC_ID["assign scc_id to members\ne.g. scc_0001"]
+    LOG_CYCLE["log warning:\ncycle_detected + members list"]
+    CONDENSE["nx.condensation(dag)\nreplace each SCC with super-node\nguarantees acyclic graph"]
+    SCC_FIND --> CYCLE_CHK
+    CYCLE_CHK -->|yes| SCC_ID --> LOG_CYCLE --> CONDENSE
+    CYCLE_CHK -->|no| CONDENSE
+  end
+
+  subgraph HOP["Dynamic Hop Cap"]
+    LONGEST["nx.dag_longest_path_length(condensed)\nlongest dependency chain"]
+    CAP["min(longest, 10)\nstore in config/project_config.yaml"]
+    QUERY["all graph queries use\nnx.ancestors / nx.descendants\nbounded by hop cap"]
+    LONGEST --> CAP --> QUERY
+  end
+
+  subgraph NX_W["NetworkX Graph Build"]
+    NODE_W["Add Partition nodes\npartition_id, type, risk_level, scc_id"]
+    REL_DEP["Add DEPENDS_ON edges\ndep_type: dataset | libref | join_input"]
+    REL_MAC["Add MACRO_CALLS edges\nmacro_name attribute"]
+    REL_DATA["Add DATA_FLOW edges\nsource_dataset → target_dataset"]
+    NODE_W --> REL_DEP & REL_MAC & REL_DATA
+  end
+
+  subgraph PATCH["PartitionIR update"]
+    SCC_PATCH["write scc_id back\nto PartitionIR.scc_id\n(None if no cycle)"]
+  end
+
+  PARTS_IN --> NX_BUILD
+  DEPREFS & MACRO_E & DATA_E --> SCC_FIND
+  CONDENSE --> LONGEST
+  CONDENSE --> NODE_W
+  SCC_ID --> SCC_PATCH
+
+  style BUILD fill:#1a1535,stroke:#7c5cfc,color:#e2e8f0
+  style SCC fill:#200f0f,stroke:#ef4444,color:#e2e8f0
+  style HOP fill:#1a2035,stroke:#4f9eff,color:#e2e8f0
+  style NX_W fill:#1a1535,stroke:#7c5cfc,color:#e2e8f0
+  style PATCH fill:#1a1e2a,stroke:#252a38,color:#64748b
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>Why this matters for translation:</strong> Partitions in the same SCC (same <code>scc_id</code>) form a circular dependency and must be translated together, not independently. Layer 3's TranslationAgent detects SCC membership and automatically routes these partitions to <strong>GraphRAG</strong>, which gathers all SCC siblings and upstream translations as context. If the block is also MOD/HIGH risk, GraphRAG is combined with <strong>Agentic RAG</strong> for adaptive retrieval control.
+  </div>
+</div>
+
+<hr>
+
+<!-- ══ 7. PARTITION TYPES ══ -->
+<div class="section">
+  <div class="section-label">Section 07</div>
+  <h2><span class="num">7</span> 9 Canonical Partition Types</h2>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th><th>Description</th><th>RAPTOR Level</th><th>test_coverage_type</th><th>Complexity Impact</th><th>Gold Blocks</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>DATA_STEP</code></td><td>SAS DATA step with variable assignments and transforms</td><td>Leaf</td><td class="good">full</td><td>Base</td><td class="good">144</td></tr>
+        <tr><td><code>PROC_BLOCK</code></td><td>Any PROC (MEANS, FREQ, SORT, REG, etc.)</td><td>Leaf or L1</td><td class="good">full</td><td>Base</td><td class="good">119</td></tr>
+        <tr><td><code>MACRO_DEFINITION</code></td><td>Full %MACRO…%MEND block with parameters</td><td>L1 cluster</td><td class="good">full</td><td>+2 nesting</td><td class="good">83</td></tr>
+        <tr><td><code>MACRO_INVOCATION</code></td><td>Call to a defined or external macro</td><td>Leaf</td><td class="good">full</td><td>Links to MACRO_DEF</td><td class="good">88</td></tr>
+        <tr><td><code>SQL_BLOCK</code></td><td>PROC SQL with embedded SQL statements</td><td>Leaf or L1</td><td class="good">full</td><td>sql_complexity feature</td><td class="good">95</td></tr>
+        <tr><td><code>CONDITIONAL_BLOCK</code></td><td>%IF/%THEN/%ELSE macro conditionals outside PROC</td><td>Leaf</td><td class="warn">structural_only</td><td>+1 nesting</td><td>77</td></tr>
+        <tr><td><code>LOOP_BLOCK</code></td><td>%DO/%END iterative macro loops</td><td>Leaf</td><td class="warn">structural_only</td><td>+1 complexity auto</td><td>21</td></tr>
+        <tr><td><code>GLOBAL_STATEMENT</code></td><td>OPTIONS, LIBNAME, FILENAME, TITLE</td><td>L2 cluster</td><td class="bad">structural_only</td><td>cross_file_deps feature</td><td>82</td></tr>
+        <tr><td><code>INCLUDE_REFERENCE</code></td><td>%INCLUDE or external file reference</td><td>L1 cluster</td><td class="bad">structural_only</td><td>Links to target file root</td><td>12</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout callout-blue" style="margin-top:14px;">
+    <strong>Gold Standard Corpus:</strong> 50 files · 721 blocks · 3 tiers — Simple (15 files, 7–29 lines), Medium (20 files, 158–229 lines), Hard (15 files, 549–925 lines). All annotated with block boundaries + data lineage. Stored in <code>knowledge_base/gold_standard/</code> as paired <code>.sas</code> + <code>.gold.json</code> files.
+  </div>
+</div>
+
+<hr>
+
+<!-- ══ 8. DATABASE SCHEMA ══ -->
+<div class="section">
+  <div class="section-label">Section 08</div>
+  <h2><span class="num">8</span> Database Schema — SQLite + DuckDB</h2>
+
+  <h3>8.1 — SQLite (file_registry.db) — ORM via SQLAlchemy</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Table</th><th>Primary Key</th><th>Key Columns</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>file_registry</code></td>
+          <td><code>file_id</code> (UUID)</td>
+          <td>file_path, encoding, content_hash (UNIQUE), file_size_bytes, line_count, lark_valid, lark_errors, status, created_at</td>
+          <td>One row per discovered .sas file. SHA-256 dedup via content_hash.</td>
+        </tr>
+        <tr>
+          <td><code>cross_file_deps</code></td>
+          <td><code>id</code> (auto)</td>
+          <td>source_file_id (FK), ref_type, raw_reference, resolved, target_file_id (FK), target_path</td>
+          <td>%INCLUDE / LIBNAME / macro-var cross-file references.</td>
+        </tr>
+        <tr>
+          <td><code>data_lineage</code></td>
+          <td><code>id</code> (auto)</td>
+          <td>source_file_id (FK), lineage_type, source_dataset, target_dataset, source_columns, target_column, transform_expr, block_line_start, block_line_end</td>
+          <td>Dataset-level data flow edges (TABLE_READ / TABLE_WRITE).</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>8.2 — DuckDB (audit.duckdb) — Planned for Week 7–8</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Table</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>llm_audit</code></td><td>Every LLM call: model, prompt hash, tokens, latency, result</td></tr>
+        <tr><td><code>quality_metrics</code></td><td>Periodic success_rate, partial_rate, failure_mode_dist snapshots</td></tr>
+        <tr><td><code>feedback_log</code></td><td>Human/automated corrections with acceptance status</td></tr>
+        <tr><td><code>ablation</code></td><td>RAPTOR vs flat comparison metrics per query</td></tr>
+        <tr><td><code>kb_changelog</code></td><td>KB mutations: insert, update, supersede with diffs</td></tr>
+        <tr><td><code>conversion_reports</code></td><td>Per-file conversion report metadata</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout callout-blue">
+    <strong>WAL mode + FK enforcement:</strong> SQLite engine uses <code>PRAGMA journal_mode=WAL</code> for concurrent reads and <code>PRAGMA foreign_keys=ON</code> for referential integrity. All table creation via <code>Base.metadata.create_all(engine)</code>.
+  </div>
+</div>
+
+<hr>
+
+<!-- ══ 9. HEAD-TO-HEAD ══ -->
+<div class="section">
+  <div class="section-label">Section 09</div>
+  <h2><span class="num">9</span> Architecture Comparison — RAPTOR vs Flat Partitioning</h2>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Dimension</th><th>Flat Partitioning (naive)</th><th>This Architecture (RAPTOR)</th><th>Impact</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Chunking strategy</td>
+          <td class="bad">Flat keyword-boundary rules</td>
+          <td class="good">RAPTOR recursive semantic tree (Sarthi 2024)</td>
+          <td>Context quality ↑40%</td>
+        </tr>
+        <tr>
+          <td>Agent count</td>
+          <td class="bad">22 agents (inflated)</td>
+          <td class="good">16 real agents with strict SRP</td>
+          <td>Dev velocity ↑2×</td>
+        </tr>
+        <tr>
+          <td>Data lineage</td>
+          <td class="bad">File-level only</td>
+          <td class="good">Table-level (Phase 1) + Column-level (Phase 2)</td>
+          <td>True data flow tracking</td>
+        </tr>
+        <tr>
+          <td>Graph store</td>
+          <td class="bad">Neo4j (GPL, server ops required)</td>
+          <td class="good">NetworkX (BSD, pure Python, in-memory)</td>
+          <td>Setup 0 vs 2 hours</td>
+        </tr>
+        <tr>
+          <td>Risk model</td>
+          <td class="bad">Hardcoded thresholds</td>
+          <td class="good">sklearn LR calibrated with Platt scaling</td>
+          <td>Human review accuracy ↑</td>
+        </tr>
+        <tr>
+          <td>LLM usage</td>
+          <td class="bad">Always-on LLM assist</td>
+          <td class="good">LLM only for ~20% ambiguous cases</td>
+          <td>Latency ↓60%</td>
+        </tr>
+        <tr>
+          <td>Confidence</td>
+          <td class="bad">Log-probs (unreliable)</td>
+          <td class="good">Calibrated classifier (post-hoc Platt)</td>
+          <td>True ECE measurement</td>
+        </tr>
+        <tr>
+          <td>Gold standard</td>
+          <td class="bad">None or trivial files only</td>
+          <td class="good">50 files · 3 tiers · 721 blocks · data lineage</td>
+          <td>Meaningful evaluation</td>
+        </tr>
+        <tr>
+          <td>Evaluation</td>
+          <td class="bad">None defined</td>
+          <td class="good">721-block benchmark + RAPTOR hit-rate + ECE</td>
+          <td>Measurable accuracy</td>
+        </tr>
+        <tr>
+          <td>Fault tolerance</td>
+          <td class="muted">Mentioned</td>
+          <td class="good">Redis checkpoints + SHA-256 dedup restart</td>
+          <td>Production-grade</td>
+        </tr>
+        <tr>
+          <td>Circular deps</td>
+          <td class="bad">Not handled</td>
+          <td class="good">SCC condensation + scc_id on PartitionIR</td>
+          <td>Enterprise SAS safe</td>
+        </tr>
+        <tr>
+          <td>Multi-hop cap</td>
+          <td class="bad">Hardcoded</td>
+          <td class="good">dag_longest_path_length at index time</td>
+          <td>Adapts per project</td>
+        </tr>
+        <tr>
+          <td>KB construction</td>
+          <td class="muted">Manual examples</td>
+          <td class="good">Dual-LLM generation + cross-verify chain</td>
+          <td>330 pairs without SAS knowledge</td>
+        </tr>
+        <tr>
+          <td>Continuous learning</td>
+          <td class="bad">None</td>
+          <td class="good">Feedback loop → KB auto-growth + ECE monitor</td>
+          <td>Self-improving system</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<hr>
+
+<!-- ══ 10. COMPONENT DETAILS ══ -->
+<div class="section">
+  <div class="section-label">Section 10</div>
+  <h2><span class="num">10</span> Component-Level Architectures</h2>
+
+  <h3>10.1 — L2-A Entry Layer (with CrossFileDeps + DataLineageExtractor)</h3>
+  <div class="diagram-card">
+    <div class="diagram-header"><div class="diagram-dot" style="background:#4f9eff"></div><span class="title">l2a-entry-v2.mermaid</span></div>
+    <div class="diagram-body"><div class="mermaid">
+flowchart LR
+  subgraph FAA["#1 FileAnalysisAgent"]
+    direction TB
+    WALK["pathlib.rglob('*.sas')"]
+    ENC["chardet encoding detect"]
+    PRE["regex pre-validate\ndetect unclosed macros\nbalanced DATA/PROC/RUN/QUIT"]
+    META["FileMetadata\n{path, encoding, hash, lark_valid}"]
+    WALK --> ENC --> PRE --> META
+  end
+  subgraph CFR["#2 CrossFileDependencyResolver"]
+    direction TB
+    REGEX["regex scan\n%INCLUDE + LIBNAME + %INCLUDE &amp;var"]
+    RESOLVE{"path resolvable\nrelative to project root?"}
+    MATCH["target_file_id = known FileMetadata\nresolved = True"]
+    UNRESOLVED["target_file_id = NULL\nresolved = False\nlog warning"]
+    REGEX --> RESOLVE
+    RESOLVE -->|yes| MATCH
+    RESOLVE -->|no| UNRESOLVED
+    DB_DEPS[("cross_file_deps table")]
+    MATCH & UNRESOLVED --> DB_DEPS
+  end
+  subgraph DLE["#4 DataLineageExtractor"]
+    direction TB
+    REGEX_DL["7 regex patterns\nSET · MERGE · FROM · JOIN\nDATA · CREATE TABLE · INSERT INTO"]
+    SPLIT_DS["_split_datasets()\nfilter _NULL_ · _DATA_"]
+    DB_LIN[("data_lineage table\nTABLE_READ / TABLE_WRITE")]
+    REGEX_DL --> SPLIT_DS --> DB_LIN
+  end
+  subgraph RWA["#3 RegistryWriterAgent"]
+    HASH["SHA-256 dedup check\ncontent_hash UNIQUE"]
+    INSERT["SQLAlchemy INSERT\nstatus=PENDING"]
+    FR_DB[("file_registry table\nSQLite with WAL + FK")]
+    HASH --> INSERT --> FR_DB
+  end
+  META --> HASH
+  META --> REGEX
+  META --> REGEX_DL
+
+  style FAA fill:#1a2035,stroke:#4f9eff,color:#e2e8f0
+  style CFR fill:#0f2820,stroke:#00d9a3,color:#e2e8f0
+  style DLE fill:#241800,stroke:#f59e0b,color:#e2e8f0
+  style RWA fill:#1a2035,stroke:#4f9eff,color:#e2e8f0
+    </div></div>
+  </div>
+
+  <h3>10.2 — KB Build Pipeline (Dual-LLM, No SAS Knowledge Required)</h3>
+  <p>330 verified SAS→Python/PySpark example pairs generated via a Prompt A→B→C cross-verify chain. Each entry carries a <code>version</code> integer and <code>superseded_by</code> pointer for KB versioning; all mutations are audited in the <code>kb_changelog</code> DuckDB table.</p>
+  <div class="diagram-card">
+    <div class="diagram-header"><div class="diagram-dot" style="background:#00d9a3"></div><span class="title">kb-pipeline-v2.mermaid</span></div>
+    <div class="diagram-body"><div class="mermaid">
+flowchart TB
+  MATRIX["coverage_matrix.json\n15 categories × target pairs"]
+
+  subgraph GEN["generate_pairs.py — Per category"]
+    PA["Prompt A → Groq\nGenerate SAS block\n(realistic business context)"]
+    PB["Prompt B → Groq\nGenerate Python/PySpark equivalent\n(with failure-mode rules injected)"]
+    PC["Prompt C → Groq\nCross-verify equivalence\nJSON: {equivalent, issues, confidence}"]
+    ACCEPT{"confidence\n≥ 0.85?"}
+    RETRY["retry Prompt B\nappend issues to prompt\nmax 2 retries"]
+    HRQ["human_review_queue.json\nverified=false"]
+    ACCEPT_OUT["accepted pair\nverified=true\nverification_method=llm_crosscheck"]
+    PA --> PB --> PC --> ACCEPT
+    ACCEPT -->|yes| ACCEPT_OUT
+    ACCEPT -->|no| RETRY
+    RETRY -->|fail × 2| HRQ
+    RETRY --> PC
+  end
+
+  subgraph FM["Failure Mode Examples (6 types × 10)"]
+    FM_DATE["DATE_ARITHMETIC\nINTNX · MDY · 1960 epoch"]
+    FM_MERGE["MERGE_SEMANTICS\nnot pd.merge()"]
+    FM_RETAIN["RETAIN\ncumulative state tracking"]
+    FM_FL["FIRST./LAST.\ngroupby + diff patterns"]
+    FM_MISS["MISSING_VALUE_COMPARISON\npd.NA explicit handling"]
+    FM_PM["PROC_MEANS_OUTPUT\nexact column structure"]
+  end
+
+  subgraph EMBED["Embed + Index"]
+    EMBED_SAS["Nomic Embed v1.5\nembed sas_code only"]
+    UPSERT["LanceDB upsert\nsas_python_examples\n+ failure_mode + category + summary_tier\n+ version + superseded_by"]
+  end
+
+  subgraph SPOT["Spot-Check (you)"]
+    READ["every 50 pairs:\nread Python side\ncheck internal consistency"]
+    FLAG["flag incoherent ops\n(merge on missing col, etc.)"]
+  end
+
+  MATRIX --> PA
+  FM_DATE & FM_MERGE & FM_RETAIN & FM_FL & FM_MISS & FM_PM --> PB
+  ACCEPT_OUT --> EMBED_SAS --> UPSERT
+  UPSERT --> READ --> FLAG
+
+  style GEN fill:#0f2820,stroke:#00d9a3,color:#e2e8f0
+  style FM fill:#241800,stroke:#f59e0b,color:#e2e8f0
+  style EMBED fill:#1a1535,stroke:#7c5cfc,color:#e2e8f0
+  style SPOT fill:#1a1e2a,stroke:#252a38,color:#64748b
+    </div></div>
+  </div>
+
+  <div class="callout-green callout" style="margin-top:14px;">
+    <strong>KB Versioning:</strong> Every KB example carries a <code>version</code> integer (starting at 1). When a correction replaces an existing pair, the old pair is retained with <code>superseded_by</code> pointing to the new <code>example_id</code>, and the new pair gets <code>version = old_version + 1</code>. A dedicated <code>kb_changelog</code> DuckDB table logs every mutation (insert, update, supersede) with timestamp, author, and diff summary. Rollback: <code>python scripts/kb_rollback.py --example_id {uuid} --to_version {n}</code>.
+  </div>
+
+  <h3>10.3 — Layer 3 Translation + Validation + Layer 4 Merge + Report</h3>
+  <div class="diagram-card">
+    <div class="diagram-header"><div class="diagram-dot" style="background:#4f9eff"></div><span class="title">translation-validation-merge-report-v2.mermaid</span></div>
+    <div class="diagram-body"><div class="mermaid">
+flowchart TB
+  PARTS["PartitionIR[] sorted by line_start"]
+
+  subgraph L3["Layer 3 · TranslationAgent + ValidationAgent"]
+    SCC_CHK["group same scc_id partitions\ntranslate together as batch"]
+    FM_DET["detect failure_mode\nRETAIN · MERGE · DATE · FIRST_LAST · MISSING · PROC_MEANS"]
+    RAG_SEL{"RAG paradigm\nselection"}
+
+    subgraph STATIC["Static RAG"]
+      S_KB["KB query k=3\nleaf level only"]
+      S_LLM["Ollama 8B\nsingle-pass gen"]
+    end
+
+    subgraph GRAPH["GraphRAG"]
+      G_NX["nx.ancestors()\ncollect upstream translations\n+ SCC siblings"]
+      G_KB["KB query k=5\ncluster level"]
+      G_LLM["Groq 70B\ngraph context + KB pairs"]
+      G_VERIFY["cross-verify"]
+      G_RETRY["generation retry × 2"]
+    end
+
+    subgraph AGENTIC["Agentic RAG"]
+      A_DECIDE{"retrieve?"}
+      A_KB["KB query adaptive k\n5 → 8 → 11"]
+      A_LLM["Groq 70B\ntemp=0.1"]
+      A_VERIFY["cross-verify"]
+      A_REFORM["query reformulation\n+ RAPTOR escalation\nleaf → cluster → root"]
+      A_GRAPH["final: root + nx.ancestors()"]
+      A_STUB["PARTIAL stub\nhuman review"]
+    end
+
+    HR["HUMAN_REVIEW\nskip LLM → stub"]
+
+    VA_D["ValidationAgent\nexec() synthetic 100-row DataFrame\nsandboxed namespace · 5s timeout\ncheck: columns, dates, merge bounds"]
+    VA_ROUTE{"validation\nresult"}
+    CR_OUT[("conversion_results\nstatus · llm_confidence\nfailure_mode_flagged · model_used\ntarget_runtime · rag_paradigm\nvalidation_result")]
+
+    SCC_CHK --> FM_DET --> RAG_SEL
+
+    RAG_SEL -->|"LOW, no deps"| S_KB --> S_LLM --> VA_D
+
+    RAG_SEL -->|"has deps / SCC"| G_NX --> G_KB --> G_LLM --> G_VERIFY
+    G_VERIFY -->|fail| G_RETRY --> G_VERIFY
+    G_VERIFY -->|pass| VA_D
+
+    RAG_SEL -->|"MOD/HIGH, no deps"| A_DECIDE
+    A_DECIDE -->|yes| A_KB --> A_LLM --> A_VERIFY
+    A_DECIDE -->|uncertain| A_STUB
+    A_VERIFY -->|fail| A_REFORM --> A_KB
+    A_REFORM -->|"all retries exhausted"| A_GRAPH --> A_LLM
+    A_VERIFY -->|pass| VA_D
+
+    RAG_SEL -->|UNCERTAIN| HR
+
+    HR --> CR_OUT
+    A_STUB --> CR_OUT
+    VA_D --> VA_ROUTE
+    VA_ROUTE -->|pass| CR_OUT
+    VA_ROUTE -->|"fail, retries&lt;2"| FM_DET
+    VA_ROUTE -->|"fail, retries≥2"| CR_OUT
+  end
+
+  subgraph L4["Layer 4 · Merge + Report"]
+    IC["ImportConsolidator\ndedup + PEP8 order\ncanonical aliases pd / np / sm"]
+    DI["DependencyInjector\nSAS dataset → Python variable registry\ncross-file deps → comment stubs"]
+    SM_M["ScriptMerger\nblock order by line_start\nHUMAN_REVIEW → TODO stub\nast.parse() gate"]
+    RA_M["ReportAgent\nMarkdown + HTML report\nCodeBLEU · validation results\nfailure-mode breakdown · KB stats"]
+    OUT_FILE["output/{name}_converted.py\nor {name}_converted_spark.py\n+ merged_scripts DB row\n+ {name}_report.md/html\nsyntax_valid · partial_count"]
+    IC --> SM_M
+    DI --> SM_M
+    SM_M --> RA_M --> OUT_FILE
+  end
+
+  PARTS --> SCC_CHK
+  CR_OUT --> IC & DI
+
+  style L3 fill:#1a2035,stroke:#4f9eff,color:#e2e8f0
+  style L4 fill:#1a1535,stroke:#7c5cfc,color:#e2e8f0
+    </div></div>
+  </div>
+
+  <div class="callout callout-blue" style="margin-top:14px;">
+    <strong>ValidationAgent:</strong> Executes generated Python/PySpark code via <code>exec()</code> on a synthetic 100-row pandas (or PySpark) DataFrame in a sandboxed namespace (restricted builtins, 5s timeout, no I/O). Validates: no exceptions, expected columns present, date-range plausibility, merge row-count bounds. Routing: pass → L4; fail + retries &lt; 2 → re-translate; fail + retries ≥ 2 → PARTIAL; <code>structural_only</code> blocks auto-pass. For PySpark: local SparkSession (local[1], 512 MB, 10s timeout), falls back to pandas if Spark unavailable.
+  </div>
+
+  <div class="callout callout-blue" style="margin-top:8px;">
+    <strong>ReportAgent:</strong> Generates Markdown + HTML conversion report after ScriptMerger. Contents: header, summary table (SUCCESS/PARTIAL/FAILED/HUMAN_REVIEW counts), failure-mode breakdown, HUMAN_REVIEW block list, CodeBLEU scores, validation results, dependency-graph summary, KB retrieval stats. Output: <code>{name}_report.md</code> + <code>{name}_report.html</code>. Persisted to <code>conversion_reports</code> DuckDB table.
+  </div>
+
+  <h3>10.4 — Continuous Learning Feedback Loop</h3>
+  <div class="diagram-card">
+    <div class="diagram-header"><div class="diagram-dot" style="background:#00d9a3"></div><span class="title">continuous-learning-v2.mermaid</span></div>
+    <div class="diagram-body"><div class="mermaid">
+flowchart LR
+  subgraph SOURCES["Correction Sources"]
+    AUTO["Automated\ncross-verifier rejects after 2 retries"]
+    HUMAN_CLI["Human CLI\nscripts/submit_correction.py\nconversion_id + corrected_python"]
+  end
+
+  subgraph FIA["FeedbackIngestionAgent"]
+    LOAD_CR["load ConversionResult + PartitionIR"]
+    VERIFY_C["Prompt C cross-verify\ncorrected pair"]
+    CONF{"confidence\n≥ 0.85?"}
+    NEW_EX["create KB example\nsource=correction\nverified=True"]
+    EMBED_C["Nomic Embed + LanceDB upsert"]
+    LOG_FB["feedback_log DuckDB\naccepted · rejection_reason"]
+    CONF -->|yes| NEW_EX --> EMBED_C --> LOG_FB
+    CONF -->|no| LOG_FB
+    LOAD_CR --> VERIFY_C --> CONF
+  end
+
+  subgraph CQM["ConversionQualityMonitor"]
+    QUERY_LAST["last 100 conversion_results"]
+    METRICS["success_rate · partial_rate\navg_llm_confidence · failure_mode_dist"]
+    ALERTS{"thresholds\nbreached?"}
+    LOG_QM["quality_metrics DuckDB"]
+    ALERT_LOG["structlog WARNING\ncycle trigger if failure_mode > 40%"]
+    QUERY_LAST --> METRICS --> ALERTS
+    ALERTS --> LOG_QM
+    ALERTS -->|yes| ALERT_LOG
+  end
+
+  subgraph RT["RetrainingTrigger"]
+    CHK["check conditions:\nKB +500 OR ECE>0.12\nOR success_rate&lt;0.70\nOR kb_gap_flagged"]
+    RETRAIN["retrain sklearn LR\nPlatt recalibrate\nnew complexity_model.pkl"]
+    TARGETED["targeted KB gen\nfor under-represented category"]
+    CHK -->|gap flagged| TARGETED
+    CHK --> RETRAIN
+  end
+
+  AUTO & HUMAN_CLI --> LOAD_CR
+  CQM --> RT
+  EMBED_C -->|KB updated| CQM
+
+  style SOURCES fill:#1a1e2a,stroke:#252a38,color:#64748b
+  style FIA fill:#0f2820,stroke:#00d9a3,color:#e2e8f0
+  style CQM fill:#1a2035,stroke:#4f9eff,color:#e2e8f0
+  style RT fill:#200f0f,stroke:#ef4444,color:#e2e8f0
+    </div></div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ══ 11. UPDATED TIMELINE ══ -->
+<div class="section">
+  <div class="section-label">Section 11</div>
+  <h2><span class="num">11</span> Updated Timeline (14-Week Option A)</h2>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Weeks</th><th>Content</th><th>Priority</th><th>Key Deliverables</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>1–2</td><td>L2-A: Entry + CrossFileDeps + DataLineageExtractor + Gold Standard (50 files, 721 blocks, 3 tiers)</td><td class="good">P0</td><td>4 agents · 3 SQLite tables · 50 .sas + .gold.json · 20 tests passing · data_lineage populated</td><td><span class="status done">Done</span></td></tr>
+        <tr><td>2–3</td><td>L2-B: StreamAgent + StateAgent. 10K-line file in &lt;2s.</td><td class="good">P0</td><td>aiofiles streaming · FSM nesting tracker · backpressure queue</td><td><span class="status planned">Planned</span></td></tr>
+        <tr><td>3–4</td><td>L2-C: BoundaryDetector + LLM resolver. 721-block benchmark &gt;90%.</td><td class="good">P0</td><td>Lark LALR grammar · 80/20 rule/LLM split · 9 partition types · test_coverage_type</td><td><span class="status planned">Planned</span></td></tr>
+        <tr><td>4</td><td>L2-D: ComplexityAgent + StrategyAgent. ECE &lt;0.08. RAPTOR models.</td><td class="good">P0</td><td>radon CC features · sklearn LR · Platt calibration · RAPTORNode.summary_tier</td><td><span class="status planned">Planned</span></td></tr>
+        <tr><td>5–6</td><td>L2-C: Nomic Embed + GMM (k=√N, τ=0.72) + ClusterSummarizer + cache</td><td class="warn">P1</td><td>BIC convergence ε=0.01 · tiktoken guard · summary_tier · hash cache</td><td><span class="status planned">Planned</span></td></tr>
+        <tr><td>7</td><td>L2-E: Persistence + NetworkX graph + SCC condensation + dynamic hop cap</td><td class="warn">P1</td><td>SCC condensation · dag_longest_path_length · DuckDB schemas</td><td><span class="status planned">Planned</span></td></tr>
+        <tr><td>8</td><td>Orchestration + Redis + CROSS_FILE_RESOLVE state + LLM audit</td><td class="warn">P1</td><td>LangGraph StateGraph · DuckDB audit tables · Redis checkpoints</td><td><span class="status planned">Planned</span></td></tr>
+        <tr><td>9</td><td>Robustness + Large file (RAPTOR on HIGH only &gt;100MB) + KB gen start (250 pairs)</td><td class="muted">P2</td><td>PYTORCH_CUDA_ALLOC_CONF · RAPTOR 20% large files · 250 KB pairs</td><td><span class="status planned">Planned</span></td></tr>
+        <tr><td>10</td><td>Translation Layer (L3) + ValidationAgent + KB expand to 250 pairs</td><td class="muted">P2</td><td>TranslationAgent · ValidationAgent · failure_mode routing · cross-verify chain</td><td><span class="status planned">Planned</span></td></tr>
+        <tr><td>11</td><td>Merge Layer (L4) + ReportAgent + Continuous Learning + KB to 330 pairs</td><td class="muted">P2</td><td>ImportConsolidator · DependencyInjector · ScriptMerger · ReportAgent · FeedbackLoop</td><td><span class="status planned">Planned</span></td></tr>
+        <tr><td>12</td><td>Ablation study: RAPTOR vs flat · 721 blocks · 10 queries each</td><td class="muted">P2</td><td>test_raptor_hitrate &gt;0.82 · test_ece &lt;0.08 · test_boundary &gt;0.90</td><td><span class="status planned">Planned</span></td></tr>
+        <tr><td>13</td><td>Defense prep: slides + demo video (partition → translate → .py)</td><td class="muted">P3</td><td>20 slides · 3–5 min demo · KB query + SCC detection showcase</td><td><span class="status planned">Planned</span></td></tr>
+        <tr><td>14</td><td>Buffer: polish ablation plots, add 50 more KB pairs, README</td><td class="muted">P3</td><td>Final docs · all plots · README finalized</td><td><span class="status planned">Planned</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="progress-wrap" style="margin-top:20px;">
+    <div class="progress-label"><span>Overall Timeline</span><span>Week 2 of 14 (14%)</span></div>
+    <div class="progress-bar"><div class="progress-fill blue" style="width:14%"></div></div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ══ 12. TECH STACK ══ -->
+<div class="section">
+  <div class="section-label">Section 12</div>
+  <h2><span class="num">12</span> Technology Stack</h2>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Category</th><th>Technology</th><th>Version</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Runtime</td><td>Python</td><td>3.10+</td><td>Core language</td></tr>
+        <tr><td>Data Models</td><td>Pydantic</td><td>≥ 2.0</td><td>FileMetadata, PartitionIR validation</td></tr>
+        <tr><td>ORM</td><td>SQLAlchemy</td><td>≥ 2.0</td><td>SQLite with WAL + FK enforcement</td></tr>
+        <tr><td>Encoding</td><td>chardet</td><td>≥ 5.0</td><td>SAS file encoding detection</td></tr>
+        <tr><td>Parser</td><td>Lark</td><td>≥ 1.1</td><td>LALR SAS grammar (Week 3–4)</td></tr>
+        <tr><td>Logging</td><td>structlog</td><td>≥ 23.0</td><td>Structured JSON logging</td></tr>
+        <tr><td>Async I/O</td><td>aiofiles</td><td>≥ 23.0</td><td>Streaming file reads (Week 2–3)</td></tr>
+        <tr><td>Testing</td><td>pytest + pytest-cov</td><td>≥ 7.0</td><td>Unit tests, coverage</td></tr>
+        <tr><td>Embeddings</td><td>Nomic Embed v1.5</td><td>—</td><td>768-dim local embeddings for RAPTOR</td></tr>
+        <tr><td>LLM (local)</td><td>Ollama + Llama 3.1 8B</td><td>—</td><td>Ambiguous boundary resolution (20%)</td></tr>
+        <tr><td>LLM (cloud)</td><td>Groq + Llama 70B</td><td>—</td><td>Cluster summaries, KB generation</td></tr>
+        <tr><td>Graph</td><td>NetworkX</td><td>≥ 3.0</td><td>Dependency graph (BSD, in-memory, SCC + topo sort)</td></tr>
+        <tr><td>Vector DB</td><td>LanceDB</td><td>—</td><td>KB storage, RAPTOR node storage</td></tr>
+        <tr><td>Analytics DB</td><td>DuckDB</td><td>—</td><td>Audit logs, ablation data, quality metrics</td></tr>
+        <tr><td>Cache</td><td>Redis</td><td>—</td><td>Checkpoints every 50 blocks, TTL 24h</td></tr>
+        <tr><td>Orchestration</td><td>LangGraph</td><td>—</td><td>StateGraph pipeline orchestration</td></tr>
+        <tr><td>API Gateway</td><td>FastAPI</td><td>≥ 0.104</td><td>REST + WebSocket, JWT auth, CORS</td></tr>
+        <tr><td>Frontend</td><td>React (Lovable)</td><td>18+</td><td>Upload, code review, optimization accept/reject</td></tr>
+        <tr><td>UI Framework</td><td>shadcn/ui + Tailwind</td><td>—</td><td>Component library, responsive design</td></tr>
+        <tr><td>Code Editor</td><td>Monaco Editor</td><td>—</td><td>Side-by-side SAS/Python diff view</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<hr>
+
+<!-- ══ 13. FRONTEND + ADMIN DASHBOARD ══ -->
+<div class="section">
+  <div class="section-label">Section 13</div>
+  <h2><span class="num">13</span> Frontend + Admin Dashboard — Feature Map</h2>
+  <p>The React frontend (built with Lovable) serves two audiences: <strong>developers</strong> who review and accept/reject converted code, and <strong>admins</strong> who monitor pipeline health and manage users.</p>
+
+  <h3>Developer Frontend — Features</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Feature</th><th>Description</th><th>Key UX</th></tr></thead>
+      <tbody>
+        <tr><td>Upload &amp; Scan</td><td>Drag-and-drop SAS files or ZIP archives. Triggers L2-A scan pipeline.</td><td>Progress bar, encoding/error preview</td></tr>
+        <tr><td>Conversion Dashboard</td><td>Real-time progress per file: scanning → partitioning → translating → validating → merged</td><td>WebSocket live updates, Kanban cards</td></tr>
+        <tr><td>Code Review (Side-by-Side)</td><td>Monaco editor with SAS on left, Python/PySpark on right. Line-linked scrolling.</td><td>Syntax highlighting, diff markers</td></tr>
+        <tr><td>Optimization Suggestions</td><td>Per-block suggestions: "file <code>AA.py</code> line X–Y can be optimized to…" with accept/reject buttons.</td><td>Inline code diff, one-click accept</td></tr>
+        <tr><td>Suggestion History</td><td>Track all accepted/rejected suggestions per conversion session.</td><td>Filter by file, block, suggestion type</td></tr>
+        <tr><td>Dependency Graph Viewer</td><td>Interactive graph of cross-file dependencies (NetworkX data visualized with D3.js or vis.js).</td><td>Click-to-navigate, highlight SCC clusters</td></tr>
+        <tr><td>Data Lineage Viewer</td><td>Table-level lineage flow: which datasets are read/written by each block.</td><td>Sankey diagram, search by dataset name</td></tr>
+        <tr><td>Report Download</td><td>Download conversion report as HTML/PDF with CodeBLEU scores, validation results, and optimization decisions.</td><td>One-click export, embedded charts</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Admin Dashboard — Features</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Feature</th><th>Description</th><th>Data Source</th></tr></thead>
+      <tbody>
+        <tr><td>Pipeline Monitor</td><td>Live status of all 16 agents: idle/running/error. Queue depths, throughput (lines/s).</td><td>PartitionOrchestrator state + Redis</td></tr>
+        <tr><td>Agent Health</td><td>Per-agent success rate, avg latency, error count (last 24h). Alert thresholds.</td><td>DuckDB quality_metrics</td></tr>
+        <tr><td>Conversion Analytics</td><td>Success rate over time, failure mode distribution (pie chart), CodeBLEU histogram.</td><td>DuckDB conversion_reports</td></tr>
+        <tr><td>LLM Audit Logs</td><td>Every LLM call: model, prompt hash, token count, latency, cache hit rate.</td><td>DuckDB llm_audit</td></tr>
+        <tr><td>User Management</td><td>CRUD users, assign roles (admin/developer/viewer), API key management.</td><td>SQLite user_accounts</td></tr>
+        <tr><td>KB Coverage Map</td><td>15-category coverage matrix: which SAS constructs have KB examples, which have gaps.</td><td>LanceDB sas_python_examples</td></tr>
+        <tr><td>Feedback Review</td><td>Queue of developer accept/reject decisions for admin triage. Feeds retraining trigger.</td><td>DuckDB feedback_log</td></tr>
+        <tr><td>System Config</td><td>Tune agent parameters: queue maxsize, LLM routing threshold, checkpoint interval.</td><td>Config file / env vars</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Conversion Report — Contents</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Section</th><th>Content</th></tr></thead>
+      <tbody>
+        <tr><td>Summary</td><td>Total files, blocks, success rate, overall CodeBLEU score, elapsed time</td></tr>
+        <tr><td>Per-File Breakdown</td><td>File name, block count, partition types, complexity tier, risk level</td></tr>
+        <tr><td>Translation Table</td><td>SAS block → Python/PySpark code with validation status (pass/fail/skip)</td></tr>
+        <tr><td>Optimization Suggestions</td><td>Line-range targeted suggestions with developer decision (accepted/rejected/pending)</td></tr>
+        <tr><td>Data Lineage Map</td><td>Dataset read/write flow across all files</td></tr>
+        <tr><td>Dependency Graph</td><td>Cross-file dependency tree with SCC clusters highlighted</td></tr>
+        <tr><td>Quality Metrics</td><td>CodeBLEU, validation pass rate, LLM token usage, cache hit rate per file</td></tr>
+        <tr><td>Error Log</td><td>Failed blocks with error details, stack traces, suggested fixes</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<hr>
+
+<!-- ══ 14. OPTIMIZATION SUGGESTION FLOW ══ -->
+<div class="section">
+  <div class="section-label">Section 14</div>
+  <h2><span class="num">14</span> Optimization Suggestion Flow — Accept / Reject</h2>
+  <p>After translation, the system generates per-block optimization suggestions with precise line references. The developer reviews each suggestion in the frontend code editor and either accepts or rejects it. Accepted suggestions are applied to the output and feed back into the continuous learning loop.</p>
+
+  <div class="diagram-card">
+    <div class="diagram-header">
+      <div class="diagram-dot" style="background:#ef4444"></div>
+      <div class="diagram-dot" style="background:#f59e0b"></div>
+      <div class="diagram-dot" style="background:#22c55e"></div>
+      <span class="title">optimization-suggestion-flow.mermaid</span>
+    </div>
+    <div class="diagram-body">
+      <div class="mermaid">
+flowchart TB
+  subgraph TRANSLATE["Translation Output"]
+    TB["TranslationAgent\nSAS block -> Python code"]
+    CODE["Generated Python\nAA.py with line numbers"]
+    TB --> CODE
+  end
+
+  subgraph ANALYZE["Optimization Analysis"]
+    OPT["OptimizationSuggester\nStatic analysis + pattern matching"]
+    SUGG[("optimization_suggestions\nfile, start_line, end_line\noriginal_code, suggested_code\nreason, confidence")]
+    OPT --> SUGG
+  end
+
+  subgraph FRONTEND["React Frontend"]
+    EDITOR["Monaco Code Editor\nSide-by-side diff view"]
+    CARD["Suggestion Card\nAA.py L42-L58\nReason: vectorize loop\nConfidence: 0.92"]
+    BTN_A["Accept"]
+    BTN_R["Reject"]
+    EDITOR --> CARD
+    CARD --> BTN_A
+    CARD --> BTN_R
+  end
+
+  subgraph APPLY["Decision Processing"]
+    PATCH["CodePatcher\nApply accepted diffs\nto output .py file"]
+    LOG[("decision_log\nsuggestion_id, decision\ntimestamp, user_id")]
+    FB["FeedbackIngestionAgent\nRejected = negative signal\nAccepted = positive signal"]
+  end
+
+  CODE --> OPT
+  SUGG -->|WebSocket| EDITOR
+  BTN_A -->|accepted| PATCH
+  BTN_A -->|log| LOG
+  BTN_R -->|log| LOG
+  BTN_R -->|negative| FB
+  BTN_A -->|positive| FB
+  PATCH --> CODE
+  FB -->|retrain signal| RT["RetrainingTrigger"]
+
+  style TRANSLATE fill:#1a1e2a,stroke:#4f9eff,color:#e2e8f0
+  style ANALYZE fill:#1a1e2a,stroke:#f59e0b,color:#e2e8f0
+  style FRONTEND fill:#1a1e2a,stroke:#f97316,color:#e2e8f0
+  style APPLY fill:#1a1e2a,stroke:#00d9a3,color:#e2e8f0
+      </div>
+    </div>
+  </div>
+
+  <h3>Suggestion Types</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Type</th><th>Example</th><th>Detection Method</th></tr></thead>
+      <tbody>
+        <tr><td>Loop Vectorization</td><td><code>for row in df.iterrows()</code> → <code>df.apply()</code> or vectorized ops</td><td>AST pattern: for-loop over DataFrame</td></tr>
+        <tr><td>Pandas Idiom</td><td>Manual merge logic → <code>pd.merge()</code></td><td>KB pattern matching</td></tr>
+        <tr><td>SQL Pushdown</td><td>Post-query Python filter → <code>WHERE</code> clause in SQL</td><td>Data lineage + filter detection</td></tr>
+        <tr><td>Type Safety</td><td>Missing type hints on function signatures</td><td>AST analysis, mypy rules</td></tr>
+        <tr><td>Error Handling</td><td>Bare <code>except:</code> → specific exception types</td><td>AST pattern</td></tr>
+        <tr><td>PySpark Optimization</td><td><code>collect()</code> in loop → <code>broadcast()</code> join</td><td>Spark plan analysis</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div style="padding:24px 0 8px; text-align:center;">
+  <p style="color:var(--muted); font-size:13px; font-family:'JetBrains Mono',monospace;">
+    Architecture v2 · Spec v4.2 · v2.1 · Sarthi et al. ICLR 2024 · Updated Feb 2026
+  </p>
+</div>
+
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#1a1e2a',
+      primaryTextColor: '#e2e8f0',
+      primaryBorderColor: '#4f9eff',
+      lineColor: '#4f9eff',
+      secondaryColor: '#1a1535',
+      tertiaryColor: '#241800',
+      background: '#0c0e14',
+      mainBkg: '#1a1e2a',
+      nodeBorder: '#4f9eff',
+      clusterBkg: '#13161f',
+      titleColor: '#f8fafc',
+      edgeLabelBackground: '#13161f',
+      fontFamily: 'JetBrains Mono, monospace',
+    },
+    flowchart: { curve: 'basis', padding: 16 }
+  });
+</script>
+</body>
+</html>
