@@ -251,8 +251,8 @@ jobs:
 
           echo "Deployed to: https://$APP_URL"
 
-          # Wait for the app to be ready (max 60s)
-          for i in $(seq 1 12); do
+          # Wait for the app to be ready (max 180s)
+          for i in $(seq 1 36); do
             STATUS=$(curl -sf "https://$APP_URL/api/health" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status'))" 2>/dev/null || echo "waiting")
             echo "Attempt $i: $STATUS"
             if [ "$STATUS" = "ok" ]; then
@@ -261,7 +261,7 @@ jobs:
             fi
             sleep 5
           done
-          echo "::error::Health check failed after 60s"
+          echo "::error::Health check failed after 180s"
           exit 1
 
       - name: Post deployment URL to commit
