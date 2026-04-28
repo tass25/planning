@@ -230,7 +230,8 @@ jobs:
 
       - name: Deploy backend to Container Apps
         run: |
-          IMAGE="ghcr.io/${{ github.repository_owner }}/codara:sha-${{ github.sha }}"
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          IMAGE="ghcr.io/${{ github.repository_owner }}/codara:sha-${SHORT_SHA}"
 
           # Only update the image — secrets and env vars are wired to Key Vault
           # once by azure_setup.sh and never need to be re-set on each deploy.
