@@ -1,0 +1,7 @@
+{
+  "name": "github-actions-deploy",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:tass25/planning:environment:production",
+  "audiences": ["api://AzureADTokenExchange"],
+  "description": "GitHub Actions OIDC for Codara deploy"
+}
