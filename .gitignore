@@ -13,6 +13,9 @@ env/
 .env
 .env.local
 
+# Claude Code (local skills, memory, settings)
+.claude/
+
 # IDE
 .vscode/
 .idea/

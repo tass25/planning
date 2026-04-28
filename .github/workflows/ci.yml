@@ -1,0 +1,356 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "planning/**"
+      - "**.md"
+      - "**.html"
+      - "**.tex"
+      - "**.txt"
+      - ".gitignore"
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "planning/**"
+      - "**.md"
+      - "**.html"
+      - "**.tex"
+      - "**.txt"
+      - ".gitignore"
+
+permissions:
+  contents: read
+  packages: write          # push to ghcr.io
+  pull-requests: write     # post PR comments
+  id-token: write          # Azure OIDC
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# ─────────────────────────────────────────────────────────────
+# JOB 1: Lint & Format
+# ─────────────────────────────────────────────────────────────
+jobs:
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install lint tools
+        run: pip install ruff black
+
+      - name: ruff check (lint + import order)
+        run: ruff check backend/ --output-format=github
+
+      - name: black check (formatting)
+        run: black --check backend/ --line-length 100
+
+# ─────────────────────────────────────────────────────────────
+# JOB 2: Tests + Coverage
+# ─────────────────────────────────────────────────────────────
+  test:
+    name: Tests & Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: lint
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements/base.txt -r backend/requirements/dev.txt
+
+      - name: Run tests with coverage
+        env:
+          REDIS_URL: redis://localhost:6379/0
+          PYTHONPATH: backend
+          # Real keys not needed for unit tests — stubs handle missing keys
+          AZURE_OPENAI_API_KEY: "test-key"
+          AZURE_OPENAI_ENDPOINT: "https://test.openai.azure.com/"
+        run: |
+          cd backend
+          python -m pytest tests/ \
+            --cov=partition \
+            --cov=api \
+            --cov-report=xml:../coverage.xml \
+            --cov-report=term-missing \
+            --cov-fail-under=10 \
+            --junitxml=../test-results.xml \
+            -v --tb=short -q
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          file: coverage.xml
+          flags: unittests
+          fail_ci_if_error: false
+
+      - name: Post coverage comment on PR
+        uses: py-cov-action/python-coverage-comment-action@v3
+        if: github.event_name == 'pull_request'
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COVERAGE_DATA_FILE: coverage.xml
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            test-results.xml
+            coverage.xml
+
+# ─────────────────────────────────────────────────────────────
+# JOB 3: Security scan (dependency vulnerabilities)
+# ─────────────────────────────────────────────────────────────
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install safety
+        run: pip install safety
+
+      - name: Check dependencies for known CVEs
+        run: |
+          safety check \
+            --file backend/requirements/base.txt \
+            --output text \
+            || echo "::warning::Safety check found issues — review above"
+
+# ─────────────────────────────────────────────────────────────
+# JOB 4: Build & Push Docker image
+# ─────────────────────────────────────────────────────────────
+  docker:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [test, security]
+    outputs:
+      image: ${{ steps.meta.outputs.tags }}
+      digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/codara
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr,prefix=pr-
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./infra/Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+# ─────────────────────────────────────────────────────────────
+# JOB 5: Deploy to Azure Container Apps (main branch only)
+# ─────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Azure Container Apps
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: docker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC — no stored credentials)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy backend to Container Apps
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          IMAGE="ghcr.io/${{ github.repository_owner }}/codara:sha-${SHORT_SHA}"
+
+          # Only update the image — secrets and env vars are wired to Key Vault
+          # once by azure_setup.sh and never need to be re-set on each deploy.
+          # Using `update` instead of `up` avoids resetting the secret references.
+          az containerapp update \
+            --name ca-codara-backend \
+            --resource-group PFE_rg \
+            --image "$IMAGE" \
+            --output table
+
+      - name: Smoke test — health endpoint
+        run: |
+          APP_URL=$(az containerapp show \
+            --name ca-codara-backend \
+            --resource-group PFE_rg \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+
+          echo "Deployed to: https://$APP_URL"
+
+          # Wait for the app to be ready (max 60s)
+          for i in $(seq 1 12); do
+            STATUS=$(curl -sf "https://$APP_URL/api/health" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status'))" 2>/dev/null || echo "waiting")
+            echo "Attempt $i: $STATUS"
+            if [ "$STATUS" = "ok" ]; then
+              echo "Health check passed"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Health check failed after 60s"
+          exit 1
+
+      - name: Post deployment URL to commit
+        run: |
+          APP_URL=$(az containerapp show \
+            --name ca-codara-backend \
+            --resource-group PFE_rg \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/statuses/${{ github.sha }} \
+            -f state=success \
+            -f target_url="https://$APP_URL/api/health" \
+            -f description="Deployed to Azure Container Apps" \
+            -f context="deployment/azure"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# ─────────────────────────────────────────────────────────────
+# JOB 6: Benchmark (main branch only, after deploy)
+# ─────────────────────────────────────────────────────────────
+  benchmark:
+    name: Gold Standard Benchmark
+    runs-on: ubuntu-latest
+    needs: deploy
+    timeout-minutes: 30
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements/base.txt
+
+      - name: Run boundary accuracy benchmark
+        id: bench
+        env:
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_API_VERSION: ${{ secrets.AZURE_OPENAI_API_VERSION }}
+          AZURE_OPENAI_DEPLOYMENT_MINI: ${{ secrets.AZURE_OPENAI_DEPLOYMENT_MINI }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          PYTHONPATH: backend
+        run: |
+          cd backend
+          python -m pytest benchmark/ \
+            --tb=short -q \
+            --json-report --json-report-file=../benchmark-results.json \
+            || true
+
+          # Extract key metric for commit comment
+          python3 -c "
+          import json, sys
+          try:
+              with open('../benchmark-results.json') as f:
+                  data = json.load(f)
+              passed = data['summary'].get('passed', 0)
+              failed = data['summary'].get('failed', 0)
+              total = passed + failed
+              rate = passed / total * 100 if total else 0
+              print(f'BENCH_SUMMARY=Benchmark: {passed}/{total} passed ({rate:.1f}%)')
+          except Exception as e:
+              print(f'BENCH_SUMMARY=Benchmark: unable to parse results ({e})')
+          " >> $GITHUB_ENV
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-results
+          path: benchmark-results.json
+
+      - name: Post benchmark summary to commit
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/statuses/${{ github.sha }} \
+            -f state=success \
+            -f description="${{ env.BENCH_SUMMARY }}" \
+            -f context="benchmark/gold-standard"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
