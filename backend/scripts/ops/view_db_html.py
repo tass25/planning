@@ -7,6 +7,7 @@ Outputs: opens data/db_report.html in the default browser.
 Usage (from backend/):
     C:/Users/labou/Desktop/Stage/venv/Scripts/python scripts/ops/view_db_html.py
 """
+
 from __future__ import annotations
 
 import html
@@ -366,7 +367,7 @@ def _build_html_table(columns: list[str], rows: list[list], table_id: str) -> st
     for row in rows:
         lines.append("<tr>")
         for val in row:
-            lines.append(f"<td title=\"{_esc(val)}\">{_esc(val)}</td>")
+            lines.append(f'<td title="{_esc(val)}">{_esc(val)}</td>')
         lines.append("</tr>")
     lines.append("</tbody></table></div>")
     return "\n".join(lines)
@@ -383,6 +384,7 @@ def _next_id() -> str:
 
 # ── DuckDB ──────────────────────────────────────────────────────────────────
 
+
 def collect_duckdb() -> tuple[str, int, int]:
     cards = []
     total_rows = 0
@@ -392,7 +394,11 @@ def collect_duckdb() -> tuple[str, int, int]:
         import duckdb
 
         if not os.path.exists(DUCKDB_PATH):
-            return '<div class="error-msg">analytics.duckdb not found — pipeline hasn\'t run yet.</div>', 0, 0
+            return (
+                '<div class="error-msg">analytics.duckdb not found — pipeline hasn\'t run yet.</div>',
+                0,
+                0,
+            )
 
         con = duckdb.connect(DUCKDB_PATH, read_only=True)
         tables_df = con.execute("SHOW TABLES").fetchdf()
@@ -401,11 +407,11 @@ def collect_duckdb() -> tuple[str, int, int]:
 
         for tname in table_names:
             try:
-                count = con.execute(f"SELECT COUNT(*) FROM \"{tname}\"").fetchone()[0]
+                count = con.execute(f'SELECT COUNT(*) FROM "{tname}"').fetchone()[0]
                 total_rows += count
-                cols_df = con.execute(f"DESCRIBE \"{tname}\"").fetchdf()
+                cols_df = con.execute(f'DESCRIBE "{tname}"').fetchdf()
                 col_names = cols_df["column_name"].tolist()
-                all_rows = con.execute(f"SELECT * FROM \"{tname}\"").fetchall()
+                all_rows = con.execute(f'SELECT * FROM "{tname}"').fetchall()
 
                 tid = _next_id()
                 table_html = _build_html_table(col_names, all_rows, tid)
@@ -448,11 +454,17 @@ def collect_lancedb() -> tuple[str, int, int]:
         import lancedb
 
         if not os.path.exists(LANCEDB_PATH):
-            return '<div class="error-msg">data/lancedb not found. Run seed_kb.py to populate.</div>', 0, 0
+            return (
+                '<div class="error-msg">data/lancedb not found. Run seed_kb.py to populate.</div>',
+                0,
+                0,
+            )
 
         db = lancedb.connect(LANCEDB_PATH)
         tables_result = db.list_tables()
-        table_names = tables_result.tables if hasattr(tables_result, "tables") else list(tables_result)
+        table_names = (
+            tables_result.tables if hasattr(tables_result, "tables") else list(tables_result)
+        )
         total_tables = len(table_names)
 
         if not table_names:
@@ -497,6 +509,7 @@ def collect_lancedb() -> tuple[str, int, int]:
 
 
 # ── Redis ────────────────────────────────────────────────────────────────────
+
 
 def collect_redis() -> tuple[str, int]:
     cards = []
@@ -561,12 +574,19 @@ def collect_redis() -> tuple[str, int]:
   <div id="{tid}" class="redis-key-body"><pre>{content}</pre></div>
 </div>""")
             except Exception as e:
-                cards.append(f'<div class="error-msg">Error reading key {_esc(key)}: {_esc(e)}</div>')
+                cards.append(
+                    f'<div class="error-msg">Error reading key {_esc(key)}: {_esc(e)}</div>'
+                )
 
     except ImportError:
         return '<div class="error-msg">redis package not installed</div>', 0
     except redis_lib.ConnectionError:
-        return '<div class="error-msg">Cannot connect to Redis at ' + html.escape(os.environ.get("REDIS_URL", "redis://localhost:6379/0")) + '. Is it running?</div>', 0
+        return (
+            '<div class="error-msg">Cannot connect to Redis at '
+            + html.escape(os.environ.get("REDIS_URL", "redis://localhost:6379/0"))
+            + ". Is it running?</div>",
+            0,
+        )
     except Exception as e:
         return f'<div class="error-msg">Redis error: {_esc(e)}</div>', 0
 
@@ -593,6 +613,7 @@ def _size_label(key_type: str, r, key: str) -> str:
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
+
 
 def main():
     print("Collecting DuckDB data...")
