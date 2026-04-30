@@ -26,6 +26,7 @@ permissions:
   contents: read
   packages: write          # push to ghcr.io
   pull-requests: write     # post PR comments
+  statuses: write          # post deploy / benchmark status to commits
   id-token: write          # Azure OIDC
 
 concurrency:
