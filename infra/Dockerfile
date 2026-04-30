@@ -29,7 +29,7 @@ COPY backend/ ./backend/
 COPY pyproject.toml ./
 
 # Create output / data directories
-RUN mkdir -p output logs lancedb_data backend/uploads
+RUN mkdir -p output logs lancedb_data backend/uploads backend/data
 
 # Non-root user for security (system user, no home dir, no shell)
 RUN adduser --system --no-create-home --group appuser && chown -R appuser:appuser /app
