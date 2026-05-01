@@ -19,7 +19,7 @@ radon~=6.0.0                  # cyclomatic complexity metrics
 coverage~=7.6.0
 
 # Security
-safety~=3.2.0
+safety~=3.7.0
 
 # Fine-tuning (training only — never in runtime Docker)
 # Run these in Google Colab / Lightning AI, not locally
