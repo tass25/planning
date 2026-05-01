@@ -37,7 +37,7 @@ azure-monitor-opentelemetry~=1.6.0
 opentelemetry-api~=1.36.0
 # Azure Storage (Blob + Queue)
 azure-storage-blob~=12.25.0
-azure-storage-queue~=12.12.0
+azure-storage-queue~=12.15.0
 # Orchestration / Infrastructure
 langgraph~=0.2.0
 redis~=5.2.0
