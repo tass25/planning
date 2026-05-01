@@ -16,7 +16,7 @@ tiktoken~=0.9.0
 # Azure OpenAI (primary LLM provider — Week 9 migration)
 openai~=1.82.0
 # Groq (fallback LLM provider — pre-Week 9 primary)
-groq~=0.25.0
+groq~=1.2.0
 # RAPTOR semantic clustering (week 5)
 einops~=0.8.0                       # required by nomic-ai/nomic-bert-2048
 sentence-transformers~=4.1.0
