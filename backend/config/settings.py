@@ -152,10 +152,6 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.0-flash"
 
-    # ── LLM — Cerebras (Best-of-N) ───────────────────────────────────────────
-    cerebras_api_key: str = ""
-    cerebras_model: str = "llama3.1-70b"
-
     # ── JWT ───────────────────────────────────────────────────────────────────
     codara_jwt_secret: str = "codara-dev-secret-change-in-production"
 

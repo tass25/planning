@@ -6,8 +6,7 @@ Provider hierarchy (translation chain):
   Tier 2 — Ollama nemotron-3-super:cloud      (fallback 1 — override via OLLAMA_MODEL env var)
   Tier 3 — Groq Llama-3.3-70B (fallback 2 — cross-verify & last resort)
   Tier 4 — Gemini 2.0 Flash (oracle & judge)
-  Tier 5 — Cerebras Llama-3.1-70B (Best-of-N candidates)
-  Tier 6 — PARTIAL status
+  Tier 5 — PARTIAL status
 
 # Pattern: Strategy
 LLMStrategy ABC + OllamaStrategy / AzureStrategy / GroqStrategy concrete
@@ -314,29 +313,6 @@ def get_gemini_client(*, async_client: bool = True):
 def get_gemini_model() -> str:
     return os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
-
-# ── Cerebras (free: Llama-3.1-70B at ~2000 tok/s) ────────────────────
-def get_cerebras_client(*, async_client: bool = True):
-    """Return an OpenAI-compatible client pointing at Cerebras.
-
-    Best for high-throughput Best-of-N candidate generation (free tier).
-    Returns None if key is missing.
-    """
-    from openai import AsyncOpenAI, OpenAI
-
-    api_key = os.getenv("CEREBRAS_API_KEY")
-    if not api_key:
-        logger.warning("cerebras_client_unavailable", reason="CEREBRAS_API_KEY not set")
-        return None
-    cls = AsyncOpenAI if async_client else OpenAI
-    return cls(
-        api_key=api_key,
-        base_url="https://api.cerebras.ai/v1",
-    )
-
-
-def get_cerebras_model() -> str:
-    return os.getenv("CEREBRAS_MODEL", "llama3.1-70b")
 
 
 # ── Ollama (local + cloud models via OpenAI-compatible API) ───────────

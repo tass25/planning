@@ -6,20 +6,18 @@ on:
     paths-ignore:
       - "docs/**"
       - "planning/**"
-      - "**.md"
+      - "*.md"
       - "**.html"
       - "**.tex"
-      - "**.txt"
       - ".gitignore"
   pull_request:
     branches: [main]
     paths-ignore:
       - "docs/**"
       - "planning/**"
-      - "**.md"
+      - "*.md"
       - "**.html"
       - "**.tex"
-      - "**.txt"
       - ".gitignore"
 
 permissions:
