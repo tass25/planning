@@ -314,7 +314,6 @@ def get_gemini_model() -> str:
     return os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
 
-
 # ── Ollama (local + cloud models via OpenAI-compatible API) ───────────
 def get_ollama_client(*, async_client: bool = True):
     """Return an OpenAI-compatible client pointing at the Ollama endpoint.
