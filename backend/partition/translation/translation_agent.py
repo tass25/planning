@@ -19,7 +19,9 @@ from __future__ import annotations
 
 import asyncio
 import re
+import threading
 import uuid
+import weakref
 from typing import Optional
 
 import instructor
@@ -54,6 +56,39 @@ from partition.utils.local_model_client import get_local_model_client
 from partition.utils.retry import azure_breaker, azure_limiter
 
 logger = structlog.get_logger()
+
+# ── Live-agent registry for cache invalidation on correction ingestion ───────
+_live_agents: list[weakref.ref] = []
+_live_agents_lock = threading.Lock()
+
+
+def _register_agent(agent: "TranslationAgent") -> None:
+    with _live_agents_lock:
+        _live_agents.append(weakref.ref(agent))
+
+
+def invalidate_translation_cache(sas_code: str) -> int:
+    """Evict any cached translation whose fingerprint matches *sas_code*.
+
+    Called by the feedback-ingestion path after a correction is accepted
+    so that future pipeline runs don't serve the stale cached translation.
+
+    Returns the number of agents whose cache was modified.
+    """
+    fp = _semantic_fingerprint(sas_code)
+    evicted = 0
+    with _live_agents_lock:
+        alive: list[weakref.ref] = []
+        for ref in _live_agents:
+            agent = ref()
+            if agent is None:
+                continue
+            alive.append(ref)
+            if fp in agent._translation_cache:
+                del agent._translation_cache[fp]
+                evicted += 1
+        _live_agents[:] = alive
+    return evicted
 
 
 class TranslationOutput(BaseModel):
@@ -111,6 +146,7 @@ class TranslationAgent(BaseAgent):
         # Translation memory cache: semantic fingerprint → ConversionResult
         # Avoids redundant LLM calls for structurally identical SAS patterns.
         self._translation_cache: dict[str, str] = {}
+        _register_agent(self)
 
         # Azure OpenAI (PRIMARY) — GPT-4o / GPT-4o-mini
         try:

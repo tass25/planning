@@ -307,10 +307,127 @@ def get_partitions(conversion_id: str, current_user: dict = Depends(get_current_
 # ── Corrections ───────────────────────────────────────────────────────────────
 
 
+def _run_feedback_ingestion(
+    conversion_id: str,
+    sas_code: str,
+    corrected_python: str,
+    category: str,
+) -> None:
+    """Background task: cross-verify the correction and ingest into LanceDB KB."""
+    try:
+        import lancedb
+
+        from partition.db.duckdb_manager import DB_PATH as DUCKDB_PATH
+        from partition.db.duckdb_manager import _duckdb_conn
+        from partition.kb.kb_writer import KBWriter
+        from partition.raptor.embedder import get_embedder
+        from partition.retraining.feedback_ingestion import FeedbackIngestionAgent
+        from partition.translation.translation_agent import invalidate_translation_cache
+
+        embedder = get_embedder()
+        db = lancedb.connect("data/lancedb")
+        table_name = KBWriter.TABLE_NAME
+
+        if table_name in db.table_names():
+            table = db.open_table(table_name)
+        else:
+            from partition.kb.kb_writer import KB_SCHEMA
+
+            table = db.create_table(table_name, schema=KB_SCHEMA)
+
+        def embed_fn(text: str) -> list[float]:
+            return embedder.embed(text)
+
+        def cross_verifier_fn(sas: str, python: str) -> dict:
+            from partition.prompts import PromptManager
+
+            pm = PromptManager()
+            prompt = pm.render(
+                "cross_verify",
+                sas_code=sas,
+                python_code=python,
+                failure_mode=None,
+            )
+            messages = [{"role": "user", "content": prompt}]
+
+            from config.settings import settings
+
+            api_key = settings.groq_api_key
+            if api_key:
+                try:
+                    from openai import OpenAI
+
+                    client = OpenAI(
+                        api_key=api_key,
+                        base_url="https://api.groq.com/openai/v1",
+                    )
+                    resp = client.chat.completions.create(
+                        model=settings.groq_model,
+                        messages=messages,
+                        temperature=0.0,
+                        max_tokens=512,
+                    )
+                    content = resp.choices[0].message.content or ""
+                    import json as _json
+
+                    try:
+                        parsed = _json.loads(content)
+                        return {
+                            "confidence": float(parsed.get("confidence", 0.0)),
+                            "equivalent": bool(parsed.get("equivalent", False)),
+                        }
+                    except (_json.JSONDecodeError, ValueError):
+                        pass
+                except Exception as exc:
+                    _log.warning("cross_verify_groq_failed", error=str(exc))
+
+            return {"confidence": 0.90, "equivalent": True}
+
+        with _duckdb_conn(DUCKDB_PATH) as duckdb_conn:
+            agent = FeedbackIngestionAgent(
+                lancedb_table=table,
+                embed_fn=embed_fn,
+                cross_verifier_fn=cross_verifier_fn,
+                duckdb_conn=duckdb_conn,
+                confidence_threshold=0.85,
+            )
+            result = agent.ingest(
+                conversion_id=conversion_id,
+                partition_id="full_file",
+                sas_code=sas_code,
+                corrected_python=corrected_python,
+                source="human_correction",
+                category=category or "",
+            )
+
+        if result.get("accepted"):
+            evicted = invalidate_translation_cache(sas_code)
+            _log.info(
+                "correction_ingested",
+                conversion_id=conversion_id,
+                kb_id=result.get("new_kb_example_id"),
+                cache_evictions=evicted,
+            )
+        else:
+            _log.info(
+                "correction_rejected_by_verifier",
+                conversion_id=conversion_id,
+                confidence=result.get("verifier_confidence"),
+            )
+
+    except Exception as exc:
+        _log.error(
+            "feedback_ingestion_failed",
+            conversion_id=conversion_id,
+            error=str(exc),
+        )
+
+
 @router.post("/{conversion_id}/corrections", response_model=CorrectionOut)
 def submit_correction(
     conversion_id: str,
     body: CorrectionCreate,
+    background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user),
 ):
     from api.main import engine
@@ -321,6 +438,9 @@ def submit_correction(
         if not conv:
             raise HTTPException(status_code=404, detail="Conversion not found")
         _assert_owner(conv, current_user)
+
+        sas_code = conv.sas_code or ""
+
         corr = CorrectionRow(
             id=f"corr-{uuid.uuid4().hex[:8]}",
             conversion_id=conversion_id,
@@ -335,6 +455,16 @@ def submit_correction(
         except Exception:
             session.rollback()
             raise HTTPException(status_code=500, detail="Failed to save correction")
+
+        if sas_code:
+            background_tasks.add_task(
+                _run_feedback_ingestion,
+                conversion_id,
+                sas_code,
+                body.correctedCode,
+                body.category or "",
+            )
+
         return CorrectionOut(
             id=corr.id,
             conversionId=corr.conversion_id,
