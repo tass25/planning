@@ -1,10 +1,8 @@
 # CDAIS + MIS: Formally Grounded Testing and Invariant Discovery for LLM-Based Legacy Code Migration
 
-**Authors**: Tesnime Ellabout¹, \[Supervisor Name\]¹  
-**Affiliation**: ¹ \[University / Institution\]  
-**Contact**: ellaboutesnime@gmail.com  
-**Submitted to**: \[Target venue: LLM4Code @ ICSE 2027 / ASE 2026 / ICSME 2026\]  
-**arXiv**: \[to be assigned\]  
+**Authors**: Tesnime Ellabout¹  
+
+**Contact**: laboutesse@gmail.com  
 **Date**: April 2026
 
 ---
