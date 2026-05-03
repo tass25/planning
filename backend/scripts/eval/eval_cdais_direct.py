@@ -233,7 +233,6 @@ def main():
             if test_divergence(name, data):
                 random_detections += 1
                 break  # First detection is enough
-        random_rate = random_detections > 0
         # Actually count WHAT FRACTION of random trials detect it
         detect_count = 0
         for _ in range(N_RANDOM_TRIALS):
@@ -296,7 +295,7 @@ def main():
     print(f"  Avg heuristic trial success: {avg_heuristic_frac:.1%}")
     print(f"  Avg CDAIS synthesis time:  {avg_synth_ms:.0f}ms")
     print(f"  Avg CDAIS witness size:    {avg_witness_rows:.0f} rows")
-    print(f"\n  KEY INSIGHT: CDAIS detects in 1 trial (deterministic guarantee)")
+    print("\n  KEY INSIGHT: CDAIS detects in 1 trial (deterministic guarantee)")
     print(f"  Random needs ~{int(1/avg_random_frac) if avg_random_frac > 0 else 'inf'} trials to find the bug on average")
 
     with open(output_path, "w", encoding="utf-8") as f:

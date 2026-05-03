@@ -44,9 +44,9 @@ from partition.testing.cdais.constraint_catalog import (
     applicable_classes,
 )
 from partition.testing.cdais.synthesizer import CDASISynthesizer
-from partition.testing.cdais.coverage_oracle import CoverageOracle
 from partition.translation.dummy_data_generator import DummyDataGenerator
 from partition.translation.semantic_validator import (
+    _compare_frames,
     _oracle_first_last,
     _oracle_lag,
     _oracle_merge,
@@ -54,7 +54,6 @@ from partition.translation.semantic_validator import (
     _oracle_proc_means,
     _oracle_proc_sort,
     _oracle_retain,
-    _compare_frames,
 )
 
 ORACLE_FNS = [
@@ -246,7 +245,6 @@ def main():
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
 
     synthesizer = CDASISynthesizer()
-    oracle = CoverageOracle()
     runner = CDAISRunner()
     cfg = ConstraintConfig()
 

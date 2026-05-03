@@ -316,7 +316,6 @@ def _run_feedback_ingestion(
     """Background task: cross-verify the correction and ingest into LanceDB KB."""
     try:
         import lancedb
-
         from partition.db.duckdb_manager import DB_PATH as DUCKDB_PATH
         from partition.db.duckdb_manager import _duckdb_conn
         from partition.kb.kb_writer import KBWriter
