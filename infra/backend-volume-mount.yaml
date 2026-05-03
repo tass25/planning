@@ -1,0 +1,54 @@
+properties:
+  template:
+    volumes:
+      - name: codaradata
+        storageName: codaradata
+        storageType: AzureFile
+    containers:
+      - name: ca-codara-backend
+        image: ghcr.io/tass25/codara:sha-40163b6
+        resources:
+          cpu: 1.0
+          memory: 2Gi
+        env:
+          - name: APP_ENV
+            value: production
+          - name: AZURE_OPENAI_API_KEY
+            secretRef: azure-openai-key
+          - name: AZURE_OPENAI_ENDPOINT
+            secretRef: azure-openai-endpoint
+          - name: AZURE_OPENAI_DEPLOYMENT_MINI
+            secretRef: azure-openai-deployment-mini
+          - name: AZURE_OPENAI_DEPLOYMENT_FULL
+            value: gpt-4o
+          - name: AZURE_OPENAI_API_VERSION
+            value: "2024-10-21"
+          - name: GROQ_API_KEY
+            secretRef: groq-api-key
+          - name: OLLAMA_API_KEY
+            secretRef: ollama-api-key
+          - name: OLLAMA_BASE_URL
+            value: http://localhost:11434/v1
+          - name: OLLAMA_MODEL
+            value: nemotron-3-super:cloud
+          - name: CODARA_JWT_SECRET
+            secretRef: jwt-secret
+          - name: PYTHONPATH
+            value: /app/backend
+          - name: GROQ_API_KEY_2
+            secretRef: groq-api-key-2
+          - name: GROQ_API_KEY_3
+            secretRef: groq-api-key-3
+          - name: CODARA_ADMIN_PASSWORD
+            value: admin123
+          - name: CODARA_USER_PASSWORD
+            value: user123
+          - name: GITHUB_CLIENT_ID
+            value: Ov23ctTGpU6FqqfOocS0
+          - name: GITHUB_CLIENT_SECRET
+            value: 0c900ab631da6c0870e9aef6c077036e0f66fa72
+          - name: REDIS_URL
+            secretRef: redis-url
+        volumeMounts:
+          - volumeName: codaradata
+            mountPath: /app/backend/data
