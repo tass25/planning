@@ -106,9 +106,11 @@ def generate_random_data(error_class: str, n_groups: int = None, n_rows: int = N
 
     elif error_class == "SORT_STABLE":
         rows = [
-            {"primary_key": random.randint(1, max(2, n_rows // 2)),
-             "secondary": random.randint(1, 100),
-             "original_order": i}
+            {
+                "primary_key": random.randint(1, max(2, n_rows // 2)),
+                "secondary": random.randint(1, 100),
+                "original_order": i,
+            }
             for i in range(n_rows * n_groups)
         ]
         return {"df": pd.DataFrame(rows)}
@@ -221,8 +223,10 @@ def main():
                 data = {"df": witness}
 
             cdais_detects = test_divergence(name, data)
-            print(f"  Z3 witness ({len(witness)} rows, {synth_ms:.0f}ms): "
-                  f"{'DIVERGES (bug exposed)' if cdais_detects else 'NO DIVERGENCE'}")
+            print(
+                f"  Z3 witness ({len(witness)} rows, {synth_ms:.0f}ms): "
+                f"{'DIVERGES (bug exposed)' if cdais_detects else 'NO DIVERGENCE'}"
+            )
         else:
             print(f"  Z3 witness: UNSAT ({synth_ms:.0f}ms)")
 
@@ -240,18 +244,24 @@ def main():
             if test_divergence(name, data):
                 detect_count += 1
         random_detect_pct = detect_count / N_RANDOM_TRIALS
-        print(f"  Random ({N_RANDOM_TRIALS} trials): {detect_count}/{N_RANDOM_TRIALS} "
-              f"= {random_detect_pct:.1%} detect divergence")
+        print(
+            f"  Random ({N_RANDOM_TRIALS} trials): {detect_count}/{N_RANDOM_TRIALS} "
+            f"= {random_detect_pct:.1%} detect divergence"
+        )
 
         # 3. Heuristic (always multi-group, like DummyDataGenerator)
         heuristic_count = 0
         for _ in range(N_HEURISTIC_TRIALS):
-            data = generate_random_data(name, n_groups=random.randint(2, 4), n_rows=random.randint(3, 8))
+            data = generate_random_data(
+                name, n_groups=random.randint(2, 4), n_rows=random.randint(3, 8)
+            )
             if test_divergence(name, data):
                 heuristic_count += 1
         heuristic_detect_pct = heuristic_count / N_HEURISTIC_TRIALS
-        print(f"  Heuristic ({N_HEURISTIC_TRIALS} trials, >=2 groups): {heuristic_count}/{N_HEURISTIC_TRIALS} "
-              f"= {heuristic_detect_pct:.1%} detect divergence")
+        print(
+            f"  Heuristic ({N_HEURISTIC_TRIALS} trials, >=2 groups): {heuristic_count}/{N_HEURISTIC_TRIALS} "
+            f"= {heuristic_detect_pct:.1%} detect divergence"
+        )
 
         results["per_class"][name] = {
             "cdais_detects": cdais_detects,
@@ -266,11 +276,17 @@ def main():
     # Summary
     n = len(ALL_ERROR_CLASSES)
     cdais_detected = sum(1 for v in results["per_class"].values() if v["cdais_detects"])
-    random_detected = sum(1 for v in results["per_class"].values() if v["random_detects_at_least_once"])
-    heuristic_detected = sum(1 for v in results["per_class"].values() if v["heuristic_detects_at_least_once"])
+    random_detected = sum(
+        1 for v in results["per_class"].values() if v["random_detects_at_least_once"]
+    )
+    heuristic_detected = sum(
+        1 for v in results["per_class"].values() if v["heuristic_detects_at_least_once"]
+    )
 
     avg_random_frac = np.mean([v["random_detect_fraction"] for v in results["per_class"].values()])
-    avg_heuristic_frac = np.mean([v["heuristic_detect_fraction"] for v in results["per_class"].values()])
+    avg_heuristic_frac = np.mean(
+        [v["heuristic_detect_fraction"] for v in results["per_class"].values()]
+    )
     avg_synth_ms = np.mean([v["cdais_synthesis_ms"] for v in results["per_class"].values()])
     avg_witness_rows = np.mean([v["cdais_witness_rows"] for v in results["per_class"].values()])
 
@@ -296,7 +312,9 @@ def main():
     print(f"  Avg CDAIS synthesis time:  {avg_synth_ms:.0f}ms")
     print(f"  Avg CDAIS witness size:    {avg_witness_rows:.0f} rows")
     print("\n  KEY INSIGHT: CDAIS detects in 1 trial (deterministic guarantee)")
-    print(f"  Random needs ~{int(1/avg_random_frac) if avg_random_frac > 0 else 'inf'} trials to find the bug on average")
+    print(
+        f"  Random needs ~{int(1/avg_random_frac) if avg_random_frac > 0 else 'inf'} trials to find the bug on average"
+    )
 
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, default=str)

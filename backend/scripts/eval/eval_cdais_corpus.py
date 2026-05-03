@@ -173,7 +173,12 @@ def exec_python(code: str, input_frames: dict) -> pd.DataFrame | None:
     try:
         exec(code, namespace)  # noqa: S102
         for k, v in namespace.items():
-            if isinstance(v, pd.DataFrame) and k not in input_frames and not k.startswith("_") and k not in ("pd", "np", "df"):
+            if (
+                isinstance(v, pd.DataFrame)
+                and k not in input_frames
+                and not k.startswith("_")
+                and k not in ("pd", "np", "df")
+            ):
                 return v
         if "output" in namespace and isinstance(namespace["output"], pd.DataFrame):
             return namespace["output"]
@@ -195,11 +200,28 @@ def random_test_one(sas_code: str, python_code: str, n_samples: int = 100) -> bo
         df = pd.DataFrame(rows)
         input_frames = {"input": df}
         if "merge" in sas_code.lower():
-            left = pd.DataFrame({"key": random.sample(range(1, 20), min(5, 19)), "left_val": [random.randint(1, 100) for _ in range(5)]})
-            right = pd.DataFrame({"key": random.sample(range(1, 20), min(5, 19)), "right_val": [random.randint(1, 100) for _ in range(5)]})
+            left = pd.DataFrame(
+                {
+                    "key": random.sample(range(1, 20), min(5, 19)),
+                    "left_val": [random.randint(1, 100) for _ in range(5)],
+                }
+            )
+            right = pd.DataFrame(
+                {
+                    "key": random.sample(range(1, 20), min(5, 19)),
+                    "right_val": [random.randint(1, 100) for _ in range(5)],
+                }
+            )
             input_frames = {"left": left, "right": right}
         elif "proc sort" in sas_code.lower():
-            rows2 = [{"primary_key": random.randint(1, 3), "secondary": random.randint(1, 100), "original_order": i} for i in range(n_rows)]
+            rows2 = [
+                {
+                    "primary_key": random.randint(1, 3),
+                    "secondary": random.randint(1, 100),
+                    "original_order": i,
+                }
+                for i in range(n_rows)
+            ]
             df = pd.DataFrame(rows2)
             input_frames = {"input": df}
 
@@ -289,30 +311,40 @@ def main():
 
         if synthesis.sat:
             class_result["witness_rows"] = len(synthesis.witness_df)
-            print(f"  Z3 synthesis: SAT in {synthesis_ms:.1f}ms, witness={len(synthesis.witness_df)} rows")
+            print(
+                f"  Z3 synthesis: SAT in {synthesis_ms:.1f}ms, witness={len(synthesis.witness_df)} rows"
+            )
 
             # Test CDAIS on bad translation
             report_bad = runner.run_on_code(sas_code, bad_code)
             class_result["cdais_detects_bad"] = not report_bad.all_passed
-            print(f"  CDAIS on BAD translation: {'DETECTED' if not report_bad.all_passed else 'MISSED'}")
+            print(
+                f"  CDAIS on BAD translation: {'DETECTED' if not report_bad.all_passed else 'MISSED'}"
+            )
 
             # Test CDAIS on good translation
             report_good = runner.run_on_code(sas_code, good_code)
             class_result["cdais_certifies_good"] = report_good.all_passed
             class_result["cdais_false_positive"] = not report_good.all_passed
-            print(f"  CDAIS on GOOD translation: {'CERTIFIED' if report_good.all_passed else 'FALSE POSITIVE'}")
+            print(
+                f"  CDAIS on GOOD translation: {'CERTIFIED' if report_good.all_passed else 'FALSE POSITIVE'}"
+            )
         else:
             print(f"  Z3 synthesis: UNSAT/timeout ({synthesis_ms:.1f}ms)")
 
         # Random testing on bad translation
         random_detected = random_test_one(sas_code, bad_code, n_samples=args.random_samples)
         class_result["random_detects_bad"] = random_detected
-        print(f"  Random ({args.random_samples} samples) on BAD: {'DETECTED' if random_detected else 'MISSED'}")
+        print(
+            f"  Random ({args.random_samples} samples) on BAD: {'DETECTED' if random_detected else 'MISSED'}"
+        )
 
         # Heuristic testing on bad translation
         heuristic_detected = heuristic_test_one(sas_code, bad_code)
         class_result["heuristic_detects_bad"] = heuristic_detected
-        print(f"  Heuristic (DummyDataGen) on BAD: {'DETECTED' if heuristic_detected else 'MISSED'}")
+        print(
+            f"  Heuristic (DummyDataGen) on BAD: {'DETECTED' if heuristic_detected else 'MISSED'}"
+        )
 
         results["per_class"][class_name] = class_result
 
@@ -363,7 +395,8 @@ def main():
     print(f"  Total failures (FP on gold): {corpus_stats['total_failures']}")
     cert_rate = (
         corpus_stats["pairs_with_certificate"] / corpus_stats["pairs_with_applicable_classes"]
-        if corpus_stats["pairs_with_applicable_classes"] > 0 else 0
+        if corpus_stats["pairs_with_applicable_classes"] > 0
+        else 0
     )
     print(f"  Certificate rate: {cert_rate:.1%}")
 
@@ -376,7 +409,9 @@ def main():
     heuristic_detected = sum(1 for v in results["per_class"].values() if v["heuristic_detects_bad"])
     cdais_fp = sum(1 for v in results["per_class"].values() if v["cdais_false_positive"])
 
-    avg_synthesis_ms = np.mean(results["synthesis_times_ms"]) if results["synthesis_times_ms"] else 0
+    avg_synthesis_ms = (
+        np.mean(results["synthesis_times_ms"]) if results["synthesis_times_ms"] else 0
+    )
     avg_witness_rows = np.mean([v["witness_rows"] for v in results["per_class"].values()])
 
     results["summary"] = {
