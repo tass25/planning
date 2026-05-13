@@ -47,16 +47,20 @@ def init_all_duckdb_tables(db_path: str = DB_PATH):
     # Table 1: llm_audit
     con.execute("""
         CREATE TABLE IF NOT EXISTS llm_audit (
-            call_id       VARCHAR PRIMARY KEY,
-            agent_name    VARCHAR,
-            model_name    VARCHAR,
-            prompt_hash   VARCHAR,
-            response_hash VARCHAR,
-            latency_ms    DOUBLE,
-            success       BOOLEAN,
-            error_msg     VARCHAR,
-            tier          VARCHAR,
-            timestamp     TIMESTAMP DEFAULT NOW()
+            call_id           VARCHAR PRIMARY KEY,
+            agent_name        VARCHAR,
+            model_name        VARCHAR,
+            prompt_hash       VARCHAR,
+            response_hash     VARCHAR,
+            latency_ms        DOUBLE,
+            success           BOOLEAN,
+            error_msg         VARCHAR,
+            tier              VARCHAR,
+            prompt_tokens     INTEGER DEFAULT 0,
+            completion_tokens INTEGER DEFAULT 0,
+            estimated_cost    DOUBLE DEFAULT 0.0,
+            failure_mode      VARCHAR DEFAULT '',
+            created_at        TIMESTAMP DEFAULT NOW()
         )
     """)
 
@@ -193,13 +197,17 @@ def log_llm_call(
     success: bool,
     error_msg: str | None = None,
     tier: str | None = None,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+    estimated_cost: float = 0.0,
+    failure_mode: str = "",
 ):
     """Log an LLM call to the audit table."""
     with _duckdb_conn(db_path) as con:
         con.execute(
             """
             INSERT INTO llm_audit
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             """,
             [
                 call_id,
@@ -211,5 +219,9 @@ def log_llm_call(
                 success,
                 error_msg,
                 tier,
+                prompt_tokens,
+                completion_tokens,
+                estimated_cost,
+                failure_mode,
             ],
         )
