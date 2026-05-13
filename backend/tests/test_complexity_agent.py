@@ -1,7 +1,7 @@
 """Tests for ComplexityAgent (L2-D).
 
 Run with:
-    cd sas_converter
+    cd backend
     ../venv/Scripts/python -m pytest tests/test_complexity_agent.py -v
 """
 
@@ -172,7 +172,7 @@ class TestECE:
 
 @pytest.mark.skipif(
     not GOLD_DIR.exists(),
-    reason="Gold standard dir not found — run from sas_converter/",
+    reason="Gold standard dir not found — run from backend/",
 )
 class TestComplexityFit:
     def test_fit_returns_expected_keys(self):

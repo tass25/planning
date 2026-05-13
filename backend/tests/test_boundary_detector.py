@@ -1,7 +1,7 @@
 """Tests for BoundaryDetectorAgent and PartitionBuilderAgent (L2-C).
 
 Run with:
-    cd sas_converter
+    cd backend
     ../venv/Scripts/python -m pytest tests/test_boundary_detector.py -v
 """
 

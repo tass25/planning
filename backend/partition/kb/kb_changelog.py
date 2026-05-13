@@ -23,14 +23,14 @@ logger = structlog.get_logger()
 
 _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS kb_changelog (
-    change_id       VARCHAR PRIMARY KEY,
+    changelog_id    VARCHAR PRIMARY KEY,
     example_id      VARCHAR NOT NULL,
     action          VARCHAR NOT NULL,     -- insert | update | rollback | delete
     old_version     INTEGER,
     new_version     INTEGER NOT NULL,
     author          VARCHAR NOT NULL,
     diff_summary    VARCHAR,
-    changed_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 """
 
@@ -66,19 +66,19 @@ def log_kb_change(
     Returns:
         The ``change_id`` (UUID) of the logged entry.
     """
-    change_id = str(uuid.uuid4())
+    changelog_id = str(uuid.uuid4())
     con = duckdb.connect(db_path)
     try:
         _ensure_table(con)
         con.execute(
             """
             INSERT INTO kb_changelog
-                (change_id, example_id, action, old_version, new_version,
-                 author, diff_summary, changed_at)
+                (changelog_id, example_id, action, old_version, new_version,
+                 author, diff_summary, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
-                change_id,
+                changelog_id,
                 example_id,
                 action,
                 old_version,
@@ -93,12 +93,12 @@ def log_kb_change(
 
     logger.info(
         "kb_changelog_entry",
-        change_id=change_id,
+        changelog_id=changelog_id,
         example_id=example_id,
         action=action,
         version=new_version,
     )
-    return change_id
+    return changelog_id
 
 
 def get_history(db_path: str, example_id: str) -> list[dict]:
@@ -116,11 +116,11 @@ def get_history(db_path: str, example_id: str) -> list[dict]:
         _ensure_table(con)
         rows = con.execute(
             """
-            SELECT change_id, example_id, action, old_version, new_version,
-                   author, diff_summary, changed_at
+            SELECT changelog_id, example_id, action, old_version, new_version,
+                   author, diff_summary, created_at
             FROM kb_changelog
             WHERE example_id = ?
-            ORDER BY changed_at ASC
+            ORDER BY created_at ASC
             """,
             [example_id],
         ).fetchall()
@@ -128,13 +128,13 @@ def get_history(db_path: str, example_id: str) -> list[dict]:
         con.close()
 
     cols = [
-        "change_id",
+        "changelog_id",
         "example_id",
         "action",
         "old_version",
         "new_version",
         "author",
         "diff_summary",
-        "changed_at",
+        "created_at",
     ]
     return [dict(zip(cols, row)) for row in rows]

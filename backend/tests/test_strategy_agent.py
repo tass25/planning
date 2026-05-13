@@ -1,7 +1,7 @@
 """Tests for StrategyAgent (L2-D).
 
 Run with:
-    cd sas_converter
+    cd backend
     ../venv/Scripts/python -m pytest tests/test_strategy_agent.py -v
 """
 

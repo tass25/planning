@@ -103,10 +103,8 @@ def init_all_duckdb_tables(db_path: str = DB_PATH):
             partial_rate        DOUBLE,
             human_review_rate   DOUBLE,
             avg_llm_confidence  DOUBLE,
-            avg_retry_count     DOUBLE,
             failure_mode_dist   VARCHAR,
-            kb_size             INTEGER,
-            created_at          TIMESTAMP
+            created_at          VARCHAR
         )
     """)
 
@@ -122,7 +120,7 @@ def init_all_duckdb_tables(db_path: str = DB_PATH):
             verifier_confidence DOUBLE,
             accepted            BOOLEAN,
             rejection_reason    VARCHAR,
-            created_at          TIMESTAMP DEFAULT NOW()
+            created_at          VARCHAR
         )
     """)
 

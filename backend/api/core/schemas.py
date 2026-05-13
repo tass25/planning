@@ -120,6 +120,7 @@ class ConversionOut(BaseModel):
     pythonCode: Optional[str] = None
     validationReport: Optional[str] = None
     mergeReport: Optional[str] = None
+    cost: float = 0.0
 
 
 class StartConversionRequest(BaseModel):

@@ -156,14 +156,17 @@ class KBWriter:
 
             con = _get_duckdb(self.duckdb_path)
             for pair in pairs:
+                version = pair.get("version", 1)
                 con.execute(
-                    "INSERT INTO kb_changelog VALUES (?, ?, ?, ?, ?, NOW())",
+                    "INSERT INTO kb_changelog VALUES (?, ?, ?, ?, ?, ?, ?, NOW())",
                     [
                         str(uuid.uuid4()),
                         pair.get("example_id", ""),
                         action,
+                        None,
+                        version,
                         pair.get("source", "unknown"),
-                        f"{action} {pair.get('category', 'unknown')} pair v{pair.get('version', 1)}",
+                        f"{action} {pair.get('category', 'unknown')} pair v{version}",
                     ],
                 )
         except Exception as exc:

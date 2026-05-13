@@ -209,6 +209,7 @@ class PartitionOrchestrator:
             "merge_results": [],
             "last_checkpoint_block": 0,
             "checkpoint_key": None,
+            "namespace_violations": [],
             "errors": [],
             "warnings": [],
             "trace_id": trace_id,

@@ -92,10 +92,12 @@ def _get_duckdb(db_path: str) -> duckdb.DuckDBPyConnection:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS kb_changelog (
                     changelog_id  VARCHAR,
-                    example_id    VARCHAR,
-                    action        VARCHAR,
-                    changed_by    VARCHAR,
-                    description   VARCHAR,
+                    example_id    VARCHAR NOT NULL,
+                    action        VARCHAR NOT NULL,
+                    old_version   INTEGER,
+                    new_version   INTEGER NOT NULL DEFAULT 1,
+                    author        VARCHAR NOT NULL DEFAULT 'system',
+                    diff_summary  VARCHAR,
                     created_at    TIMESTAMP DEFAULT NOW()
                 )
             """)
