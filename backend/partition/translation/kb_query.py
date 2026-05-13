@@ -278,7 +278,9 @@ class KBQueryClient:
 
     TABLE_NAME = "sas_python_examples"
     MIN_RELEVANCE = 0.40  # lowered from 0.50 — keyword boost can lift lower-semantic items
-    MIN_SEMANTIC_SCORE = 0.45  # floor on raw semantic similarity — rejects noise even if keywords match
+    MIN_SEMANTIC_SCORE = (
+        0.45  # floor on raw semantic similarity — rejects noise even if keywords match
+    )
 
     def __init__(self, db_path: str = "data/lancedb"):
         self.db = _get_db(db_path)
