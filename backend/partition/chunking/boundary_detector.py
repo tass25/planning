@@ -1,7 +1,7 @@
 """BoundaryDetector + BoundaryDetectorAgent — L2-C boundary detection.
 
 Deterministic pass: regex + StateAgent FSM transitions (~80% of blocks).
-LLM pass:           Azure OpenAI GPT-4o-mini for ambiguous blocks (~20%).
+LLM pass:           Azure OpenAI GPT-5.4-mini for ambiguous blocks (~20%).
                     Configurable via LLM_PROVIDER env var (azure / groq / ollama).
 """
 

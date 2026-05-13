@@ -2,7 +2,7 @@
 
 Provider hierarchy (translation chain):
   Tier 0 — Local GGUF via llama-cpp-python (fine-tuned Qwen2.5-Coder, free)
-  Tier 1 — Azure OpenAI GPT-4o / GPT-4o-mini (PRIMARY)
+  Tier 1 — Azure OpenAI GPT-5.4-mini / GPT-5.4-mini-mini (PRIMARY)
   Tier 2 — Ollama nemotron-3-super:cloud      (fallback 1 — override via OLLAMA_MODEL env var)
   Tier 3 — Groq Llama-3.3-70B (fallback 2 — cross-verify & last resort)
   Tier 4 — Gemini 2.0 Flash (oracle & judge)
@@ -60,7 +60,7 @@ class OllamaStrategy(LLMStrategy):
 
 
 class AzureStrategy(LLMStrategy):
-    """Tier 2 — Azure OpenAI (GPT-4o / GPT-4o-mini)."""
+    """Tier 2 — Azure OpenAI (GPT-5.4-mini / GPT-5.4-mini-mini)."""
 
     @property
     def name(self) -> str:
@@ -177,11 +177,11 @@ def get_deployment_name(tier: str = "mini") -> str:
     """Return the Azure deployment name for the given tier.
 
     Args:
-        tier: ``"mini"`` for GPT-4o-mini, ``"full"`` for GPT-4o.
+        tier: ``"mini"`` for GPT-5.4-mini-mini, ``"full"`` for GPT-5.4-mini.
     """
     if tier == "full":
-        return os.getenv("AZURE_OPENAI_DEPLOYMENT_FULL", "gpt-4o")
-    return os.getenv("AZURE_OPENAI_DEPLOYMENT_MINI", "gpt-4o-mini")
+        return os.getenv("AZURE_OPENAI_DEPLOYMENT_FULL", "gpt-5.4-mini")
+    return os.getenv("AZURE_OPENAI_DEPLOYMENT_MINI", "gpt-5.4-mini")
 
 
 def get_groq_model() -> str:

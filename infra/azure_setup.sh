@@ -61,7 +61,7 @@ read -rsp "AZURE_OPENAI_API_KEY: " AOAI_KEY && echo
 read -rsp "AZURE_OPENAI_ENDPOINT: " AOAI_ENDPOINT && echo
 [ -n "$AOAI_ENDPOINT" ] && az keyvault secret set --vault-name "$KEY_VAULT" --name "azure-openai-endpoint" --value "$AOAI_ENDPOINT" -o none
 
-read -rsp "AZURE_OPENAI_DEPLOYMENT_MINI (e.g. gpt-4o-mini): " AOAI_DEPLOY_MINI && echo
+read -rsp "AZURE_OPENAI_DEPLOYMENT_MINI (e.g. gpt-5.4-mini-mini): " AOAI_DEPLOY_MINI && echo
 [ -n "$AOAI_DEPLOY_MINI" ] && az keyvault secret set --vault-name "$KEY_VAULT" --name "azure-openai-deployment-mini" --value "$AOAI_DEPLOY_MINI" -o none
 
 read -rsp "GROQ_API_KEY: " GROQ_KEY && echo
@@ -189,7 +189,7 @@ az containerapp create \
     "OLLAMA_MODEL=nemotron-3-super:cloud" \
     "CORS_ORIGINS=${FRONTEND_URL:-https://app.codara.dev},http://localhost:5173" \
     "AZURE_OPENAI_API_VERSION=2024-10-21" \
-    "AZURE_OPENAI_DEPLOYMENT_FULL=gpt-4o" \
+    "AZURE_OPENAI_DEPLOYMENT_FULL=gpt-5.4-mini" \
     "AZURE_OPENAI_API_KEY=secretref:azure-openai-key" \
     "AZURE_OPENAI_ENDPOINT=secretref:azure-openai-endpoint" \
     "AZURE_OPENAI_DEPLOYMENT_MINI=secretref:azure-openai-deployment-mini" \

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from collections import OrderedDict
 
 import numpy as np
@@ -31,9 +32,18 @@ class NomicEmbedder:
     - ``search_query:``    when querying at retrieval time (embed_query)
 
     Omitting the prefix degrades retrieval quality by ~15%.
+
+    If a fine-tuned model exists at ``FINE_TUNED_PATH``, it is loaded
+    instead of the base model. The fine-tuned model preserves the same
+    768-dim output and prefix convention.
     """
 
     MODEL_NAME = "nomic-ai/nomic-embed-text-v1.5"
+    FINE_TUNED_PATH = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "data",
+        "fine_tuned_embedder",
+    )
     DIM = 768
     CACHE_MAXSIZE = 10_000
 
@@ -48,17 +58,22 @@ class NomicEmbedder:
                 "sentence-transformers is not importable. "
                 "Install missing dependency: pip install tf-keras"
             )
+
+        model_path = self.MODEL_NAME
+        if os.path.isdir(self.FINE_TUNED_PATH) and os.path.isfile(
+            os.path.join(self.FINE_TUNED_PATH, "config.json")
+        ):
+            model_path = self.FINE_TUNED_PATH
+            logger.info("nomic_embedder_fine_tuned", path=self.FINE_TUNED_PATH)
+
         self.model = _SentenceTransformer(
-            self.MODEL_NAME,
+            model_path,
             device=device,
-            # SECURITY: trust_remote_code is required by nomic-embed-text-v1.5
-            # because the model ships custom mean-pooling code on HuggingFace.
-            # The model is published by Nomic AI (verified org) and pinned by
-            # name. This flag is safe for this specific, trusted model.
             trust_remote_code=True,
         )
+        self._active_model = model_path
         self._cache: OrderedDict[str, np.ndarray] = OrderedDict()
-        logger.info("nomic_embedder_init", model=self.MODEL_NAME, device=device)
+        logger.info("nomic_embedder_init", model=model_path, device=device)
 
     # ------------------------------------------------------------------
     # Public API

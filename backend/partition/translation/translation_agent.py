@@ -3,13 +3,13 @@
 Converts SAS partitions to Python using:
 1. Failure-mode detection (6 rules)
 2. Three RAG paradigms: Static (LOW), GraphRAG (deps/SCC), Agentic (MOD/HIGH)
-3. LLM routing: Azure GPT-4o → Nemotron (Ollama) → Groq LLaMA-70B
+3. LLM routing: Azure GPT-5.4-mini → Nemotron (Ollama) → Groq LLaMA-70B
 4. Cross-verification (Prompt C): Azure → Groq (independent context)
 5. SCC batching for circular dependencies
 6. Reflexion-style retry with self-reflection on failure
 
 Provider chain (primary → fallback 1 → fallback 2):
-  Tier 1 — Azure GPT-4o / GPT-4o-mini    (PRIMARY)
+  Tier 1 — Azure GPT-5.4-mini / GPT-5.4-mini-mini    (PRIMARY)
   Tier 2 — Ollama nemotron-3-super:cloud  (fallback 1)
   Tier 3 — Groq LLaMA-3.3-70B            (fallback 2 + cross-verifier)
   Tier 4 — PARTIAL status                 (all tiers exhausted)
@@ -113,8 +113,8 @@ class TranslationAgent(BaseAgent):
     """Agent #12: SAS → Python translation.
 
     LLM routing (Azure primary):
-      - LOW risk              → Azure GPT-4o-mini → Nemotron → Groq
-      - MODERATE/HIGH/UNCERTAIN → Azure GPT-4o → Nemotron → Groq
+      - LOW risk              → Azure GPT-5.4-mini-mini → Nemotron → Groq
+      - MODERATE/HIGH/UNCERTAIN → Azure GPT-5.4-mini → Nemotron → Groq
       - Cross-verify (Prompt C) → Azure → Groq (independent context)
 
     Full fallback chain: Azure → Nemotron (Ollama) → Groq → PARTIAL status
@@ -148,7 +148,7 @@ class TranslationAgent(BaseAgent):
         self._translation_cache: dict[str, str] = {}
         _register_agent(self)
 
-        # Azure OpenAI (PRIMARY) — GPT-4o / GPT-4o-mini
+        # Azure OpenAI (PRIMARY) — GPT-5.4-mini / GPT-5.4-mini-mini
         try:
             self.azure_client = instructor.from_openai(get_azure_openai_client(async_client=False))
         except RuntimeError:
@@ -423,7 +423,7 @@ class TranslationAgent(BaseAgent):
         Models through Multiagent Debate" (ICML 2023).
 
         Strategy:
-          1. Run Nemotron and Azure GPT-4o in parallel (independent contexts).
+          1. Run Nemotron and Azure GPT-5.4-mini in parallel (independent contexts).
           2. Send both candidates to Groq as judge with the original prompt.
           3. Judge picks the semantically correct candidate (or synthesises).
 
@@ -457,7 +457,7 @@ class TranslationAgent(BaseAgent):
                 "## Translation Debate\n"
                 "Two independent translations have been produced. "
                 "Select the more semantically correct one or synthesise the best parts.\n\n"
-                "### Candidate A (Azure GPT-4o)\n"
+                "### Candidate A (Azure GPT-5.4-mini)\n"
                 f"```python\n{candidate_a.python_code}\n```\n\n"
                 "### Candidate B (Nemotron)\n"
                 f"```python\n{candidate_b.python_code}\n```\n\n"
@@ -613,7 +613,7 @@ class TranslationAgent(BaseAgent):
         """
         messages = [{"role": "user", "content": prompt}]
 
-        # 1. Azure (primary) — GPT-4o / GPT-4o-mini
+        # 1. Azure (primary) — GPT-5.4-mini / GPT-5.4-mini-mini
         if self.azure_client and azure_breaker.allow_request():
             try:
                 async with azure_limiter:
@@ -670,13 +670,13 @@ class TranslationAgent(BaseAgent):
         raise RuntimeError("No LLM backend available for translation")
 
     async def _translate_high_risk(self, prompt: str) -> tuple[TranslationOutput, str]:
-        """Translate MOD/HIGH/UNCERTAIN risk partitions (Nemotron→Azure GPT-4o→Groq)."""
+        """Translate MOD/HIGH/UNCERTAIN risk partitions (Nemotron→Azure GPT-5.4-mini→Groq)."""
         return await self._translate_with_model(
             prompt, azure_tier="full", azure_label="azure_gpt4o", log_tag="high"
         )
 
     async def _translate_low_risk(self, prompt: str) -> tuple[TranslationOutput, str]:
-        """Translate LOW risk partitions (Nemotron→Azure GPT-4o-mini→Groq)."""
+        """Translate LOW risk partitions (Nemotron→Azure GPT-5.4-mini-mini→Groq)."""
         return await self._translate_with_model(
             prompt, azure_tier="mini", azure_label="azure_gpt4o_mini", log_tag="low"
         )

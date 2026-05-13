@@ -803,6 +803,21 @@ def run_pipeline_sync(
         conv.merge_report = "\n".join(merge_lines)
         conv.updated_at = datetime.now(timezone.utc).isoformat()
 
+        # Estimate total LLM cost from DuckDB audit logs for this conversion
+        try:
+            import duckdb as _duckdb
+
+            _audit_db = _duckdb.connect(settings.duckdb_path, read_only=True)
+            cost_row = _audit_db.execute(
+                "SELECT COALESCE(SUM(estimated_cost), 0) FROM llm_audit "
+                "WHERE created_at >= ? ORDER BY created_at DESC",
+                [conv.created_at],
+            ).fetchone()
+            conv.cost = round(cost_row[0], 6) if cost_row else 0.0
+            _audit_db.close()
+        except Exception:
+            conv.cost = 0.0
+
         track_event(
             "pipeline_completed",
             {

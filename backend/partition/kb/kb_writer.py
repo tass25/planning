@@ -13,6 +13,7 @@ Azure migration note (Week 9):
 
 from __future__ import annotations
 
+import uuid
 from typing import Optional
 
 import lancedb
@@ -65,8 +66,13 @@ class KBWriter:
     TABLE_NAME = "sas_python_examples"
     NUM_PARTITIONS = 64
 
-    def __init__(self, db_path: str = "data/lancedb") -> None:
+    def __init__(
+        self,
+        db_path: str = "data/lancedb",
+        duckdb_path: str = "data/analytics.duckdb",
+    ) -> None:
         self.db = lancedb.connect(db_path)
+        self.duckdb_path = duckdb_path
 
     # ── Insert ────────────────────────────────────────────────────────────
 
@@ -85,11 +91,18 @@ class KBWriter:
         if not pairs:
             return 0
 
+        # Ensure every pair has a version (default 1 for new inserts)
+        for pair in pairs:
+            pair.setdefault("version", 1)
+            pair.setdefault("superseded_by", "")
+
         if self.TABLE_NAME in self.db.table_names():
             table = self.db.open_table(self.TABLE_NAME)
             table.add(pairs)
         else:
             table = self.db.create_table(self.TABLE_NAME, data=pairs, schema=KB_SCHEMA)
+
+        self._log_changelog(pairs, action="insert")
 
         # Rebuild IVF index when there are enough rows
         try:
@@ -135,6 +148,26 @@ class KBWriter:
         return df.groupby("category").size().to_dict()
 
     # ── Search (for downstream retrieval) ─────────────────────────────────
+
+    def _log_changelog(self, pairs: list[dict], action: str = "insert") -> None:
+        """Write changelog entries to DuckDB for traceability."""
+        try:
+            from partition.orchestration.audit import _get_duckdb
+
+            con = _get_duckdb(self.duckdb_path)
+            for pair in pairs:
+                con.execute(
+                    "INSERT INTO kb_changelog VALUES (?, ?, ?, ?, ?, NOW())",
+                    [
+                        str(uuid.uuid4()),
+                        pair.get("example_id", ""),
+                        action,
+                        pair.get("source", "unknown"),
+                        f"{action} {pair.get('category', 'unknown')} pair v{pair.get('version', 1)}",
+                    ],
+                )
+        except Exception as exc:
+            logger.debug("kb_changelog_write_skipped", error=str(exc))
 
     def search(
         self,

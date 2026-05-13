@@ -30,8 +30,8 @@ Planning specified Groq/Ollama routing. Implementation uses:
 
 | Component | Planning | Implementation |
 |-----------|----------|----------------|
-| LOW risk translation | Ollama 8B | Azure GPT-4o-mini |
-| MOD/HIGH risk translation | Groq 70B | Azure GPT-4o |
+| LOW risk translation | Ollama 8B | Azure GPT-5.4-mini-mini |
+| MOD/HIGH risk translation | Groq 70B | Azure GPT-5.4-mini |
 | Translation fallback | Ollama 70B | Groq LLaMA-70B |
 | Cross-verify | Ollama 8B | Groq LLaMA-70B |
 

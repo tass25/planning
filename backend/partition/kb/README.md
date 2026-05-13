@@ -17,8 +17,8 @@ Currently at ~330 verified pairs across 15 SAS categories.
 ┌───────────────────────┐
 │  generate_kb_pairs.py │  (scripts/)
 │  Dual-LLM chain:      │
-│    A: Generate SAS     │─── Nemotron / Azure GPT-4o
-│    B: Convert→Python   │─── Nemotron / Azure GPT-4o
+│    A: Generate SAS     │─── Nemotron / Azure GPT-5.4-mini
+│    B: Convert→Python   │─── Nemotron / Azure GPT-5.4-mini
 │    C: Cross-verify     │─── Groq LLaMA-3.3-70B (independent context)
 └──────────┬────────────┘
            │ verified pairs (confidence ≥ 0.85)

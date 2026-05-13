@@ -19,6 +19,7 @@ interface UserState {
   signup: (email: string, password: string, name: string) => Promise<{ success: boolean; needsVerification: boolean }>;
   loginWithGitHub: (code: string) => Promise<boolean>;
   verifyEmail: (token: string) => Promise<boolean>;
+  resendVerification: () => Promise<boolean>;
   logout: () => void;
   restoreSession: () => Promise<void>;
   fetchNotifications: () => Promise<void>;
@@ -80,10 +81,22 @@ export const useUserStore = create<UserState>((set, get) => ({
   verifyEmail: async (token: string) => {
     try {
       await api.post(`/auth/verify-email?token=${encodeURIComponent(token)}`);
-      // Refresh user
+    } catch {
+      return false;
+    }
+    try {
       const user = await api.get<User>("/auth/me");
       set({ currentUser: user });
       get().fetchNotifications();
+    } catch {
+      // User may not be logged in (opened link in different browser) — that's fine
+    }
+    return true;
+  },
+
+  resendVerification: async () => {
+    try {
+      await api.post("/auth/resend-verification");
       return true;
     } catch {
       return false;

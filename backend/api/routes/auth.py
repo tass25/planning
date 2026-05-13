@@ -7,6 +7,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 import httpx
@@ -15,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from api.core.auth import create_access_token, get_current_user, hash_password, verify_password
 from api.core.database import NotificationRow, UserRow, get_api_session
+from api.core.email_service import send_verification_email
 from api.core.schemas import (
     AuthResponse,
     GitHubCallbackRequest,
@@ -22,6 +24,8 @@ from api.core.schemas import (
     SignupRequest,
     UserOut,
 )
+
+_email_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="email")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -135,16 +139,12 @@ def signup(body: SignupRequest, request: Request):
             "Your account has been created. Please verify your email to unlock all features.",
             "info",
         )
-        _create_notification(
-            session,
-            user.id,
-            "Email Verification Required",
-            f"Use this verification token: {verification_token}",
-            "warning",
-        )
 
         session.commit()
         session.refresh(user)
+
+        _email_pool.submit(send_verification_email, body.email, body.name, verification_token)
+
         token = create_access_token({"sub": user.id, "email": user.email, "role": user.role})
         return AuthResponse(
             user=_user_to_out(user),
@@ -177,6 +177,30 @@ def verify_email(token: str):
 
         session.commit()
         return {"message": "Email verified successfully"}
+    finally:
+        session.close()
+
+
+@router.post("/resend-verification")
+def resend_verification(request: Request, current_user: dict = Depends(get_current_user)):
+    _check_rate_limit(request, "resend-verification")
+    from api.main import engine
+
+    session = get_api_session(engine)
+    try:
+        user = session.query(UserRow).filter(UserRow.id == current_user["sub"]).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        if user.email_verified:
+            return {"message": "Email already verified"}
+
+        new_token = secrets.token_urlsafe(32)
+        user.verification_token = new_token
+        session.commit()
+
+        _email_pool.submit(send_verification_email, user.email, user.name, new_token)
+
+        return {"message": "Verification email sent"}
     finally:
         session.close()
 

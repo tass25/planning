@@ -151,9 +151,9 @@ PROVIDERS = {
     "azure": {
         "env_key": "AZURE_OPENAI_API_KEY",
         "base_url": None,
-        "default_model": "gpt-4o",
+        "default_model": "gpt-5.4-mini",
         "is_azure": True,
-        "label": "Azure GPT-4o",
+        "label": "Azure GPT-5.4-mini",
     },
 }
 
@@ -213,7 +213,7 @@ def _make_client(provider_name: str) -> tuple[instructor.Instructor, str]:
             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT", ""),
             api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21"),
         )
-        model = os.getenv("AZURE_OPENAI_DEPLOYMENT_FULL", "gpt-4o")
+        model = os.getenv("AZURE_OPENAI_DEPLOYMENT_FULL", "gpt-5.4-mini")
         client = instructor.from_openai(raw)
     else:
         raw = OpenAI(api_key=api_key, base_url=cfg["base_url"])
@@ -816,7 +816,7 @@ def print_tableau(all_results: list[dict], run_id: str, providers_used: list[str
             "notes": "Very large context, fast, good multilingual",
         },
         "azure": {
-            "params": "GPT-4o",
+            "params": "GPT-5.4-mini",
             "arch": "OpenAI GPT",
             "ctx": "128K",
             "speed": "FAST",

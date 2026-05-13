@@ -16,7 +16,7 @@ Boundary detection + partition building for SAS code blocks.
 |------|-------------|
 | `models.py` | `BlockBoundaryEvent` Pydantic model — boundary method, confidence, line range, nesting depth |
 | `boundary_detector.py` | Two-pass detection: 80% rule-based via FSM transitions, 20% LLM for ambiguous blocks (>200 lines) |
-| `llm_boundary_resolver.py` | Multi-provider LLM: Ollama Nemotron (primary), Azure GPT-4o-mini, Groq fallback |
+| `llm_boundary_resolver.py` | Multi-provider LLM: Ollama Nemotron (primary), Azure GPT-5.4-mini-mini, Groq fallback |
 | `partition_builder.py` | Builds `PartitionIR` from events, computes SHA-256 `content_hash`, leaves risk/strategy for downstream |
 
 ## Architecture

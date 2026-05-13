@@ -15,7 +15,7 @@ Two objectives completed this week:
 
 **Part A — Robustness Hardening**: Added retry/circuit-breaker/rate-limiter primitives and large-file memory guards to protect the pipeline against LLM API failures and memory exhaustion on large SAS files.
 
-**Part B — Knowledge Base Generation**: Built the dual-LLM KB generation pipeline, LanceDB writer, DuckDB changelog, and rollback tooling. The generation chain uses Azure OpenAI GPT-4o (primary) for SAS generation + Python conversion, and Groq LLaMA-3.1-70B (separate context) for cross-verification.
+**Part B — Knowledge Base Generation**: Built the dual-LLM KB generation pipeline, LanceDB writer, DuckDB changelog, and rollback tooling. The generation chain uses Azure OpenAI GPT-5.4-mini (primary) for SAS generation + Python conversion, and Groq LLaMA-3.1-70B (separate context) for cross-verification.
 
 ---
 
@@ -31,7 +31,7 @@ Two objectives completed this week:
 | `partition/kb/kb_writer.py` | `KBWriter` — LanceDB `sas_python_examples` table (IVF-64 cosine index) | ~150 |
 | `partition/kb/kb_changelog.py` | `log_kb_change()` + `get_history()` — DuckDB mutation audit trail | ~120 |
 | `partition/kb/README.md` | KB module documentation | 65 |
-| `scripts/generate_kb_pairs.py` | Dual-LLM KB generation pipeline CLI (Azure GPT-4o + Groq verifier) | ~370 |
+| `scripts/generate_kb_pairs.py` | Dual-LLM KB generation pipeline CLI (Azure GPT-5.4-mini + Groq verifier) | ~370 |
 | `scripts/kb_rollback.py` | Version rollback script for KB examples | ~110 |
 | `tests/test_robustness_kb.py` | 38 test cases for all Week 9 components | ~435 |
 
@@ -111,8 +111,8 @@ if azure_breaker.allow_request():
 ┌──────────────────────────────┐
 │  generate_kb_pairs.py        │
 │                              │
-│  Prompt A: Generate SAS      │──── Azure OpenAI GPT-4o
-│  Prompt B: Convert → Python  │──── Azure OpenAI GPT-4o
+│  Prompt A: Generate SAS      │──── Azure OpenAI GPT-5.4-mini
+│  Prompt B: Convert → Python  │──── Azure OpenAI GPT-5.4-mini
 │  Prompt C: Cross-verify      │──── Groq LLaMA-3.1-70B
 └──────────────┬───────────────┘
                │ verified pairs (confidence ≥ 0.85)
@@ -130,8 +130,8 @@ if azure_breaker.allow_request():
 
 | Component | Planning (Pre-Azure) | Implementation (Post-Azure) |
 |-----------|---------------------|----------------------------|
-| Prompt A (SAS gen) | Groq LLaMA 70B | **Azure OpenAI GPT-4o** |
-| Prompt B (Python conv) | Groq LLaMA 70B | **Azure OpenAI GPT-4o** |
+| Prompt A (SAS gen) | Groq LLaMA 70B | **Azure OpenAI GPT-5.4-mini** |
+| Prompt B (Python conv) | Groq LLaMA 70B | **Azure OpenAI GPT-5.4-mini** |
 | Prompt C (cross-verify) | Ollama LLaMA 8B | **Groq LLaMA 3.1 70B** |
 
 Rationale: The verifier **must** be a different provider to avoid confirming its own errors.

@@ -333,16 +333,16 @@ Groq was chosen initially because it was the fastest free option, and Ollama as 
 ### Why we migrated to Azure OpenAI
 
 1. **Rate limit elimination**: Azure OpenAI has no hard RPM cap on student tier — the 30 RPM Groq bottleneck vanishes.
-2. **GPT-4o for summarization**: GPT-4o produces significantly better cluster summaries than Llama-3.1-70B. The structured output (`ClusterSummary` Pydantic model) has fewer parse failures.
-3. **Cost-effective**: GPT-4o at ~$5/M input tokens. The entire gold corpus summarization costs ~$0.15. The $100 student credit covers the full internship.
-4. **Consistent with boundary resolver**: Using Azure OpenAI for both chunking (GPT-4o-mini) and RAPTOR (GPT-4o) simplifies credential management — one set of `AZURE_OPENAI_*` env vars.
+2. **GPT-5.4-mini for summarization**: GPT-5.4-mini produces significantly better cluster summaries than Llama-3.1-70B. The structured output (`ClusterSummary` Pydantic model) has fewer parse failures.
+3. **Cost-effective**: GPT-5.4-mini at ~$5/M input tokens. The entire gold corpus summarization costs ~$0.15. The $100 student credit covers the full internship.
+4. **Consistent with boundary resolver**: Using Azure OpenAI for both chunking (GPT-5.4-mini-mini) and RAPTOR (GPT-5.4-mini) simplifies credential management — one set of `AZURE_OPENAI_*` env vars.
 5. **Ollama dropped from fallback chain**: Ollama required a local 70B model download (~40GB). Groq replaces it as Tier 2 fallback.
 
 ### What changed
 
 | Change | Detail |
 |--------|--------|
-| Tier 1 | Groq Llama-3.1-70B → **Azure OpenAI GPT-4o** |
+| Tier 1 | Groq Llama-3.1-70B → **Azure OpenAI GPT-5.4-mini** |
 | Tier 2 | Ollama local → **Groq Llama-3.1-70B** (fallback) |
 | Tier 3 | Heuristic (unchanged) |
 | Constructor | Added `azure_endpoint`, `azure_api_key`, `azure_api_version`, `azure_deployment` params |
@@ -353,6 +353,6 @@ Groq was chosen initially because it was the fastest free option, and Ollama as 
 ### New fallback chain
 
 ```
-Azure OpenAI GPT-4o  →  Groq Llama-3.1-70B  →  Heuristic (keyword extraction)
+Azure OpenAI GPT-5.4-mini  →  Groq Llama-3.1-70B  →  Heuristic (keyword extraction)
      (primary)             (fallback)              (offline)
 ```

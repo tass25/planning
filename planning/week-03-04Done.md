@@ -281,9 +281,9 @@ The `LLMBoundaryResolver` (`partition/chunking/llm_boundary_resolver.py`) origin
 
 1. **Rate limit bottleneck**: Groq free tier is capped at 30 RPM. On large corpora (50+ files), the boundary resolver would hit the limit within seconds, causing cascading retries and pipeline stalls.
 2. **$100 Azure student credit**: Azure for Students provides $100/year of credit — more than enough for the entire internship.
-3. **GPT-4o-mini > Llama-3.1-8b**: GPT-4o-mini produces better structured-output compliance for Pydantic `LLMBoundaryResponse` models (fewer JSON parse errors).
+3. **GPT-5.4-mini-mini > Llama-3.1-8b**: GPT-5.4-mini-mini produces better structured-output compliance for Pydantic `LLMBoundaryResponse` models (fewer JSON parse errors).
 4. **Enterprise SLA (99.9%)**: Groq free tier offers best-effort availability. Azure OpenAI guarantees 99.9% uptime.
-5. **Tiered model routing**: Azure lets us deploy both GPT-4o-mini (fast, cheap for LOW/MODERATE risk) and GPT-4o (accurate for HIGH risk) side by side.
+5. **Tiered model routing**: Azure lets us deploy both GPT-5.4-mini-mini (fast, cheap for LOW/MODERATE risk) and GPT-5.4-mini (accurate for HIGH risk) side by side.
 
 ### What changed
 
@@ -292,7 +292,7 @@ The `LLMBoundaryResolver` (`partition/chunking/llm_boundary_resolver.py`) origin
 | Default provider | `LLM_PROVIDER` env var default changed from `"groq"` to `"azure"` |
 | Env var names | `AZURE_OPENAI_KEY` → `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOY` → `AZURE_OPENAI_DEPLOYMENT_MINI` |
 | API version | `2024-02-01` → `2024-10-21` (latest GA) |
-| Model | `gpt-4o` (single) → `gpt-4o-mini` for boundary resolution (cost-efficient) |
+| Model | `gpt-5.4-mini` (single) → `gpt-5.4-mini` for boundary resolution (cost-efficient) |
 | Fallback chain | Azure OpenAI (primary) → Groq (fallback) → Ollama (offline) |
 | Groq | Still works — set `LLM_PROVIDER=groq` to use it as before |
 
@@ -302,6 +302,6 @@ The `LLMBoundaryResolver` (`partition/chunking/llm_boundary_resolver.py`) origin
 $env:AZURE_OPENAI_API_KEY = "your-key"
 $env:AZURE_OPENAI_ENDPOINT = "https://your-resource.openai.azure.com/"
 $env:AZURE_OPENAI_API_VERSION = "2024-10-21"        # optional
-$env:AZURE_OPENAI_DEPLOYMENT_MINI = "gpt-4o-mini"    # optional, default
-$env:AZURE_OPENAI_DEPLOYMENT_FULL = "gpt-4o"          # optional, for HIGH risk
+$env:AZURE_OPENAI_DEPLOYMENT_MINI = "gpt-5.4-mini"    # optional, default
+$env:AZURE_OPENAI_DEPLOYMENT_FULL = "gpt-5.4-mini"          # optional, for HIGH risk
 ```

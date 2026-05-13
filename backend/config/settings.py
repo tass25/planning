@@ -185,6 +185,16 @@ class Settings(BaseSettings):
     enable_z3_verification: bool = True
     llm_provider: str = "azure"  # legacy: azure | groq
 
+    # ── Email (SMTP) ────────────────────────────────────────────────────────
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = "noreply@codara.dev"
+    smtp_from_name: str = "Codara"
+    smtp_use_tls: bool = True
+    frontend_url: str = "http://localhost:5173"
+
     # ── CORS ─────────────────────────────────────────────────────────────────
     # Override via env: CORS_ORIGINS=https://app.codara.dev,http://localhost:5173
     # pydantic-settings parses comma-separated strings into list[str] automatically.

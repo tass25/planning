@@ -64,7 +64,7 @@ Each detected mode adds targeted rules to the translation prompt.
 | Tier | Provider | Model | When used |
 |------|----------|-------|-----------|
 | 1 (primary) | Ollama | `nemotron-3-super:cloud` | Every request first |
-| 2 (fallback 1) | Azure OpenAI | GPT-4o / GPT-4o-mini | Tier 1 unavailable or circuit open |
+| 2 (fallback 1) | Azure OpenAI | GPT-5.4-mini / GPT-5.4-mini-mini | Tier 1 unavailable or circuit open |
 | 3 (fallback 2 + cross-verifier) | Groq | LLaMA-3.3-70B | Tier 2 unavailable or for cross-verify |
 | 4 (terminal) | — | — | All tiers exhausted → PARTIAL status |
 

@@ -1,15 +1,15 @@
 """LLMBoundaryResolver — resolves ambiguous SAS block boundaries via an LLM.
 
-Default provider: Azure OpenAI (GPT-4o-mini) — enterprise-grade.
+Default provider: Azure OpenAI (GPT-5.4-mini) — enterprise-grade.
 Fallback chain:
-    LLM_PROVIDER=azure  → Azure OpenAI GPT-4o-mini  (default, primary)
+    LLM_PROVIDER=azure  → Azure OpenAI GPT-5.4-mini  (default, primary)
     LLM_PROVIDER=groq   → Groq Llama-3.1-8b-instant (fallback, 30 RPM limit)
 
 Required env vars per provider:
     azure : AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT
             AZURE_OPENAI_API_VERSION (optional, default: 2024-10-21)
-            AZURE_OPENAI_DEPLOYMENT_MINI (optional, default: gpt-4o-mini)
-            AZURE_OPENAI_DEPLOYMENT_FULL (optional, default: gpt-4o)
+            AZURE_OPENAI_DEPLOYMENT_MINI (optional, default: gpt-5.4-mini)
+            AZURE_OPENAI_DEPLOYMENT_FULL (optional, default: gpt-5.4-mini)
     groq  : GROQ_API_KEY   (https://console.groq.com)
             GROQ_MODEL     (optional, default: llama-3.1-8b-instant)
 """
@@ -38,7 +38,7 @@ class LLMBoundaryResolver:
     """Resolve ambiguous block boundaries using an LLM.
 
     Provider selected via LLM_PROVIDER env var:
-        ``"azure"``  (default) — Azure OpenAI GPT-4o-mini, requires AZURE_OPENAI_* vars
+        ``"azure"``  (default) — Azure OpenAI GPT-5.4-mini, requires AZURE_OPENAI_* vars
         ``"groq"``   — Groq API (fallback), requires GROQ_API_KEY
     """
 
@@ -98,7 +98,7 @@ class LLMBoundaryResolver:
 
         return _apply_response(event, resp, method="groq")
 
-    # ── Azure OpenAI (default — GPT-4o-mini, enterprise SLA) ────────────────
+    # ── Azure OpenAI (default — GPT-5.4-mini, enterprise SLA) ────────────────
 
     async def _resolve_azure(self, event: BlockBoundaryEvent) -> BlockBoundaryEvent:
         try:

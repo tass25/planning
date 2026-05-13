@@ -278,6 +278,7 @@ class KBQueryClient:
 
     TABLE_NAME = "sas_python_examples"
     MIN_RELEVANCE = 0.40  # lowered from 0.50 — keyword boost can lift lower-semantic items
+    MIN_SEMANTIC_SCORE = 0.45  # floor on raw semantic similarity — rejects noise even if keywords match
 
     def __init__(self, db_path: str = "data/lancedb"):
         self.db = _get_db(db_path)
@@ -348,6 +349,21 @@ class KBQueryClient:
                 results["semantic_score"] = 1.0 - results["_distance"]
             else:
                 results["semantic_score"] = 0.5
+
+            # ── Semantic floor — reject results the embedder isn't confident about
+            pre_filter_count = len(results)
+            results = results[results["semantic_score"] >= self.MIN_SEMANTIC_SCORE]
+            rejected = pre_filter_count - len(results)
+            if rejected > 0:
+                logger.info(
+                    "kb_semantic_floor_rejected",
+                    rejected=rejected,
+                    threshold=self.MIN_SEMANTIC_SCORE,
+                    partition_type=partition_type,
+                )
+
+            if results.empty:
+                return []
 
             # ── Hybrid scoring ────────────────────────────────────────────────
             query_kv = _keyword_vector(sas_code) if sas_code else [0.0] * _N_KW

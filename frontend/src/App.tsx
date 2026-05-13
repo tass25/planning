@@ -13,6 +13,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import LoginPage from "./pages/Login";
 import SignupPage from "./pages/Signup";
+import VerifyEmailPage from "./pages/VerifyEmail";
 import DashboardPage from "./pages/Dashboard";
 import ConversionsPage from "./pages/Conversions";
 import WorkspacePage from "./pages/Workspace";
@@ -55,6 +56,7 @@ const App = () => {
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
 
           {/* App routes with layout */}
           <Route element={<AppLayout />}>

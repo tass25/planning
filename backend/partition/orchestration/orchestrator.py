@@ -20,10 +20,13 @@ Features:
 from __future__ import annotations
 
 import asyncio
+import os
+import random
 import re
 import uuid
 from uuid import UUID
 
+import numpy as np
 import structlog
 from langgraph.graph import END, StateGraph
 
@@ -98,6 +101,16 @@ class PartitionOrchestrator:
             configure_memory_guards()
         except Exception as exc:
             logger.warning("memory_guards_failed", error=str(exc))
+
+        # Global seed for reproducibility (embeddings, GMM clustering, ML scoring)
+        _seed = int(os.environ.get("CODARA_SEED", "42"))
+        random.seed(_seed)
+        np.random.seed(_seed)
+        try:
+            import torch
+            torch.manual_seed(_seed)
+        except ImportError:
+            pass
 
         # Build the LangGraph StateGraph
         self.graph = self._build_graph()
@@ -586,6 +599,13 @@ class PartitionOrchestrator:
         track_metric(
             "stage_duration_ms", (_t.perf_counter() - _t0) * 1000, {"stage": "translation"}
         )
+
+        # Log per-failure-mode accuracy
+        self.audit.log_failure_mode_accuracy(
+            state.get("run_id", ""),
+            [cr.model_dump() if hasattr(cr, "model_dump") else cr for cr in conversion_results],
+        )
+
         return {
             "conversion_results": conversion_results,
             "validation_passed": passed,

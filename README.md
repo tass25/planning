@@ -131,7 +131,7 @@ file_process → streaming → chunking → raptor → risk_routing → persist_
 |------|----------|-----------|
 | 0 | Local GGUF (llama-cpp) | LOW risk, if fine-tuned model available |
 | 1 | **Nemotron** (`nemotron-3-super:cloud` via Ollama) | **Primary** — all risk levels |
-| 2 | Azure OpenAI GPT-4o / GPT-4o-mini | Fallback 1 — when Nemotron unavailable |
+| 2 | Azure OpenAI GPT-5.4-mini / GPT-5.4-mini-mini | Fallback 1 — when Nemotron unavailable |
 | 3 | Groq LLaMA-3.3-70B (3-key pool) | Fallback 2 + cross-verifier |
 | — | PARTIAL | All providers exhausted |
 
@@ -173,8 +173,8 @@ cp .env.example .env
 | `AZURE_OPENAI_API_KEY` | No | Azure OpenAI fallback key |
 | `AZURE_OPENAI_ENDPOINT` | No | Azure OpenAI endpoint URL |
 | `AZURE_OPENAI_API_VERSION` | No | API version (default: `2024-10-21`) |
-| `AZURE_OPENAI_DEPLOYMENT_FULL` | No | Full model deployment name (default: `gpt-4o`) |
-| `AZURE_OPENAI_DEPLOYMENT_MINI` | No | Mini model deployment name (default: `gpt-4o-mini`) |
+| `AZURE_OPENAI_DEPLOYMENT_FULL` | No | Full model deployment name (default: `gpt-5.4-mini`) |
+| `AZURE_OPENAI_DEPLOYMENT_MINI` | No | Mini model deployment name (default: `gpt-5.4-mini-mini`) |
 | `GROQ_API_KEY` | Yes | Groq API key (fallback 2 + cross-verifier) |
 | `GROQ_API_KEY_2` | No | Groq key #2 (rotation on 429) |
 | `GROQ_API_KEY_3` | No | Groq key #3 (rotation on 429) |

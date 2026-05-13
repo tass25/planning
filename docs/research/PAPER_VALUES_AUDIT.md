@@ -198,3 +198,36 @@ classes in a single trial using minimal 6-row witnesses, where random testing re
 
 **For MIS:** "We confirmed 10 out of 18 candidate invariants on a 12-pair corpus, with 8
 correctly rejected. The framework works but needs a larger evaluation corpus."
+
+---
+
+## RE-RUN VERIFICATION (2026-05-06)
+
+### CDAIS (eval_cdais_direct.py — re-run May 6)
+
+| Error Class | CDAIS Detects? | Rows | Synthesis ms | Random PTDR | Heuristic PTDR |
+|-------------|---------------|------|-------------|-------------|----------------|
+| RETAIN_RESET | YES | 6 | 187 | 68.5% | 100% |
+| LAG_QUEUE | YES | 6 | 16 | 68.5% | 100% |
+| SORT_STABLE | NO | 2 | 16 | 29.0% | 44.0% |
+| NULL_ARITHMETIC | YES | 6 | 0 | 100% | 100% |
+| JOIN_TYPE | YES | 6 | 62 | 100% | 100% |
+| GROUP_BOUNDARY | YES | 6 | 16 | 82.5% | 100% |
+| **Average** | **5/6** | **5.3** | **50ms** | **74.8%** | **90.7%** |
+
+Note: Random/heuristic PTDRs are stochastic — values differ from May 3 run (expected).
+SORT_STABLE detection is especially noisy (non-deterministic sort behaviour).
+
+### MIS (run_mis.py — re-run May 6)
+
+| Metric | Value |
+|--------|-------|
+| Pairs loaded | **12** (equivalent=True filter on crossProvider JSONs) |
+| Confirmed invariants | **10/18** |
+| Latency | **172ms** (was 375ms May 3 — system load variability) |
+
+All confirmed/rejected invariant names match May 3 run exactly.
+
+### Conclusion
+Both CDAIS and MIS produce consistent qualitative results across runs.
+Quantitative stochastic values (random PTDR, latency) vary within expected bounds.

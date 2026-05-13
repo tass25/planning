@@ -106,7 +106,7 @@ Codara is a **three-tier stack**: a React frontend, a FastAPI backend, and a Lan
  │ Tier 1: Ollama   │          │ Redis        │        │ CDAIS (6     │
  │   (minimax)      │          │  (checkpoint)│        │  error cls)  │
  │ Tier 2: Azure    │          │ LanceDB      │        │ MIS (12      │
- │   (GPT-4o)       │          │  (vectors)   │        │  invariants) │
+ │   (GPT-5.4-mini)       │          │  (vectors)   │        │  invariants) │
  │ Tier 3: Groq     │          │ DuckDB       │        │ Sandbox      │
  │   (LLaMA-70B)    │          │  (analytics) │        │  (exec)      │
  │ Tier 4: Gemini   │          └──────────────┘        │ Cross-verify │
@@ -207,7 +207,7 @@ These are the specific patterns where naive or even careful manual translation s
  BEFORE Codara (naive pipeline):
  ┌───────────┐     ┌──────────┐     ┌──────────┐
  │ SAS code  │────▶│ LLM      │────▶│ Python   │    No proof it's correct.
- │           │     │ (GPT-4o) │     │ code     │    ValidationAgent only checks
+ │           │     │ (GPT-5.4-mini) │     │ code     │    ValidationAgent only checks
  └───────────┘     └──────────┘     └──────────┘    it doesn't CRASH, not that
                                                      it computes CORRECTLY.
 
@@ -948,7 +948,7 @@ The StateAgent recognizes 100+ PROC names organized by category:
  │  │              │                 NO ↓                   │    │
  │  │  ┌───────────▼─────────────┐  ~20% of cases          │    │
  │  │  │  LLM Boundary Resolver  │                         │    │
- │  │  │  Azure GPT-4o-mini      │                         │    │
+ │  │  │  Azure GPT-5.4-mini-mini      │                         │    │
  │  │  │  instructor structured  │                         │    │
  │  │  │  Pydantic output model  │                         │    │
  │  │  └─────────────────────────┘                         │    │
@@ -1053,7 +1053,7 @@ RAPTOR (Recursive Abstractive Processing for Tree-Organized Retrieval) clusters 
  │  ┌─────────────────────────────────────────────────────┐          │
  │  │ ClusterSummarizer                                   │          │
  │  │   3-tier fallback:                                  │          │
- │  │     Azure GPT-4o → Groq → extractive heuristic     │          │
+ │  │     Azure GPT-5.4-mini → Groq → extractive heuristic     │          │
  │  │   Produces natural-language summary per cluster     │          │
  │  └─────────────────────────────────────────────────────┘          │
  │                         ▼                                         │
@@ -1308,7 +1308,7 @@ This is the most complex node. It translates every SAS partition into Python cod
  │  Step 4: LLM Translation (Fallback Chain)                             │
  │  ┌────────────────────────────────────────────────┐                   │
  │  │ Try Tier 0: Local GGUF (LOW risk only)          │                   │
- │  │ Try Tier 1: Azure GPT-4o / 4o-mini              │                   │
+ │  │ Try Tier 1: Azure GPT-5.4-mini / 4o-mini              │                   │
  │  │ Try Tier 2: Ollama nemotron-3-super:cloud        │                   │
  │  │ Try Tier 3: Groq LLaMA-3.3-70B                  │                   │
  │  │ If all fail: return PARTIAL status               │                   │
@@ -1595,7 +1595,7 @@ def _retry_budget(partition):
 |------|----------|-------|------|---------|----------|
 | 0 | Local GGUF | Fine-tuned Qwen2.5-Coder-7B | Free | ~200ms | LOW risk only |
 | 1 | Ollama | minimax-m2.7:cloud | Free | ~2s | PRIMARY (10/10 torture test) |
-| 2 | Azure OpenAI | GPT-4o (full) / GPT-4o-mini (mini) | $$$ | ~3s | Fallback 1 (enterprise SLA) |
+| 2 | Azure OpenAI | GPT-5.4-mini (full) / GPT-5.4-mini-mini (mini) | $$$ | ~3s | Fallback 1 (enterprise SLA) |
 | 3 | Groq | LLaMA-3.3-70B | Free | ~1s | Fallback 2 + cross-verifier |
 | 4 | Gemini | 2.0 Flash | Free | ~2s | Oracle & judge |
 | 5 | Cerebras | Llama-3.1-70B | Free | ~0.5s | Best-of-N candidates |
@@ -1651,9 +1651,9 @@ def _retry_budget(partition):
 
 | Risk Level | Azure Deployment | Reason |
 |-----------|-----------------|--------|
-| LOW | `gpt-4o-mini` | Cheaper, faster, sufficient for simple blocks |
-| MODERATE | `gpt-4o` | More capable for complex patterns |
-| HIGH | `gpt-4o` | Maximum capability needed |
+| LOW | `gpt-5.4-mini` | Cheaper, faster, sufficient for simple blocks |
+| MODERATE | `gpt-5.4-mini` | More capable for complex patterns |
+| HIGH | `gpt-5.4-mini` | Maximum capability needed |
 
 ---
 
@@ -1731,7 +1731,7 @@ Z3 works on **decidable fragments** — mathematical problems with guaranteed te
 | `PROC SORT NODUPKEY` | output ⊆ input, unique on key | ~48% of sort blocks |
 | Simple assignment `new_var = x * 2 + 10` | Linear arithmetic equality | ~60% of assignment blocks |
 
-**Overall provability: ~41% of LOW-risk blocks** get a formal machine-checkable proof. The other 59% get `UNKNOWN` status — **non-blocking**. The pipeline continues normally. Only `COUNTEREXAMPLE` (Z3 found a real semantic difference) blocks the partition — it re-queues with `risk_level = HIGH` and forces a GPT-4o retry with the counterexample in the prompt (CEGAR loop).
+**Overall provability: ~41% of LOW-risk blocks** get a formal machine-checkable proof. The other 59% get `UNKNOWN` status — **non-blocking**. The pipeline continues normally. Only `COUNTEREXAMPLE` (Z3 found a real semantic difference) blocks the partition — it re-queues with `risk_level = HIGH` and forces a GPT-5.4-mini retry with the counterexample in the prompt (CEGAR loop).
 
 ### Z3 Verification — 11 SMT Patterns
 
@@ -2571,7 +2571,7 @@ If `geoopt` is not installed, `HyperRAPTORClusterer.cluster()` logs a warning an
    │ IF unavailable ↓
  Tier 1 — Ollama minimax-m2.7:cloud (PRIMARY, free, ~2s)
    │ IF unavailable ↓
- Tier 2 — Azure GPT-4o / GPT-4o-mini (enterprise SLA, ~3s)
+ Tier 2 — Azure GPT-5.4-mini / GPT-5.4-mini-mini (enterprise SLA, ~3s)
    │ IF unavailable ↓
  Tier 3 — Groq LLaMA-3.3-70B (free tier, ~1s, + cross-verifier)
    │ IF unavailable ↓
@@ -2606,7 +2606,7 @@ If `geoopt` is not installed, `HyperRAPTORClusterer.cluster()` logs a warning an
  │  For each (category, complexity_tier):                             │
  │                                                                  │
  │  ┌────────────────────────────────────────────────────────┐      │
- │  │ Prompt A → Azure GPT-4o                                │      │
+ │  │ Prompt A → Azure GPT-5.4-mini                                │      │
  │  │ "Generate a realistic SAS code snippet for category    │      │
  │  │  DATA_STEP_RETAIN, complexity HIGH"                    │      │
  │  │                                                       │      │
@@ -2616,7 +2616,7 @@ If `geoopt` is not installed, `HyperRAPTORClusterer.cluster()` logs a warning an
  │                          │                                       │
  │                          ▼                                       │
  │  ┌────────────────────────────────────────────────────────┐      │
- │  │ Prompt B → Azure GPT-4o                                │      │
+ │  │ Prompt B → Azure GPT-5.4-mini                                │      │
  │  │ "Convert this SAS code to Python (pandas)"             │      │
  │  │                                                       │      │
  │  │ Output: ConvertedPython (python_code, runtime,          │      │
@@ -2727,7 +2727,7 @@ Before Week 9, the primary LLM was Groq (free tier). This created a critical bot
  At 30 RPM → 400 / 30 = 13.3 minutes of RATE LIMIT WAITING
  
  Azure OpenAI with $100 student credit:
-   GPT-4o-mini at $0.15/1M input tokens
+   GPT-5.4-mini-mini at $0.15/1M input tokens
    50-file corpus costs < $2 total
    No rate limit delays
    Enterprise SLA with predictable QoS
@@ -2744,8 +2744,8 @@ This is why `v2.0.0` (Week 9) promoted Azure OpenAI to primary and demoted Groq 
  │  Risk Level    │  Model              │  Cost           │  Usage  │
  │  ──────────────┼─────────────────────┼─────────────────┼──────── │
  │  LOW (60%)     │  Local GGUF / mini  │  $0 / $0.15/1M  │  ~60%  │
- │  MODERATE (25%)│  GPT-4o-mini        │  $0.15/1M input │  ~25%  │
- │  HIGH (15%)    │  GPT-4o full        │  $2.50/1M input │  ~15%  │
+ │  MODERATE (25%)│  GPT-5.4-mini-mini        │  $0.15/1M input │  ~25%  │
+ │  HIGH (15%)    │  GPT-5.4-mini full        │  $2.50/1M input │  ~15%  │
  │                │                     │                 │        │
  │  Estimated cost for 50-file corpus:  │  < $5 total     │        │
  │  Estimated cost for 10K-line file:   │  < $0.50        │        │

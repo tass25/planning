@@ -9,7 +9,7 @@ Pairs with cross-verify confidence >= 0.85 → verified=True.
 
 Supported providers (--provider flag):
     nvidia   → NVIDIA NIM  (NVIDIA_API_KEY)     default model: qwen/qwen3.5-122b-a10b
-    azure    → Azure OpenAI (AZURE_OPENAI_API_KEY)  default model: gpt-4o
+    azure    → Azure OpenAI (AZURE_OPENAI_API_KEY)  default model: gpt-5.4-mini
     groq_gen → Groq as generator too (GROQ_API_KEY)  default model: llama-3.3-70b-versatile
 
 Each run appends a summary row to knowledge_base/benchmark_results.json so you
@@ -110,7 +110,7 @@ PROVIDERS: dict[str, dict] = {
     "azure": {
         "env_key": "AZURE_OPENAI_API_KEY",
         "base_url": None,
-        "default_model": "gpt-4o",
+        "default_model": "gpt-5.4-mini",
         "is_azure": True,
     },
     "groq_gen": {

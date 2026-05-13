@@ -2,11 +2,11 @@
 
 Migration note (Week 9):
     Previously: Groq Llama-3.1-70B (Tier 1) → Ollama (Tier 2) → heuristic (Tier 3)
-    Now:        Azure OpenAI GPT-4o (Tier 1) → Groq (Tier 2)  → heuristic (Tier 3)
+    Now:        Azure OpenAI GPT-5.4-mini (Tier 1) → Groq (Tier 2)  → heuristic (Tier 3)
 
     Migrated to Azure OpenAI because:
     - Groq 30 RPM rate limit bottlenecked RAPTOR summarization on large corpora
-    - GPT-4o provides superior structured-output compliance for Pydantic models
+    - GPT-5.4-mini provides superior structured-output compliance for Pydantic models
     - Azure $100 student credit covers full project usage
     - Enterprise SLA (99.9%) vs Groq free tier (best-effort)
 """
@@ -76,7 +76,7 @@ except ImportError:
 class ClusterSummarizer:
     """Summarize a cluster of SAS code blocks — three-tier fallback.
 
-    Tier 1 — Azure OpenAI GPT-4o  (primary, enterprise SLA, $100 student credit)
+    Tier 1 — Azure OpenAI GPT-5.4-mini  (primary, enterprise SLA, $100 student credit)
     Tier 2 — Groq Llama-3.1-70B   (fallback, 30 RPM rate limit)
     Tier 3 — Heuristic             (keyword extraction, no LLM needed)
 
@@ -96,7 +96,7 @@ class ClusterSummarizer:
         self._enc = _tiktoken.get_encoding(self.ENCODING_NAME) if _TIKTOKEN_AVAILABLE else None
         self.azure_client = None
         self.groq_client = None
-        self._azure_deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT_FULL", "gpt-4o")
+        self._azure_deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT_FULL", "gpt-5.4-mini")
 
         try:
             import instructor
@@ -147,7 +147,7 @@ class ClusterSummarizer:
         truncated = self._truncate_to_token_limit(code_blocks)
         prompt = self._build_prompt(truncated)
 
-        # Tier 1: Azure OpenAI GPT-4o (primary)
+        # Tier 1: Azure OpenAI GPT-5.4-mini (primary)
         if self.azure_client and azure_breaker.allow_request():
             try:
                 result = self.azure_client.chat.completions.create(

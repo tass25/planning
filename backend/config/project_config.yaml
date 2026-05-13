@@ -20,8 +20,8 @@ llm:
   max_tokens: 6000
   azure:
     api_version: "2024-10-21"
-    deployment_mini: "gpt-4o-mini"
-    deployment_full: "gpt-4o"
+    deployment_mini: "gpt-5.4-mini"
+    deployment_full: "gpt-5.4-mini"
   groq:
     model: "llama-3.1-8b-instant"
 
