@@ -160,7 +160,9 @@ def generate_training_pairs(
     attempts = 0
     while len(negatives) < max_negatives and attempts < max_negatives * 10:
         attempts += 1
-        b1, b2 = rng.sample(broad_keys, 2) if len(broad_keys) >= 2 else (broad_keys[0], broad_keys[0])
+        b1, b2 = (
+            rng.sample(broad_keys, 2) if len(broad_keys) >= 2 else (broad_keys[0], broad_keys[0])
+        )
         if b1 == b2:
             continue
         a = rng.choice(by_broad[b1])
@@ -195,7 +197,7 @@ def fine_tune(
     dev_fraction: float = 0.1,
 ) -> None:
     """Fine-tune a SentenceTransformer on contrastive SAS pairs."""
-    from sentence_transformers import SentenceTransformer, InputExample, losses
+    from sentence_transformers import InputExample, SentenceTransformer, losses
     from sentence_transformers.evaluation import EmbeddingSimilarityEvaluator
     from torch.utils.data import DataLoader
 
@@ -217,12 +219,10 @@ def fine_tune(
     dev_triples = triples[split_idx:]
 
     train_examples = [
-        InputExample(texts=[a, b], label=np.float32(score))
-        for a, b, score in train_triples
+        InputExample(texts=[a, b], label=np.float32(score)) for a, b, score in train_triples
     ]
     dev_examples = [
-        InputExample(texts=[a, b], label=np.float32(score))
-        for a, b, score in dev_triples
+        InputExample(texts=[a, b], label=np.float32(score)) for a, b, score in dev_triples
     ]
 
     train_loader = DataLoader(train_examples, shuffle=True, batch_size=batch_size)

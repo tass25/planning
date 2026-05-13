@@ -108,6 +108,7 @@ class PartitionOrchestrator:
         np.random.seed(_seed)
         try:
             import torch
+
             torch.manual_seed(_seed)
         except ImportError:
             pass

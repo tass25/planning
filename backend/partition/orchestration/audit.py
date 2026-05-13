@@ -148,7 +148,6 @@ class LLMAuditLogger:
         finally:
             call.persist()
 
-
     def log_failure_mode_accuracy(
         self,
         run_id: str,

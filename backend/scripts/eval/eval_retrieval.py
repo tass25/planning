@@ -75,9 +75,9 @@ def evaluate_retrieval(
     against all other entries, and check if same-partition_type entries
     appear in the top-k.
     """
+    import numpy as np
     from sentence_transformers import SentenceTransformer
     from sklearn.metrics.pairwise import cosine_similarity
-    import numpy as np
 
     print(f"\nLoading model: {model_name}")
     model = SentenceTransformer(model_name, trust_remote_code=trust_remote_code)
@@ -160,9 +160,13 @@ def print_results(results: dict) -> None:
     print(f"  KB entries evaluated : {results['total_entries']}")
     print(f"  k                    : {results['k']}")
     print(f"  Top-1 accuracy       : {results['top_1_accuracy']:.1%}")
-    print(f"  Top-{results['k']} accuracy       : {results.get(f'top_{results[\"k\"]}_accuracy', 0):.1%}")
+    k = results["k"]
+    top_k_acc = results.get(f"top_{k}_accuracy", 0)
+    print(f"  Top-{k} accuracy       : {top_k_acc:.1%}")
     print(f"  MRR                  : {results['mrr']:.4f}")
-    print(f"  Low-similarity hits  : {results['low_similarity_pct']:.1%} (below {results['similarity_threshold']})")
+    print(
+        f"  Low-similarity hits  : {results['low_similarity_pct']:.1%} (below {results['similarity_threshold']})"
+    )
     print(f"{'='*60}\n")
 
 
@@ -209,9 +213,8 @@ def main() -> None:
         print("  COMPARISON (fine-tuned - base)")
         print(f"{'='*60}")
         delta_1 = ft_results["top_1_accuracy"] - base_results["top_1_accuracy"]
-        delta_k = (
-            ft_results.get(f"top_{args.k}_accuracy", 0)
-            - base_results.get(f"top_{args.k}_accuracy", 0)
+        delta_k = ft_results.get(f"top_{args.k}_accuracy", 0) - base_results.get(
+            f"top_{args.k}_accuracy", 0
         )
         delta_mrr = ft_results["mrr"] - base_results["mrr"]
         print(f"  Top-1 accuracy       : {delta_1:+.1%}")
