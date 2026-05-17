@@ -16,6 +16,7 @@ env/
 
 # ── Claude Code (local skills, memory, settings) ─────────────────────────────
 .claude/
+CLAUDE.md
 
 # ── IDE ───────────────────────────────────────────────────────────────────────
 .vscode/

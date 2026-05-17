@@ -1,31 +1,59 @@
 import { create } from "zustand";
 
+type Mode = "light" | "dark";
+type Aesthetic = "aurora" | "editorial" | "slate";
+
 interface ThemeState {
-  theme: "light" | "dark";
+  theme: Mode;
+  aesthetic: Aesthetic;
   toggle: () => void;
-  setTheme: (theme: "light" | "dark") => void;
+  setTheme: (theme: Mode) => void;
+  setAesthetic: (aesthetic: Aesthetic) => void;
+}
+
+function applyMode(mode: Mode) {
+  document.documentElement.classList.toggle("dark", mode === "dark");
+  localStorage.setItem("codara-theme", mode);
+}
+
+function applyAesthetic(aesthetic: Aesthetic) {
+  if (aesthetic === "aurora") {
+    document.documentElement.removeAttribute("data-aesthetic");
+  } else {
+    document.documentElement.setAttribute("data-aesthetic", aesthetic);
+  }
+  localStorage.setItem("codara-aesthetic", aesthetic);
 }
 
 export const useThemeStore = create<ThemeState>((set) => {
-  const stored = typeof window !== "undefined" ? localStorage.getItem("codara-theme") as "light" | "dark" | null : null;
-  const initial = stored || "dark";
+  const storedMode = typeof window !== "undefined" ? localStorage.getItem("codara-theme") as Mode | null : null;
+  const storedAesthetic = typeof window !== "undefined" ? localStorage.getItem("codara-aesthetic") as Aesthetic | null : null;
+  const initialMode = storedMode || "dark";
+  const initialAesthetic = storedAesthetic || "aurora";
+
   if (typeof document !== "undefined") {
-    document.documentElement.classList.toggle("dark", initial === "dark");
+    applyMode(initialMode);
+    applyAesthetic(initialAesthetic);
   }
+
   return {
-    theme: initial,
+    theme: initialMode,
+    aesthetic: initialAesthetic,
     toggle: () =>
       set((s) => {
-        const next = s.theme === "dark" ? "light" : "dark";
-        document.documentElement.classList.toggle("dark", next === "dark");
-        localStorage.setItem("codara-theme", next);
+        const next: Mode = s.theme === "dark" ? "light" : "dark";
+        applyMode(next);
         return { theme: next };
       }),
     setTheme: (theme) =>
       set(() => {
-        document.documentElement.classList.toggle("dark", theme === "dark");
-        localStorage.setItem("codara-theme", theme);
+        applyMode(theme);
         return { theme };
+      }),
+    setAesthetic: (aesthetic) =>
+      set(() => {
+        applyAesthetic(aesthetic);
+        return { aesthetic };
       }),
   };
 });

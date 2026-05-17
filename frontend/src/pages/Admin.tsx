@@ -12,6 +12,7 @@ const adminLinks = [
   { label: "File Registry", path: "/admin/file-registry", desc: "File dependencies & lineage" },
   { label: "KB Management", path: "/admin/kb-management", desc: "Knowledge base admin" },
   { label: "KB Changelog", path: "/admin/kb-changelog", desc: "KB mutation history" },
+  { label: "Prompt Templates", path: "/admin/prompt-templates", desc: "View and edit Jinja2 pipeline prompts" },
 ];
 
 export default function AdminPage() {

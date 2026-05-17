@@ -152,3 +152,33 @@ export interface AnalyticsData {
   avgLatency: number;
   failures: number;
 }
+
+export interface Project {
+  id: string;
+  name: string;
+  ownerId: string;
+  ownerName: string;
+  status: "active" | "archived" | "shipped";
+  color: string;
+  files: number;
+  converted: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PromptTemplate {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string;
+  model: string;
+  category: string;
+  status: string;
+  content: string;
+  variables: string[];
+  uses: number;
+  avgLatency: number;
+  successRate: number;
+  lastEdited: string;
+  version: string;
+}

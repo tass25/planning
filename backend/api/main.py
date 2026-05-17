@@ -43,7 +43,7 @@ from api.core.auth import hash_password
 from api.core.database import KBEntryRow, UserRow, get_api_engine, get_api_session, init_api_db
 from api.middleware.error_handler import register_error_handlers
 from api.middleware.logging_middleware import LoggingMiddleware
-from api.routes import admin, analytics, auth, conversions, knowledge_base, notifications
+from api.routes import admin, analytics, auth, conversions, cost, error_queue, knowledge_base, notifications, projects, prompts
 from api.routes import settings as settings_route
 
 _init_telemetry()
@@ -90,6 +90,10 @@ app.include_router(admin.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
 app.include_router(settings_route.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
+app.include_router(projects.router, prefix="/api")
+app.include_router(error_queue.router, prefix="/api")
+app.include_router(cost.router, prefix="/api")
+app.include_router(prompts.router, prefix="/api")
 
 
 # ── Seed data ─────────────────────────────────────────────────────────────────

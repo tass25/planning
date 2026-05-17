@@ -3,6 +3,7 @@ import { useUserStore } from "@/store/user-store";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { CodaraLogo } from "@/components/CodaraLogo";
+import { CodaraMascot } from "@/components/Ambient";
 import { Loader2, Eye, EyeOff, ArrowRight, Copy, Check, Zap, Shield, Cpu, BarChart3 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -134,27 +135,37 @@ export default function LoginPage() {
               ))}
             </motion.div>
 
-            {/* Code snippet */}
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7 }}
-              className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-5 max-w-md backdrop-blur-sm"
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
-                <div className="w-2.5 h-2.5 rounded-full bg-amber-500/60" />
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
-                <span className="ml-auto text-[10px] text-white/20 font-mono">output.py</span>
-              </div>
-              <pre className="text-[12px] font-mono leading-relaxed">
-                <span className="text-white/30"># Codara AI Pipeline Output</span>{"\n"}
-                <span className="text-purple-400">customers</span> <span className="text-white/50">=</span> <span className="text-blue-400">raw_data</span><span className="text-white/40">.</span><span className="text-amber-400">query</span><span className="text-white/40">(</span>{"\n"}
-                <span className="text-emerald-400">    "status == 'active'"</span>{"\n"}
-                <span className="text-white/40">)</span>{"\n"}
-                <span className="text-purple-400">segments</span> <span className="text-white/50">=</span> <span className="text-blue-400">pd</span><span className="text-white/40">.</span><span className="text-amber-400">cut</span><span className="text-white/40">(</span><span className="text-purple-400">income</span><span className="text-white/40">)</span>
-              </pre>
-            </motion.div>
+            {/* Code snippet + Mascot side by side */}
+            <div className="flex items-center gap-6">
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 }}
+                className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-5 flex-1 backdrop-blur-sm"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500/60" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
+                  <span className="ml-auto text-[10px] text-white/20 font-mono">output.py</span>
+                </div>
+                <pre className="text-[12px] font-mono leading-relaxed">
+                  <span className="text-white/30"># Codara AI Pipeline Output</span>{"\n"}
+                  <span className="text-purple-400">customers</span> <span className="text-white/50">=</span> <span className="text-blue-400">raw_data</span><span className="text-white/40">.</span><span className="text-amber-400">query</span><span className="text-white/40">(</span>{"\n"}
+                  <span className="text-emerald-400">    "status == 'active'"</span>{"\n"}
+                  <span className="text-white/40">)</span>{"\n"}
+                  <span className="text-purple-400">segments</span> <span className="text-white/50">=</span> <span className="text-blue-400">pd</span><span className="text-white/40">.</span><span className="text-amber-400">cut</span><span className="text-white/40">(</span><span className="text-purple-400">income</span><span className="text-white/40">)</span>
+                </pre>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.9, duration: 0.6, type: "spring" }}
+                className="flex-shrink-0"
+              >
+                <CodaraMascot size={140} />
+              </motion.div>
+            </div>
           </div>
 
           <div className="flex items-center gap-8 text-white/25 text-xs font-medium">

@@ -144,6 +144,29 @@ class CorrectionRow(ApiBase):
     submitted_at = Column(String, nullable=False)
 
 
+# ── Projects ─────────────────────────────────────────────────────────────────
+
+
+class ProjectRow(ApiBase):
+    __tablename__ = "projects"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    owner_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    status = Column(String, default="active")  # active | archived | shipped
+    color = Column(String, default="accent")
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=False)
+
+
+class ProjectFileRow(ApiBase):
+    __tablename__ = "project_files"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    conversion_id = Column(String, ForeignKey("conversions.id", ondelete="CASCADE"), nullable=False)
+
+
 # ── Notifications ─────────────────────────────────────────────────────────────
 
 

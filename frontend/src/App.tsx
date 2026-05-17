@@ -29,6 +29,8 @@ import FileRegistryPage from "./pages/admin/FileRegistry";
 import KBManagementPage from "./pages/admin/KBManagement";
 import KBChangelogPage from "./pages/admin/KBChangelog";
 import SettingsPage from "./pages/Settings";
+import ProjectsPage from "./pages/Projects";
+import PromptTemplatesPage from "./pages/admin/PromptTemplates";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +63,7 @@ const App = () => {
           {/* App routes with layout */}
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/conversions" element={<ConversionsPage />} />
             <Route path="/workspace" element={<WorkspacePage />} />
             <Route path="/workspace/:conversionId" element={<WorkspacePage />} />
@@ -75,6 +78,7 @@ const App = () => {
             <Route path="/admin/file-registry" element={<FileRegistryPage />} />
             <Route path="/admin/kb-management" element={<KBManagementPage />} />
             <Route path="/admin/kb-changelog" element={<KBChangelogPage />} />
+            <Route path="/admin/prompt-templates" element={<PromptTemplatesPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
 

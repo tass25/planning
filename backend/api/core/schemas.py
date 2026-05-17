@@ -284,3 +284,74 @@ class NotificationOut(BaseModel):
 
 class GitHubCallbackRequest(BaseModel):
     code: str
+
+
+# ── Error Queue ──────────────────────────────────────────────────────────────
+
+
+class ErrorQueueItemOut(BaseModel):
+    id: str
+    fileName: str
+    stage: str
+    error: str
+    model: str
+    retries: int
+    createdAt: str
+    severity: str
+    userId: str
+    userName: str
+
+
+# ── Projects ─────────────────────────────────────────────────────────────────
+
+
+class ProjectOut(BaseModel):
+    id: str
+    name: str
+    ownerId: str
+    ownerName: str
+    status: str
+    color: str
+    files: int
+    converted: int
+    createdAt: str
+    updatedAt: str
+
+
+class ProjectCreate(BaseModel):
+    name: str
+    color: str = "accent"
+
+
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = None
+    status: Optional[str] = None
+    color: Optional[str] = None
+
+
+class ProjectAddFile(BaseModel):
+    conversionId: str
+
+
+# ── Cost Dashboard ───────────────────────────────────────────────────────────
+
+
+class CostByModelOut(BaseModel):
+    model: str
+    calls: int
+    tokens: int
+    cost: float
+
+
+class DailyCostOut(BaseModel):
+    date: str
+    cost: float
+    calls: int
+
+
+class CostSummaryOut(BaseModel):
+    totalCost: float
+    totalCalls: int
+    totalTokens: int
+    byModel: list[CostByModelOut]
+    daily: list[DailyCostOut]

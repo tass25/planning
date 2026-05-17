@@ -21,7 +21,7 @@ const variantStyles = {
 
 export function StatCard({ title, value, subtitle, icon: Icon, trend, variant = "default", className }: StatCardProps) {
   return (
-    <div className={cn("glass-panel p-5 bg-gradient-to-br", variantStyles[variant], className)}>
+    <div className={cn("glass-panel lift p-5 bg-gradient-to-br", variantStyles[variant], className)}>
       <div className="flex items-start justify-between mb-3">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{title}</span>
         <Icon className="w-4 h-4 text-muted-foreground" />

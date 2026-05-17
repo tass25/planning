@@ -1,8 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard, FileCode, FolderOpen, History, BookOpen,
-  BarChart3, Shield, Settings, ChevronLeft, LogOut
+  LayoutDashboard, FileCode, FolderOpen, FolderKanban, History, BookOpen,
+  BarChart3, Shield, Settings, ChevronLeft, LogOut, FileText
 } from "lucide-react";
 import { useState } from "react";
 import { CodaraLogo } from "@/components/CodaraLogo";
@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 
 const userNavItems = [
   { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+  { label: "Projects", path: "/projects", icon: FolderKanban },
   { label: "Conversions", path: "/conversions", icon: FileCode },
   { label: "Workspace", path: "/workspace", icon: FolderOpen },
   { label: "History", path: "/history", icon: History },
@@ -27,6 +28,7 @@ const adminNavItems = [
   { label: "File Registry", path: "/admin/file-registry", icon: History },
   { label: "KB Management", path: "/admin/kb-management", icon: BookOpen },
   { label: "KB Changelog", path: "/admin/kb-changelog", icon: History },
+  { label: "Prompt Templates", path: "/admin/prompt-templates", icon: FileText },
 ];
 
 export function AppSidebar() {

@@ -3,6 +3,7 @@ import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { CodaraLogo } from "@/components/CodaraLogo";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { AmbientBackdrop, CursorGlow, Constellation, FloatParticles } from "@/components/Ambient";
 import {
   ArrowRight, Code2, GitBranch, Shield, BarChart3,
   Cpu, Zap, Star, ChevronRight, CheckCircle2,
@@ -68,6 +69,8 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
+      <AmbientBackdrop />
+      <CursorGlow />
       {/* Nav */}
       <nav className="border-b border-border/50 backdrop-blur-xl sticky top-0 z-50 bg-background/80">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-6 h-16">
@@ -87,6 +90,10 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section ref={heroRef} className="relative">
+        {/* Constellation dots+lines behind hero */}
+        <div className="absolute inset-0 overflow-hidden" style={{ zIndex: 1 }}>
+          <Constellation density={0.00012} speed={0.14} />
+        </div>
         {/* Background effects with parallax */}
         <div className="absolute inset-0 overflow-hidden">
           <motion.div style={{ y: heroOrbY1 }} className="absolute top-[-30%] left-[10%] w-[500px] h-[500px] bg-[radial-gradient(circle,hsl(var(--accent)/0.08)_0%,transparent_70%)] blur-3xl" />
@@ -312,6 +319,7 @@ export default function LandingPage() {
 
       {/* CTA */}
       <section ref={ctaRef} className="py-24 relative overflow-hidden">
+        <FloatParticles count={12} />
         <div className="absolute inset-0">
           <motion.div style={{ y: ctaOrbY }} className="absolute top-0 left-[20%] w-[400px] h-[400px] bg-[radial-gradient(circle,hsl(var(--accent)/0.06)_0%,transparent_70%)] blur-3xl" />
           <motion.div style={{ y: ctaOrbY2 }} className="absolute bottom-0 right-[20%] w-[300px] h-[300px] bg-[radial-gradient(circle,hsl(var(--secondary)/0.05)_0%,transparent_70%)] blur-3xl" />

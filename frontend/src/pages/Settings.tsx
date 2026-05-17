@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { useUserStore } from "@/store/user-store";
 import { Button } from "@/components/ui/button";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { useState } from "react";
 import { api } from "@/lib/api";
 
@@ -33,6 +34,14 @@ export default function SettingsPage() {
         <p className="text-sm text-muted-foreground mt-1">Manage your account and preferences</p>
       </div>
 
+      {/* Appearance */}
+      <div className="glass-panel p-6 space-y-4">
+        <h2 className="text-sm font-semibold text-foreground">Appearance</h2>
+        <p className="text-xs text-muted-foreground -mt-2">Choose your visual style and color mode</p>
+        <ThemeSwitcher />
+      </div>
+
+      {/* Profile */}
       <div className="glass-panel p-6 max-w-lg space-y-5">
         <h2 className="text-sm font-semibold text-foreground">Profile</h2>
         <div>
@@ -44,10 +53,11 @@ export default function SettingsPage() {
           <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-accent transition-colors" />
         </div>
         <Button onClick={handleSaveProfile} className="bg-accent text-accent-foreground hover:bg-accent/90">
-          {saved ? "✓ Saved" : "Save Changes"}
+          {saved ? "Saved" : "Save Changes"}
         </Button>
       </div>
 
+      {/* Preferences */}
       <div className="glass-panel p-6 max-w-lg space-y-5">
         <h2 className="text-sm font-semibold text-foreground">Preferences</h2>
         <div className="flex items-center justify-between">

@@ -1,12 +1,13 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useConversionStore } from "@/store/conversion-store";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Upload, FileCode, X, Play, Settings2, CheckCircle2, Loader2, Circle, AlertCircle, ArrowRight } from "lucide-react";
+import { Upload, FileCode, X, Play, Settings2, CheckCircle2, Loader2, Circle, AlertCircle, ArrowRight, FolderKanban, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
-import type { RiskLevel, PipelineStage } from "@/types";
+import { api } from "@/lib/api";
+import type { RiskLevel, PipelineStage, Project } from "@/types";
 
 const STAGE_LABELS: Record<PipelineStage, string> = {
   file_process: "File Analysis",
@@ -36,6 +37,14 @@ export default function ConversionsPage() {
   const [isRunning, setIsRunning] = useState(false);
   const navigate = useNavigate();
   const hasNavigated = useRef(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+
+  useEffect(() => {
+    api.get<Project[]>("/projects").then((data) => setProjects(data ?? [])).catch(() => {});
+  }, []);
 
   const activeConversion = conversions.find((c) => c.id === activeConversionId);
   const showProgress = isRunning || (activeConversion && (activeConversion.status === "running" || activeConversion.status === "queued"));
@@ -66,10 +75,30 @@ export default function ConversionsPage() {
     if (files.length > 0) await uploadFiles(files);
   };
 
+  const handleCreateQuickProject = async () => {
+    if (!newProjectName.trim()) return;
+    try {
+      const proj = await api.post<Project>("/projects", { name: newProjectName.trim() });
+      setProjects((prev) => [proj, ...prev]);
+      setSelectedProjectId(proj.id);
+      setNewProjectName("");
+      setShowNewProject(false);
+    } catch (err) {
+      console.error("[codara] quick project create failed", err);
+    }
+  };
+
   const handleStart = async () => {
     if (uploadedFiles.length === 0) return;
     setIsRunning(true);
-    await startConversion(uploadedFiles.map((f) => f.id));
+    const convId = await startConversion(uploadedFiles.map((f) => f.id));
+    if (selectedProjectId && convId) {
+      try {
+        await api.post(`/projects/${selectedProjectId}/files`, { conversionId: convId });
+      } catch (err) {
+        console.error("[codara] assign to project failed", err);
+      }
+    }
   };
 
   // Compute progress
@@ -296,6 +325,59 @@ export default function ConversionsPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Project Picker (optional) */}
+          <div className="glass-panel p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <FolderKanban className="w-4 h-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold text-foreground">Project</h2>
+              <span className="text-xs text-muted-foreground">(optional)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedProjectId ?? ""}
+                onChange={(e) => setSelectedProjectId(e.target.value || null)}
+                className="flex-1 px-3 py-2 rounded-lg bg-muted/30 border border-border text-sm text-foreground focus:outline-none focus:border-accent"
+              >
+                <option value="">No project — quick conversion</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowNewProject(!showNewProject)}
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+            <AnimatePresence>
+              {showNewProject && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-3 flex items-center gap-2 overflow-hidden"
+                >
+                  <input
+                    type="text"
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleCreateQuickProject()}
+                    placeholder="New project name..."
+                    className="flex-1 px-3 py-2 rounded-lg bg-muted/30 border border-border text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-accent"
+                  />
+                  <Button size="sm" onClick={handleCreateQuickProject} disabled={!newProjectName.trim()} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                    Create
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => { setShowNewProject(false); setNewProjectName(""); }}>
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Start Button */}
