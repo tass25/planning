@@ -51,7 +51,18 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(../venv/Scripts/python -m pytest tests/test_complexity_agent.py::TestRuleBasedPrediction::test_deep_nesting_is_high tests/test_translation.py::TestValidationAgent::test_sandbox_no_import -v --tb=short)",
-      "Bash(../venv/Scripts/python -c ' *)"
+      "Bash(../venv/Scripts/python -c ' *)",
+      "Bash(grep -E \"\\\\.md$\")",
+      "WebSearch",
+      "Bash(grep -iE \"\\\\.md$|\\\\.tex$|\\\\.html$\")",
+      "Bash(robocopy \"C:\\\\Users\\\\labou\\\\Desktop\\\\Stage\" \"C:\\\\Users\\\\labou\\\\Desktop\\\\stagePfe\" /E /XD venv node_modules __pycache__ .git .pytest_cache .ruff_cache .review .claude dist planning data uploads output .github)",
+      "Bash(cp \"C:/Users/labou/Downloads/p11/app/src/components/ui.tsx\" \"C:/Users/labou/Desktop/Stage/frontend/src/components/\")",
+      "Bash(cp \"C:/Users/labou/Downloads/p11/app/src/components/ambient.tsx\" \"C:/Users/labou/Desktop/Stage/frontend/src/components/\")",
+      "Bash(cp \"C:/Users/labou/Downloads/p11/app/src/components/layout.tsx\" \"C:/Users/labou/Desktop/Stage/frontend/src/components/\")",
+      "Bash(cp \"C:/Users/labou/Downloads/p11/app/src/components/dialogs.tsx\" \"C:/Users/labou/Desktop/Stage/frontend/src/components/\")",
+      "Bash(cp \"C:/Users/labou/Downloads/p11/app/src/components/tweaks.tsx\" \"C:/Users/labou/Desktop/Stage/frontend/src/components/\")",
+      "Bash(/c/Users/labou/Desktop/Stage/venv/Scripts/python *)",
+      "PowerShell($env:Path = \"C:\\\\Program Files\\\\nodejs;\" + $env:Path; cd \"C:\\\\Users\\\\labou\\\\Desktop\\\\Stage\\\\frontend\"; npx tsc --noEmit 2>&1 | Select-Object -First 30)"
     ]
   }
 }
