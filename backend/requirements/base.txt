@@ -55,5 +55,5 @@ z3-solver~=4.13.0                   # SMT solver for semantic equivalence proofs
 # Local model inference (optional — only needed if LOCAL_MODEL_PATH is set)
 # Install manually: pip install llama-cpp-python
 # llama-cpp-python>=0.3.0
-azure-keyvault-secrets~=4.9.0
+azure-keyvault-secrets~=4.11.0
 azure-identity~=1.19.0
