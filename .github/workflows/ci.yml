@@ -255,7 +255,7 @@ jobs:
   deploy:
     name: Deploy to Azure Container Apps
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     needs: [docker, docker-frontend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment: production
@@ -278,6 +278,13 @@ jobs:
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           IMAGE="ghcr.io/${{ github.repository_owner }}/codara:sha-${SHORT_SHA}"
 
+          az containerapp registry set \
+            --name ca-codara-backend \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --server ghcr.io \
+            --username ${{ github.actor }} \
+            --password ${{ secrets.GITHUB_TOKEN }}
+
           az containerapp update \
             --name ca-codara-backend \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
@@ -288,6 +295,13 @@ jobs:
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           IMAGE="ghcr.io/${{ github.repository_owner }}/codara-frontend:sha-${SHORT_SHA}"
+
+          az containerapp registry set \
+            --name ca-codara-frontend \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --server ghcr.io \
+            --username ${{ github.actor }} \
+            --password ${{ secrets.GITHUB_TOKEN }}
 
           az containerapp update \
             --name ca-codara-frontend \
