@@ -285,6 +285,7 @@ class KBQueryClient:
     def __init__(self, db_path: str = ""):
         if not db_path:
             from config.constants import LANCEDB_PATH
+
             db_path = LANCEDB_PATH
         self.db = _get_db(db_path)
 

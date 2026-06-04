@@ -124,6 +124,7 @@ class LLMAuditLogger:
     def __init__(self, db_path: str = ""):
         if not db_path:
             from config.constants import DUCKDB_PATH
+
             db_path = DUCKDB_PATH
         self.db_path = db_path
 

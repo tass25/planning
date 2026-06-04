@@ -14,7 +14,6 @@ import argparse
 
 import lancedb
 import structlog
-
 from partition.kb.kb_changelog import log_kb_change
 
 logger = structlog.get_logger()
@@ -39,6 +38,7 @@ def rollback(
     """
     from config.constants import DUCKDB_PATH as _DD
     from config.constants import LANCEDB_PATH as _LD
+
     db_path = db_path or _LD
     duckdb_path = duckdb_path or _DD
     db = lancedb.connect(db_path)
@@ -99,9 +99,7 @@ if __name__ == "__main__":
     parser.add_argument("--example_id", required=True, help="UUID of the example")
     parser.add_argument("--to_version", type=int, required=True, help="Target version")
     parser.add_argument("--db_path", default="", help="LanceDB path")
-    parser.add_argument(
-        "--duckdb_path", default="", help="DuckDB changelog path"
-    )
+    parser.add_argument("--duckdb_path", default="", help="DuckDB changelog path")
     args = parser.parse_args()
 
     rollback(

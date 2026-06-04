@@ -22,7 +22,10 @@ def _require_admin(current_user: dict):
     if current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
 
-_TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "partition" / "prompts" / "templates"
+
+_TEMPLATES_DIR = (
+    Path(__file__).resolve().parent.parent.parent / "partition" / "prompts" / "templates"
+)
 
 _TEMPLATE_META: dict[str, dict] = {
     "translation_static": {

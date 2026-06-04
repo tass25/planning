@@ -76,6 +76,7 @@ class TranslationPipeline:
         self.invariant_set = invariant_set  # None = MIS disabled; call load_invariants() to enable
         if not duckdb_path:
             from config.constants import DUCKDB_PATH
+
             duckdb_path = DUCKDB_PATH
         self.duckdb_path = duckdb_path
 

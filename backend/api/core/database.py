@@ -165,7 +165,9 @@ class ProjectFileRow(ApiBase):
     __tablename__ = "project_files"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id = Column(
+        String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     conversion_id = Column(String, ForeignKey("conversions.id", ondelete="CASCADE"), nullable=False)
 
 

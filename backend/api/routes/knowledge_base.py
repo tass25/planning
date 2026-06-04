@@ -123,6 +123,7 @@ def create_entry(body: KBEntryCreate, current_user: dict = Depends(get_current_u
         except Exception as exc:
             session.rollback()
             import structlog
+
             structlog.get_logger().error("kb_create_failed", error=str(exc))
             raise HTTPException(status_code=500, detail="Failed to create KB entry")
         return _kb_to_out(entry)

@@ -22,9 +22,7 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 
 def _project_to_out(session, row: ProjectRow) -> ProjectOut:
     owner = session.query(UserRow).filter(UserRow.id == row.owner_id).first()
-    file_links = (
-        session.query(ProjectFileRow).filter(ProjectFileRow.project_id == row.id).all()
-    )
+    file_links = session.query(ProjectFileRow).filter(ProjectFileRow.project_id == row.id).all()
     conv_ids = [f.conversion_id for f in file_links]
     total_files = len(conv_ids)
     converted = 0
@@ -137,9 +135,7 @@ def delete_project(project_id: str, current_user: dict = Depends(get_current_use
 
 
 @router.get("/{project_id}/conversions")
-def list_project_conversions(
-    project_id: str, current_user: dict = Depends(get_current_user)
-):
+def list_project_conversions(project_id: str, current_user: dict = Depends(get_current_user)):
     from api.main import engine
     from api.services.conversion_service import conv_to_out
 
@@ -148,19 +144,11 @@ def list_project_conversions(
         row = session.query(ProjectRow).filter(ProjectRow.id == project_id).first()
         if not row:
             raise HTTPException(status_code=404, detail="Project not found")
-        links = (
-            session.query(ProjectFileRow)
-            .filter(ProjectFileRow.project_id == project_id)
-            .all()
-        )
+        links = session.query(ProjectFileRow).filter(ProjectFileRow.project_id == project_id).all()
         conv_ids = [l.conversion_id for l in links]
         if not conv_ids:
             return []
-        convs = (
-            session.query(ConversionRow)
-            .filter(ConversionRow.id.in_(conv_ids))
-            .all()
-        )
+        convs = session.query(ConversionRow).filter(ConversionRow.id.in_(conv_ids)).all()
         return [conv_to_out(c) for c in convs]
     finally:
         session.close()

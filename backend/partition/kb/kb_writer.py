@@ -73,6 +73,7 @@ class KBWriter:
     ) -> None:
         from config.constants import DUCKDB_PATH as _DD
         from config.constants import LANCEDB_PATH as _LD
+
         self.db = lancedb.connect(db_path or _LD)
         self.duckdb_path = duckdb_path or _DD
 

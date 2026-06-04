@@ -98,9 +98,7 @@ def get_cost_summary(current_user: dict = Depends(get_current_user)):
         thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
 
         audit_rows = (
-            session.query(AuditLogRow)
-            .filter(AuditLogRow.timestamp >= thirty_days_ago)
-            .all()
+            session.query(AuditLogRow).filter(AuditLogRow.timestamp >= thirty_days_ago).all()
         )
 
         model_stats: dict[str, dict] = defaultdict(lambda: {"calls": 0, "tokens": 0, "cost": 0.0})

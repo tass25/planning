@@ -304,6 +304,7 @@ async def main(args: argparse.Namespace) -> None:
 
     # DPO pairs
     from config.constants import SQLITE_PATH as _DEFAULT_SQLITE
+
     dpo_pairs = load_dpo_pairs(os.getenv("SQLITE_PATH", _DEFAULT_SQLITE))
     if dpo_pairs:
         dpo_path = output_path.parent / "dpo_train.jsonl"

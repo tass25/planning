@@ -106,7 +106,9 @@ def retry_conversion(conv_id: str, current_user: dict = Depends(get_current_user
         if not conv:
             raise HTTPException(status_code=404, detail="Conversion not found")
         if conv.status not in ("failed", "partial"):
-            raise HTTPException(status_code=400, detail="Only failed/partial conversions can be retried")
+            raise HTTPException(
+                status_code=400, detail="Only failed/partial conversions can be retried"
+            )
 
         conv.status = "queued"
         session.query(ConversionStageRow).filter(

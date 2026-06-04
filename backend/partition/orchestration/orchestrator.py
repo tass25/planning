@@ -83,6 +83,7 @@ class PartitionOrchestrator:
     ):
         if not duckdb_path:
             from config.constants import DUCKDB_PATH
+
             duckdb_path = DUCKDB_PATH
         self.checkpoint = RedisCheckpointManager(redis_url)
         self.audit = LLMAuditLogger(duckdb_path)
