@@ -270,6 +270,9 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Install Azure Container Apps extension
+        run: az extension add --name containerapp --upgrade -y
+
       - name: Deploy backend to Container Apps
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
