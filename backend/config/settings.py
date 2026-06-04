@@ -197,12 +197,18 @@ class Settings(BaseSettings):
 
     # ── CORS ─────────────────────────────────────────────────────────────────
     # Override via env: CORS_ORIGINS=https://app.codara.dev,http://localhost:5173
-    # pydantic-settings parses comma-separated strings into list[str] automatically.
     cors_origins: list[str] = [
         "http://localhost:8080",
         "http://localhost:5173",
         "http://127.0.0.1:8080",
     ]
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def _parse_cors_origins(cls, v):
+        if isinstance(v, str):
+            return [s.strip() for s in v.split(",") if s.strip()]
+        return v
 
     # ── Local GGUF model (Tier 0 — optional) ─────────────────────────────────
     local_model_path: str = ""  # path to .gguf file; empty = disabled
