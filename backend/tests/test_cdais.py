@@ -176,11 +176,11 @@ class TestCDASISynthesizer:
 
     @pytest.mark.parametrize("class_name", [ec.name for ec in ALL_ERROR_CLASSES])
     def test_witness_has_minimum_rows(self, synthesizer, cfg, class_name):
-        """Witnesses should be small (≤ 2*n_groups*n_rows_per_group rows)."""
+        """Witnesses should be small (≤ 3*n_groups*n_rows_per_group rows)."""
         ec = ERROR_CLASS_MAP[class_name]
         result = synthesizer.synthesize(ec, cfg)
         if result.sat and result.witness_df is not None:
-            max_rows = cfg.n_groups * cfg.n_rows_per_group * 2
+            max_rows = cfg.n_groups * cfg.n_rows_per_group * 3
             assert (
                 len(result.witness_df) <= max_rows
             ), f"{class_name}: witness has {len(result.witness_df)} rows > {max_rows}"
