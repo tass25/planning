@@ -273,6 +273,15 @@ jobs:
       - name: Install Azure Container Apps extension
         run: az extension add --name containerapp --upgrade -y
 
+      - name: Debug Azure context
+        run: |
+          echo "=== Account ==="
+          az account show -o table
+          echo "=== Resource Group ==="
+          az group show --name ${{ secrets.AZURE_RESOURCE_GROUP }} -o table || echo "RG not found"
+          echo "=== Container Apps ==="
+          az containerapp list --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} -o table || echo "List failed"
+
       - name: Deploy backend to Container Apps
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
