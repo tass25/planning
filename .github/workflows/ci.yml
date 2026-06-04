@@ -273,14 +273,16 @@ jobs:
       - name: Install Azure Container Apps extension
         run: az extension add --name containerapp --upgrade -y
 
-      - name: Debug Azure context
+      - name: Configure GHCR registry on Container Apps
         run: |
-          echo "=== Account ==="
-          az account show -o table
-          echo "=== Resource Group ==="
-          az group show --name ${{ secrets.AZURE_RESOURCE_GROUP }} -o table || echo "RG not found"
-          echo "=== Container Apps ==="
-          az containerapp list --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} -o table || echo "List failed"
+          for APP in ca-codara-backend ca-codara-frontend; do
+            az containerapp registry set \
+              --name "$APP" \
+              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --server ghcr.io \
+              --username ${{ github.actor }} \
+              --password ${{ secrets.GITHUB_TOKEN }}
+          done
 
       - name: Deploy backend to Container Apps
         run: |
