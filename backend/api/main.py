@@ -27,9 +27,10 @@ if _pkg_root not in sys.path:
     sys.path.insert(0, _pkg_root)
 
 import structlog
-from config.settings import settings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from config.settings import settings
 
 # Catch weak JWT secrets before we accept a single request — better to crash
 # at startup than to sign tokens with a known default and silently expose the app
@@ -37,14 +38,24 @@ settings.validate_production_secrets()
 
 # Telemetry spans must wrap everything that follows, so we init first.
 # When APPLICATIONINSIGHTS_CONNECTION_STRING is absent this is a no-op.
-from partition.orchestration.telemetry import _init_once as _init_telemetry
-
 from api.core.auth import hash_password
 from api.core.database import KBEntryRow, UserRow, get_api_engine, get_api_session, init_api_db
 from api.middleware.error_handler import register_error_handlers
 from api.middleware.logging_middleware import LoggingMiddleware
-from api.routes import admin, analytics, auth, conversions, cost, error_queue, knowledge_base, notifications, projects, prompts
+from api.routes import (
+    admin,
+    analytics,
+    auth,
+    conversions,
+    cost,
+    error_queue,
+    knowledge_base,
+    notifications,
+    projects,
+    prompts,
+)
 from api.routes import settings as settings_route
+from partition.orchestration.telemetry import _init_once as _init_telemetry
 
 _init_telemetry()
 
@@ -247,8 +258,9 @@ async def health():
 
     async def _check_sqlite() -> str:
         try:
-            from config.constants import HEALTH_CHECK_TIMEOUT_S
             from sqlalchemy import text
+
+            from config.constants import HEALTH_CHECK_TIMEOUT_S
 
             async def _do():
                 with engine.connect() as conn:
@@ -263,6 +275,7 @@ async def health():
     async def _check_redis() -> str:
         try:
             import redis as _redis
+
             from config.constants import HEALTH_CHECK_TIMEOUT_S
 
             async def _do():
@@ -278,6 +291,7 @@ async def health():
     async def _check_lancedb() -> str:
         try:
             import lancedb
+
             from config.constants import HEALTH_CHECK_TIMEOUT_S
 
             async def _do():
@@ -291,6 +305,7 @@ async def health():
     async def _check_ollama() -> str:
         try:
             import httpx
+
             from config.constants import HEALTH_CHECK_TIMEOUT_S, HEALTH_OLLAMA_HTTP_TIMEOUT_S
 
             async def _do():

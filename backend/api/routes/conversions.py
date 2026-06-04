@@ -12,7 +12,6 @@ import asyncio
 import html as html_mod
 import io
 import json
-import re
 import uuid
 import zipfile
 from datetime import datetime, timezone
@@ -24,9 +23,6 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
 from sqlalchemy.orm import selectinload
 
 _log = structlog.get_logger("codara.conversions")
-
-from config.constants import SSE_MAX_EVENTS, SSE_POLL_INTERVAL_S
-from config.settings import settings
 
 from api.core.auth import get_current_user
 from api.core.database import (
@@ -47,6 +43,8 @@ from api.services.blob_service import blob_service
 from api.services.conversion_service import STAGES, conv_to_out
 from api.services.pipeline_service import run_pipeline_sync
 from api.services.queue_service import queue_service
+from config.constants import SSE_MAX_EVENTS, SSE_POLL_INTERVAL_S
+from config.settings import settings
 
 router = APIRouter(prefix="/conversions", tags=["conversions"])
 
@@ -93,8 +91,8 @@ async def upload_files(
     files: list[UploadFile] = File(...),
     current_user: dict = Depends(get_current_user),
 ):
-    import zipfile
     import io
+    import zipfile
 
     results: list[SasFileOut] = []
     for f in files:
@@ -337,6 +335,7 @@ def _run_feedback_ingestion(
     """Background task: cross-verify the correction and ingest into LanceDB KB."""
     try:
         import lancedb
+
         from partition.db.duckdb_manager import DB_PATH as DUCKDB_PATH
         from partition.db.duckdb_manager import _duckdb_conn
         from partition.kb.kb_writer import KBWriter

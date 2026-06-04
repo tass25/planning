@@ -39,13 +39,13 @@ def _fetch_azure_cost() -> list[dict]:
         from azure.identity import DefaultAzureCredential
         from azure.mgmt.costmanagement import CostManagementClient
         from azure.mgmt.costmanagement.models import (
-            QueryDefinition,
-            QueryTimePeriod,
             ExportType,
-            TimeframeType,
-            QueryDataset,
             QueryAggregation,
+            QueryDataset,
+            QueryDefinition,
             QueryGrouping,
+            QueryTimePeriod,
+            TimeframeType,
         )
 
         credential = DefaultAzureCredential()

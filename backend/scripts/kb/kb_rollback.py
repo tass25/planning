@@ -14,6 +14,7 @@ import argparse
 
 import lancedb
 import structlog
+
 from partition.kb.kb_changelog import log_kb_change
 
 logger = structlog.get_logger()
@@ -36,7 +37,8 @@ def rollback(
     Returns:
         ``True`` if rollback succeeded, ``False`` otherwise.
     """
-    from config.constants import LANCEDB_PATH as _LD, DUCKDB_PATH as _DD
+    from config.constants import DUCKDB_PATH as _DD
+    from config.constants import LANCEDB_PATH as _LD
     db_path = db_path or _LD
     duckdb_path = duckdb_path or _DD
     db = lancedb.connect(db_path)
