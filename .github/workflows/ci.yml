@@ -273,17 +273,6 @@ jobs:
       - name: Install Azure Container Apps extension
         run: az extension add --name containerapp --upgrade -y
 
-      - name: Configure GHCR registry on Container Apps
-        run: |
-          for APP in ca-codara-backend ca-codara-frontend; do
-            az containerapp registry set \
-              --name "$APP" \
-              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-              --server ghcr.io \
-              --username ${{ github.actor }} \
-              --password ${{ secrets.GITHUB_TOKEN }}
-          done
-
       - name: Deploy backend to Container Apps
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
