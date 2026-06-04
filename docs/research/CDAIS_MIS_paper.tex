@@ -66,17 +66,19 @@
 \author{
   \IEEEauthorblockN{Tesnime Ellabout}
   \IEEEauthorblockA{
-    Université Privée de Tunis -- TekUp University\\
-    Avenue Ghazala, Ariana 2083, Tunisia\\
+    TekUp University\\
+    Ariana 2083, Tunisia\\
     \texttt{ellaboutesnime@gmail.com}
   }
-  % TODO (before submission): Add supervisor name, their institution/company
-  % affiliation, and full address after informing them and obtaining agreement.
-  % \and
-  % \IEEEauthorblockN{[Supervisor Name]}
-  % \IEEEauthorblockA{[Company / University]\\ [City], Tunisia}
-}
 
+   \and
+   \IEEEauthorblockN{Haythem Ghazouani}
+   \IEEEauthorblockA{
+    TekUp University\\
+    Ariana 2083, Tunisia\\
+    \texttt{haythemghz@yahoo.fr}
+  }
+}
 % -------------------------------------------------------
 \begin{document}
 % -------------------------------------------------------
@@ -87,32 +89,37 @@
 \begin{abstract}
 % -------------------------------------------------------
 Large Language Models (LLMs) are increasingly used to migrate legacy code to modern
-languages. A serious problem remains: LLM translations can look perfectly fine while
-producing wrong results. These bugs are invisible to execution-based validation because
-the code runs without errors but gives incorrect output. This paper presents two
-methods that tackle this problem. First, \textbf{CDAIS} (Constraint-Driven Adversarial
-Input Synthesis) uses an SMT solver (Z3) to build the smallest possible test input that
-will expose a specific semantic bug. For five of the six error classes we studied,
-CDAIS finds the bug in a single trial using a 3--6 row dataset (average 5.3~rows;
-synthesis takes $\sim$50\,ms). It also issues a \emph{coverage certificate}: if a
-translation passes the test, it is formally free from that error class for datasets with
-the same structure. Second, \textbf{MIS} (Migration Invariant Synthesis) evaluates a library of 18
-handcrafted candidate invariants against a corpus of correct translations, confirming
-those that hold universally. These confirmed properties, called \emph{migration
-invariants}, form an empirically validated specification applicable to any new
-translation. On our benchmark, CDAIS provides deterministic 1-trial detection for 5 of
-6 error classes, while random testing only succeeds $\sim$75\% per trial (and needs
-hundreds of trials to approach full coverage). MIS confirms 10 of 18 candidate
-invariants with a 100\%~oracle pass rate on a 12-pair verified corpus, correctly
-rejecting the remaining 8 as incompatible with real SAS semantics. Z3 formal
-verification proves 30\% of translations correct in 4.6\,ms. Together, these three
-complementary layers provide multi-layered semantic validation that no single method
-achieves alone.
+languages, but their translations can execute successfully while silently producing
+incorrect results. This paper presents two complementary methods for detecting and
+specifying such semantic migration errors in SAS$\rightarrow$Python migration.
+\textbf{CDAIS} (Constraint-Driven Adversarial Input Synthesis) uses Z3 to synthesize
+formally minimal test inputs that expose specific bug classes. For all six studied
+error classes, CDAIS finds a witness in one trial using a 6--17 row dataset
+(average 7.8~rows; synthesis time $\sim$73\,ms); the SORT\_STABLE class requires
+a minimality override to 17 rows due to numpy's introsort threshold
+(\S\ref{sec:sort_stable}). Each witness includes a
+\emph{coverage certificate}: if a translation passes the generated test, it is free
+from that error class for datasets with the same structural shape. \textbf{MIS}
+(Migration Invariant Selection) validates 18 analyst-provided candidate invariants
+against a corpus of correct translations and confirms those that hold universally;
+the corpus determines which survive.
+The confirmed \emph{migration invariants} provide an empirically validated
+specification for checking new translations without a SAS runtime or manual formal
+specification.
+On our benchmark, CDAIS provides deterministic 1-trial detection for 6 of 6 error
+classes, while random testing succeeds only $\sim$75\% per trial and requires hundreds
+of trials to approach full coverage. MIS confirms 10 of 18 candidate invariants with
+a 100\%~oracle pass rate on a 142-pair verified corpus (12 cross-provider + 130
+enterprise pairs), rejects 8 candidates incompatible with real SAS semantics, and
+leave-one-out cross-validation over all 142 pairs shows all 18 invariant decisions
+are stable (zero fragile). Z3 formal verification proves 30\% of
+translations correct in 4.6\,ms. Together, CDAIS, MIS, and Z3 verification provide
+multi-layered semantic validation for LLM-based legacy code migration.
 \end{abstract}
 
 \begin{IEEEkeywords}
 LLM code migration, SMT synthesis, semantic testing, migration invariants,
-SAS to Python, formal verification, adversarial test generation
+SAS to Python, formal verification, adversarial test generation, invariant validation
 \end{IEEEkeywords}
 
 
@@ -177,16 +184,18 @@ verified corpus, without requiring a SAS runtime or manual specification?}
         and synthesize the minimum input (\emph{witness}) that exposes it, together
         with a \emph{coverage certificate} scoped to structural shape
         (\S\ref{sec:cdais}).
-  \item \textbf{MIS:} the first corpus-driven migration invariant confirmation framework
-        for paired legacy$\rightarrow$modern code. MIS evaluates 18 handcrafted
-        candidate invariants against oracle-validated pairs, confirming those that hold
-        universally and rejecting those incompatible with real SAS
-        semantics---producing an empirically grounded specification, not a formal proof
-        (\S\ref{sec:mis}).
+  \item \textbf{MIS:} the first corpus-driven migration invariant \emph{validation}
+        framework for paired legacy$\rightarrow$modern code. MIS evaluates 18
+        analyst-provided candidate invariants against oracle-validated pairs,
+        confirming those that hold universally and rejecting those incompatible with
+        real SAS semantics, producing an empirically grounded specification---not a
+        formal proof and not invariant discovery from scratch (\S\ref{sec:mis}).
   \item \textbf{Experimental evaluation:} measured results showing CDAIS provides
-        deterministic 1-trial detection for 5 of 6 error classes with 3--6 row
-        witnesses, and MIS confirms 10 of 18 invariant candidates with a 100\%~oracle
-        pass rate on the verified corpus (\S\ref{sec:eval}).
+        deterministic 1-trial detection for 6 of 6 error classes with 6--17 row
+        witnesses (including a minimality override for SORT\_STABLE), and MIS
+        confirms 10 of 18 invariant candidates with a 100\%~oracle pass rate on
+        a 142-pair verified corpus, with leave-one-out cross-validation over all
+        142 pairs confirming zero fragile invariants (\S\ref{sec:eval}).
 \end{enumerate}
 
 
@@ -241,11 +250,12 @@ instead of structural constraint solving.
 \subsection{Dynamic Invariant Detection}
 
 Daikon~\cite{daikon} discovers program invariants by observing execution traces. MIS
-is related: both discover invariants from observations. The key differences are:
-(a)~MIS observes \emph{pairs} of executions (oracle plus translation), not single
-programs; (b)~MIS operates on tabular data semantics (DataFrames), not general program
-variables; (c)~MIS uses a curated library of 18 migration-specific candidates rather
-than a general grammar.
+is related but distinct: Daikon \emph{discovers} invariants from a grammar of
+templates, while MIS \emph{selects} from a fixed analyst-provided candidate library.
+Additional differences: (a)~MIS observes \emph{pairs} of executions (oracle plus
+translation), not single programs; (b)~MIS operates on tabular data semantics
+(DataFrames), not general program variables; (c)~MIS uses a curated library of 18
+migration-specific candidates rather than a general grammar.
 
 
 % =======================================================
@@ -352,7 +362,7 @@ trigger \texttt{SUM()} semantics specifically.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\columnwidth]{figures/figure4_taxonomy.png}
+  \includegraphics[width=\columnwidth]{Fig4.png}
   \caption{SAS$\rightarrow$Python error taxonomy: six classes grouped by root cause.}
   \label{fig:taxonomy}
 \end{figure}
@@ -407,7 +417,7 @@ $W \leftarrow \text{model\_to\_dataframe(model, encoded)}$\;
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\columnwidth]{figures/figure2_cdais_workflow.png}
+  \includegraphics[width=\columnwidth]{figure2_cdais_synthesis_workflow_v2.png}
   \caption{CDAIS synthesis workflow: from error class to coverage certificate via Z3.}
   \label{fig:cdais_workflow}
 \end{figure}
@@ -435,14 +445,47 @@ then $\nexists\, D \in \mathcal{D}$ such that $\text{sem}_{oracle}(s, D) \neq
 \text{sem}_{Py}(p, D)$ due to error class $C$.
 \end{theorem}
 
-\begin{proof}[Proof sketch]
-$W$ is a satisfying assignment for the divergence formula $\delta_C$, which encodes
-the minimal condition under which a translation exhibiting $B_C$ diverges from the
-oracle. If $p$ does not diverge on $W$, then either: (a) $B_C(p) = 0$ (bug absent),
-or (b) $B_C(p) = 1$ but divergence does not occur. Case~(b) is impossible by
-construction: if $B_C(p) = 1$, then $p$ computes the incorrect behavior, and $W$ was
-synthesized to make these computations differ. Therefore $B_C(p) = 0$, meaning the
-error class is absent, and the certificate is sound.
+\begin{proof}
+We proceed by contraposition. Assume $B_C(p) = 1$, i.e.\ the translation $p$
+contains the bug described by error class $C$. We show that
+$\text{sem}_{oracle}(s, W) \neq \text{sem}_{Py}(p, W)$, contradicting the hypothesis.
+
+\smallskip\noindent\textbf{Step 1 (Witness satisfies divergence constraints).}
+The CDAIS synthesis procedure constructs a constraint system $\delta_C$ that
+encodes the \emph{necessary and sufficient} data condition under which a
+program exhibiting $B_C$ produces an output different from the oracle.
+Formally, $\delta_C$ is a conjunction of linear integer arithmetic constraints
+such that any satisfying assignment $\sigma \models \delta_C$ yields a
+concrete DataFrame $W = \text{concretize}(\sigma)$ on which the incorrect
+computation path diverges from the correct one. Since $W$ is constructed
+from a satisfying assignment returned by the Z3 solver, we have
+$\sigma \models \delta_C$ and therefore $W$ satisfies all divergence
+conditions.
+
+\smallskip\noindent\textbf{Step 2 (Bug implies divergence on $W$).}
+Suppose $B_C(p) = 1$. By the definition of each error class, $p$ implements
+an incorrect computation $f_{\text{bug}}$ in place of the correct oracle
+computation $f_{\text{oracle}}$. The constraint $\delta_C$ is constructed
+so that for any $W$ satisfying $\delta_C$:
+\[
+  f_{\text{oracle}}(W) \neq f_{\text{bug}}(W)
+\]
+This holds by the encoding design: for each class $C$, $\delta_C$ forces
+the input values into a region where the correct and incorrect computations
+must disagree. For example, for RETAIN\_RESET (C1), $\delta_C$ ensures
+that the cumulative sum at the first row of the second group differs between
+per-group reset and global accumulation (see Equation~1 vs.~2).
+
+Since $\text{sem}_{oracle}(s, W) = f_{\text{oracle}}(W)$ and
+$\text{sem}_{Py}(p, W) = f_{\text{bug}}(W)$, we obtain:
+\[
+  \text{sem}_{oracle}(s, W) \neq \text{sem}_{Py}(p, W)
+\]
+
+\smallskip\noindent\textbf{Step 3 (Contrapositive conclusion).}
+By contraposition: if $\text{sem}_{oracle}(s, W) = \text{sem}_{Py}(p, W)$,
+then $B_C(p) = 0$. The translation $p$ does not exhibit the bug described
+by class $C$, and the coverage certificate is sound. \qedhere
 \end{proof}
 
 \textbf{Note on scope.} The certificate is scoped to structural shape $\mathcal{D}$
@@ -460,7 +503,7 @@ repair hints into the LLM repair prompt for one bonus attempt.
 
 
 % =======================================================
-\section{MIS: Migration Invariant Synthesis}
+\section{MIS: Migration Invariant Selection}
 \label{sec:mis}
 % =======================================================
 
@@ -469,12 +512,13 @@ repair hints into the LLM repair prompt for one bonus attempt.
 CDAIS synthesizes specific witnesses for known error classes. MIS takes a different
 angle. Instead of asking ``does this translation have bug X?'', it asks ``which
 candidate properties are universally shared by all correct translations?'' Starting
-from a library of 18 handcrafted candidate invariants (not inferred from scratch),
-MIS confirms those that hold for every oracle-validated pair in the corpus and
-correctly rejects those incompatible with real SAS semantics. Confirmed invariants
-form an empirically grounded specification, applicable to any future translation.
-This process is best understood as \emph{invariant validation} rather than discovery:
-the candidates are provided by the analyst; the corpus determines which survive.
+from a library of 18 analyst-provided candidate invariants, MIS confirms those that
+hold for every oracle-validated pair in the corpus and correctly rejects those
+incompatible with real SAS semantics. Confirmed invariants form an empirically
+grounded specification, applicable to any future translation. \textbf{Terminology
+note:} MIS performs invariant \emph{selection} (filtering analyst-provided candidates
+against a corpus), not invariant \emph{synthesis} in the program-synthesis sense.
+The candidates are fixed and handwritten; the corpus determines which survive.
 
 \subsection{Invariant Candidate Library}
 
@@ -499,7 +543,7 @@ Each invariant $\phi_i$ has a name, a description, a SAS applicability pattern
   \end{tabular}
 \end{table}
 
-\subsection{Corpus-MIS Algorithm}
+\subsection{Corpus-Based Selection Algorithm}
 
 \begin{algorithm}[t]
 \caption{MIS}
@@ -545,7 +589,7 @@ may not be a real property of SAS semantics. The distinction matters:
 Given a new (SAS, Python) pair, \texttt{InvariantSet.check\_translation()} generates
 adversarial input, runs the oracle, checks each applicable confirmed invariant, and
 returns the list of violated invariant names. A violation is a semantic error signal:
-this translation breaks a property that holds for all 12 correct verified translations
+this translation breaks a property that holds for all 142 verified translations
 in this SAS pattern category.
 
 
@@ -556,12 +600,12 @@ in this SAS pattern category.
 
 CDAIS and MIS catch different bugs and work well together. CDAIS targets known error
 classes with formal witnesses. MIS catches unknown or emerging errors by checking
-invariant violations. Figure~\ref{fig:pipeline} shows how they fit into the full
+violations of empirically confirmed invariants. Figure~\ref{fig:pipeline} shows how they fit into the full
 validation pipeline.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\columnwidth]{figures/figure1_pipeline.png}
+  \includegraphics[width=\columnwidth]{figure1_five_layer_validation_pipeline_pastel.png}
   \caption{Five-layer validation pipeline. Each layer adds a different detection
            capability; CDAIS and MIS are the last two layers.}
   \label{fig:pipeline}
@@ -617,10 +661,12 @@ The evaluation uses three distinct datasets (Table~\ref{tab:datasets}).
         \textit{Cannot conclude:} MIS invariants—no Python translations
         present in \texttt{.gold.json} files. \\
     Verified Translation Pairs (VTP)
-      & 12 pairs
+      & 142 pairs
       & \textit{Role:} MIS invariant confirmation.
-        \textit{Cannot conclude:} generalization beyond the 12 observed
-        SAS patterns; a larger corpus may reject some confirmed invariants. \\
+        12 cross-provider verified pairs + 130 enterprise pairs
+        reviewed by a senior SAS developer.
+        \textit{Cannot conclude:} full generalization; a more diverse
+        corpus may still shift some invariant boundaries. \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -636,12 +682,13 @@ not used for MIS confirmation.
 construct types). The \texttt{.gold.json} files do not contain Python translations, so
 GSC cannot be used directly for MIS.
 
-\textbf{VTP} (12 pairs) are cross-provider verified translations from
-\texttt{knowledge\_base/output/} benchmark JSONs. They were generated by two
-independent LLMs (minimax-m2.7:cloud and nemotron-3-super:cloud), validated via
-Groq LLaMA-3.3-70b equivalence checking (confidence $\geq 0.65$) and manual review.
-These are the only pairs for which oracle execution was validated against expected SAS
-behavior, making them the sole input to Algorithm~\ref{alg:mis}.
+\textbf{VTP} (142 pairs) combines two sources: (a)~12 cross-provider verified
+translations generated by two independent LLMs (minimax-m2.7:cloud and
+nemotron-3-super:cloud), validated via Groq LLaMA-3.3-70b equivalence checking
+(confidence $\geq 0.65$) and manual review; (b)~130 enterprise
+SAS$\rightarrow$Python pairs from a production codebase, reviewed and confirmed
+by a senior SAS developer. All 142 pairs serve as input to
+Algorithm~\ref{alg:mis}.
 
 \subsection{Metrics}
 
@@ -667,16 +714,16 @@ behavior, making them the sole input to Algorithm~\ref{alg:mis}.
     \toprule
     \textbf{Method} & \textbf{Classes} & \textbf{PTDR} & \textbf{Size} & \textbf{Time} \\
     \midrule
-    Random (200 trials)            & 6/6  & $\sim$74\%$^\dagger$ & 1,000 rows & 0\,ms \\
+    Random (200 trials)            & 6/6  & $\sim$75\%$^\dagger$ & 1,000 rows & 0\,ms \\
     Heuristic ($\geq$2 grps, 50 t) & 6/6  & $\sim$91\%$^\dagger$ & 30 rows    & 0\,ms \\
-    \textbf{CDAIS (1 trial)}       & \textbf{5/6} & \textbf{100\%} & \textbf{3--6 rows} & \textbf{$\sim$50\,ms} \\
+    \textbf{CDAIS (1 trial)}       & \textbf{6/6} & \textbf{100\%} & \textbf{6--17 rows} & \textbf{$\sim$73\,ms} \\
     \bottomrule
     \multicolumn{5}{@{}l}{\scriptsize $^\dagger$Stochastic; varies $\pm$5--10\,pp between runs.}
   \end{tabularx}
 \end{table}
 
 \begin{table*}[t]
-  \caption{Per-Class Results (200 random trials / 50 heuristic trials, measured 2026-05-06)}
+  \caption{Per-Class Results (200 random trials / 50 heuristic trials, measured 2026-05-18)}
   \label{tab:per_class}
   \centering
   \small
@@ -685,64 +732,66 @@ behavior, making them the sole input to Algorithm~\ref{alg:mis}.
     \textbf{Error Class} & \textbf{CDAIS?} & \textbf{Rand.\ PTDR$^\dagger$}
       & \textbf{Heur.\ PTDR$^\dagger$} & \textbf{Witness Rows} & \textbf{Synth.\ (ms)} \\
     \midrule
-    RETAIN\_RESET    & Yes  & 68.5\% & 100\%  & 6   & 187 \\
-    LAG\_QUEUE       & Yes  & 68.5\% & 100\%  & 6   &  16 \\
-    SORT\_STABLE     & No*  & 29.0\% &  44.0\%& 2   &  16 \\
-    NULL\_ARITHMETIC & Yes  & 100\%  & 100\%  & 6   &   0 \\
-    JOIN\_TYPE       & Yes  & 100\%  & 100\%  & 6   &  62 \\
-    GROUP\_BOUNDARY  & Yes  & 82.5\% & 100\%  & 6   &  16 \\
+    RETAIN\_RESET    & Yes  & 72.5\% & 100\%  & 6   &  31 \\
+    LAG\_QUEUE       & Yes  & 78.5\% & 100\%  & 6   &  16 \\
+    SORT\_STABLE     & Yes$^\ddagger$  & 25.5\% &  46.0\%& 17  & 296 \\
+    NULL\_ARITHMETIC & Yes  & 100\%  & 100\%  & 6   &  15 \\
+    JOIN\_TYPE       & Yes  & 100\%  & 100\%  & 6   &  47 \\
+    GROUP\_BOUNDARY  & Yes  & 75.0\% & 100\%  & 6   &  32 \\
     \midrule
-    \textbf{Average} & \textbf{83.3\%} & \textbf{74.8\%} & \textbf{90.7\%}
-      & \textbf{5.3} & \textbf{50} \\
+    \textbf{Average} & \textbf{100\%} & \textbf{75.2\%} & \textbf{91.0\%}
+      & \textbf{7.8} & \textbf{73} \\
     \bottomrule
     \multicolumn{6}{@{}l}{\scriptsize $^\dagger$Stochastic; vary $\pm$5--15\,pp between runs.
-    \quad *See \S\ref{sec:sort_stable}.}
+    \quad $^\ddagger$Minimality override to 17 rows; see \S\ref{sec:sort_stable}.}
   \end{tabular}
 \end{table*}
 
 \begin{figure*}[t]
   \centering
-  \includegraphics[width=\textwidth]{figures/figure3_detection_rate.png}
+  \includegraphics[width=\textwidth]{figure3_per_class_detection_rate_v2.png}
   \caption{Per-class detection rate comparison: CDAIS (1 trial, guaranteed) vs.\ random
-           testing (200 trials) vs.\ heuristic adversarial (50 trials, $\geq$2 groups).
-           SORT\_STABLE is marked N/A due to the known minimality limitation
+           testing (1000 trials) vs.\ heuristic adversarial testing.
+           SORT\_STABLE uses a 17-row minimality override
            (\S\ref{sec:sort_stable}).}
   \label{fig:detection_rate}
 \end{figure*}
 
 \textbf{Key finding.} CDAIS provides a deterministic guarantee of detection in exactly
-1 trial for 5 of 6 error classes, using 3--6 row witnesses (avg.\ 5.3 rows; $\sim$50\,ms
-synthesis). Random testing detects the same bugs eventually but needs many trials: for
-RETAIN\_RESET, a single random trial has only a $\sim$68\% chance of exposing the bug.
-The synthesis overhead is negligible compared to LLM call latency (5--30\,s).
+1 trial for all 6 error classes, using 6--17 row witnesses (avg.\ 7.8 rows;
+$\sim$73\,ms synthesis). Random testing detects the same bugs eventually but needs
+many trials: for RETAIN\_RESET, a single random trial has only a $\sim$72\% chance
+of exposing the bug; for SORT\_STABLE, only $\sim$25\%. The synthesis overhead is
+negligible compared to LLM call latency (5--30\,s).
 
-\subsubsection{SORT\_STABLE: A Structural Limitation}
+\subsubsection{SORT\_STABLE: Minimality Override}
 \label{sec:sort_stable}
 
-SORT\_STABLE (C3) is the one class where CDAIS's minimality principle works against it.
-The Z3-synthesized minimal witness contains 2 rows with equal primary keys: the smallest
-input on which stable vs.\ unstable sort would theoretically diverge. However, Python's
-Timsort on 2 equal-key elements is implementation-deterministic (it preserves insertion
-order regardless of the stability guarantee), so the witness never triggers
-non-deterministic behavior in practice. This is not a failure of the Z3 encoding; the
-constraint is mathematically correct. It is a limitation inherent to testing
-non-deterministic behavior with minimal inputs: minimality and non-determinism conflict.
+SORT\_STABLE (C3) required overriding the default minimality objective.
+The original 2-row witness (equal primary keys, distinct secondary values) never
+triggered divergence in practice: numpy's introsort uses insertion sort (which is
+stable) for arrays of 16 or fewer elements and switches to quicksort (which is
+unstable) only at 17+. We verified this threshold empirically: on numpy~1.26 and
+pandas~2.3, quicksort preserves insertion order for $n \leq 16$ equal-key rows
+and deterministically reorders them at $n = 17$ (100/100 trials).
 
-\textbf{Consequence for the certificate.} The SORT\_STABLE certificate is vacuously
-issued for witnesses of size 2. The certificate is therefore invalid for C3 and should
-not be issued. The correct fix is to override the minimality objective for C3 and
-synthesize a 4-row witness. This is acknowledged as an open issue; the 83.3\% GDR
-(5/6) already excludes C3.
+\textbf{Fix.} We override the minimality objective for C3 and encode 17 rows sharing
+one primary key with strictly ordered secondary values
+($s_0 < s_1 < \cdots < s_{16}$). The strict ordering replaces \texttt{Distinct}
+(which caused Z3 timeout with optimization) and is trivially solvable.
+Z3 synthesizes the witness in 296\,ms; the witness deterministically exposes the
+SORT\_STABLE bug. The coverage certificate for C3 is now valid for datasets with
+$\geq$17 equal-key rows.
 
 \textbf{The real advantage.} CDAIS does not achieve a higher detection rate than
 exhaustive random testing. Given enough trials, random testing finds everything. The
 advantage is efficiency (1 trial vs.\ hundreds), a formal guarantee (the coverage
-certificate), and interpretability (6 human-readable rows vs.\ 1,000 opaque rows).
+certificate), and interpretability (6--17 human-readable rows vs.\ 1,000 opaque rows).
 
 \subsection{MIS Results}
 
 \begin{table*}[t]
-  \caption{MIS Confirmed Invariants (12-pair VTP corpus, measured)}
+  \caption{MIS Invariant Results (142-pair VTP corpus, measured 2026-05-18)}
   \label{tab:mis}
   \centering
   \small
@@ -751,41 +800,56 @@ certificate), and interpretability (6 human-readable rows vs.\ 1,000 opaque rows
     \textbf{Invariant} & \textbf{Category} & \textbf{App.\ Pairs}
       & \textbf{Oracle Pass} & \textbf{Confirmed} \\
     \midrule
-    ROW\_PRESERVATION\_NON\_FILTER & structural & 12 & 100\% & Yes \\
-    COLUMN\_SUPERSET               & structural & 12 & 100\% & Yes \\
-    OUTPUT\_NONEMPTY               & structural & 12 & 100\% & Yes \\
-    COLUMN\_DTYPE\_STABILITY       & semantic   & 12 & 100\% & Yes \\
-    ROW\_EQUALITY\_SORT            & structural &  2 & 100\% & Yes \\
-    MEANS\_AGGREGATION\_MONOTONE   & structural &  2 & 100\% & Yes \\
-    RETAIN\_MONOTONE\_CUMSUM       & relational &  2 & 100\% & Yes \\
-    MERGE\_OUTER\_ROWCOUNT         & structural &  3 & 100\% & Yes \\
-    NO\_DUPLICATE\_GROUP\_KEYS     & relational &  4 & 100\% & Yes \\
-    NO\_NEGATIVE\_COUNTS           & relational &  4 & 100\% & Yes \\
+    COLUMN\_DTYPE\_STABILITY       & semantic    & 142 & 100\% & Yes \\
+    OUTPUT\_NONEMPTY               & structural  & 142 & 100\% & Yes \\
+    FIRST\_LAST\_SUBSET            & structural  &   3 & 100\% & Yes \\
+    FREQ\_PERCENT\_SUM\_100        & relational  &   2 & 100\% & Yes \\
+    MEANS\_AGGREGATION\_MONOTONE   & structural  &   2 & 100\% & Yes \\
+    RETAIN\_MONOTONE\_CUMSUM       & relational  &   2 & 100\% & Yes \\
+    MERGE\_OUTER\_ROWCOUNT         & structural  &   4 & 100\% & Yes \\
+    NO\_DUPLICATE\_GROUP\_KEYS     & relational  &   4 & 100\% & Yes \\
+    NO\_NEGATIVE\_COUNTS           & relational  &   6 & 100\% & Yes \\
+    ROW\_REDUCTION\_DEDUP          & structural  &   5 & 100\% & Yes \\
     \midrule
-    SUM\_PRESERVATION\_NUMERIC     & relational & 11 &  81.8\% & No (rejected) \\
-    ROW\_REDUCTION\_AGGREGATION    & structural &  4 &  50.0\% & No (rejected) \\
-    LAG\_NULL\_FIRST\_ROW          & semantic   &  2 &   0\%   & No (rejected) \\
-    SORT\_KEY\_SORTED              & ordering   &  2 &   0\%   & No (rejected) \\
-    FIRST\_LAST\_SUBSET            & structural &  0 &  n/a    & No (not applicable) \\
-    FREQ\_PERCENT\_SUM\_100        & relational &  0 &  n/a    & No (not applicable) \\
-    GROUP\_BOUNDARY\_STRICT\_SUBSET& structural &  0 &  n/a    & No (not applicable) \\
-    ROW\_REDUCTION\_DEDUP          & structural &  0 &  n/a    & No (not applicable) \\
+    COLUMN\_SUPERSET               & structural  &  88 & 96.6\% & No (rejected) \\
+    ROW\_PRESERVATION\_NON\_FILTER & structural  &  84 & 92.9\% & No (rejected) \\
+    SUM\_PRESERVATION\_NUMERIC     & relational  &  81 & 92.6\% & No (rejected) \\
+    ROW\_REDUCTION\_AGGREGATION    & structural  &   6 & 66.7\% & No (rejected) \\
+    ROW\_EQUALITY\_SORT            & structural  &  12 & 58.3\% & No (rejected) \\
+    SORT\_KEY\_SORTED              & ordering    &  12 &  8.3\% & No (rejected) \\
+    LAG\_NULL\_FIRST\_ROW          & relational  &   2 &  0\%   & No (rejected) \\
+    GROUP\_BOUNDARY\_STRICT\_SUBSET& structural  &   0 &  n/a   & No (not applicable) \\
     \bottomrule
   \end{tabular}
 \end{table*}
 
-\textbf{10 of 18 candidates confirmed} (55.6\%) on the 12-pair corpus. The 4 rejected
-invariants were too aggressive: \texttt{SUM\_PRESERVATION\_NUMERIC} fails when RETAIN
-introduces computed rows; \texttt{LAG\_NULL\_FIRST\_ROW} fails because our oracle's LAG
-implementation differs from the candidate's assumption; \texttt{SORT\_KEY\_SORTED} fails
-because not all PROC SORT outputs have a single monotone key. The 4 non-applicable
-invariants target FIRST./LAST., FREQ, dedup, and group-boundary patterns absent from
-the 12-pair corpus; a larger corpus would likely confirm them.
+\textbf{10 of 18 candidates confirmed} (55.6\%) on the 142-pair corpus.
+The expanded corpus (from 12 to 142 pairs via 130 enterprise pairs from a senior
+SAS developer) materially changed the invariant landscape: three invariants
+previously confirmed on 12 pairs (\texttt{COLUMN\_SUPERSET},
+\texttt{ROW\_PRESERVATION\_NON\_FILTER}, \texttt{ROW\_EQUALITY\_SORT}) were
+rejected by the larger corpus, demonstrating that the original 12-pair VTP was
+indeed too small to distinguish true invariants from sampling artefacts. Conversely,
+three previously inapplicable invariants (\texttt{FIRST\_LAST\_SUBSET},
+\texttt{FREQ\_PERCENT\_SUM\_100}, \texttt{ROW\_REDUCTION\_DEDUP}) gained applicable
+pairs and were confirmed. The net count remains 10 confirmed / 8 rejected, but the
+\emph{composition} changed---validating the supervisor's concern about corpus size.
 
-\textbf{Corpus size note.} The 12-pair VTP corpus is small. Leave-one-out
-cross-validation is deferred to future work pending a larger verified corpus
-(target: 50+ pairs). \textbf{Total MIS runtime:} 172\,ms on CPU (re-run May~6,
-2026; prior run May~3: 375\,ms, variability due to system load).
+\textbf{Leave-one-out cross-validation.} We ran LOO-CV on the 142-pair corpus:
+for each of the 142 observations, we removed it and re-evaluated all 18 candidates
+on the remaining 141. Result: all 10 confirmed invariants remained confirmed in
+every fold (142/142 stability), and all 8 rejected invariants remained rejected in
+every fold (0/142). Zero invariants were fragile (i.e., no invariant flipped between
+confirmed and rejected when any single pair was removed).
+LOO-CV latency: 12.1\,s on CPU.
+
+\textbf{Corpus size effect.} The jump from 12 to 142 pairs caused 6 invariants
+to change status (3 demoted, 3 promoted), but the 142-pair set is LOO-CV stable.
+This confirms the supervisor's prediction: the small corpus masked false positives.
+The enterprise pairs, with their complex real-world SAS patterns (Teradata queries,
+PROC SURVEYSELECT, nested MERGE chains), stress-tested invariants that the original
+12 pairs could not.
+\textbf{Total MIS runtime:} 937\,ms on CPU (re-run May~18, 2026).
 
 \subsection{Z3 Formal Verification Results}
 
@@ -842,7 +906,7 @@ error'' and ``produces correct output'' is exactly what CDAIS and MIS address.
 \subsection{Ablation: Does Minimality Matter?}
 
 \begin{table}[t]
-  \caption{Per-Trial Detection Probability by Data Source (measured 2026-05-06)}
+  \caption{Per-Trial Detection Probability by Data Source (measured 2026-05-18)}
   \label{tab:ablation}
   \centering
   \scriptsize
@@ -853,7 +917,7 @@ error'' and ``produces correct output'' is exactly what CDAIS and MIS address.
     \midrule
     Random (200 t)      & 2--80  & $\sim$75\% & unbounded & No \\
     Heuristic (50 t)    & $\sim$30 & $\sim$91\% & unbounded & Partly \\
-    \textbf{CDAIS (1 t)}& \textbf{3--6} & \textbf{100\%} & \textbf{1 trial} & \textbf{Yes} \\
+    \textbf{CDAIS (1 t)}& \textbf{6--17} & \textbf{100\%} & \textbf{1 trial} & \textbf{Yes} \\
     \bottomrule
     \multicolumn{5}{@{}l}{\scriptsize $^\dagger$Stochastic; vary $\pm$5--15\,pp between runs.}
   \end{tabularx}
@@ -911,31 +975,38 @@ outside the six formalized.
 
 \textbf{What CDAIS does not guarantee.} (a)~Correctness outside the certified
 structural shape. (b)~Absence of errors from classes not in the taxonomy.
-(c)~Correctness for C3 (SORT\_STABLE): the minimal witness is too small to trigger
-non-deterministic sort behavior (\S\ref{sec:sort_stable}). (d)~Equivalence for complex
-SAS constructs outside the decidable Z3 fragment (RETAIN with macro expansion, hash
-objects, PROC TRANSPOSE).
+(c)~The SORT\_STABLE (C3) certificate is valid only for datasets with $\geq$17
+equal-key rows (the minimality override threshold; see \S\ref{sec:sort_stable}).
+(d)~Equivalence for complex SAS constructs outside the decidable Z3 fragment
+(RETAIN with macro expansion, hash objects, PROC TRANSPOSE).
 
-\textbf{What MIS can do.} Confirm invariants that hold universally across all
-oracle-validated VTP pairs. Confirmed invariants are reliable signals: a violation
-means the translation breaks a property that every verified correct translation
-satisfies. MIS can also correctly reject over-aggressive candidates (8 of~18).
+\textbf{What MIS can do.} Select, from an analyst-provided candidate library, those
+invariants that hold universally across all oracle-validated VTP pairs. Confirmed
+invariants are reliable signals: a violation means the translation breaks a property
+that every verified correct translation satisfies. MIS also correctly rejects
+over-aggressive candidates (8 of~18).
 
 \textbf{What MIS cannot do.} (a)~Confirm invariants for SAS patterns absent from the
-12-pair VTP corpus (4 candidates were inapplicable). (b)~Distinguish a weak invariant
-from a corpus sampling artifact without a larger corpus. (c)~Infer new invariant
-candidates; the 18 are fixed and handwritten. (d)~Provide formal proofs: confirmed
-invariants are empirically universal on the observed corpus, not proven for all inputs.
-(e)~Guarantee that invariants confirmed on 12 pairs will hold on a larger or more
-diverse corpus: some confirmed invariants may be artefacts of the small VTP sample.
+142-pair VTP corpus (1 candidate was inapplicable: GROUP\_BOUNDARY\_STRICT\_SUBSET).
+(b)~Infer new invariant candidates; the 18 are fixed and handwritten.
+(c)~Provide formal proofs: confirmed invariants are empirically universal on the
+observed corpus, not proven for all inputs.
 
-\textbf{MIS corpus size (explicit).} The 12-pair VTP is a known bottleneck.
-The 0\% oracle pass rate for \texttt{LAG\_NULL\_FIRST\_ROW} and \texttt{SORT\_KEY\_SORTED}
-reveals genuine SAS semantic subtleties, not sample noise. But the 100\% rate for the
-10 confirmed invariants cannot be interpreted as a proof of universality: it means
-these properties held on every pair we were able to verify, which is a necessary but
-not sufficient condition for generalization. Expanding VTP to 50+ pairs is a priority
-for future work before these invariants are used prescriptively.
+\textbf{MIS corpus validation.} Scaling from 12 to 142 pairs changed the invariant
+composition: 3 invariants previously confirmed on 12 pairs were rejected by the
+larger corpus (COLUMN\_SUPERSET at 96.6\%, ROW\_PRESERVATION at 92.9\%,
+ROW\_EQUALITY\_SORT at 58.3\%), confirming that small-corpus results can mask false
+positives. The 142-pair set is LOO-CV stable (zero fragile invariants across all
+142 folds), providing stronger evidence that the current confirmed set reflects
+genuine SAS semantic properties rather than sampling artefacts.
+
+\textbf{Corpus annotation.} The 130 enterprise pairs were validated by a single
+senior SAS developer. No independent double annotation or inter-rater agreement
+metric (e.g.\ Cohen's $\kappa$) was computed. While the developer has extensive
+domain expertise in production SAS codebases, single-annotator validation may
+introduce confirmation bias. Future work should include double annotation on a
+representative subset (e.g.\ 30--50 pairs) with a measured $\kappa$ to quantify
+agreement and strengthen the corpus's external credibility.
 
 \textbf{Out of scope.} Full behavioral equivalence checking (undecidable in general),
 migration of SAS macro frameworks with dynamic code generation, and runtime properties
@@ -974,7 +1045,7 @@ the rejection analysis.
 Ahmad et al.~\cite{avatar} show LLMs can translate code between languages but do not
 address formal correctness guarantees. Pan et al.~\cite{pan2024} conduct a systematic
 empirical study of bugs introduced by LLMs during code translation across multiple
-language pairs; semantic errors---code that runs but produces wrong output---are the
+language pairs; semantic errors, code that runs but produces wrong output, are the
 most frequent and hardest to detect, directly motivating CDAIS and MIS. Yang et
 al.~\cite{unitrans} propose UniTrans, a test-driven framework that iteratively repairs
 LLM translations using auto-generated test cases; CDAIS differs by synthesizing
@@ -989,8 +1060,8 @@ witnesses for an empirical error taxonomy, not formal specs.
 
 \textbf{Dynamic Invariant Detection.} Daikon~\cite{daikon} discovers program
 invariants from execution traces. MIS differs in: (a)~paired corpus rather than
-single programs, (b)~migration-specific candidate library, (c)~tabular DataFrame
-semantics.
+single programs, (b)~fixed analyst-provided candidate library (selection, not
+discovery), (c)~tabular DataFrame semantics.
 
 \textbf{CEGAR.} Clarke et al.~\cite{cegar} use counterexamples to refine abstractions.
 CDAIS uses SMT witnesses for testing (not abstraction refinement) and targets LLM
@@ -1014,13 +1085,17 @@ is undecidable.
 This paper presented CDAIS and MIS, two formally grounded methods for improving the
 semantic correctness of LLM-based legacy code migration. CDAIS synthesizes minimum
 Z3 witnesses for six formalized SAS$\rightarrow$Python error classes, providing
-deterministic 1-trial detection for 5 of 6 classes using 3--6 row witnesses
-(avg.\ 5.3 rows; $\sim$50\,ms synthesis), with coverage certificates scoped to
-structural shape. Random testing achieves only $\sim$75\% per-trial detection on
-average and requires many trials to approach full coverage. MIS confirms migration
-invariant candidates from a gold-standard corpus, validating 10 of~18 candidates
-with a 100\% oracle pass rate on a 12-pair verified corpus, and correctly
-rejecting 8 candidates that were too aggressive for real SAS semantics.
+deterministic 1-trial detection for all 6 classes using 6--17 row witnesses
+(avg.\ 7.8 rows; $\sim$73\,ms synthesis), with coverage certificates scoped to
+structural shape. The SORT\_STABLE class required a minimality override to 17 rows,
+matching numpy's introsort threshold. Random testing achieves only $\sim$75\%
+per-trial detection on average and requires many trials to approach full coverage.
+MIS selects migration invariants from a candidate library by validating them against
+a 142-pair verified corpus (12 cross-provider + 130 enterprise pairs from a senior
+SAS developer), confirming 10 of~18 analyst-provided candidates with a 100\% oracle
+pass rate. Scaling from 12 to 142 pairs changed the composition of the confirmed
+set (3 demoted, 3 promoted), validating the importance of corpus size, while
+leave-one-out cross-validation over all 142 pairs confirmed zero fragile invariants.
 
 The system provides multi-layered semantic validation: Z3 formally proves 30\% of
 translations correct in 4.6\,ms, CDAIS issues coverage certificates for known error
@@ -1036,13 +1111,14 @@ discover what ``correct'' means formally. Both produce stronger guarantees than
 heuristic testing at lower cost.
 
 \textbf{Future work:} (1)~extending the taxonomy from 6 to 20+ classes by automated
-mining of corpus failures; (2)~applying CDAIS and MIS to SAS$\rightarrow$PySpark and
-COBOL$\rightarrow$Java; (3)~using confirmed invariants as soft constraints during LLM
-generation, not just post-hoc checking.
+mining of corpus failures; (2)~applying CDAIS and MIS to SAS$\rightarrow$PySpark
+and COBOL$\rightarrow$Java; (3)~using confirmed invariants as soft constraints
+during LLM generation, not just post-hoc checking; (4)~automating invariant
+candidate generation from corpus analysis rather than manual specification.
 
 
 % =======================================================
-\balance
+% \balance
 \bibliographystyle{IEEEtran}
 % =======================================================
 % Inline bibliography (no .bib file required)
@@ -1166,40 +1242,62 @@ Divergence at row~3: oracle = 1, incorrect = 4.
 \textbf{A.2 JOIN\_TYPE Witness.}
 
 \begin{lstlisting}
-Left:  key  left_val     Right: key  right_val
-         1        10              2         20
-         2        11              3         21
-         3        12              4         22
-
-Outer join (correct): 4 rows (key 1 left-only, key 4 right-only)
-Inner join (wrong):   2 rows (keys 2 and 3 only)
+Left table:
+key  left_val
+  1        10
+  2        11
+  3        12
 \end{lstlisting}
 
-\textbf{A.3 SORT\_STABLE Witness.}
+\begin{lstlisting}
+Right table:
+key  right_val
+  2         20
+  3         21
+  4         22
+\end{lstlisting}
+
+Outer join (correct): 4 rows (key 1 left-only, key 4 right-only).
+Inner join (wrong): 2 rows (keys 2 and 3 only).
+
+\textbf{A.3 SORT\_STABLE Witness (N=17, minimality override).}
 
 \begin{lstlisting}
 primary_key  secondary  original_order
           1          1               0
           1          2               1
+          1          3               2
+        ...        ...             ...
+          1         17              16
 \end{lstlisting}
 
-Both rows share the same primary key (1). Stable sort preserves original order
-(row~0 before row~1). Unstable sort may swap them. The witness exposes the bug when
-the translation uses unstable sort and the result happens to swap the rows.
+All 17 rows share the same primary key (1) with strictly ordered secondary values
+$1, 2, \ldots, 17$. Stable sort (mergesort) preserves the original order.
+Unstable sort (numpy introsort at $n \geq 17$) deterministically reorders the rows.
+The witness exposes the bug because $n = 17$ is the exact threshold at which numpy's
+introsort switches from insertion sort (stable) to quicksort (unstable).
 
 \section{MIS Invariant Formal Definitions}
 
 Let $D_{in}$ be the input DataFrame and $D_{out}$ the oracle/actual output DataFrame.
 
-\begin{align*}
-  \textbf{ROW\_PRESERVATION\_NON\_FILTER:}\quad  &|D_{out}| \geq |D_{in}| \\
-  \textbf{ROW\_EQUALITY\_SORT:}\quad             &|D_{out}| = |D_{in}| \text{ (PROC SORT)} \\
-  \textbf{COLUMN\_SUPERSET:}\quad                &\text{cols}(D_{in}) \subseteq \text{cols}(D_{out}) \\
-  \textbf{SORT\_KEY\_SORTED:}\quad               &\forall c \in \text{BY-cols}: D_{out}[c]\text{ monotone} \\
-  \textbf{FREQ\_PERCENT\_SUM\_100:}\quad         &\left|\sum_r D_{out}[\text{pct}]_r - 100\right| < 0.1 \\
-  \textbf{GROUP\_BOUNDARY\_STRICT:}\quad         &|D_{out}| < |D_{in}| \text{ (FIRST./LAST.)} \\
-  \textbf{OUTPUT\_NONEMPTY:}\quad                &|D_{in}| > 0 \Rightarrow |D_{out}| > 0 \\
-  \textbf{COLUMN\_DTYPE\_STABILITY:}\quad        &\forall c \in \text{num-cols}(D_{in}): \text{numeric}(D_{out}[c])
-\end{align*}
+\begin{itemize}
+  \item \textbf{ROW\_PRESERVATION\_NON\_FILTER:}
+        $|D_{out}| \geq |D_{in}|$.
+  \item \textbf{ROW\_EQUALITY\_SORT:}
+        $|D_{out}| = |D_{in}|$ for PROC SORT.
+  \item \textbf{COLUMN\_SUPERSET:}
+        $\text{cols}(D_{in}) \subseteq \text{cols}(D_{out})$.
+  \item \textbf{SORT\_KEY\_SORTED:}
+        $\forall c \in \text{BY-cols}: D_{out}[c]$ is monotone.
+  \item \textbf{FREQ\_PERCENT\_SUM\_100:}
+        $\left|\sum_r D_{out}[\text{pct}]_r - 100\right| < 0.1$.
+  \item \textbf{GROUP\_BOUNDARY\_STRICT:}
+        $|D_{out}| < |D_{in}|$ for FIRST./LAST.
+  \item \textbf{OUTPUT\_NONEMPTY:}
+        $|D_{in}| > 0 \Rightarrow |D_{out}| > 0$.
+  \item \textbf{COLUMN\_DTYPE\_STABILITY:}
+        $\forall c \in \text{num-cols}(D_{in}): \text{numeric}(D_{out}[c])$.
+\end{itemize}
 
 \end{document}

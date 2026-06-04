@@ -277,7 +277,7 @@ jobs:
 
           az containerapp update \
             --name ca-codara-backend \
-            --resource-group PFE_rg \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --image "$IMAGE" \
             --output table
 
@@ -288,7 +288,7 @@ jobs:
 
           az containerapp update \
             --name ca-codara-frontend \
-            --resource-group PFE_rg \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --image "$IMAGE" \
             --output table
 
@@ -296,7 +296,7 @@ jobs:
         run: |
           APP_URL=$(az containerapp show \
             --name ca-codara-backend \
-            --resource-group PFE_rg \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --query "properties.configuration.ingress.fqdn" -o tsv)
 
           echo "Deployed to: https://$APP_URL"
@@ -317,7 +317,7 @@ jobs:
         run: |
           FRONTEND_URL=$(az containerapp show \
             --name ca-codara-frontend \
-            --resource-group PFE_rg \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --query "properties.configuration.ingress.fqdn" -o tsv)
 
           gh api \

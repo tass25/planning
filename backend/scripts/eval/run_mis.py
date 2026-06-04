@@ -22,6 +22,7 @@ def _load_benchmark_pairs(output_dir: Path) -> list[tuple[str, str]]:
     import json
 
     pairs: list[tuple[str, str]] = []
+    # Cross-provider benchmark pairs (object with "results" array)
     for f in sorted(output_dir.glob("benchmark_crossProvider_*.json")):
         try:
             d = json.loads(f.read_text("utf-8"))
@@ -30,6 +31,18 @@ def _load_benchmark_pairs(output_dir: Path) -> list[tuple[str, str]]:
                 py = r.get("python_code", "")
                 if sas and py and r.get("equivalent", False):
                     pairs.append((sas, py))
+        except Exception:
+            pass
+    # Verified pairs from senior reviewers (flat array of {sas_code, python_code})
+    for f in sorted(output_dir.glob("verified_*_pairs.json")):
+        try:
+            entries = json.loads(f.read_text("utf-8"))
+            if isinstance(entries, list):
+                for r in entries:
+                    sas = r.get("sas_code") or ""
+                    py = r.get("python_code") or ""
+                    if sas.strip() and py.strip():
+                        pairs.append((sas, py))
         except Exception:
             pass
     return pairs
@@ -53,6 +66,11 @@ def main() -> None:
         default=200,
         help="Maximum number of corpus pairs to process (default: 200)",
     )
+    parser.add_argument(
+        "--loo-cv",
+        action="store_true",
+        help="Run leave-one-out cross-validation after MIS",
+    )
     args = parser.parse_args()
 
     from partition.invariant.invariant_synthesizer import MigrationInvariantSynthesizer
@@ -72,6 +90,18 @@ def main() -> None:
     print(f"Latency       : {inv_set.latency_ms:.0f}ms\n")
 
     print(inv_set.to_markdown_table())
+
+    if args.loo_cv:
+        print(f"\n{'='*60}")
+        print("Leave-One-Out Cross-Validation")
+        print(f"{'='*60}\n")
+        loo = synth.leave_one_out_cv(extra_pairs=extra_pairs, max_pairs=args.max_pairs)
+        print(f"Observations  : {loo.n_observations}")
+        print(f"Stable confirmed: {len(loo.stable_confirmed)}")
+        print(f"Stable rejected : {len(loo.stable_rejected)}")
+        print(f"Fragile         : {len(loo.fragile)}")
+        print(f"Latency         : {loo.latency_ms:.0f}ms\n")
+        print(loo.to_markdown_table())
 
 
 if __name__ == "__main__":

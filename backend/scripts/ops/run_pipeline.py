@@ -52,8 +52,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--duckdb",
-        default="data/analytics.duckdb",
-        help="DuckDB path for audit logs",
+        default="",
+        help="DuckDB path for audit logs (default: backend/data/analytics.duckdb)",
     )
     args = parser.parse_args()
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { usePageTitle } from "@/lib/hooks";
 import { useUserStore } from "@/store/user-store";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -18,12 +19,13 @@ const DEMO_CREDENTIALS = {
 
 const FEATURES = [
   { icon: Cpu, label: "8-Stage AI Pipeline", desc: "Multi-pass translation with AST analysis" },
-  { icon: Shield, label: "Enterprise Security", desc: "SOC2 compliant, audit logging built in" },
-  { icon: BarChart3, label: "97.3% Accuracy", desc: "Validated across 10K+ SAS programs" },
-  { icon: Zap, label: "10x Faster", desc: "Minutes not months for migration" },
+  { icon: Shield, label: "Sandboxed Execution", desc: "Isolated validation with full audit trail" },
+  { icon: BarChart3, label: "3-Tier RAG", desc: "Static, Graph, and Agentic retrieval" },
+  { icon: Zap, label: "Z3 Verified", desc: "Formal verification of translations" },
 ];
 
 export default function LoginPage() {
+  usePageTitle("Sign In");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");

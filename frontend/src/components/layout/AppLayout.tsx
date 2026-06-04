@@ -2,6 +2,7 @@ import { Outlet, Navigate } from "react-router-dom";
 import { useUserStore } from "@/store/user-store";
 import { UserLayout } from "./UserLayout";
 import { AdminLayout } from "./AdminLayout";
+import { CommandPalette } from "@/components/CommandPalette";
 
 export function AppLayout() {
   const { currentUser, isAuthenticated } = useUserStore();
@@ -10,7 +11,16 @@ export function AppLayout() {
     return <Navigate to="/login" replace />;
   }
 
+  if (currentUser && !currentUser.emailVerified && currentUser.role !== "admin") {
+    return <Navigate to="/verify-email" replace />;
+  }
+
   const isAdmin = currentUser?.role === "admin";
 
-  return isAdmin ? <AdminLayout /> : <UserLayout />;
+  return (
+    <>
+      <CommandPalette />
+      {isAdmin ? <AdminLayout /> : <UserLayout />}
+    </>
+  );
 }

@@ -133,13 +133,6 @@
     "source": "deloitte_kb_EX_021"
   },
   {
-    "sas_snippet": "proc means data=df_in nway noprint;class cat_col_1 cat_col_2;var num_col_1;output out=df_out sum=total_col_1;run;",
-    "python_translation": "import pandas as pd; df_in = pd.read_csv(\"df_in.csv\"); [df_in.__setitem__(c, pd.to_numeric(df_in[c].astype(str).str.replace(r'[^\\d.\\-]', '', regex=True), errors='coerce')) for c in df_in.columns if df_in[c].dtype == \"object\"]; n = df_in.select_dtypes(\"number\").columns; df_out = pd.concat([df_in.assign(cat_col=\"\", _TYPE_=0).groupby([\"cat_col\", \"_TYPE_\"])[n].agg([\"sum\", \"size\"]).reset_index(), df_in.assign(_TYPE_=1).groupby([\"cat_col\", \"_TYPE_\"])[n].agg([\"sum\", \"size\"]).reset_index()]).pipe(lambda d: d.set_axis([*d.columns.map(lambda x: x[0] if x[1]=='sum' else '_FREQ_' if x[1]=='size' else x[0])], axis=1)).drop_duplicates(); print(df_out.to_string(index=False))",
-    "category": "general",
-    "confidence": 0.85,
-    "source": "deloitte_kb_EX_022"
-  },
-  {
     "sas_snippet": "proc means data=df_in maxdec=2 noprint;var num_var_1 num_var_2;class cat_var_1 cat_var_2;ways 2;output out=df_out_1 n(num_var_1)=count_var_1 sum(num_var_1)=total_var_1;output out=df_out_2 n(num_var_2)=count_var_2 sum(num_var_2)=total_var_2;run;",
     "python_translation": "import pandas as pd; df_in = pd.read_csv(\"df_in.csv\"); for col in [\"num_col_1\", \"num_col_2\"]: if df_in[col].dcat_col_2 == \"object\": df_in[col] = pd.to_numeric(df_in[col].ascat_col_2(str).str.replace(r'[^\\d.\\-]', '', regex=True), errors='coerce'); df_out_1 = (df_in.groupby([\"cat_col_1\", \"cat_col_2\"]).agg(_FREQ_=(\"num_col_1\", \"size\"), count_num_col_1=(\"num_col_1\", \"count\"), total_num_col_1=(\"num_col_1\", \"sum\")).reset_index().round(2)); df_out_1[\"_Type_\"] = 3; df_out_2 = (df_in.groupby([\"cat_col_1\", \"cat_col_2\"]).agg(_FREQ_=(\"num_col_2\", \"size\"), count_num_col_2=(\"num_col_2\", \"count\"), total_num_col_2=(\"num_col_2\", \"sum\")).reset_index().round(2)); df_out_2[\"_Type_\"] = 3; print(\"df_out_1:\"); print(df_out_1.to_string(index=False)); print(\"\\ndf_out_2:\"); print(df_out_2.to_string(index=False))",
     "category": "general",
@@ -187,13 +180,6 @@
     "category": "general",
     "confidence": 0.85,
     "source": "deloitte_kb_EX_032"
-  },
-  {
-    "sas_snippet": "proc freq data=df_in order=freq; tables cat_col_1 * cat_col_2; run;",
-    "python_translation": "import pandas as pd; import numpy as np; df_in = pd.read_csv(\"df_in.csv\"); df_in.columns = df_in.columns.str.lower(); ct_freq = pd.crosstab(df_in[\"cat_col_1\"], df_in[\"cat_col_2\"], margins=True, margins_name=\"Total\", dropna=False); ordered_cat_col_1s = ct_freq[\"Total\"].drop(\"Total\").sort_values(ascending=False).index.tolist(); ordered_cat_col_2s = ct_freq.loc[\"Total\"].drop(\"Total\").sort_values(ascending=False).index.tolist(); ct_freq = ct_freq.loc[ordered_cat_col_1s + [\"Total\"], ordered_cat_col_2s + [\"Total\"]]; df_cross = ct_freq.stack().reset_index(name=\"Frequency\"); grand_total = ct_freq.loc[\"Total\", \"Total\"]; df_cross[\"Percent\"] = (df_cross[\"Frequency\"] / grand_total * 100).round(2); def calc_col_pct(row): return \"\" if row[\"cat_col_2\"] == \"Total\" else f\"{(row['Frequency'] / ct_freq.loc['Total', row['cat_col_2']] * 100):.2f}\"; df_cross[\"Column Percent\"] = df_cross.apply(calc_col_pct, axis=1); print(\"Table of cat_col_1 by cat_col_2\\n\"); print(df_cross.to_string(index=False))",
-    "category": "general",
-    "confidence": 0.85,
-    "source": "deloitte_kb_EX_033"
   },
   {
     "sas_snippet": "ods graphics; title \"str_title_1\"; proc freq data=df_in order=freq; tables cat_col_1 * cat_col_2 / crosslist plots=freqplot(orient=horizontal scale=percent); run;",
@@ -285,13 +271,6 @@
     "category": "general",
     "confidence": 0.85,
     "source": "deloitte_kb_EX_046"
-  },
-  {
-    "sas_snippet": "proc sql noprint; create table df_out as select cat_var_1, sum(num_var_1) as total_var from df_in group by cat_var_1 having sum(num_var_1) > 100; quit;",
-    "python_translation": "import pandas as pd; df_in.columns = df_in.columns.str.lower(); df_out = df_in[df_in['cat_col_1'].isin(['str_val_1','str_val_2'])].copy(); df_out = df_out[['cat_col_1','num_col_1','num_col_2','num_col_3']]; df_out = df_out.drop(columns=['num_col_4'], errors='ignore')",
-    "category": "general",
-    "confidence": 0.85,
-    "source": "deloitte_kb_EX_047"
   },
   {
     "sas_snippet": "data df_out; set df_in; calc_min = min(num_col_1, num_col_2, num_col_3); calc_sum = sum(num_col_1, num_col_2, num_col_3); calc_miss = nmiss(num_col_1, num_col_2); calc_valid = n(num_col_1, num_col_2); run;",
@@ -847,13 +826,6 @@
     "source": "deloitte_result1_078"
   },
   {
-    "sas_snippet": "proc export data = swork.Frais_JCF\noutfile = \"C:\\temp\\xfo_testey\\res_alteryx\\Frais_JCF.xlsx\"\ndbms = EXCEL2010 replace ;\nrun ;",
-    "python_translation": "Frais_JCF.to_excel(\"C:/temp/xfo_testey/res_alteryx/Frais_JCF.xlsx\", index=False)",
-    "category": "enterprise_banking",
-    "confidence": 0.8,
-    "source": "deloitte_result1_079"
-  },
-  {
     "sas_snippet": "proc sql;\nconnect to Teradata (user=&tera_user pwd=&tera_pwd TDPID=&tera_srv);\ncreate table CIP_Interchg_CB as\nselect * from connection to teradata\n(select  coetb, coco ,daopem, dacomp, daact2,  lioppr, liopse, liopcp, case when cosen2 = '10' then -mtopb else mtopb end as MONTANT\nfrom t3ecom_ent0.v0tl05\nwhere coco IN ('CPT56982001820','CPT56082021823')\nand daopem between &date_sql_debut_annee_N1 and &date_sql_fin_annee\norder by 3\n)\n;\ndisconnect from Teradata;\nquit;",
     "python_translation": "CIP_Interchg_CB = pd.read_sql(f'''\nSELECT coetb, coco, daopem, dacomp, daact2, lioppr, liopse, liopcp, \nCASE WHEN cosen2 = '10' THEN -mtopb ELSE mtopb END AS MONTANT\nFROM AID.T3ECOM_ENT0__V0TL05__222858\nWHERE coco IN ('CPT56982001820','CPT56082021823')\nAND daopem BETWEEN '{date_sql_debut_annee_N1}' AND '{date_sql_fin_annee}'\nORDER BY 3;\n''', connect)",
     "category": "enterprise_banking",
@@ -1160,13 +1132,6 @@
     "category": "enterprise_banking",
     "confidence": 0.8,
     "source": "deloitte_result1_123"
-  },
-  {
-    "sas_snippet": "rsubmit;\ndata date;\ndate_fin_annee='30JUN2023'd;\ndate_debut_annee_N1='01jan2022'd;\ncall symput (\"date_fin_annee\", date_fin_annee);\ncall symput (\"date_debut_annee_N1\", date_debut_annee_N1);\nrun;\nendrsubmit;\n\nrsubmit;\n%let date_fin_annee = &date_fin_annee; /*Cr�ation sur le PC client */\n%let date_debut_annee_N1 = &date_debut_annee_N1; /*Cr�ation sur le PC client */\nendrsubmit;\n\ndata swork.date;\nset work.date;\nrun;\n\nrsubmit;\ndata date;\nset date;\n\ndate_sql_fin_annee = \"'\"||put (date_fin_annee, yymmdd10.)||\"'\";\ncall symput (\"date_sql_fin_annee\", date_sql_fin_annee);\n\ndate_sql_debut_annee_N1 = \"'\"||put (date_debut_annee_N1, yymmdd10.)||\"'\";\ncall symput (\"date_sql_debut_annee_N1\", date_sql_debut_annee_N1);\nrun;\nendrsubmit;",
-    "python_translation": "from datetime import datetime\nimport pandas as pd\nfrom sqlalchemy import create_engine\n\ndate_fin_annee = datetime.strptime(\"31dec2022\", \"%d%b%Y\")\ndate_debut_annee_N1 = datetime.strptime(\"01jan2021\", \"%d%b%Y\")\n\ndate_sql_fin_annee = f\"'{date_fin_annee.strftime('%Y-%m-%d')}'\"\ndate_sql_debut_annee_N1 = f\"'{date_debut_annee_N1.strftime('%Y-%m-%d')}'\"",
-    "category": "enterprise_banking",
-    "confidence": 0.8,
-    "source": "deloitte_result1_124"
   },
   {
     "sas_snippet": "rsubmit;\ndata date;\ndate_fin_annee='31dec2022'd;\ndate_debut_annee_N1='01jan2021'd;\ncall symput (\"date_fin_annee\", date_fin_annee);\ncall symput (\"date_debut_annee_N1\", date_debut_annee_N1);\nrun;\nendrsubmit;\n\nrsubmit;\n%let date_fin_annee = &date_fin_annee; \n%let date_debut_annee_N1 = &date_debut_annee_N1; \nendrsubmit;\n\ndata swork.date;\nset work.date;\nrun;\n\nrsubmit;\ndata date;\nset date;\n\ndate_sql_fin_annee = \"'\"||put (date_fin_annee, yymmdd10.)||\"'\";\ncall symput (\"date_sql_fin_annee\", date_sql_fin_annee);\n\ndate_sql_debut_annee_N1 = \"'\"||put (date_debut_annee_N1, yymmdd10.)||\"'\";\ncall symput (\"date_sql_debut_annee_N1\", date_sql_debut_annee_N1);\nrun;\nendrsubmit;",

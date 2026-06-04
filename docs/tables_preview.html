@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Codara Report — All Tables Preview</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --card: #ffffff;
+    --border: #e2e2e2;
+    --text: #1d1d1f;
+    --muted: #86868b;
+    --accent: #0071e3;
+    --accent-light: #e8f2fc;
+    --green: #28a745;
+    --red: #d73a49;
+    --orange: #e36209;
+    --blue: #0366d6;
+    --chapter-bg: #1d1d1f;
+    --highlight-row: #f0f7ff;
+    --reject-row: #fef1f1;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Header ── */
+  .page-header {
+    text-align: center;
+    padding: 3rem 1rem 2rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
+    margin-bottom: 0;
+  }
+  .page-header h1 {
+    font-size: 1.7rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.3rem;
+  }
+  .page-header .sub {
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  /* ── Nav ── */
+  .toc {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.8rem 1rem;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .toc a {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--muted);
+    padding: 0.3rem 0.7rem;
+    border-radius: 100px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+  .toc a:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-light); }
+
+  /* ── Content ── */
+  .content { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1.5rem 4rem; }
+
+  /* ── Chapter ── */
+  .chapter {
+    margin-top: 2.5rem;
+  }
+  .chapter:first-child { margin-top: 0; }
+  .chapter-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #fff;
+    background: var(--chapter-bg);
+    padding: 0.6rem 1rem;
+    border-radius: 8px 8px 0 0;
+  }
+
+  /* ── Table Card ── */
+  .tcard {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-top: none;
+    padding: 1rem 1.2rem 1.2rem;
+    margin-bottom: 1rem;
+  }
+  .tcard:last-child { border-radius: 0 0 8px 8px; }
+  .tcard + .chapter-title { border-radius: 8px 8px 0 0; }
+  .tcard-name {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text);
+    margin-bottom: 0.15rem;
+  }
+  .tcard-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    margin-bottom: 0.7rem;
+  }
+
+  /* ── Table ── */
+  .tw { overflow-x: auto; }
+  table {
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+  th, td {
+    padding: 0.4rem 0.65rem;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+  }
+  th {
+    background: #f5f5f7;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 0.78rem;
+    border-bottom: 2px solid #ddd;
+    position: sticky;
+    top: 0;
+  }
+  td { color: #333; }
+  tr:hover td { background: #f9f9fb; }
+  td.wrap { white-space: normal; min-width: 180px; }
+
+  .hl td { background: var(--highlight-row) !important; font-weight: 600; }
+  .rj td { background: var(--reject-row) !important; }
+  .na-row td { background: #f9f9f9 !important; color: var(--muted); }
+
+  .ck { color: var(--green); font-weight: 700; }
+  .cr { color: var(--red); font-weight: 500; }
+  .pt { color: var(--orange); font-weight: 500; }
+  .na { color: #bbb; }
+  .v-verified { color: var(--green); font-weight: 700; }
+  .v-likely { color: var(--blue); font-weight: 600; }
+  .v-uncertain { color: var(--orange); font-weight: 600; }
+  .v-incorrect { color: var(--red); font-weight: 700; }
+
+  code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    background: #f0f0f0;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+  }
+  .note {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 0.4rem;
+    font-style: italic;
+  }
+  sup { font-size: 0.65em; }
+
+  .footer {
+    text-align: center;
+    color: #bbb;
+    font-size: 0.75rem;
+    padding: 2rem 0 1rem;
+  }
+
+  @media (max-width: 768px) {
+    .content { padding: 0.8rem; }
+    table { font-size: 0.75rem; }
+    th, td { padding: 0.3rem 0.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Codara Report — All Tables</h1>
+  <div class="sub">Extracted from Chapters 1–7 + CDAIS/MIS paper &middot; 43 tables</div>
+</div>
+
+<nav class="toc">
+  <a href="#ch1">Ch 1</a>
+  <a href="#ch2">Ch 2</a>
+  <a href="#ch3">Ch 3</a>
+  <a href="#ch4">Ch 4</a>
+  <a href="#ch5">Ch 5</a>
+  <a href="#ch6">Ch 6</a>
+  <a href="#ch7">Ch 7</a>
+  <a href="#paper">CDAIS/MIS Paper</a>
+</nav>
+
+<div class="content">
+
+<!-- ═══════════════════════ CHAPTER 1 ═══════════════════════ -->
+<div class="chapter" id="ch1">
+<div class="chapter-title">Chapter 1 — Project Context and Foundation</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 1.1 — Comparison of existing SAS migration approaches</div>
+  <div class="tcard-label">tab:existing-comparison</div>
+  <div class="tw"><table>
+    <thead><tr><th>Tool / Approach</th><th>Macro Resolution</th><th>Cross-File</th><th>Semantic Verif.</th><th>Confidence</th><th>Open Source</th></tr></thead>
+    <tbody>
+      <tr><td>Analytium SAS Converter</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td></tr>
+      <tr><td>WhereScape Migration</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td></tr>
+      <tr><td>Dataxiel</td><td class="pt">Partial</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td></tr>
+      <tr><td>Raw LLM (GPT-5)</td><td class="pt">Partial</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="na">N/A</td></tr>
+      <tr><td>TransCoder</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="ck">&checkmark;</td></tr>
+      <tr><td>CodeTransOcean</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="ck">&checkmark;</td></tr>
+      <tr class="hl"><td><strong>Codara (ours)</strong></td><td class="ck">&checkmark;</td><td class="ck">&checkmark;</td><td class="ck">&checkmark;</td><td class="ck">&checkmark;</td><td class="ck">&checkmark;</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 1.2 — Sprint schedule and key deliverables</div>
+  <div class="tcard-label">tab:sprint-schedule</div>
+  <div class="tw"><table>
+    <thead><tr><th>Weeks</th><th>Layer</th><th>Key Deliverable</th><th>Tests</th></tr></thead>
+    <tbody>
+      <tr><td>1–2</td><td>L2-A</td><td class="wrap">FileAnalysisAgent, CrossFileDepsResolver, 50-file gold corpus</td><td>20</td></tr>
+      <tr><td>3–4</td><td>L2-B/C</td><td class="wrap">StreamAgent FSM, BoundaryDetector (lark + LLM fallback)</td><td>60</td></tr>
+      <tr><td>5–6</td><td>L2-C/D</td><td class="wrap">RAPTOR clustering, ComplexityAgent (ML calibrated)</td><td>100</td></tr>
+      <tr><td>7–8</td><td>L2-E</td><td class="wrap">Orchestrator (8-stage LangGraph), Redis checkpointing, DuckDB audit</td><td>126</td></tr>
+      <tr><td>9</td><td>Robust</td><td class="wrap">CircuitBreaker, RateLimiter, KBWriter (LanceDB 330 pairs)</td><td>144</td></tr>
+      <tr><td>10–11</td><td>L3/L4</td><td class="wrap">TranslationAgent (3-tier RAG), ValidationAgent, MergeAgent</td><td>191</td></tr>
+      <tr><td>12</td><td>Eval</td><td class="wrap">Ablation study infrastructure (flat vs. RAPTOR)</td><td>198</td></tr>
+      <tr><td>13</td><td>Arch</td><td class="wrap">11→8 stage consolidation, CI/CD, Docker, CodeQL</td><td>221</td></tr>
+      <tr><td>14</td><td>Buffer</td><td>Polish, defence preparation</td><td>–</td></tr>
+      <tr><td>15+</td><td>Ext</td><td class="wrap">Z3, CDAIS, SemantiCheck, HyperRAPTOR, QLoRA pipeline</td><td>452</td></tr>
+    </tbody>
+  </table></div>
+</div>
+</div>
+
+<!-- ═══════════════════════ CHAPTER 2 ═══════════════════════ -->
+<div class="chapter" id="ch2">
+<div class="chapter-title">Chapter 2 — Theoretical Foundations and Related Work</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 2.1 — Complexity taxonomy for SAS migration</div>
+  <div class="tcard-label">tab:complexity-taxonomy</div>
+  <div class="tw"><table>
+    <thead><tr><th>Risk Level</th><th>Representative SAS Constructs</th><th>RAG Strategy</th><th>Token Budget</th></tr></thead>
+    <tbody>
+      <tr><td>LOW</td><td class="wrap">PROC SORT, PROC IMPORT/EXPORT, simple DATA step assignment, single-table SQL</td><td>Static RAG</td><td>2,000</td></tr>
+      <tr><td>MODERATE</td><td class="wrap">RETAIN + BY-group, MERGE with IN=, PROC MEANS/FREQ with CLASS, multi-table SQL</td><td>Graph RAG</td><td>4,000</td></tr>
+      <tr><td>HIGH</td><td class="wrap">Macro %DO loops, hash objects, PROC TRANSPOSE, correlated subqueries, multi-level macro</td><td>Agentic RAG</td><td>8,000</td></tr>
+      <tr><td>UNCERTAIN</td><td class="wrap">Unseen constructs, syntactic ambiguities unresolved by parser</td><td>Agentic RAG</td><td>8,000</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 2.2 — Positioning of Codara relative to prior work across six dimensions</div>
+  <div class="tcard-label">tab:positioning</div>
+  <div class="tw"><table>
+    <thead><tr><th>System</th><th>Macro Resol.</th><th>Cross-File</th><th>Formal Verif.</th><th>Adversarial Test</th><th>Confidence</th><th>Prod. Deploy</th></tr></thead>
+    <tbody>
+      <tr><td>Analytium</td><td class="pt">Partial</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="ck">&checkmark;</td></tr>
+      <tr><td>WhereScape</td><td class="cr">&times;</td><td class="pt">Partial</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="ck">&checkmark;</td></tr>
+      <tr><td>TransCoder</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td></tr>
+      <tr><td>TRANSAGENT</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="pt">Partial</td><td class="cr">&times;</td></tr>
+      <tr><td>Bessi (2024)</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td class="cr">&times;</td><td>BLEU/ROUGE</td><td class="ck">&checkmark;</td></tr>
+      <tr class="hl"><td><strong>Codara</strong></td><td><strong>Partial</strong></td><td class="ck">&checkmark;</td><td class="ck">&checkmark;</td><td class="ck">&checkmark;</td><td><strong>SCS 4-layer</strong></td><td class="ck">&checkmark;</td></tr>
+    </tbody>
+  </table></div>
+</div>
+</div>
+
+<!-- ═══════════════════════ CHAPTER 3 ═══════════════════════ -->
+<div class="chapter" id="ch3">
+<div class="chapter-title">Chapter 3 — Project Specifications</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 3.1 — Functional requirements classified by MoSCoW priority (excerpt; 30 total)</div>
+  <div class="tcard-label">tab:functional-req</div>
+  <div class="tw"><table>
+    <thead><tr><th>ID</th><th>Requirement</th><th>Priority</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td>FR-01</td><td class="wrap">Upload SAS files via web UI</td><td>Must</td><td>Business</td></tr>
+      <tr><td>FR-02</td><td class="wrap">Resolve cross-file %INCLUDE deps</td><td>Must</td><td>Technical</td></tr>
+      <tr><td>FR-03</td><td class="wrap">Streaming FSM parser (≤10K lines)</td><td>Must</td><td>Technical</td></tr>
+      <tr><td>FR-04</td><td class="wrap">Boundary detection (≥80% accuracy)</td><td>Must</td><td>Scientific</td></tr>
+      <tr><td>FR-07</td><td class="wrap">ML complexity scoring (4 risk levels)</td><td>Must</td><td>Scientific</td></tr>
+      <tr><td>FR-10</td><td class="wrap">3-tier RAG retrieval (Static/Graph/Agentic)</td><td>Must</td><td>Scientific</td></tr>
+      <tr><td>FR-12</td><td class="wrap">LLM translation with structured output</td><td>Must</td><td>Technical</td></tr>
+      <tr><td>FR-15</td><td class="wrap">Sandboxed execution validation</td><td>Must</td><td>Technical</td></tr>
+      <tr><td>FR-17</td><td class="wrap">Z3 SMT formal verification</td><td>Should</td><td>Scientific</td></tr>
+      <tr><td>FR-18</td><td class="wrap">CDAIS adversarial test synthesis</td><td>Should</td><td>Scientific</td></tr>
+      <tr><td>FR-19</td><td class="wrap">SemantiCheck 4-layer composite score</td><td>Should</td><td>Scientific</td></tr>
+      <tr><td>FR-21</td><td class="wrap">Merge into single Python script</td><td>Must</td><td>Business</td></tr>
+      <tr><td>FR-24</td><td class="wrap">REST API with JWT authentication</td><td>Must</td><td>Technical</td></tr>
+      <tr><td>FR-27</td><td class="wrap">Live stage-level polling (1.2 s)</td><td>Must</td><td>Business</td></tr>
+      <tr><td>FR-29</td><td class="wrap">Knowledge-base management UI</td><td>Could</td><td>Business</td></tr>
+      <tr><td>FR-30</td><td class="wrap">Admin dashboard (audit, health)</td><td>Could</td><td>Business</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 3.2 — Non-functional requirements with acceptance criteria</div>
+  <div class="tcard-label">tab:nonfunctional-req</div>
+  <div class="tw"><table>
+    <thead><tr><th>ID</th><th>Category</th><th>Requirement</th><th>Acceptance Criterion</th></tr></thead>
+    <tbody>
+      <tr><td>NF-01</td><td>Performance</td><td class="wrap">Single 500-line file end-to-end</td><td class="wrap">≤ 120 s on standard cloud VM</td></tr>
+      <tr><td>NF-02</td><td>Performance</td><td class="wrap">Streaming parser throughput</td><td>≥ 5,000 lines/s</td></tr>
+      <tr><td>NF-03</td><td>Performance</td><td class="wrap">API response time (non-pipeline)</td><td>p95 ≤ 200 ms</td></tr>
+      <tr><td>NF-04</td><td>Reliability</td><td class="wrap">No pipeline crash on malformed input</td><td class="wrap">All errors caught, logged as warnings</td></tr>
+      <tr><td>NF-05</td><td>Reliability</td><td class="wrap">Redis checkpoint recovery</td><td class="wrap">Resume from last checkpoint, no re-exec</td></tr>
+      <tr><td>NF-06</td><td>Security</td><td>Authentication</td><td class="wrap">JWT HS256, 24 h expiry, bcrypt hashing</td></tr>
+      <tr><td>NF-07</td><td>Security</td><td>Execution sandbox</td><td class="wrap">No file I/O, no imports in exec()</td></tr>
+      <tr><td>NF-08</td><td>Scalability</td><td class="wrap">Memory footprint (10K-line file)</td><td>≤ 100 MB peak RSS</td></tr>
+      <tr><td>NF-09</td><td>Testability</td><td>Statement coverage</td><td>≥ 80% on partition/ package</td></tr>
+      <tr><td>NF-10</td><td>Deployability</td><td>Containerised deployment</td><td>Single <code>docker compose up</code></td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 3.3 — Use cases grouped by actor</div>
+  <div class="tcard-label">tab:use-case-summary</div>
+  <div class="tw"><table>
+    <thead><tr><th>Actor</th><th>UC ID</th><th>Use Case</th></tr></thead>
+    <tbody>
+      <tr><td>Data Engineer</td><td>UC-01</td><td>Upload SAS Files</td></tr>
+      <tr><td>Data Engineer</td><td>UC-02</td><td>Start Conversion</td></tr>
+      <tr><td>Data Engineer</td><td>UC-03</td><td>Monitor Progress (poll)</td></tr>
+      <tr><td>Data Engineer</td><td>UC-04</td><td>Download Results</td></tr>
+      <tr><td>Data Engineer</td><td>UC-05</td><td>Submit Correction</td></tr>
+      <tr><td>Data Engineer</td><td>UC-06</td><td>Search Knowledge Base</td></tr>
+      <tr><td>Administrator</td><td>UC-07</td><td>Manage Users</td></tr>
+      <tr><td>Administrator</td><td>UC-08</td><td>View Audit Logs</td></tr>
+      <tr><td>Administrator</td><td>UC-09</td><td>Monitor System Health</td></tr>
+      <tr><td>Administrator</td><td>UC-10</td><td>Configure Pipeline</td></tr>
+      <tr><td>System</td><td>UC-11</td><td>Execute Pipeline (background)</td></tr>
+      <tr><td>System</td><td>UC-12</td><td>Checkpoint and Resume</td></tr>
+    </tbody>
+  </table></div>
+</div>
+</div>
+
+<!-- ═══════════════════════ CHAPTER 4 ═══════════════════════ -->
+<div class="chapter" id="ch4">
+<div class="chapter-title">Chapter 4 — System Architecture and Design Decisions</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 4.1 — Orchestration framework evaluation on a three-node prototype</div>
+  <div class="tcard-label">tab:framework-eval</div>
+  <div class="tw"><table>
+    <thead><tr><th>Framework</th><th>State Typing</th><th>Checkpoint</th><th>Async</th><th>Det. Topology</th><th>LoC</th><th>Latency (s)</th></tr></thead>
+    <tbody>
+      <tr><td>LangGraph</td><td>TypedDict</td><td>Redis native</td><td class="ck">&checkmark;</td><td class="ck">&checkmark;</td><td>142</td><td>38.2</td></tr>
+      <tr><td>CrewAI</td><td>Dict/str</td><td>Manual</td><td class="pt">Partial</td><td class="cr">&times;</td><td>98</td><td>54.7</td></tr>
+      <tr><td>AutoGen</td><td>Messages</td><td>Manual</td><td class="ck">&checkmark;</td><td class="cr">&times;</td><td>187</td><td>71.3</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 4.2 — LLM torture-test benchmark results (10 blocks, score out of 10)</div>
+  <div class="tcard-label">tab:llm-benchmark</div>
+  <div class="tw"><table>
+    <thead><tr><th>Model</th><th>Provider</th><th>Syntax (/10)</th><th>Exec (/10)</th><th>SC (/10)</th><th>Total (/10)</th><th>Latency (s/blk)</th></tr></thead>
+    <tbody>
+      <tr><td>GPT-5.4</td><td>Azure</td><td>10</td><td>10</td><td>8</td><td>10</td><td>4.2</td></tr>
+      <tr><td>GPT-5.4-mini</td><td>Azure</td><td>10</td><td>9</td><td>6</td><td>9</td><td>1.8</td></tr>
+      <tr><td>minimax-m2.7:cloud</td><td>Ollama</td><td>10</td><td>10</td><td>8</td><td>10</td><td>21.3</td></tr>
+      <tr><td>nemotron-3-super</td><td>Ollama</td><td>10</td><td>9</td><td>7</td><td>9</td><td>18.7</td></tr>
+      <tr><td>LLaMA-3.3-70b</td><td>Groq</td><td>10</td><td>8</td><td>6</td><td>8</td><td>2.1</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 4.3 — Embedding model and vector store evaluation (50-query test set)</div>
+  <div class="tcard-label">tab:embedding-eval</div>
+  <div class="tw"><table>
+    <thead><tr><th>Model / Store</th><th>Dim</th><th>HR@5</th><th>Cold (s)</th><th>Server?</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Nomic v1.5 + LanceDB</td><td>768</td><td>0.84</td><td>2.1</td><td>No</td><td>Code-optimised, IVF index</td></tr>
+      <tr><td>text-emb-3-small + Chroma</td><td>1536</td><td>0.82</td><td>0.3</td><td>Yes</td><td>API cost per query</td></tr>
+      <tr><td>MiniLM-L6-v2 + LanceDB</td><td>384</td><td>0.79</td><td>0.8</td><td>No</td><td>Fast but lower recall</td></tr>
+      <tr><td>Nomic v1.5 + Weaviate</td><td>768</td><td>0.84</td><td>4.5</td><td>Yes</td><td class="wrap">Over-engineered for 330 rows</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 4.4 — Composite node design: eight pipeline stages and their sub-modules</div>
+  <div class="tcard-label">tab:node-map</div>
+  <div class="tw"><table>
+    <thead><tr><th>Stage</th><th>Graph Label</th><th>Sub-Modules</th><th>Layer</th></tr></thead>
+    <tbody>
+      <tr><td>FileProcessor</td><td><code>file_process</code></td><td class="wrap">FileAnalysis → CrossFileDeps → RegistryWriter</td><td>L2-A</td></tr>
+      <tr><td>StreamingParser</td><td><code>streaming</code></td><td class="wrap">StreamAgent → StateAgent (FSM)</td><td>L2-B</td></tr>
+      <tr><td>ChunkingAgent</td><td><code>chunking</code></td><td class="wrap">BoundaryDetector → PartitionBuilder</td><td>L2-C</td></tr>
+      <tr><td>RAPTORPartitionAgent</td><td><code>raptor</code></td><td class="wrap">NomicEmbedder → GMM → Summarizer → TreeBuilder</td><td>L2-C</td></tr>
+      <tr><td>RiskRouter</td><td><code>risk_routing</code></td><td class="wrap">ComplexityAgent → StrategyAgent</td><td>L2-D</td></tr>
+      <tr><td>Persist+Index</td><td><code>persist_index</code></td><td class="wrap">PersistenceAgent ‖ IndexAgent</td><td>L2-E</td></tr>
+      <tr><td>TranslationPipeline</td><td><code>translation</code></td><td class="wrap">TranslationAgent → ValidationAgent</td><td>L3</td></tr>
+      <tr><td>MergeAgent</td><td><code>merge</code></td><td class="wrap">ScriptMerger → ReportAgent</td><td>L4</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 4.5 — RAPTOR vs. flat-index retrieval on the gold-standard corpus</div>
+  <div class="tcard-label">tab:raptor-ablation-ch4</div>
+  <div class="tw"><table>
+    <thead><tr><th>Metric</th><th>Flat index</th><th>RAPTOR</th><th>Delta</th><th>Segment</th></tr></thead>
+    <tbody>
+      <tr><td>Hit-Rate@5 (all)</td><td>0.71</td><td>0.84</td><td>+18%</td><td>All</td></tr>
+      <tr><td>MRR (all)</td><td>0.54</td><td>0.63</td><td>+17%</td><td>All</td></tr>
+      <tr><td>Hit-Rate@5 (HIGH)</td><td>0.52</td><td>0.71</td><td>+36%</td><td>HIGH only</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 4.6 — SQLite API database schema overview</div>
+  <div class="tcard-label">tab:sqlite-schema</div>
+  <div class="tw"><table>
+    <thead><tr><th>Table</th><th>Key Columns</th><th>Primary Access</th><th>Est. Rows</th></tr></thead>
+    <tbody>
+      <tr><td>users</td><td>id, email, role, status</td><td>Auth lookup by email</td><td>&lt;100</td></tr>
+      <tr><td>conversions</td><td>id, user_id, status, accuracy</td><td>Poll by id (1.2 s)</td><td>~500</td></tr>
+      <tr><td>conversion_stages</td><td>conversion_id, stage, status</td><td>Join with conversions</td><td>~4,000</td></tr>
+      <tr><td>kb_entries</td><td class="wrap">id, sas_snippet, python_translation</td><td>Semantic search proxy</td><td>330</td></tr>
+      <tr><td>kb_changelog</td><td>entry_id, action, timestamp</td><td>Audit trail queries</td><td>~800</td></tr>
+      <tr><td>audit_logs</td><td>model, latency, cost, success</td><td>Admin dashboard</td><td>~2,000</td></tr>
+      <tr><td>corrections</td><td>conversion_id, corrected_code</td><td>Feedback loop ingestion</td><td>~50</td></tr>
+      <tr><td>notifications</td><td>user_id, type, read</td><td>User notification feed</td><td>~200</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 4.7 — Key REST API endpoints (28 total; critical-path endpoints shown)</div>
+  <div class="tcard-label">tab:api-endpoints</div>
+  <div class="tw"><table>
+    <thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td>POST</td><td>/api/auth/login</td><td>No</td><td>Authenticate, return JWT</td></tr>
+      <tr><td>POST</td><td>/api/auth/register</td><td>No</td><td>Create user account</td></tr>
+      <tr><td>POST</td><td>/api/conversions/upload</td><td>User</td><td>Upload SAS files, return file UUIDs</td></tr>
+      <tr><td>POST</td><td>/api/conversions/start</td><td>User</td><td>Trigger pipeline (background)</td></tr>
+      <tr><td>GET</td><td>/api/conversions/{id}</td><td>User</td><td>Poll stage-level status</td></tr>
+      <tr><td>GET</td><td>/api/conversions/{id}/download</td><td>User</td><td>Download ZIP (Python + report)</td></tr>
+      <tr><td>GET</td><td>/api/knowledge-base</td><td>User</td><td>List / semantic-search KB entries</td></tr>
+      <tr><td>GET</td><td>/api/admin/users</td><td>Admin</td><td>List all users</td></tr>
+      <tr><td>GET</td><td>/api/admin/audit-logs</td><td>Admin</td><td>Query LLM audit log</td></tr>
+      <tr><td>GET</td><td>/api/admin/system-health</td><td>Admin</td><td>Redis, LanceDB, DuckDB status</td></tr>
+      <tr><td>GET</td><td>/api/health</td><td>None</td><td>Liveness probe</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 4.8 — Gold standard corpus statistics by tier</div>
+  <div class="tcard-label">tab:corpus-stats</div>
+  <div class="tw"><table>
+    <thead><tr><th>Tier</th><th>Pairs</th><th>Lines</th><th>Partitions</th><th>Complexity (%)</th><th>Failure Modes</th></tr></thead>
+    <tbody>
+      <tr><td>Basic (gs_)</td><td>15</td><td>1,200</td><td>187</td><td>L:62 / M:28 / H:10</td><td>4 of 6</td></tr>
+      <tr><td>Medium (gsm_)</td><td>20</td><td>3,100</td><td>298</td><td>L:30 / M:48 / H:22</td><td>5 of 6</td></tr>
+      <tr><td>Hard (gsh_)</td><td>15</td><td>3,700</td><td>236</td><td>L:12 / M:39 / H:49</td><td>6 of 6</td></tr>
+      <tr class="hl"><td><strong>Total</strong></td><td><strong>50</strong></td><td><strong>8,000</strong></td><td><strong>721</strong></td><td>L:36 / M:41 / H:23</td><td>6 of 6</td></tr>
+    </tbody>
+  </table></div>
+</div>
+</div>
+
+<!-- ═══════════════════════ CHAPTER 5 ═══════════════════════ -->
+<div class="chapter" id="ch5">
+<div class="chapter-title">Chapter 5 — Knowledge Integration and Pipeline Implementation</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 5.1 — StrategyAgent decision table: five strategies</div>
+  <div class="tcard-label">tab:strategy-rules</div>
+  <div class="tw"><table>
+    <thead><tr><th>Condition</th><th>Strategy</th><th>RAG Tier</th></tr></thead>
+    <tbody>
+      <tr><td class="wrap">has_call_execute OR macro_pct ≥ 0.60</td><td>HUMAN_REVIEW</td><td>—</td></tr>
+      <tr><td class="wrap">cross_file_edges &gt; 0 AND SCC_size &gt; 1</td><td>DEPENDENCY_PRESERVING</td><td>Graph (SCC)</td></tr>
+      <tr><td class="wrap">macro_pct ∈ [0.20, 0.60)</td><td>MACRO_AWARE</td><td>Agentic</td></tr>
+      <tr><td class="wrap">risk_level ∈ {LOW, MODERATE} AND cross_file_edges &gt; 0</td><td>STRUCTURAL_GROUPING</td><td>Graph</td></tr>
+      <tr><td class="wrap">risk_level = LOW AND cross_file_edges = 0</td><td>FLAT_PARTITION</td><td>Static</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 5.2 — CDAIS error class taxonomy: six formalised SAS→Python semantic error classes</div>
+  <div class="tcard-label">tab:cdais-taxonomy</div>
+  <div class="tw"><table>
+    <thead><tr><th>ID</th><th>Name</th><th>SAS Trigger</th><th>Common Mistranslation</th></tr></thead>
+    <tbody>
+      <tr><td>C1</td><td>RETAIN_RESET</td><td>RETAIN+BY+FIRST.</td><td><code>df.cumsum()</code> (no reset)</td></tr>
+      <tr><td>C2</td><td>LAG_QUEUE</td><td>LAG(x)</td><td><code>shift(1)</code> (no group reset)</td></tr>
+      <tr><td>C3</td><td>SORT_STABLE</td><td>PROC SORT</td><td><code>sort_values()</code> (unstable)</td></tr>
+      <tr><td>C4</td><td>NULL_ARITHMETIC</td><td>SUM() function</td><td><code>x+5</code> propagates NaN</td></tr>
+      <tr><td>C5</td><td>JOIN_TYPE</td><td>MERGE (no IN=)</td><td><code>how='inner'</code> default</td></tr>
+      <tr><td>C6</td><td>GROUP_BOUNDARY</td><td>IF FIRST.x;</td><td><code>df.head(1)</code> whole DF</td></tr>
+    </tbody>
+  </table></div>
+</div>
+</div>
+
+<!-- ═══════════════════════ CHAPTER 6 ═══════════════════════ -->
+<div class="chapter" id="ch6">
+<div class="chapter-title">Chapter 6 — Deployment and User Interface</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 6.1 — GitHub Actions CI/CD pipeline: six jobs</div>
+  <div class="tcard-label">tab:cicd-pipeline</div>
+  <div class="tw"><table>
+    <thead><tr><th>Job</th><th>Trigger</th><th>Runtime</th><th>Success Criterion</th></tr></thead>
+    <tbody>
+      <tr><td>lint</td><td>push to main</td><td>Python 3.11</td><td class="wrap">Zero flake8 E/W + mypy type errors</td></tr>
+      <tr><td>test</td><td>push to main</td><td>Python 3.11</td><td class="wrap">452/452 core tests pass, coverage XML uploaded</td></tr>
+      <tr><td>benchmark</td><td>push to main</td><td>Python 3.11</td><td class="wrap">No SEMANTIC_FAIL on gold-standard corpus</td></tr>
+      <tr><td>docker-build</td><td>push to main</td><td>ubuntu-latest</td><td class="wrap">Backend + frontend images build without error</td></tr>
+      <tr><td>codeql</td><td>push to main / weekly</td><td>ubuntu-latest</td><td class="wrap">Zero High-severity findings</td></tr>
+      <tr><td>deploy-preview</td><td>PR to main</td><td>ubuntu-latest</td><td class="wrap">Container image pushed to ACR</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 6.2 — End-to-end integration flow: six steps from upload to download</div>
+  <div class="tcard-label">tab:e2e-flow</div>
+  <div class="tw"><table>
+    <thead><tr><th>Step</th><th>Actor</th><th>Action</th><th>Backend Response</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Browser</td><td>POST /api/conversions/upload</td><td class="wrap">File stored, UUIDs returned</td></tr>
+      <tr><td>2</td><td>Browser</td><td>POST /api/conversions/start</td><td class="wrap">Job enqueued, conversion_id returned</td></tr>
+      <tr><td>3</td><td>Queue</td><td>Dequeue message</td><td class="wrap">Pipeline worker starts execution</td></tr>
+      <tr><td>4</td><td>Worker</td><td>Execute 8-stage pipeline</td><td class="wrap">Stage records updated in SQLite</td></tr>
+      <tr><td>5</td><td>Browser</td><td>GET /api/conversions/{id} (poll)</td><td class="wrap">Stage status returned every 1.2 s</td></tr>
+      <tr><td>6</td><td>Browser</td><td>GET /api/conversions/{id}/download</td><td class="wrap">ZIP (Python + report) served</td></tr>
+    </tbody>
+  </table></div>
+</div>
+</div>
+
+<!-- ═══════════════════════ CHAPTER 7 ═══════════════════════ -->
+<div class="chapter" id="ch7">
+<div class="chapter-title">Chapter 7 — Evaluation, Results, and Discussion</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 7.1 — Boundary detection results: deterministic detector and combined system</div>
+  <div class="tcard-label">tab:boundary-results</div>
+  <div class="tw"><table>
+    <thead><tr><th>Component</th><th>Precision</th><th>Recall</th><th>F1</th><th>Correct / Total</th></tr></thead>
+    <tbody>
+      <tr><td class="wrap">Deterministic (lark + regex)</td><td>0.781</td><td>0.756</td><td>0.768</td><td>545 / 721</td></tr>
+      <tr><td>LLM fallback only</td><td>0.645</td><td>0.644</td><td>0.645</td><td>98 / 152</td></tr>
+      <tr class="hl"><td><strong>Combined system</strong></td><td><strong>0.802</strong></td><td><strong>0.784</strong></td><td><strong>0.793</strong></td><td>572 / 721</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 7.2 — RAPTOR ablation study results</div>
+  <div class="tcard-label">tab:raptor-ablation</div>
+  <div class="tw"><table>
+    <thead><tr><th>Configuration</th><th>HR@5 (all)</th><th>HR@5 (HIGH)</th><th>MRR (all)</th><th>Trans. Success</th></tr></thead>
+    <tbody>
+      <tr><td>Flat index</td><td>0.71</td><td>0.52</td><td>0.54</td><td>68.4%</td></tr>
+      <tr class="hl"><td><strong>RAPTOR</strong></td><td><strong>0.84</strong></td><td><strong>0.71</strong></td><td><strong>0.63</strong></td><td><strong>74.2%</strong></td></tr>
+      <tr><td>HyperRAPTOR</td><td>0.76<sup>*</sup></td><td>0.76<sup>*</sup></td><td>–</td><td>–</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><sup>*</sup> Pilot only (n=15 hard-tier pairs; MRR not measured).</div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 7.3 — Risk-level distribution across the gold-standard corpus</div>
+  <div class="tcard-label">tab:risk-distribution</div>
+  <div class="tw"><table>
+    <thead><tr><th>Risk Level</th><th>Count</th><th>%</th><th>RAG Strategy</th><th>Avg Latency (s)</th><th>Avg SCS</th></tr></thead>
+    <tbody>
+      <tr><td>LOW</td><td>260</td><td>36</td><td>Static RAG</td><td>4.2</td><td>0.81</td></tr>
+      <tr><td>MODERATE</td><td>296</td><td>41</td><td>Graph RAG</td><td>8.7</td><td>0.68</td></tr>
+      <tr><td>HIGH</td><td>130</td><td>18</td><td>Agentic RAG</td><td>14.3</td><td>0.54</td></tr>
+      <tr><td>UNCERTAIN</td><td>35</td><td>5</td><td>Agentic RAG</td><td>16.1</td><td>0.47</td></tr>
+      <tr class="hl"><td><strong>All</strong></td><td><strong>721</strong></td><td><strong>100</strong></td><td>–</td><td><strong>8.4</strong></td><td><strong>0.67</strong></td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 7.4 — End-to-end translation results by complexity tier</div>
+  <div class="tcard-label">tab:translation-results</div>
+  <div class="tw"><table>
+    <thead><tr><th>Tier</th><th>Partitions</th><th>Syntax Valid (%)</th><th>SCS ≥ 0.65 (%)</th><th>VERIFIED (%)</th><th>PARTIAL (%)</th></tr></thead>
+    <tbody>
+      <tr><td>Basic</td><td>225</td><td>99.1</td><td>89.3</td><td>61.8</td><td>0.9</td></tr>
+      <tr><td>Medium</td><td>311</td><td>97.4</td><td>74.1</td><td>38.6</td><td>2.6</td></tr>
+      <tr><td>Hard</td><td>185</td><td>93.0</td><td>53.7</td><td>22.2</td><td>7.0</td></tr>
+      <tr class="hl"><td><strong>All</strong></td><td><strong>721</strong></td><td><strong>96.8</strong></td><td><strong>72.4</strong></td><td><strong>41.2</strong></td><td><strong>3.2</strong></td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 7.5 — Torture test results: 10/10 execution success</div>
+  <div class="tcard-label">tab:torture-test</div>
+  <div class="tw"><table>
+    <thead><tr><th>Block</th><th>SAS Construct</th><th>Model</th><th>Confidence</th><th>Z3 Outcome</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>RETAIN + BY-group FIRST./LAST.</td><td>ollama/nemotron</td><td>0.80</td><td>z3_unknown</td></tr>
+      <tr><td>2</td><td>Missing-value logic</td><td>ollama/nemotron</td><td>0.95</td><td>unverifiable</td></tr>
+      <tr><td>3</td><td>PROC SQL correlated subquery</td><td>ollama/nemotron</td><td>0.95</td><td>unverifiable</td></tr>
+      <tr><td>4</td><td>Macro + %DO loop</td><td>ollama/nemotron</td><td>0.95</td><td>unverifiable</td></tr>
+      <tr><td>5</td><td>PROC MEANS CLASS OUTPUT</td><td>ollama/nemotron</td><td>0.95</td><td class="v-verified">formal_proof</td></tr>
+      <tr><td>6</td><td>PROC SORT NODUPKEY</td><td><strong>deterministic</strong></td><td>1.00</td><td class="v-verified">formal_proof</td></tr>
+      <tr><td>7</td><td>Hash object lookup</td><td>ollama/nemotron</td><td>0.95</td><td>unverifiable</td></tr>
+      <tr><td>8</td><td>Multi-level nested macro</td><td>ollama/nemotron</td><td>0.95</td><td>unverifiable</td></tr>
+      <tr><td>9</td><td>PROC TRANSPOSE</td><td>ollama/nemotron</td><td>0.95</td><td>–</td></tr>
+      <tr><td>10</td><td>Complex WHERE + FORMAT</td><td>ollama/nemotron</td><td>0.90</td><td class="v-verified">formal_proof</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 7.6 — Z3 verification outcomes across the gold-standard corpus</div>
+  <div class="tcard-label">tab:z3-outcomes</div>
+  <div class="tw"><table>
+    <thead><tr><th>Outcome</th><th>Count</th><th>%</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>UNSAT (proved)</td><td>187</td><td>25.9</td><td class="wrap">Equivalence formally proved for all inputs</td></tr>
+      <tr><td>SAT (counterexample)</td><td>43</td><td>6.0</td><td class="wrap">CEGAR repaired 31 (72.1%); 12 exhausted budget</td></tr>
+      <tr><td>Unknown / timeout</td><td>28</td><td>3.9</td><td class="wrap">Non-linear arithmetic (modulo, exponentiation)</td></tr>
+      <tr><td>Unverifiable</td><td>463</td><td>64.2</td><td class="wrap">No applicable SMT encoding pattern</td></tr>
+      <tr class="hl"><td><strong>Total</strong></td><td><strong>721</strong></td><td><strong>100</strong></td><td class="wrap">Provability rate: 187/(721−463) = 72.5% of encodable</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 7.7 — Z3 provability rate by SMT encoding pattern</div>
+  <div class="tcard-label">tab:z3-patterns</div>
+  <div class="tw"><table>
+    <thead><tr><th>Pattern</th><th>SAS Constructs Covered</th><th>Provability</th></tr></thead>
+    <tbody>
+      <tr><td>Linear arithmetic</td><td class="wrap">RETAIN accumulation, running totals, DO loops</td><td>71%</td></tr>
+      <tr><td>Boolean filter</td><td class="wrap">WHERE clause, IF/THEN/ELSE, PROC SQL WHERE</td><td>64%</td></tr>
+      <tr><td>Sort / dedup</td><td class="wrap">PROC SORT NODUPKEY, PROC SQL DISTINCT</td><td>48%</td></tr>
+      <tr><td>Assignment chain</td><td class="wrap">Multiple KEEP/DROP, variable reassignment blocks</td><td>34%</td></tr>
+      <tr class="hl"><td colspan="2"><strong>Overall (all patterns)</strong></td><td><strong>41%</strong></td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 7.8 — CDAIS per-class results (200 random / 50 heuristic trials, 2026-05-18)</div>
+  <div class="tcard-label">tab:cdais-per-class</div>
+  <div class="tw"><table>
+    <thead><tr><th>Error Class</th><th>CDAIS?</th><th>Rand. PTDR</th><th>Heur. PTDR</th><th>Witness Rows</th><th>Synth. (ms)</th></tr></thead>
+    <tbody>
+      <tr><td>RETAIN_RESET</td><td class="ck">Yes</td><td>72.5%</td><td>100%</td><td>6</td><td>31</td></tr>
+      <tr><td>LAG_QUEUE</td><td class="ck">Yes</td><td>78.5%</td><td>100%</td><td>6</td><td>16</td></tr>
+      <tr><td>SORT_STABLE</td><td class="ck">Yes<sup>*</sup></td><td>25.5%</td><td>46.0%</td><td>17</td><td>296</td></tr>
+      <tr><td>NULL_ARITHMETIC</td><td class="ck">Yes</td><td>100%</td><td>100%</td><td>6</td><td>15</td></tr>
+      <tr><td>JOIN_TYPE</td><td class="ck">Yes</td><td>100%</td><td>100%</td><td>6</td><td>47</td></tr>
+      <tr><td>GROUP_BOUNDARY</td><td class="ck">Yes</td><td>75.0%</td><td>100%</td><td>6</td><td>32</td></tr>
+      <tr class="hl"><td><strong>Average</strong></td><td><strong>6/6</strong></td><td><strong>75.2%</strong></td><td><strong>91.0%</strong></td><td><strong>7.8</strong></td><td><strong>73</strong></td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><sup>*</sup> Minimality override to 17 rows.</div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 7.9 — SemantiCheck results on the 10-block torture test</div>
+  <div class="tcard-label">tab:semanticheck</div>
+  <div class="tw"><table>
+    <thead><tr><th>Block (SAS Construct)</th><th>L<sub>3</sub></th><th>L<sub>4</sub></th><th>SCS</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>RETAIN + BY-group</td><td>1.00</td><td>0.80</td><td>0.900</td><td class="v-verified">VERIFIED</td></tr>
+      <tr><td>Missing-value logic</td><td>0.33</td><td>0.59</td><td>0.460</td><td class="v-uncertain">UNCERTAIN</td></tr>
+      <tr><td>PROC SQL correlated subquery</td><td>0.00</td><td>0.80</td><td>0.400</td><td class="v-uncertain">UNCERTAIN</td></tr>
+      <tr><td>Macro + %DO loop</td><td>0.00</td><td>0.55</td><td>0.275</td><td class="v-incorrect">LIKELY_INCORRECT</td></tr>
+      <tr><td>PROC MEANS CLASS OUTPUT</td><td>0.50</td><td>0.87</td><td>0.683</td><td class="v-likely">LIKELY_CORRECT</td></tr>
+      <tr><td>PROC SORT NODUPKEY</td><td>1.00</td><td>0.85</td><td>0.925</td><td class="v-verified">VERIFIED</td></tr>
+      <tr><td>Hash object lookup</td><td>1.00</td><td>0.57</td><td>0.783</td><td class="v-likely">LIKELY_CORRECT</td></tr>
+      <tr><td>Multi-level nested macro</td><td>0.25</td><td>0.30</td><td>0.275</td><td class="v-incorrect">LIKELY_INCORRECT</td></tr>
+      <tr><td>PROC TRANSPOSE</td><td>0.00</td><td>0.30</td><td>0.150</td><td class="v-incorrect">LIKELY_INCORRECT</td></tr>
+      <tr><td>Complex WHERE + FORMAT</td><td>1.00</td><td>0.33</td><td>0.666</td><td class="v-likely">LIKELY_CORRECT</td></tr>
+      <tr class="hl"><td><strong>Average</strong></td><td><strong>0.508</strong></td><td><strong>0.595</strong></td><td><strong>0.552</strong></td><td>5/10 ≥ L_CORRECT</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 7.10 — Failure mode distribution across LIKELY_INCORRECT and UNCERTAIN translations</div>
+  <div class="tcard-label">tab:failure-modes</div>
+  <div class="tw"><table>
+    <thead><tr><th>Failure Mode</th><th>Count</th><th>%</th><th>Primary Cause</th><th>Mitigated By</th></tr></thead>
+    <tbody>
+      <tr><td>Macro expansion</td><td>77</td><td>38.4</td><td class="wrap">Literal vs. parameterised body</td><td>KB expansion</td></tr>
+      <tr><td>RETAIN / LAG diverge</td><td>44</td><td>22.1</td><td class="wrap">Global vs. per-group cumsum</td><td>Z3 CEGAR (72%)</td></tr>
+      <tr><td>PROC TRANSPOSE</td><td>29</td><td>14.7</td><td>Incorrect pivot axis</td><td>SemantiCheck L3</td></tr>
+      <tr><td>Missing-value (.)</td><td>22</td><td>11.2</td><td>SAS . vs. NaN arithmetic</td><td>CDAIS NaN inject</td></tr>
+      <tr><td>JOIN type mismatch</td><td>16</td><td>8.1</td><td class="wrap">Implicit Cartesian → INNER</td><td>CDAIS pattern 5</td></tr>
+      <tr><td>String case</td><td>11</td><td>5.5</td><td class="wrap">SAS case-insensitive compare</td><td>CDAIS mixed-case</td></tr>
+      <tr class="hl"><td><strong>Total</strong></td><td><strong>199</strong></td><td><strong>100</strong></td><td></td><td></td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 7.11 — Streaming FSM performance benchmark</div>
+  <div class="tcard-label">tab:streaming-perf</div>
+  <div class="tw"><table>
+    <thead><tr><th>File Size (lines)</th><th>Parse Time (s)</th><th>Peak Memory (MB)</th><th>Lines/s</th></tr></thead>
+    <tbody>
+      <tr><td>500</td><td>0.08</td><td>12</td><td>6,250</td></tr>
+      <tr><td>1,000</td><td>0.15</td><td>18</td><td>6,667</td></tr>
+      <tr><td>2,500</td><td>0.36</td><td>29</td><td>6,944</td></tr>
+      <tr><td>5,000</td><td>0.71</td><td>43</td><td>7,042</td></tr>
+      <tr><td>10,000</td><td>1.34</td><td>61</td><td>7,463</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 7.12 — API endpoint response time statistics (p50, p95)</div>
+  <div class="tcard-label">tab:api-latency</div>
+  <div class="tw"><table>
+    <thead><tr><th>Endpoint</th><th>p50 (ms)</th><th>p95 (ms)</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>POST /auth/login</td><td>18</td><td>42</td><td>bcrypt hash + JWT sign</td></tr>
+      <tr><td>GET /conversions</td><td>12</td><td>31</td><td>SQLite indexed query</td></tr>
+      <tr><td>GET /conversions/{id}</td><td>14</td><td>38</td><td>Includes stage join</td></tr>
+      <tr><td>POST /conversions/upload</td><td>45</td><td>92</td><td>File I/O bound</td></tr>
+      <tr><td>GET /knowledge-base</td><td>78</td><td>187</td><td class="wrap">Nomic embedding + LanceDB</td></tr>
+      <tr><td>GET /admin/audit-logs</td><td>61</td><td>143</td><td>DuckDB analytical scan</td></tr>
+      <tr><td>GET /health</td><td>3</td><td>8</td><td>No auth, no DB</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 7.13 — Estimated LLM token cost per conversion type (Azure GPT-5.4 pricing)</div>
+  <div class="tcard-label">tab:llm-cost</div>
+  <div class="tw"><table>
+    <thead><tr><th>Conversion Type</th><th>Avg Input Tok.</th><th>Avg Output Tok.</th><th>Avg Cost (USD)</th><th>Det. Rule Savings</th></tr></thead>
+    <tbody>
+      <tr><td>Simple (5 partitions)</td><td>8,400</td><td>3,200</td><td>$0.053</td><td>22.1%</td></tr>
+      <tr><td>Medium (10 partitions)</td><td>24,600</td><td>11,800</td><td>$0.179</td><td>11.4%</td></tr>
+      <tr><td>Hard (15 partitions)</td><td>48,300</td><td>22,500</td><td>$0.346</td><td>4.7%</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table 7.14 — Test results by module (24 files)</div>
+  <div class="tcard-label">tab:test-coverage</div>
+  <div class="tw"><table>
+    <thead><tr><th>Module</th><th>Test File</th><th>Total</th><th>Pass</th><th>Skip</th></tr></thead>
+    <tbody>
+      <tr><td>streaming/</td><td>test_streaming</td><td>8</td><td>8</td><td>0</td></tr>
+      <tr><td>entry/</td><td>test_file_analysis</td><td>5</td><td>5</td><td>0</td></tr>
+      <tr><td>entry/</td><td>test_cross_file_deps</td><td>5</td><td>5</td><td>0</td></tr>
+      <tr><td>entry/</td><td>test_registry_writer</td><td>5</td><td>5</td><td>0</td></tr>
+      <tr><td>entry/</td><td>test_data_lineage</td><td>7</td><td>7</td><td>0</td></tr>
+      <tr><td>chunking/</td><td>test_boundary_detector</td><td>14</td><td>14</td><td>0</td></tr>
+      <tr><td>raptor/</td><td>test_raptor</td><td>18</td><td>18</td><td>0</td></tr>
+      <tr><td>raptor/</td><td>test_hyper_raptor</td><td>11</td><td>5</td><td>6</td></tr>
+      <tr><td>complexity/</td><td>test_complexity_agent</td><td>19</td><td>19</td><td>0</td></tr>
+      <tr><td>complexity/</td><td>test_strategy_agent</td><td>13</td><td>13</td><td>0</td></tr>
+      <tr><td>persistence/</td><td>test_persistence</td><td>24</td><td>24</td><td>0</td></tr>
+      <tr><td>translation/</td><td>test_translation</td><td>25</td><td>25</td><td>0</td></tr>
+      <tr><td>rag/</td><td>test_rag</td><td>52</td><td>52</td><td>0</td></tr>
+      <tr><td>merge/</td><td>test_merge_retraining</td><td>21</td><td>21</td><td>0</td></tr>
+      <tr><td>verification/</td><td>test_z3_verification</td><td>34</td><td>34</td><td>0</td></tr>
+      <tr><td>verification/</td><td>test_z3_effect</td><td>15</td><td>15</td><td>0</td></tr>
+      <tr><td>verification/</td><td>test_cdais</td><td>36</td><td>36</td><td>0</td></tr>
+      <tr><td>orchestration/</td><td>test_orchestration</td><td>13</td><td>13</td><td>0</td></tr>
+      <tr><td>evaluation/</td><td>test_evaluation</td><td>7</td><td>7</td><td>0</td></tr>
+      <tr><td>api/</td><td>test_integration</td><td>11</td><td>11</td><td>0</td></tr>
+      <tr><td>regression/</td><td>test_regression</td><td>262</td><td>99</td><td>127</td></tr>
+      <tr><td>robustness/</td><td>test_robustness_kb</td><td>6</td><td>3</td><td>0</td></tr>
+      <tr><td>infrastructure/</td><td>test_critical_paths</td><td>8</td><td>8</td><td>0</td></tr>
+      <tr><td>infrastructure/</td><td>test_local_model_client</td><td>5</td><td>5</td><td>0</td></tr>
+      <tr class="hl"><td colspan="2"><strong>Total</strong></td><td><strong>624</strong></td><td><strong>452</strong></td><td><strong>133</strong></td></tr>
+    </tbody>
+  </table></div>
+</div>
+</div>
+
+<!-- ═══════════════════════ CDAIS/MIS PAPER ═══════════════════════ -->
+<div class="chapter" id="paper">
+<div class="chapter-title">CDAIS/MIS Paper (SCAM 2026)</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table I — SAS→Python Semantic Error Class Taxonomy</div>
+  <div class="tcard-label">tab:taxonomy</div>
+  <div class="tw"><table>
+    <thead><tr><th>ID</th><th>Name</th><th>SAS Trigger</th><th>Common Mistranslation</th></tr></thead>
+    <tbody>
+      <tr><td>C1</td><td>RETAIN_RESET</td><td>RETAIN+BY+FIRST.</td><td><code>df.cumsum()</code> (no reset)</td></tr>
+      <tr><td>C2</td><td>LAG_QUEUE</td><td>LAG(x)</td><td><code>shift(1)</code> (no group reset)</td></tr>
+      <tr><td>C3</td><td>SORT_STABLE</td><td>PROC SORT</td><td><code>sort_values()</code> (unstable)</td></tr>
+      <tr><td>C4</td><td>NULL_ARITHMETIC</td><td>SUM() function</td><td><code>x+5</code> propagates NaN</td></tr>
+      <tr><td>C5</td><td>JOIN_TYPE</td><td>MERGE (no IN=)</td><td><code>how='inner'</code> default</td></tr>
+      <tr><td>C6</td><td>GROUP_BOUNDARY</td><td>IF FIRST.x;</td><td><code>df.head(1)</code> whole DF</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table II — MIS Candidate Invariant Categories</div>
+  <div class="tcard-label">tab:inv_cats</div>
+  <div class="tw"><table>
+    <thead><tr><th>Category</th><th>#</th><th>Examples</th></tr></thead>
+    <tbody>
+      <tr><td>Structural</td><td>7</td><td>ROW_PRESERVATION, COLUMN_SUPERSET</td></tr>
+      <tr><td>Relational</td><td>6</td><td>SUM_PRESERVATION, RETAIN_MONOTONE</td></tr>
+      <tr><td>Ordering</td><td>1</td><td>SORT_KEY_SORTED</td></tr>
+      <tr><td>Semantic</td><td>4</td><td>LAG_NULL_FIRST_ROW, NO_NEG_COUNTS</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table III — Evaluation Datasets, Roles, and Scope</div>
+  <div class="tcard-label">tab:datasets</div>
+  <div class="tw"><table>
+    <thead><tr><th>Dataset</th><th>Size</th><th>Role / Cannot Conclude</th></tr></thead>
+    <tbody>
+      <tr><td>Taxonomy Corpus (TC)</td><td>330 pairs</td><td class="wrap"><em>Role:</em> Error frequency analysis only. <em>Cannot conclude:</em> behavioral correctness.</td></tr>
+      <tr><td>Gold Standard SAS Corpus (GSC)</td><td>61 SAS files</td><td class="wrap"><em>Role:</em> CDAIS witness validation, Z3 evaluation. <em>Cannot conclude:</em> MIS invariants.</td></tr>
+      <tr><td>Verified Translation Pairs (VTP)</td><td>142 pairs</td><td class="wrap"><em>Role:</em> MIS invariant confirmation (12 cross-provider + 130 enterprise). <em>Cannot conclude:</em> full generalization.</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table IV — CDAIS vs. Baseline Testing (6 error classes)</div>
+  <div class="tcard-label">tab:cdais_summary</div>
+  <div class="tw"><table>
+    <thead><tr><th>Method</th><th>Classes</th><th>PTDR</th><th>Size</th><th>Time</th></tr></thead>
+    <tbody>
+      <tr><td>Random (200 trials)</td><td>6/6</td><td>~75%<sup>&dagger;</sup></td><td>1,000 rows</td><td>0 ms</td></tr>
+      <tr><td>Heuristic (≥2 grps, 50 t)</td><td>6/6</td><td>~91%<sup>&dagger;</sup></td><td>30 rows</td><td>0 ms</td></tr>
+      <tr class="hl"><td><strong>CDAIS (1 trial)</strong></td><td><strong>6/6</strong></td><td><strong>100%</strong></td><td><strong>6–17 rows</strong></td><td><strong>~73 ms</strong></td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><sup>&dagger;</sup> Stochastic; varies ±5–10 pp between runs.</div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table V — Per-Class Results (200 random / 50 heuristic trials, 2026-05-18)</div>
+  <div class="tcard-label">tab:per_class</div>
+  <div class="tw"><table>
+    <thead><tr><th>Error Class</th><th>CDAIS?</th><th>Rand. PTDR<sup>&dagger;</sup></th><th>Heur. PTDR<sup>&dagger;</sup></th><th>Witness Rows</th><th>Synth. (ms)</th></tr></thead>
+    <tbody>
+      <tr><td>RETAIN_RESET</td><td class="ck">Yes</td><td>72.5%</td><td>100%</td><td>6</td><td>31</td></tr>
+      <tr><td>LAG_QUEUE</td><td class="ck">Yes</td><td>78.5%</td><td>100%</td><td>6</td><td>16</td></tr>
+      <tr><td>SORT_STABLE</td><td class="ck">Yes<sup>&Dagger;</sup></td><td>25.5%</td><td>46.0%</td><td>17</td><td>296</td></tr>
+      <tr><td>NULL_ARITHMETIC</td><td class="ck">Yes</td><td>100%</td><td>100%</td><td>6</td><td>15</td></tr>
+      <tr><td>JOIN_TYPE</td><td class="ck">Yes</td><td>100%</td><td>100%</td><td>6</td><td>47</td></tr>
+      <tr><td>GROUP_BOUNDARY</td><td class="ck">Yes</td><td>75.0%</td><td>100%</td><td>6</td><td>32</td></tr>
+      <tr class="hl"><td><strong>Average</strong></td><td><strong>100%</strong></td><td><strong>75.2%</strong></td><td><strong>91.0%</strong></td><td><strong>7.8</strong></td><td><strong>73</strong></td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><sup>&dagger;</sup> Stochastic; vary ±5–15 pp. <sup>&Dagger;</sup> Minimality override to 17 rows.</div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table VI — MIS Invariant Results (142-pair VTP corpus, 2026-05-18)</div>
+  <div class="tcard-label">tab:mis</div>
+  <div class="tw"><table>
+    <thead><tr><th>Invariant</th><th>Category</th><th>App. Pairs</th><th>Oracle Pass</th><th>Confirmed</th></tr></thead>
+    <tbody>
+      <tr><td>COLUMN_DTYPE_STABILITY</td><td>semantic</td><td>142</td><td>100%</td><td class="ck">Yes</td></tr>
+      <tr><td>OUTPUT_NONEMPTY</td><td>structural</td><td>142</td><td>100%</td><td class="ck">Yes</td></tr>
+      <tr><td>FIRST_LAST_SUBSET</td><td>structural</td><td>3</td><td>100%</td><td class="ck">Yes</td></tr>
+      <tr><td>FREQ_PERCENT_SUM_100</td><td>relational</td><td>2</td><td>100%</td><td class="ck">Yes</td></tr>
+      <tr><td>MEANS_AGGREGATION_MONOTONE</td><td>structural</td><td>2</td><td>100%</td><td class="ck">Yes</td></tr>
+      <tr><td>RETAIN_MONOTONE_CUMSUM</td><td>relational</td><td>2</td><td>100%</td><td class="ck">Yes</td></tr>
+      <tr><td>MERGE_OUTER_ROWCOUNT</td><td>structural</td><td>4</td><td>100%</td><td class="ck">Yes</td></tr>
+      <tr><td>NO_DUPLICATE_GROUP_KEYS</td><td>relational</td><td>4</td><td>100%</td><td class="ck">Yes</td></tr>
+      <tr><td>NO_NEGATIVE_COUNTS</td><td>relational</td><td>6</td><td>100%</td><td class="ck">Yes</td></tr>
+      <tr><td>ROW_REDUCTION_DEDUP</td><td>structural</td><td>5</td><td>100%</td><td class="ck">Yes</td></tr>
+      <tr class="rj"><td>COLUMN_SUPERSET</td><td>structural</td><td>88</td><td>96.6%</td><td class="cr">No (rejected)</td></tr>
+      <tr class="rj"><td>ROW_PRESERVATION_NON_FILTER</td><td>structural</td><td>84</td><td>92.9%</td><td class="cr">No (rejected)</td></tr>
+      <tr class="rj"><td>SUM_PRESERVATION_NUMERIC</td><td>relational</td><td>81</td><td>92.6%</td><td class="cr">No (rejected)</td></tr>
+      <tr class="rj"><td>ROW_REDUCTION_AGGREGATION</td><td>structural</td><td>6</td><td>66.7%</td><td class="cr">No (rejected)</td></tr>
+      <tr class="rj"><td>ROW_EQUALITY_SORT</td><td>structural</td><td>12</td><td>58.3%</td><td class="cr">No (rejected)</td></tr>
+      <tr class="rj"><td>SORT_KEY_SORTED</td><td>ordering</td><td>12</td><td>8.3%</td><td class="cr">No (rejected)</td></tr>
+      <tr class="rj"><td>LAG_NULL_FIRST_ROW</td><td>relational</td><td>2</td><td>0%</td><td class="cr">No (rejected)</td></tr>
+      <tr class="na-row"><td>GROUP_BOUNDARY_STRICT_SUBSET</td><td>structural</td><td>0</td><td>n/a</td><td class="na">Not applicable</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table VII — Z3 Verification on 10-block Torture Test</div>
+  <div class="tcard-label">tab:z3</div>
+  <div class="tw"><table>
+    <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>Blocks audited</td><td>10</td></tr>
+      <tr><td>Formally proved</td><td>3/10 (30%)</td></tr>
+      <tr><td>Counterexamples found</td><td>0</td></tr>
+      <tr><td>Outside Z3 scope</td><td>7/10 (70%)</td></tr>
+      <tr><td>Mean Z3 latency</td><td>4.6 ms</td></tr>
+      <tr><td>Proved patterns</td><td>groupby, sort_nodupkey, bool_filter</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table VIII — LLM Translation Benchmark (10-block torture test)</div>
+  <div class="tcard-label">tab:llm</div>
+  <div class="tw"><table>
+    <thead><tr><th>Model</th><th>Success</th><th>Z3 Proved</th><th>Latency</th><th>Tok/s</th></tr></thead>
+    <tbody>
+      <tr><td>minimax-m2.7:cloud</td><td>10/10</td><td>3/10</td><td>16.7 s</td><td>52</td></tr>
+      <tr><td>nemotron-3-super:cloud</td><td>10/10</td><td>3/10</td><td>6.8 s</td><td>41</td></tr>
+    </tbody>
+  </table></div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table IX — Per-Trial Detection Probability by Data Source (2026-05-18)</div>
+  <div class="tcard-label">tab:ablation</div>
+  <div class="tw"><table>
+    <thead><tr><th>Source</th><th>Rows</th><th>PTDR<sup>&dagger;</sup></th><th>To guarantee</th><th>Readable?</th></tr></thead>
+    <tbody>
+      <tr><td>Random (200 t)</td><td>2–80</td><td>~75%</td><td>unbounded</td><td>No</td></tr>
+      <tr><td>Heuristic (50 t)</td><td>~30</td><td>~91%</td><td>unbounded</td><td>Partly</td></tr>
+      <tr class="hl"><td><strong>CDAIS (1 t)</strong></td><td><strong>6–17</strong></td><td><strong>100%</strong></td><td><strong>1 trial</strong></td><td><strong>Yes</strong></td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><sup>&dagger;</sup> Stochastic; vary ±5–15 pp between runs.</div>
+</div>
+
+<div class="tcard">
+  <div class="tcard-name">Table X — Result-to-Script Mapping</div>
+  <div class="tcard-label">tab:repro</div>
+  <div class="tw"><table>
+    <thead><tr><th>Result</th><th>Script</th></tr></thead>
+    <tbody>
+      <tr><td>Tables IV–V (CDAIS)</td><td><code>eval_cdais_direct.py</code></td></tr>
+      <tr><td>Table VI (MIS)</td><td><code>run_mis.py</code></td></tr>
+      <tr><td>Table VII (Z3)</td><td><code>z3_audit.py</code></td></tr>
+      <tr><td>Tables VIII–IX (LLM + ablation)</td><td><code>model_benchmark.py</code></td></tr>
+    </tbody>
+  </table></div>
+</div>
+</div>
+
+<div class="footer">Generated from LaTeX sources &middot; Chapters 1–7 + CDAIS/MIS paper &middot; 43 tables</div>
+
+</div>
+</body>
+</html>

@@ -155,7 +155,7 @@ def signup(body: SignupRequest, request: Request):
         session.close()
 
 
-@router.post("/verify-email")
+@router.get("/verify-email")
 def verify_email(token: str):
     from api.main import engine
 

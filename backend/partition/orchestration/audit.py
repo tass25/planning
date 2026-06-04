@@ -5,7 +5,7 @@ local analytics, calibration, and ablation tracking.
 
 Usage as a context manager::
 
-    audit = LLMAuditLogger("data/analytics.duckdb")
+    audit = LLMAuditLogger()
     with audit.log_call("BoundaryDetectorAgent", "gpt-5.4-mini", prompt) as call:
         result = llm_client.generate(prompt)
         call.set_response(result)
@@ -121,7 +121,10 @@ def _get_duckdb(db_path: str) -> duckdb.DuckDBPyConnection:
 class LLMAuditLogger:
     """Thin wrapper around DuckDB ``llm_audit`` inserts."""
 
-    def __init__(self, db_path: str = "data/analytics.duckdb"):
+    def __init__(self, db_path: str = ""):
+        if not db_path:
+            from config.constants import DUCKDB_PATH
+            db_path = DUCKDB_PATH
         self.db_path = db_path
 
     @contextmanager

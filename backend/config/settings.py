@@ -193,7 +193,7 @@ class Settings(BaseSettings):
     smtp_from_email: str = "noreply@codara.dev"
     smtp_from_name: str = "Codara"
     smtp_use_tls: bool = True
-    frontend_url: str = "http://localhost:5173"
+    frontend_url: str = "http://localhost:8080"
 
     # ── CORS ─────────────────────────────────────────────────────────────────
     # Override via env: CORS_ORIGINS=https://app.codara.dev,http://localhost:5173
@@ -202,7 +202,6 @@ class Settings(BaseSettings):
         "http://localhost:8080",
         "http://localhost:5173",
         "http://127.0.0.1:8080",
-        "https://ca-codara-frontend.purplegrass-7f05fcf9.francecentral.azurecontainerapps.io",
     ]
 
     # ── Local GGUF model (Tier 0 — optional) ─────────────────────────────────
@@ -214,8 +213,22 @@ class Settings(BaseSettings):
     azure_keyvault_url: str = ""  # e.g. https://codara-kv.vault.azure.net/
 
     # ── Misc ──────────────────────────────────────────────────────────────────
-    lancedb_path: str = "lancedb_data"
-    duckdb_path: str = "data/analytics.duckdb"
+    lancedb_path: str = ""
+    duckdb_path: str = ""
+
+    @field_validator("lancedb_path", mode="before")
+    @classmethod
+    def _default_lancedb_path(cls, v: str) -> str:
+        if v:
+            return v
+        return str(Path(__file__).resolve().parent.parent / "data" / "lancedb")
+
+    @field_validator("duckdb_path", mode="before")
+    @classmethod
+    def _default_duckdb_path(cls, v: str) -> str:
+        if v:
+            return v
+        return str(Path(__file__).resolve().parent.parent / "data" / "analytics.duckdb")
 
 
 # Step 2 — pull secrets from Key Vault into os.environ (no-op locally)

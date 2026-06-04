@@ -136,6 +136,36 @@ def delete_project(project_id: str, current_user: dict = Depends(get_current_use
         session.close()
 
 
+@router.get("/{project_id}/conversions")
+def list_project_conversions(
+    project_id: str, current_user: dict = Depends(get_current_user)
+):
+    from api.main import engine
+    from api.services.conversion_service import conv_to_out
+
+    session = get_api_session(engine)
+    try:
+        row = session.query(ProjectRow).filter(ProjectRow.id == project_id).first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Project not found")
+        links = (
+            session.query(ProjectFileRow)
+            .filter(ProjectFileRow.project_id == project_id)
+            .all()
+        )
+        conv_ids = [l.conversion_id for l in links]
+        if not conv_ids:
+            return []
+        convs = (
+            session.query(ConversionRow)
+            .filter(ConversionRow.id.in_(conv_ids))
+            .all()
+        )
+        return [conv_to_out(c) for c in convs]
+    finally:
+        session.close()
+
+
 @router.post("/{project_id}/files")
 def add_file_to_project(
     project_id: str, body: ProjectAddFile, current_user: dict = Depends(get_current_user)

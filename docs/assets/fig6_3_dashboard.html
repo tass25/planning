@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 6.3 — Codara Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f8f7f4; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px; }
+  .container { max-width: 960px; width: 100%; }
+  h1 { text-align: center; font-size: 14px; color: #6b7280; font-weight: 500; margin-bottom: 24px; letter-spacing: 0.02em; }
+  .mockup { background: #1a1b2e; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.15); border: 1px solid #2d2e45; }
+  .titlebar { background: #12131f; padding: 10px 16px; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #febc2e; }
+  .dot-g { background: #28c840; }
+  .titlebar-text { color: #6b7280; font-size: 11px; margin-left: 12px; }
+  .app { display: flex; height: 520px; }
+  .sidebar { width: 220px; background: #151627; padding: 20px 0; border-right: 1px solid #2d2e45; }
+  .logo { padding: 0 20px 20px; font-size: 18px; font-weight: 800; color: #a78bfa; letter-spacing: -0.02em; }
+  .nav-item { padding: 10px 20px; font-size: 12px; color: #9ca3af; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background 0.2s; }
+  .nav-item:hover { background: #1e1f35; }
+  .nav-item.active { background: #1e1f35; color: #c4b5fd; border-left: 3px solid #a78bfa; }
+  .nav-icon { width: 16px; height: 16px; border-radius: 4px; background: #2d2e45; }
+  .nav-item.active .nav-icon { background: #7c3aed; }
+  .main { flex: 1; padding: 24px; overflow: hidden; }
+  .page-title { font-size: 20px; font-weight: 700; color: #f3f4f6; margin-bottom: 20px; }
+  .stats { display: flex; gap: 16px; margin-bottom: 24px; }
+  .stat-card { flex: 1; background: #1e1f35; border-radius: 12px; padding: 16px; border: 1px solid #2d2e45; }
+  .stat-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-value { font-size: 24px; font-weight: 800; margin-top: 4px; }
+  .stat-value.green { color: #6ee7b7; }
+  .stat-value.blue { color: #93c5fd; }
+  .stat-value.amber { color: #fcd34d; }
+  .stat-value.pink { color: #f9a8d4; }
+  .conv-list { background: #1e1f35; border-radius: 12px; border: 1px solid #2d2e45; overflow: hidden; }
+  .conv-header { display: flex; padding: 12px 16px; font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #2d2e45; }
+  .conv-row { display: flex; padding: 12px 16px; border-bottom: 1px solid #252640; align-items: center; font-size: 12px; }
+  .conv-row:last-child { border-bottom: none; }
+  .col-name { flex: 2; color: #e5e7eb; font-weight: 600; }
+  .col-status { flex: 1; }
+  .col-accuracy { flex: 1; text-align: center; }
+  .col-time { flex: 1; text-align: right; color: #9ca3af; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 600; }
+  .badge-completed { background: #064e3b; color: #6ee7b7; }
+  .badge-running { background: #1e3a5f; color: #93c5fd; }
+  .badge-partial { background: #451a03; color: #fcd34d; }
+  .badge-failed { background: #450a0a; color: #fca5a5; }
+  .accuracy { font-weight: 700; font-size: 13px; }
+  .accuracy.high { color: #6ee7b7; }
+  .accuracy.med { color: #fcd34d; }
+  .accuracy.low { color: #fca5a5; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Figure 6.3 — Codara Dashboard: Conversion List with Status and Accuracy</h1>
+  <div class="mockup">
+    <div class="titlebar">
+      <div class="dot dot-r"></div>
+      <div class="dot dot-y"></div>
+      <div class="dot dot-g"></div>
+      <span class="titlebar-text">Codara — localhost:5173/dashboard</span>
+    </div>
+    <div class="app">
+      <div class="sidebar">
+        <div class="logo">codara</div>
+        <div class="nav-item active"><div class="nav-icon"></div>Dashboard</div>
+        <div class="nav-item"><div class="nav-icon"></div>Workspace</div>
+        <div class="nav-item"><div class="nav-icon"></div>Knowledge Base</div>
+        <div class="nav-item"><div class="nav-icon"></div>Settings</div>
+        <div style="margin-top: auto; padding: 16px 20px; font-size: 10px; color: #4b5563; position: absolute; bottom: 50px;">
+          admin@codara.dev<br/>
+          <span style="color: #7c3aed; font-weight: 600;">Admin</span>
+        </div>
+      </div>
+      <div class="main">
+        <div class="page-title">Dashboard</div>
+        <div class="stats">
+          <div class="stat-card">
+            <div class="stat-label">Total Conversions</div>
+            <div class="stat-value blue">24</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Completed</div>
+            <div class="stat-value green">18</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Avg Accuracy</div>
+            <div class="stat-value amber">72.4%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">KB Pairs</div>
+            <div class="stat-value pink">330</div>
+          </div>
+        </div>
+        <div class="conv-list">
+          <div class="conv-header">
+            <div class="col-name">File Name</div>
+            <div class="col-status">Status</div>
+            <div class="col-accuracy">Accuracy</div>
+            <div class="col-time">Duration</div>
+          </div>
+          <div class="conv-row">
+            <div class="col-name">enterprise_etl.sas</div>
+            <div class="col-status"><span class="badge badge-completed">Completed</span></div>
+            <div class="col-accuracy"><span class="accuracy high">96.2%</span></div>
+            <div class="col-time">2m 34s</div>
+          </div>
+          <div class="conv-row">
+            <div class="col-name">fraud_detection.sas</div>
+            <div class="col-status"><span class="badge badge-completed">Completed</span></div>
+            <div class="col-accuracy"><span class="accuracy high">88.7%</span></div>
+            <div class="col-time">3m 12s</div>
+          </div>
+          <div class="conv-row">
+            <div class="col-name">macro_framework.sas</div>
+            <div class="col-status"><span class="badge badge-running">Running</span></div>
+            <div class="col-accuracy"><span class="accuracy med">—</span></div>
+            <div class="col-time">1m 45s</div>
+          </div>
+          <div class="conv-row">
+            <div class="col-name">warehouse_load.sas</div>
+            <div class="col-status"><span class="badge badge-partial">Partial</span></div>
+            <div class="col-accuracy"><span class="accuracy med">64.1%</span></div>
+            <div class="col-time">4m 08s</div>
+          </div>
+          <div class="conv-row">
+            <div class="col-name">clinical_trial.sas</div>
+            <div class="col-status"><span class="badge badge-completed">Completed</span></div>
+            <div class="col-accuracy"><span class="accuracy high">91.5%</span></div>
+            <div class="col-time">2m 56s</div>
+          </div>
+          <div class="conv-row">
+            <div class="col-name">batch_processor.sas</div>
+            <div class="col-status"><span class="badge badge-failed">Failed</span></div>
+            <div class="col-accuracy"><span class="accuracy low">—</span></div>
+            <div class="col-time">0m 12s</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

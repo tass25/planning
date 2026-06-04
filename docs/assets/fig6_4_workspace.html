@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 6.4 — Codara Workspace</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f8f7f4; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px; }
+  .container { max-width: 1060px; width: 100%; }
+  h1 { text-align: center; font-size: 14px; color: #6b7280; font-weight: 500; margin-bottom: 24px; letter-spacing: 0.02em; }
+  .mockup { background: #1a1b2e; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.15); border: 1px solid #2d2e45; }
+  .titlebar { background: #12131f; padding: 10px 16px; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #febc2e; }
+  .dot-g { background: #28c840; }
+  .titlebar-text { color: #6b7280; font-size: 11px; margin-left: 12px; }
+  .workspace { display: flex; height: 560px; }
+  .left-panel { width: 220px; background: #151627; border-right: 1px solid #2d2e45; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .upload-zone { border: 2px dashed #3d3e5c; border-radius: 12px; padding: 24px 16px; text-align: center; color: #6b7280; font-size: 11px; }
+  .upload-icon { font-size: 28px; margin-bottom: 8px; display: block; color: #a78bfa; }
+  .upload-btn { margin-top: 12px; background: #7c3aed; color: white; border: none; padding: 8px 20px; border-radius: 8px; font-size: 11px; font-weight: 600; cursor: pointer; }
+  .file-info { background: #1e1f35; border-radius: 10px; padding: 12px; border: 1px solid #2d2e45; }
+  .file-info-label { font-size: 9px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.06em; }
+  .file-info-value { font-size: 12px; color: #e5e7eb; font-weight: 600; margin-top: 2px; }
+  .center-panel { width: 160px; background: #1a1b2e; border-right: 1px solid #2d2e45; padding: 16px 12px; }
+  .stage-title { font-size: 11px; font-weight: 700; color: #c4b5fd; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .stage { display: flex; align-items: center; gap: 8px; padding: 8px 6px; font-size: 10px; border-radius: 6px; margin-bottom: 4px; }
+  .stage-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .stage-done .stage-dot { background: #10b981; }
+  .stage-done { color: #6ee7b7; }
+  .stage-active .stage-dot { background: #93c5fd; animation: pulse 1.5s infinite; }
+  .stage-active { color: #93c5fd; background: #1e2a4a; font-weight: 600; }
+  .stage-pending .stage-dot { background: #3d3e5c; }
+  .stage-pending { color: #4b5563; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .right-panel { flex: 1; display: flex; flex-direction: column; }
+  .diff-header { display: flex; height: 36px; border-bottom: 1px solid #2d2e45; }
+  .diff-tab { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; gap: 6px; }
+  .diff-tab-sas { background: #1e1a0e; color: #fcd34d; }
+  .diff-tab-py { background: #0a1e15; color: #6ee7b7; }
+  .diff-body { flex: 1; display: flex; overflow: hidden; }
+  .diff-pane { flex: 1; overflow-y: auto; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 11px; line-height: 1.7; padding: 8px 0; }
+  .diff-pane-sas { background: #1a1910; }
+  .diff-pane-py { background: #101a15; }
+  .diff-line { padding: 0 12px; display: flex; }
+  .line-num { color: #3d3e5c; width: 30px; text-align: right; margin-right: 12px; user-select: none; }
+  .diff-pane-sas .line-content { color: #fde68a; }
+  .diff-pane-py .line-content { color: #a7f3d0; }
+  .scs-bar { height: 48px; background: #151627; border-top: 1px solid #2d2e45; display: flex; align-items: center; padding: 0 16px; gap: 16px; }
+  .scs-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.06em; }
+  .scs-badge { background: #064e3b; color: #6ee7b7; padding: 4px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+  .scs-detail { font-size: 10px; color: #9ca3af; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Figure 6.4 — Codara Workspace: Upload, Stage Tracker, and SAS/Python Side-by-Side Diff</h1>
+  <div class="mockup">
+    <div class="titlebar">
+      <div class="dot dot-r"></div>
+      <div class="dot dot-y"></div>
+      <div class="dot dot-g"></div>
+      <span class="titlebar-text">Codara — localhost:5173/workspace</span>
+    </div>
+    <div class="workspace">
+      <!-- Upload Panel -->
+      <div class="left-panel">
+        <div class="upload-zone">
+          <span class="upload-icon">&#8682;</span>
+          Drop .sas file here<br>or click to browse
+          <br><button class="upload-btn">Upload &amp; Convert</button>
+        </div>
+        <div class="file-info">
+          <div class="file-info-label">Current file</div>
+          <div class="file-info-value">enterprise_etl.sas</div>
+        </div>
+        <div class="file-info">
+          <div class="file-info-label">Lines</div>
+          <div class="file-info-value">842</div>
+        </div>
+        <div class="file-info">
+          <div class="file-info-label">Partitions</div>
+          <div class="file-info-value">12 blocks</div>
+        </div>
+        <div class="file-info">
+          <div class="file-info-label">Runtime</div>
+          <div class="file-info-value">Python (pandas)</div>
+        </div>
+      </div>
+
+      <!-- Stage Tracker -->
+      <div class="center-panel">
+        <div class="stage-title">Pipeline Stages</div>
+        <div class="stage stage-done"><div class="stage-dot"></div>File Process</div>
+        <div class="stage stage-done"><div class="stage-dot"></div>SAS Partition</div>
+        <div class="stage stage-done"><div class="stage-dot"></div>Strategy Select</div>
+        <div class="stage stage-done"><div class="stage-dot"></div>Translate</div>
+        <div class="stage stage-done"><div class="stage-dot"></div>Validate</div>
+        <div class="stage stage-active"><div class="stage-dot"></div>Repair</div>
+        <div class="stage stage-pending"><div class="stage-dot"></div>Merge</div>
+        <div class="stage stage-pending"><div class="stage-dot"></div>Finalize</div>
+      </div>
+
+      <!-- Diff View -->
+      <div class="right-panel">
+        <div class="diff-header">
+          <div class="diff-tab diff-tab-sas">SAS Source</div>
+          <div class="diff-tab diff-tab-py">Python Output</div>
+        </div>
+        <div class="diff-body">
+          <div class="diff-pane diff-pane-sas">
+            <div class="diff-line"><span class="line-num">1</span><span class="line-content">/* Enterprise ETL Pipeline */</span></div>
+            <div class="diff-line"><span class="line-num">2</span><span class="line-content">PROC SORT DATA=sales;</span></div>
+            <div class="diff-line"><span class="line-num">3</span><span class="line-content">  BY customer_id date;</span></div>
+            <div class="diff-line"><span class="line-num">4</span><span class="line-content">RUN;</span></div>
+            <div class="diff-line"><span class="line-num">5</span><span class="line-content"></span></div>
+            <div class="diff-line"><span class="line-num">6</span><span class="line-content">DATA running_totals;</span></div>
+            <div class="diff-line"><span class="line-num">7</span><span class="line-content">  SET sales;</span></div>
+            <div class="diff-line"><span class="line-num">8</span><span class="line-content">  BY customer_id;</span></div>
+            <div class="diff-line"><span class="line-num">9</span><span class="line-content">  RETAIN running_sum 0;</span></div>
+            <div class="diff-line"><span class="line-num">10</span><span class="line-content">  IF FIRST.customer_id</span></div>
+            <div class="diff-line"><span class="line-num">11</span><span class="line-content">    THEN running_sum=0;</span></div>
+            <div class="diff-line"><span class="line-num">12</span><span class="line-content">  running_sum + amount;</span></div>
+            <div class="diff-line"><span class="line-num">13</span><span class="line-content">RUN;</span></div>
+            <div class="diff-line"><span class="line-num">14</span><span class="line-content"></span></div>
+            <div class="diff-line"><span class="line-num">15</span><span class="line-content">PROC MEANS DATA=running_totals</span></div>
+            <div class="diff-line"><span class="line-num">16</span><span class="line-content">  N MEAN STD;</span></div>
+            <div class="diff-line"><span class="line-num">17</span><span class="line-content">  VAR running_sum;</span></div>
+            <div class="diff-line"><span class="line-num">18</span><span class="line-content">RUN;</span></div>
+          </div>
+          <div class="diff-pane diff-pane-py">
+            <div class="diff-line"><span class="line-num">1</span><span class="line-content"># Enterprise ETL Pipeline</span></div>
+            <div class="diff-line"><span class="line-num">2</span><span class="line-content">import pandas as pd</span></div>
+            <div class="diff-line"><span class="line-num">3</span><span class="line-content"></span></div>
+            <div class="diff-line"><span class="line-num">4</span><span class="line-content">sales = sales.sort_values(</span></div>
+            <div class="diff-line"><span class="line-num">5</span><span class="line-content">    ['customer_id', 'date']</span></div>
+            <div class="diff-line"><span class="line-num">6</span><span class="line-content">)</span></div>
+            <div class="diff-line"><span class="line-num">7</span><span class="line-content"></span></div>
+            <div class="diff-line"><span class="line-num">8</span><span class="line-content">sales['running_sum'] = (</span></div>
+            <div class="diff-line"><span class="line-num">9</span><span class="line-content">    sales</span></div>
+            <div class="diff-line"><span class="line-num">10</span><span class="line-content">    .groupby('customer_id')</span></div>
+            <div class="diff-line"><span class="line-num">11</span><span class="line-content">    ['amount'].cumsum()</span></div>
+            <div class="diff-line"><span class="line-num">12</span><span class="line-content">)</span></div>
+            <div class="diff-line"><span class="line-num">13</span><span class="line-content"></span></div>
+            <div class="diff-line"><span class="line-num">14</span><span class="line-content">stats = sales['running_sum']</span></div>
+            <div class="diff-line"><span class="line-num">15</span><span class="line-content">    .agg(['count','mean','std'])</span></div>
+            <div class="diff-line"><span class="line-num">16</span><span class="line-content">print(stats)</span></div>
+          </div>
+        </div>
+        <div class="scs-bar">
+          <div class="scs-label">SemantiCheck Score</div>
+          <div class="scs-badge">0.96</div>
+          <div class="scs-detail">Syntax: ✓ | Exec: ✓ | Z3: UNSAT | CDAIS: 0 issues</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

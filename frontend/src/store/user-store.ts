@@ -80,7 +80,7 @@ export const useUserStore = create<UserState>((set, get) => ({
 
   verifyEmail: async (token: string) => {
     try {
-      await api.post(`/auth/verify-email?token=${encodeURIComponent(token)}`);
+      await api.get(`/auth/verify-email?token=${encodeURIComponent(token)}`);
     } catch {
       return false;
     }

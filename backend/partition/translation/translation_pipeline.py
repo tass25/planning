@@ -58,7 +58,7 @@ class TranslationPipeline:
     def __init__(
         self,
         target_runtime: str = "python",
-        duckdb_path: str = "data/analytics.duckdb",
+        duckdb_path: str = "",
         translator: TranslationAgent | None = None,
         validator: ValidationAgent | None = None,
         z3: Z3VerificationAgent | None = None,
@@ -74,6 +74,9 @@ class TranslationPipeline:
         self.sem_validator = sem_validator or SemanticValidator()
         self.cdais = cdais or CDAISRunner()
         self.invariant_set = invariant_set  # None = MIS disabled; call load_invariants() to enable
+        if not duckdb_path:
+            from config.constants import DUCKDB_PATH
+            duckdb_path = DUCKDB_PATH
         self.duckdb_path = duckdb_path
 
     def load_invariants(self, gold_dir: str | None = None) -> None:

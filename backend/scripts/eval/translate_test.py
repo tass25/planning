@@ -179,7 +179,7 @@ async def run() -> None:
     print(f"  Codara translate_test - {len(blocks)} blocks from torture_test.sas")
     print(f"{'-' * 70}{RESET}\n")
 
-    pipeline = TranslationPipeline(target_runtime="python", duckdb_path="data/analytics.duckdb")
+    pipeline = TranslationPipeline(target_runtime="python")
 
     results = []
     total_start = time.monotonic()

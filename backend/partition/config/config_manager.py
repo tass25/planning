@@ -23,8 +23,7 @@ class ProjectConfigManager:
     directory so they survive pipeline restarts without dirtying the repo.
     """
 
-    # Resolve relative to sas_converter/ regardless of CWD
-    _PKG_ROOT = Path(__file__).resolve().parent.parent.parent  # -> sas_converter/
+    _PKG_ROOT = Path(__file__).resolve().parent.parent.parent
     CONFIG_PATH = str(_PKG_ROOT / "config" / "project_config.yaml")
     _RUNTIME_STATE_FILE = "runtime_state.yaml"
 

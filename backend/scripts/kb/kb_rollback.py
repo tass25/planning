@@ -22,8 +22,8 @@ logger = structlog.get_logger()
 def rollback(
     example_id: str,
     to_version: int,
-    db_path: str = "data/lancedb",
-    duckdb_path: str = "data/analytics.duckdb",
+    db_path: str = "",
+    duckdb_path: str = "",
 ) -> bool:
     """Rollback a KB example to a previous version.
 
@@ -36,6 +36,9 @@ def rollback(
     Returns:
         ``True`` if rollback succeeded, ``False`` otherwise.
     """
+    from config.constants import LANCEDB_PATH as _LD, DUCKDB_PATH as _DD
+    db_path = db_path or _LD
+    duckdb_path = duckdb_path or _DD
     db = lancedb.connect(db_path)
     table = db.open_table("sas_python_examples")
 
@@ -93,9 +96,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Rollback a KB example")
     parser.add_argument("--example_id", required=True, help="UUID of the example")
     parser.add_argument("--to_version", type=int, required=True, help="Target version")
-    parser.add_argument("--db_path", default="data/lancedb", help="LanceDB path")
+    parser.add_argument("--db_path", default="", help="LanceDB path")
     parser.add_argument(
-        "--duckdb_path", default="data/analytics.duckdb", help="DuckDB changelog path"
+        "--duckdb_path", default="", help="DuckDB changelog path"
     )
     args = parser.parse_args()
 

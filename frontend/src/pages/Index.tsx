@@ -7,7 +7,7 @@ import { AmbientBackdrop, CursorGlow, Constellation, FloatParticles } from "@/co
 import {
   ArrowRight, Code2, GitBranch, Shield, BarChart3,
   Cpu, Zap, Star, ChevronRight, CheckCircle2,
-  Building2, Lock, Globe
+  Lock, Globe
 } from "lucide-react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -27,13 +27,20 @@ const FEATURES = [
 ];
 
 const STATS = [
-  { value: "97.3%", label: "Avg Accuracy" },
-  { value: "10x", label: "Faster Migration" },
-  { value: "2,400+", label: "Programs Converted" },
-  { value: "<3min", label: "Avg Convert Time" },
+  { value: "8", label: "Pipeline Stages" },
+  { value: "330+", label: "KB Verified Pairs" },
+  { value: "3-Tier", label: "RAG Architecture" },
+  { value: "45+", label: "Gold Standard Tests" },
 ];
 
-const LOGOS = ["Meridian Health", "DataFirst", "Apex Financial", "NovaTech", "Syndicate Bank"];
+const TECH_STACK = [
+  { name: "LangGraph", desc: "Pipeline Engine" },
+  { name: "LanceDB", desc: "Vector Store" },
+  { name: "Z3 Prover", desc: "Formal Verification" },
+  { name: "FastAPI", desc: "API Layer" },
+  { name: "React", desc: "Frontend" },
+  { name: "DuckDB", desc: "Analytics" },
+];
 
 const STEPS = [
   { step: "01", title: "Upload", desc: "Drag & drop your .sas files or connect your repository. Codara auto-detects dependencies and macros." },
@@ -78,7 +85,7 @@ export default function LandingPage() {
           <div className="hidden md:flex items-center gap-6">
             <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
             <a href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition-colors">How It Works</a>
-            <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
+            <a href="#security" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Security</a>
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
@@ -111,7 +118,7 @@ export default function LandingPage() {
             {/* Badge */}
             <motion.div {...fadeUp(0)} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-accent/20 bg-accent/5 text-xs font-medium text-accent mb-8">
               <Zap className="w-3 h-3" />
-              Trusted by enterprise teams worldwide
+              AI-Powered SAS Migration Engine
               <ChevronRight className="w-3 h-3" />
             </motion.div>
 
@@ -123,19 +130,23 @@ export default function LandingPage() {
               </span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground mt-6 max-w-2xl mx-auto leading-relaxed">
-              Codara's 8-stage AI pipeline converts entire SAS codebases to production-ready Python — with 97.3% accuracy, full audit trails, and zero guesswork.
+              Codara's 8-stage AI pipeline converts entire SAS codebases to production-ready Python — with full audit trails, Z3 formal verification, and zero guesswork.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
               <Link to="/signup">
                 <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 glow-accent px-8 py-6 text-base font-semibold gap-2">
-                  Start Free Trial <ArrowRight className="w-4 h-4" />
+                  Get Started <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
-
+              <Link to="/demo">
+                <Button variant="outline" size="lg" className="border-border text-muted-foreground hover:text-foreground px-8 py-6 text-base gap-2">
+                  <Star className="w-4 h-4" /> Try Demo
+                </Button>
+              </Link>
             </div>
 
-            <p className="text-xs text-muted-foreground/60 mt-4">No credit card required · Free tier available · SOC2 compliant</p>
+            <p className="text-xs text-muted-foreground/60 mt-4">Open-source research project · Built with LangGraph & LanceDB · Z3-verified translations</p>
           </motion.div>
 
           {/* Code Preview with parallax */}
@@ -200,13 +211,16 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Social Proof / Logos */}
+      {/* Tech Stack */}
       <section className="border-y border-border/30 bg-muted/10 py-10">
         <div className="max-w-7xl mx-auto px-6">
-          <p className="text-center text-xs text-muted-foreground/60 uppercase tracking-widest font-medium mb-6">Trusted by teams at</p>
-          <div className="flex items-center justify-center gap-12 flex-wrap">
-            {LOGOS.map((name) => (
-              <span key={name} className="text-sm font-semibold text-muted-foreground/30 tracking-wide">{name}</span>
+          <p className="text-center text-xs text-muted-foreground/60 uppercase tracking-widest font-medium mb-6">Built with</p>
+          <div className="flex items-center justify-center gap-10 flex-wrap">
+            {TECH_STACK.map((tech) => (
+              <div key={tech.name} className="flex flex-col items-center gap-1">
+                <span className="text-sm font-bold text-foreground/70 tracking-wide">{tech.name}</span>
+                <span className="text-[10px] text-muted-foreground/50">{tech.desc}</span>
+              </div>
             ))}
           </div>
         </div>
@@ -293,17 +307,17 @@ export default function LandingPage() {
       </section>
 
       {/* Trust / Security */}
-      <section className="py-20 bg-muted/10">
+      <section id="security" className="py-20 bg-muted/10">
         <div className="max-w-7xl mx-auto px-6">
           <motion.div {...fadeUp(0)} className="text-center mb-12">
-            <p className="text-xs uppercase tracking-widest text-accent font-semibold mb-3">Security & Compliance</p>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-foreground">Built for regulated industries</h2>
+            <p className="text-xs uppercase tracking-widest text-accent font-semibold mb-3">Security & Reliability</p>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-foreground">Production-grade safeguards</h2>
           </motion.div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {[
-              { icon: Lock, title: "SOC2 Type II", desc: "Independently audited security controls with continuous monitoring and annual certification." },
-              { icon: Building2, title: "HIPAA Compliant", desc: "Full BAA support with encrypted data handling, access controls, and audit logging." },
-              { icon: Globe, title: "Enterprise SSO", desc: "SAML 2.0 and OIDC integration with major identity providers. Role-based access built in." },
+              { icon: Lock, title: "Sandboxed Execution", desc: "Every code validation runs in an isolated process with restricted builtins — no file access, no imports, killed on timeout." },
+              { icon: Shield, title: "Full Audit Trail", desc: "Every LLM call, KB mutation, and conversion step is logged to DuckDB with model, latency, cost, and trace ID." },
+              { icon: Globe, title: "Role-Based Access", desc: "JWT authentication with bcrypt hashing, admin/user/viewer roles, and per-route authorization guards." },
             ].map((item, i) => (
               <motion.div key={item.title} {...fadeUp(i * 0.08)} className="glass-panel p-7 text-center hover:border-accent/20 transition-all">
                 <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-4">
@@ -329,17 +343,17 @@ export default function LandingPage() {
             Ready to leave SAS behind?
           </h2>
           <p className="text-lg text-muted-foreground mt-5 max-w-xl mx-auto">
-            Start converting your first program in minutes. No credit card, no setup, no vendor lock-in.
+            Start converting your first SAS program in minutes. Upload, analyze, review, and export — all in one platform.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
             <Link to="/signup">
               <Button size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 glow-accent px-8 py-6 text-base font-semibold gap-2">
-                Start Free Trial <ArrowRight className="w-4 h-4" />
+                Get Started <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>
             <Link to="/login">
               <Button variant="outline" size="lg" className="border-border text-muted-foreground hover:text-foreground px-8 py-6 text-base">
-                Talk to Sales
+                Sign In
               </Button>
             </Link>
           </div>
@@ -359,7 +373,7 @@ export default function LandingPage() {
               <div className="space-y-2">
                 <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors block">Features</a>
                 <a href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition-colors block">How It Works</a>
-                <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors block">Pricing</a>
+                <a href="#security" className="text-sm text-muted-foreground hover:text-foreground transition-colors block">Security</a>
               </div>
             </div>
             <div>
@@ -382,9 +396,9 @@ export default function LandingPage() {
           <div className="border-t border-border/50 pt-6 flex items-center justify-between">
             <span className="text-xs text-muted-foreground/60">© 2026 Codara Inc. All rights reserved.</span>
             <div className="flex items-center gap-4 text-muted-foreground/40">
-              <span className="text-[10px]">SOC2</span>
-              <span className="text-[10px]">HIPAA</span>
-              <span className="text-[10px]">GDPR</span>
+              <span className="text-[10px]">JWT Auth</span>
+              <span className="text-[10px]">RBAC</span>
+              <span className="text-[10px]">Sandboxed</span>
             </div>
           </div>
         </div>

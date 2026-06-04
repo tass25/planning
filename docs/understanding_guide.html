@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Understanding Codara & the Research Paper</title>
+<style>
+  :root {
+    --pink: #f9a8d4; --pink-dark: #9d174d; --pink-bg: #fdf2f8;
+    --blue: #93c5fd; --blue-dark: #1e40af; --blue-bg: #eff6ff;
+    --green: #6ee7b7; --green-dark: #065f46; --green-bg: #f0fdf4;
+    --yellow: #fde68a; --yellow-dark: #92400e; --yellow-bg: #fffbeb;
+    --purple: #c4b5fd; --purple-dark: #4c1d95; --purple-bg: #f5f3ff;
+    --gray: #f1f5f9; --text: #1e293b; --muted: #64748b;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',system-ui,sans-serif; background:#f8fafc; color:var(--text); line-height:1.7; }
+
+  /* ── NAV ── */
+  nav { background:#1e293b; color:#fff; padding:0; position:sticky; top:0; z-index:100; box-shadow:0 2px 8px rgba(0,0,0,.3); }
+  nav ul { display:flex; list-style:none; overflow-x:auto; }
+  nav ul li a { display:block; padding:14px 18px; color:#94a3b8; text-decoration:none; font-size:13px; font-weight:500; white-space:nowrap; transition:all .2s; }
+  nav ul li a:hover, nav ul li a.active { color:#fff; background:#334155; }
+
+  /* ── LAYOUT ── */
+  .page { max-width:860px; margin:0 auto; padding:32px 20px 80px; }
+  section { margin-bottom:60px; scroll-margin-top:56px; }
+
+  /* ── HEADINGS ── */
+  h1 { font-size:2rem; font-weight:800; color:#0f172a; margin-bottom:8px; }
+  h2 { font-size:1.5rem; font-weight:700; color:#0f172a; margin-bottom:16px; padding-bottom:8px; border-bottom:3px solid #e2e8f0; }
+  h3 { font-size:1.15rem; font-weight:700; color:#0f172a; margin:24px 0 10px; }
+  p  { margin-bottom:12px; color:#334155; }
+
+  /* ── HERO ── */
+  .hero { background:linear-gradient(135deg,#1e293b 0%,#1e40af 100%); color:#fff; border-radius:16px; padding:40px 36px; margin-bottom:48px; }
+  .hero h1 { color:#fff; font-size:2.2rem; margin-bottom:10px; }
+  .hero p { color:#cbd5e1; font-size:1.05rem; margin-bottom:0; }
+  .badge { display:inline-block; background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.3); border-radius:20px; padding:4px 14px; font-size:12px; font-weight:600; margin-right:8px; margin-bottom:8px; }
+
+  /* ── CARDS ── */
+  .card { background:#fff; border-radius:12px; padding:24px; margin-bottom:20px; border:1px solid #e2e8f0; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+  .card-pink   { border-left:5px solid var(--pink-dark);  background:var(--pink-bg); }
+  .card-blue   { border-left:5px solid var(--blue-dark);  background:var(--blue-bg); }
+  .card-green  { border-left:5px solid var(--green-dark); background:var(--green-bg); }
+  .card-yellow { border-left:5px solid var(--yellow-dark);background:var(--yellow-bg); }
+  .card-purple { border-left:5px solid var(--purple-dark);background:var(--purple-bg); }
+
+  /* ── CALLOUT ── */
+  .callout { border-radius:10px; padding:16px 20px; margin:16px 0; font-size:14.5px; }
+  .callout-info   { background:#eff6ff; border:1px solid #bfdbfe; }
+  .callout-warn   { background:#fffbeb; border:1px solid #fde68a; }
+  .callout-good   { background:#f0fdf4; border:1px solid #bbf7d0; }
+  .callout-key    { background:#fdf4ff; border:1px solid #e9d5ff; }
+  .callout strong { display:block; margin-bottom:4px; font-size:13px; text-transform:uppercase; letter-spacing:.5px; }
+
+  /* ── CODE BLOCKS ── */
+  .code-pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:16px 0; }
+  @media(max-width:600px){ .code-pair { grid-template-columns:1fr; } }
+  .code-block { border-radius:8px; overflow:hidden; font-size:13px; }
+  .code-block .label { padding:6px 12px; font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; }
+  .code-block pre  { padding:14px; margin:0; overflow-x:auto; line-height:1.6; font-family:'Consolas','Courier New',monospace; font-size:12.5px; }
+  .sas-block .label  { background:#7c3aed; color:#fff; }
+  .sas-block pre     { background:#1e1b4b; color:#c4b5fd; }
+  .py-ok .label      { background:#059669; color:#fff; }
+  .py-ok pre         { background:#052e16; color:#86efac; }
+  .py-bad .label     { background:#dc2626; color:#fff; }
+  .py-bad pre        { background:#1c0a09; color:#fca5a5; }
+  .py-fix .label     { background:#0891b2; color:#fff; }
+  .py-fix pre        { background:#083344; color:#a5f3fc; }
+
+  /* ── TABLE ── */
+  .data-table { width:100%; border-collapse:collapse; font-size:13.5px; margin:14px 0; border-radius:8px; overflow:hidden; border:1px solid #e2e8f0; }
+  .data-table th { background:#1e293b; color:#fff; padding:10px 14px; text-align:left; font-size:12px; text-transform:uppercase; letter-spacing:.4px; }
+  .data-table td { padding:9px 14px; border-bottom:1px solid #f1f5f9; }
+  .data-table tr:last-child td { border-bottom:none; }
+  .data-table tr:nth-child(even) td { background:#f8fafc; }
+  .data-table .ok  { color:#059669; font-weight:700; }
+  .data-table .bad { color:#dc2626; font-weight:700; }
+  .data-table .na  { color:#94a3b8; }
+
+  /* ── STEPS ── */
+  .steps { counter-reset:step; }
+  .step  { display:flex; gap:16px; margin-bottom:18px; }
+  .step-num { flex-shrink:0; width:36px; height:36px; border-radius:50%; background:#1e40af; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:15px; margin-top:2px; }
+  .step-body h4 { font-weight:700; margin-bottom:4px; }
+  .step-body p  { margin:0; font-size:14px; color:#475569; }
+
+  /* ── ANALOGY BOX ── */
+  .analogy { background:#fefce8; border:2px dashed #fbbf24; border-radius:10px; padding:16px 20px; margin:16px 0; font-size:14px; }
+  .analogy::before { content:"💡 Analogy: "; font-weight:700; color:#b45309; }
+
+  /* ── ERROR CLASS GRID ── */
+  .error-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:16px 0; }
+  @media(max-width:600px){ .error-grid { grid-template-columns:1fr; } }
+  .error-card { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:16px; }
+  .error-card .tag { display:inline-block; background:#1e293b; color:#fff; border-radius:5px; padding:2px 8px; font-size:11px; font-weight:700; margin-bottom:8px; }
+  .error-card h4 { font-size:13px; font-weight:700; margin-bottom:6px; }
+  .error-card .sas-line  { font-family:monospace; font-size:11.5px; background:#f5f3ff; color:#4c1d95; padding:4px 8px; border-radius:4px; margin:4px 0; }
+  .error-card .bug-line  { font-family:monospace; font-size:11.5px; background:#fff1f2; color:#9f1239; padding:4px 8px; border-radius:4px; margin:4px 0; text-decoration:line-through; opacity:.8; }
+  .error-card .fix-line  { font-family:monospace; font-size:11.5px; background:#f0fdf4; color:#065f46; padding:4px 8px; border-radius:4px; margin:4px 0; }
+
+  /* ── RESULT STAT ── */
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin:20px 0; }
+  .stat  { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:16px; text-align:center; }
+  .stat .num { font-size:2rem; font-weight:800; line-height:1; margin-bottom:4px; }
+  .stat .lbl { font-size:11.5px; color:#64748b; font-weight:500; }
+  .stat.green .num { color:#059669; }
+  .stat.blue  .num { color:#1e40af; }
+  .stat.pink  .num { color:#9d174d; }
+  .stat.yellow .num { color:#b45309; }
+
+  /* ── PIPELINE LAYERS ── */
+  .pipeline { display:flex; flex-direction:column; gap:0; margin:16px 0; }
+  .pipe-layer { padding:13px 20px; border-radius:0; border:1px solid #e2e8f0; margin-bottom:-1px; display:flex; align-items:center; gap:14px; }
+  .pipe-layer:first-child { border-radius:10px 10px 0 0; }
+  .pipe-layer:last-child  { border-radius:0 0 10px 10px; margin-bottom:0; }
+  .pipe-num { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; flex-shrink:0; color:#fff; }
+  .pipe-layer .info strong { font-size:14px; display:block; }
+  .pipe-layer .info span   { font-size:12px; color:#64748b; }
+
+  /* ── WITNESS TABLE ── */
+  .witness { background:#fff; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; margin:14px 0; }
+  .witness .wtitle { background:#1e293b; color:#fff; padding:8px 14px; font-size:12px; font-weight:600; }
+  .witness table { width:100%; border-collapse:collapse; font-size:13px; }
+  .witness th { background:#334155; color:#94a3b8; padding:7px 12px; text-align:left; font-size:11px; }
+  .witness td { padding:7px 12px; border-bottom:1px solid #f1f5f9; font-family:monospace; }
+  .witness tr:last-child td { border-bottom:none; }
+  .witness .sep { background:#fef9c3; }
+  .witness .sep td { color:#92400e; font-style:italic; font-family:sans-serif; font-size:11px; padding:4px 12px; }
+
+  /* ── FOOTER ── */
+  footer { text-align:center; padding:32px; color:#94a3b8; font-size:13px; border-top:1px solid #e2e8f0; }
+
+  /* ── MISC ── */
+  .tag-row { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+  .tag { background:#e2e8f0; color:#475569; border-radius:20px; padding:4px 12px; font-size:12px; font-weight:500; }
+  .tag.blue   { background:#dbeafe; color:#1e40af; }
+  .tag.green  { background:#d1fae5; color:#065f46; }
+  .tag.pink   { background:#fce7f3; color:#9d174d; }
+  .tag.yellow { background:#fef9c3; color:#92400e; }
+  .divider { border:none; border-top:2px dashed #e2e8f0; margin:32px 0; }
+  mark { background:#fef08a; padding:0 3px; border-radius:3px; }
+  .mono { font-family:monospace; font-size:13px; background:#f1f5f9; padding:1px 6px; border-radius:4px; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <ul>
+    <li><a href="#overview" class="active">Overview</a></li>
+    <li><a href="#problem">The Problem</a></li>
+    <li><a href="#codara">Codara System</a></li>
+    <li><a href="#z3">What is Z3?</a></li>
+    <li><a href="#cdais">CDAIS</a></li>
+    <li><a href="#errors">6 Error Classes</a></li>
+    <li><a href="#mis">MIS</a></li>
+    <li><a href="#pipeline">5-Layer Pipeline</a></li>
+    <li><a href="#results">Results</a></li>
+    <li><a href="#defense">Defense Tips</a></li>
+  </ul>
+</nav>
+
+<div class="page">
+
+<!-- HERO -->
+<div class="hero">
+  <div>
+    <span class="badge">PFE — TekUp University</span>
+    <span class="badge">Deloitte Tunisia</span>
+    <span class="badge">SCAM 2026</span>
+  </div>
+  <h1>Understanding Your Project from Zero</h1>
+  <p>A plain-language guide to Codara, CDAIS, MIS, Z3, and everything in the research paper — explained with examples, not jargon.</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<section id="overview">
+<h2>🗺️ The Big Picture — What Did You Build?</h2>
+
+<p>You built <strong>two things</strong>. Don't confuse them:</p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0;">
+  <div class="card card-blue">
+    <h3 style="margin-top:0">🏗️ Codara</h3>
+    <p style="margin:0;font-size:14px;">A <strong>software system</strong> — a full web app with a backend pipeline, frontend dashboard, database, and API. It takes SAS files and translates them to Python automatically.</p>
+  </div>
+  <div class="card card-purple">
+    <h3 style="margin-top:0">📄 The Research Paper</h3>
+    <p style="margin:0;font-size:14px;">A <strong>scientific contribution</strong> — two new methods (CDAIS + MIS) that check whether the translated Python is actually correct. Submitted to SCAM 2026 conference.</p>
+  </div>
+</div>
+
+<div class="callout callout-info">
+  <strong>🎯 One-sentence summary of the whole project:</strong>
+  Codara automatically converts legacy SAS code to Python, and uses formal mathematical methods (Z3, CDAIS, MIS) to <em>prove</em> the translation is correct — not just check that it runs.
+</div>
+
+<p>The problem with existing tools: they convert the code and say "done." You run the Python and it works... but produces <strong>wrong numbers silently</strong>. Your contribution is catching those silent bugs.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════ -->
+<section id="problem">
+<h2>🐛 The Problem — Why Is This Hard?</h2>
+
+<h3>SAS and Python think differently</h3>
+<p>SAS was built in the 1970s with a specific way of processing data row by row. Python's pandas library processes entire columns at once. This difference creates bugs that are very hard to see.</p>
+
+<h3>The classic example — the RETAIN bug</h3>
+<p>Imagine you have sales data for two regions (A and B), and you want to compute a running total <em>that resets at each region</em>.</p>
+
+<p><strong>SAS code:</strong></p>
+<div class="code-pair">
+  <div class="code-block sas-block">
+    <div class="label">SAS — What you want</div>
+    <pre>data output;
+  set sales;
+  by region;
+  retain total 0;
+  if first.region then total = 0;
+  total + amount;
+run;</pre>
+  </div>
+  <div class="code-block py-bad">
+    <div class="label">Python — What LLM often writes (WRONG)</div>
+    <pre>df['total'] = df['amount'].cumsum()
+# No group reset!
+# .cumsum() keeps adding forever</pre>
+  </div>
+</div>
+
+<p>Now look at what happens with the data:</p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0;">
+  <div class="witness">
+    <div class="wtitle">✅ CORRECT output (SAS)</div>
+    <table>
+      <tr><th>Region</th><th>Amount</th><th>total</th></tr>
+      <tr><td>A</td><td>10</td><td>10</td></tr>
+      <tr><td>A</td><td>20</td><td>30</td></tr>
+      <tr><td>A</td><td>30</td><td>60</td></tr>
+      <tr class="sep"><td colspan="3">← resets here for new region</td></tr>
+      <tr><td>B</td><td>5</td><td>5</td></tr>
+      <tr><td>B</td><td>10</td><td>15</td></tr>
+      <tr><td>B</td><td>15</td><td>30</td></tr>
+    </table>
+  </div>
+  <div class="witness">
+    <div class="wtitle">❌ WRONG output (buggy Python)</div>
+    <table>
+      <tr><th>Region</th><th>Amount</th><th>total</th></tr>
+      <tr><td>A</td><td>10</td><td>10</td></tr>
+      <tr><td>A</td><td>20</td><td>30</td></tr>
+      <tr><td>A</td><td>30</td><td>60</td></tr>
+      <tr class="sep"><td colspan="3">← NO reset, keeps counting!</td></tr>
+      <tr><td>B</td><td>5</td><td style="color:#dc2626;font-weight:700">65</td></tr>
+      <tr><td>B</td><td>10</td><td style="color:#dc2626;font-weight:700">75</td></tr>
+      <tr><td>B</td><td>15</td><td style="color:#dc2626;font-weight:700">90</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="callout callout-warn">
+  <strong>⚠️ The dangerous part:</strong>
+  The buggy Python code runs without any error. It produces a DataFrame. It looks reasonable. If you only have Region A in your test data, <strong>you will never catch this bug</strong>. The wrong numbers go into a financial report, a clinical trial, a regulatory filing — and nobody knows.
+</div>
+
+<p>This is the exact problem your paper solves. You need to detect bugs that <strong>pass execution tests but produce wrong output</strong>.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════ -->
+<section id="codara">
+<h2>🏗️ The Codara System — How Does It Work?</h2>
+
+<p>Codara is an 8-stage pipeline. Think of it like a factory assembly line where each station does one job:</p>
+
+<div class="pipeline">
+  <div class="pipe-layer" style="background:#fdf4ff">
+    <div class="pipe-num" style="background:#7c3aed">1</div>
+    <div class="info">
+      <strong>File Process</strong>
+      <span>Reads SAS files, finds which files depend on which others (like finding imports in Python)</span>
+    </div>
+  </div>
+  <div class="pipe-layer" style="background:#eff6ff">
+    <div class="pipe-num" style="background:#3b82f6">2</div>
+    <div class="info">
+      <strong>Streaming Parser</strong>
+      <span>Reads the SAS file token by token using a state machine — never loads the whole file into memory</span>
+    </div>
+  </div>
+  <div class="pipe-layer" style="background:#f0fdf4">
+    <div class="pipe-num" style="background:#059669">3</div>
+    <div class="info">
+      <strong>Chunking</strong>
+      <span>Cuts the SAS code into logical blocks (DATA step, PROC SORT, macro, etc.) — each block translates independently</span>
+    </div>
+  </div>
+  <div class="pipe-layer" style="background:#fefce8">
+    <div class="pipe-num" style="background:#d97706">4</div>
+    <div class="info">
+      <strong>RAPTOR Clustering</strong>
+      <span>Groups similar code blocks together so when translating, we can retrieve similar examples from the knowledge base</span>
+    </div>
+  </div>
+  <div class="pipe-layer" style="background:#fff1f2">
+    <div class="pipe-num" style="background:#e11d48">5</div>
+    <div class="info">
+      <strong>Risk Routing</strong>
+      <span>Scores each block: LOW / MODERATE / HIGH complexity. Simple blocks get fast translation, complex ones get more resources</span>
+    </div>
+  </div>
+  <div class="pipe-layer" style="background:#f8fafc">
+    <div class="pipe-num" style="background:#475569">6</div>
+    <div class="info">
+      <strong>Persist & Index</strong>
+      <span>Saves everything to the database, builds a dependency graph so complex blocks can reference each other</span>
+    </div>
+  </div>
+  <div class="pipe-layer" style="background:#fdf2f8">
+    <div class="pipe-num" style="background:#9d174d">7</div>
+    <div class="info">
+      <strong>Translation</strong>
+      <span>The main step: retrieves similar examples from the knowledge base (RAG), calls the LLM to translate, then validates using Z3, CDAIS, and MIS</span>
+    </div>
+  </div>
+  <div class="pipe-layer" style="background:#f0fdf4">
+    <div class="pipe-num" style="background:#065f46">8</div>
+    <div class="info">
+      <strong>Merge</strong>
+      <span>Combines all translated blocks into one Python script, fixes imports, resolves dependencies, generates a report</span>
+    </div>
+  </div>
+</div>
+
+<h3>The 3-Tier RAG (Knowledge Retrieval)</h3>
+<p>When translating a block, the system doesn't just ask the LLM blindly. It first searches a <strong>knowledge base of 330 verified SAS→Python examples</strong> to give the LLM relevant context:</p>
+<div class="tag-row">
+  <span class="tag blue">🔵 Static RAG (LOW risk)</span>
+  <span class="tag">Simple KNN search — find 3 most similar examples</span>
+</div>
+<div class="tag-row">
+  <span class="tag">🟡 Graph RAG (MODERATE)</span>
+  <span class="tag yellow">Follows dependency links — if block uses a macro from another file, retrieves that file's context too</span>
+</div>
+<div class="tag-row">
+  <span class="tag pink">🔴 Agentic RAG (HIGH)</span>
+  <span class="tag">Multi-step retrieval — searches multiple times, refines queries, escalates to more examples</span>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════ -->
+<section id="z3">
+<h2>🔢 What is Z3? (The Math Engine)</h2>
+
+<div class="analogy">
+  Think of Z3 like a super-powered Sudoku solver. You give it a set of mathematical rules and constraints, and it either finds values that satisfy all the rules, or proves that no such values exist.
+</div>
+
+<p>Z3 is a tool made by Microsoft Research called an <strong>SMT Solver</strong> (Satisfiability Modulo Theories). You write mathematical formulas, and Z3 answers: <em>"Is there a concrete example that satisfies this?"</em></p>
+
+<h3>Simple example of what Z3 does:</h3>
+<div class="code-block py-fix" style="margin:14px 0;">
+  <div class="label">Z3 Python usage — toy example</div>
+  <pre>from z3 import *
+x, y = Ints('x y')
+solver = Solver()
+solver.add(x + y == 10)
+solver.add(x > 3)
+solver.add(y > 3)
+solver.check()  # → SAT (satisfiable)
+solver.model()  # → x=4, y=6  (a concrete answer!)</pre>
+</div>
+
+<h3>How Codara uses Z3 — two ways:</h3>
+
+<div class="card card-blue">
+  <h3 style="margin-top:0">Way 1: Formal Verification (proving correctness)</h3>
+  <p>For simple patterns like "this block just sorts data" or "this block filters rows by a condition", Z3 can <strong>mathematically prove</strong> that the Python translation produces the same result as SAS for <em>all possible inputs</em>.</p>
+  <p>Result: <span class="mono">UNSAT</span> on the "are these different?" query = <strong>they are never different = translation is correct.</strong></p>
+  <p style="font-size:13px;color:var(--muted)">This works for 30% of blocks. The other 70% are too complex for Z3 to prove directly.</p>
+</div>
+
+<div class="card card-pink">
+  <h3 style="margin-top:0">Way 2: CDAIS — Finding the minimum test data (the paper's main contribution)</h3>
+  <p>For bugs that Z3 can't prove away, we use Z3 differently: instead of proving correctness, we ask Z3 to <strong>find the smallest possible dataset that will expose the bug</strong>.</p>
+  <p>This is the CDAIS method — explained in full in the next section.</p>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════ -->
+<section id="cdais">
+<h2>🎯 CDAIS — The Core Method of Your Paper</h2>
+
+<p><strong>CDAIS = Constraint-Driven Adversarial Input Synthesis</strong></p>
+<p>Long name, simple idea. Let me break it down word by word:</p>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:16px 0;">
+  <div class="card" style="text-align:center;padding:16px;">
+    <div style="font-size:1.8rem">🔒</div>
+    <strong>Constraint-Driven</strong>
+    <p style="font-size:13px;margin:6px 0 0;color:var(--muted)">The test data is generated from mathematical rules (Z3 constraints), not randomly guessed</p>
+  </div>
+  <div class="card" style="text-align:center;padding:16px;">
+    <div style="font-size:1.8rem">⚔️</div>
+    <strong>Adversarial</strong>
+    <p style="font-size:13px;margin:6px 0 0;color:var(--muted)">The data is specifically designed to <em>expose bugs</em> — it's the worst-case input for a given error type</p>
+  </div>
+  <div class="card" style="text-align:center;padding:16px;">
+    <div style="font-size:1.8rem">🧬</div>
+    <strong>Input Synthesis</strong>
+    <p style="font-size:13px;margin:6px 0 0;color:var(--muted)">We <em>synthesize</em> (mathematically construct) the test data — we don't sample or guess</p>
+  </div>
+</div>
+
+<h3>The CDAIS process — step by step</h3>
+
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h4>Look at the SAS code — what bug class could be here?</h4>
+      <p>Does this block use RETAIN + BY + FIRST? → could have RETAIN_RESET bug. Does it use MERGE without IN=? → could have JOIN_TYPE bug. etc.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h4>Write Z3 constraints describing when the bug would be visible</h4>
+      <p>For RETAIN_RESET: "I need data with at least 2 groups, and the values in group 1 must be non-zero, because that's when cumsum() and groupby().cumsum() give different results."</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h4>Ask Z3 to find the SMALLEST values satisfying those constraints</h4>
+      <p>Z3 returns: 2 groups, 3 rows each, all values = 1. That's the minimum dataset that exposes the bug.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <h4>Run both SAS oracle and Python translation on this 6-row dataset</h4>
+      <p>If outputs differ → bug confirmed. If outputs match → issue a <strong>Coverage Certificate</strong>.</p>
+    </div>
+  </div>
+</div>
+
+<h3>The actual RETAIN_RESET witness (6 rows)</h3>
+<p>Z3 gives us this exact data:</p>
+
+<div class="witness">
+  <div class="wtitle">🔬 CDAIS Witness — RETAIN_RESET (6 rows, generated in 31ms)</div>
+  <table>
+    <tr><th>group</th><th>value</th><th>correct_total (SAS)</th><th>buggy_total (Python .cumsum())</th></tr>
+    <tr><td>A</td><td>1</td><td>1</td><td>1</td></tr>
+    <tr><td>A</td><td>1</td><td>2</td><td>2</td></tr>
+    <tr><td>A</td><td>1</td><td>3</td><td>3</td></tr>
+    <tr class="sep"><td colspan="4">↑ group A fine ↓ group B: the bug appears here</td></tr>
+    <tr><td>B</td><td>1</td><td class="ok">1</td><td class="bad">4 ← WRONG</td></tr>
+    <tr><td>B</td><td>1</td><td class="ok">2</td><td class="bad">5 ← WRONG</td></tr>
+    <tr><td>B</td><td>1</td><td class="ok">3</td><td class="bad">6 ← WRONG</td></tr>
+  </table>
+</div>
+
+<div class="callout callout-key">
+  <strong>🔑 Why this is better than random testing:</strong>
+  Random testing has only a ~72.5% chance of exposing this bug in each attempt (you might accidentally generate single-group data). CDAIS has a <strong>100% guarantee in 1 attempt</strong> — because Z3 <em>proved</em> this data structure exposes the bug.
+</div>
+
+<h3>The Coverage Certificate — what it means</h3>
+<div class="card card-green">
+  <p style="margin:0">If the Python translation <strong>passes</strong> the CDAIS witness test (produces the same output as the SAS oracle), we issue a <strong>Coverage Certificate</strong>: <em>"This translation is free from RETAIN_RESET bugs for any dataset with the same structure (2 groups, 3 rows each)."</em></p>
+  <p style="margin:8px 0 0;font-size:13px;color:var(--muted)">This is not just "it passed a test" — it's a <strong>mathematical proof</strong> backed by Theorem 1 in the paper.</p>
+</div>
+
+<h3>The SORT_STABLE special case (17 rows)</h3>
+<div class="card card-yellow">
+  <p>For SORT_STABLE bugs (unstable sort), the minimal witness needs <strong>17 rows</strong> instead of 6. Why? Because Python's numpy uses <em>insertion sort</em> (stable) for arrays of ≤16 elements, and only switches to <em>quicksort</em> (unstable) at n=17. A 2-row or 6-row test would never trigger the instability. Z3 synthesis takes 296ms for this one (vs 31ms for others).</p>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════ -->
+<section id="errors">
+<h2>⚠️ The 6 Error Classes — Every One Explained</h2>
+
+<p>These are the 6 types of bugs your system is designed to detect. Each one is a pattern where SAS and Python behave differently:</p>
+
+<div class="error-grid">
+
+  <div class="error-card">
+    <span class="tag" style="background:#7c3aed">C1</span>
+    <h4>RETAIN_RESET</h4>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Running total that should reset per group but doesn't</p>
+    <div class="sas-line">RETAIN total 0; IF FIRST.grp THEN total=0;</div>
+    <div class="bug-line">df['total'] = df['val'].cumsum() ❌</div>
+    <div class="fix-line">df.groupby('grp')['val'].cumsum() ✓</div>
+  </div>
+
+  <div class="error-card">
+    <span class="tag" style="background:#0891b2">C2</span>
+    <h4>LAG_QUEUE</h4>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:8px">SAS LAG() maintains queue across whole dataset, not per group</p>
+    <div class="sas-line">lag_val = LAG(x); /* resets at BY boundaries */</div>
+    <div class="bug-line">df['lag_val'] = df['x'].shift(1) ❌</div>
+    <div class="fix-line">groupby().shift(1) per group ✓</div>
+  </div>
+
+  <div class="error-card">
+    <span class="tag" style="background:#059669">C3</span>
+    <h4>SORT_STABLE</h4>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:8px">SAS PROC SORT is always stable; Python default sort is not</p>
+    <div class="sas-line">PROC SORT DATA=ds; BY key; RUN;</div>
+    <div class="bug-line">df.sort_values('key') ❌ (quicksort)</div>
+    <div class="fix-line">df.sort_values('key', kind='mergesort') ✓</div>
+  </div>
+
+  <div class="error-card">
+    <span class="tag" style="background:#d97706">C4</span>
+    <h4>NULL_ARITHMETIC</h4>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:8px">SAS SUM() skips missing values; Python x+5 propagates NaN</p>
+    <div class="sas-line">z = SUM(x, 5); /* returns 5 if x is missing */</div>
+    <div class="bug-line">df['z'] = df['x'] + 5 ❌ (NaN + 5 = NaN)</div>
+    <div class="fix-line">df['x'].fillna(0) + 5 ✓</div>
+  </div>
+
+  <div class="error-card">
+    <span class="tag" style="background:#dc2626">C5</span>
+    <h4>JOIN_TYPE</h4>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:8px">SAS MERGE without IN= is an outer join; Python defaults to inner</p>
+    <div class="sas-line">DATA out; MERGE left right; BY key; RUN;</div>
+    <div class="bug-line">pd.merge(left, right, on='key') ❌ (inner!)</div>
+    <div class="fix-line">pd.merge(..., how='outer') ✓</div>
+  </div>
+
+  <div class="error-card">
+    <span class="tag" style="background:#9d174d">C6</span>
+    <h4>GROUP_BOUNDARY</h4>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:8px">FIRST./LAST. selects first row per group, not first row of whole DataFrame</p>
+    <div class="sas-line">IF FIRST.x THEN output;</div>
+    <div class="bug-line">df.head(1) ❌ (whole DF, not per group)</div>
+    <div class="fix-line">df.groupby('x').first() ✓</div>
+  </div>
+
+</div>
+
+<div class="callout callout-good">
+  <strong>✅ Remember:</strong> All 6 bugs have one thing in common — the Python code <strong>runs without error</strong>. That's what makes them dangerous. Your paper is the first to use formal SMT synthesis to detect all 6 with a mathematical guarantee.
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════ -->
+<section id="mis">
+<h2>📐 MIS — Migration Invariant Selection</h2>
+
+<p><strong>MIS = Migration Invariant Selection</strong></p>
+
+<p>CDAIS targets <em>known</em> bug types. MIS handles a different question: <em>"What properties should ANY correct SAS→Python translation always have?"</em></p>
+
+<div class="analogy">
+  Imagine you've collected 142 blood samples from perfectly healthy people. You notice that ALL of them have a white blood cell count between 4,000–11,000. So you write the rule: "if a sample has WBC outside this range, something is wrong." You didn't invent this rule from theory — you discovered it from data. That's MIS.
+</div>
+
+<h3>How MIS works</h3>
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h4>Start with 18 candidate rules (analyst-written)</h4>
+      <p>Example rules: "the output should never be empty if the input isn't", "after a GROUP BY, the output should have fewer rows than the input", "column data types should stay numeric"</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h4>Collect 142 verified correct (SAS, Python) pairs</h4>
+      <p>12 pairs validated by two independent LLMs + manual review. 130 enterprise pairs validated by a senior SAS developer at Deloitte.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h4>Test each rule against every applicable pair</h4>
+      <p>Run the SAS oracle and check if the oracle output satisfies the rule. If the oracle violates it even once → the rule is wrong about SAS → REJECT. If oracle always satisfies it → CONFIRM.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <h4>10 rules confirmed, 8 rejected</h4>
+      <p>The 10 confirmed rules are now a reusable checklist. Any new translation that violates one of these has a semantic bug — guaranteed.</p>
+    </div>
+  </div>
+</div>
+
+<h3>Examples of confirmed vs rejected invariants</h3>
+<table class="data-table">
+  <tr><th>Invariant</th><th>Status</th><th>Why</th></tr>
+  <tr><td><span class="mono">OUTPUT_NONEMPTY</span></td><td class="ok">✅ Confirmed</td><td>If input is non-empty, output must be non-empty (universal)</td></tr>
+  <tr><td><span class="mono">COLUMN_DTYPE_STABILITY</span></td><td class="ok">✅ Confirmed</td><td>Numeric columns stay numeric — always true in correct translations</td></tr>
+  <tr><td><span class="mono">RETAIN_MONOTONE_CUMSUM</span></td><td class="ok">✅ Confirmed</td><td>RETAIN accumulators always increase — true in the corpus</td></tr>
+  <tr><td><span class="mono">MERGE_OUTER_ROWCOUNT</span></td><td class="ok">✅ Confirmed</td><td>Outer merge output ≥ max(left, right) rows</td></tr>
+  <tr><td><span class="mono">COLUMN_SUPERSET</span></td><td class="bad">❌ Rejected</td><td>96.6% oracle pass — SAS KEEP/DROP can remove input columns → rule too strict</td></tr>
+  <tr><td><span class="mono">SORT_KEY_SORTED</span></td><td class="bad">❌ Rejected</td><td>8.3% oracle pass — NODUPKEY removes rows in ways that break simple sort order</td></tr>
+  <tr><td><span class="mono">LAG_NULL_FIRST_ROW</span></td><td class="bad">❌ Rejected</td><td>0% oracle pass — revealed a bug in our own LAG oracle! Fixed immediately.</td></tr>
+</table>
+
+<div class="callout callout-info">
+  <strong>💡 Key insight about the 8 rejections:</strong>
+  These aren't failures — they're discoveries. <span class="mono">SORT_KEY_SORTED</span> seemed obviously true ("PROC SORT sorts, right?") but failed because SAS NODUPKEY changes row counts in complex ways. <span class="mono">LAG_NULL_FIRST_ROW</span> failing at 0% told us our own oracle had a bug in it, which we then fixed. MIS is a self-correction tool.
+</div>
+
+<h3>Leave-One-Out Cross-Validation (LOO-CV)</h3>
+<p>To make sure the 10 confirmed invariants are stable (not just lucky on this specific dataset), we did LOO-CV: we removed each of the 142 pairs one at a time and re-ran MIS on the remaining 141. Result: <mark>zero invariants changed their decision</mark> across all 142 folds. The confirmed set is stable.</p>
+</section>
+
+<!-- ══════════════════════════════════════════════════ -->
+<section id="pipeline">
+<h2>🏛️ The 5-Layer Validation Pipeline</h2>
+
+<p>After the LLM translates a SAS block, the translation passes through 5 validation layers. Each catches different bugs:</p>
+
+<div class="pipeline">
+  <div class="pipe-layer" style="background:#f8fafc">
+    <div class="pipe-num" style="background:#475569">1</div>
+    <div class="info">
+      <strong>Sandbox Execution</strong>
+      <span>Just runs the Python code and checks: does it crash? Returns True/False. Catches syntax errors and crashes. Does NOT check if output is correct.</span>
+    </div>
+  </div>
+  <div class="pipe-layer" style="background:#eff6ff">
+    <div class="pipe-num" style="background:#1e40af">2</div>
+    <div class="info">
+      <strong>Z3 Formal Verification</strong>
+      <span>For simple patterns (sort, filter, simple arithmetic): mathematically proves the translation is correct for ALL inputs. Works on 30% of blocks. If it returns UNSAT → formally correct.</span>
+    </div>
+  </div>
+  <div class="pipe-layer" style="background:#fdf4ff">
+    <div class="pipe-num" style="background:#7c3aed">3</div>
+    <div class="info">
+      <strong>Semantic Validator / Oracle</strong>
+      <span>Runs both the SAS oracle (a Python re-implementation of SAS semantics) AND the translation on the same synthetic data. Compares outputs: same rows? Same values? Same column types?</span>
+    </div>
+  </div>
+  <div class="pipe-layer" style="background:#fff1f2">
+    <div class="pipe-num" style="background:#e11d48">4</div>
+    <div class="info">
+      <strong>CDAIS Adversarial Testing</strong>
+      <span>Synthesizes Z3 witnesses for each applicable error class (C1–C6). If the translation fails → CEGAR repair loop: gives the bug to the LLM to fix, then re-verifies.</span>
+    </div>
+  </div>
+  <div class="pipe-layer" style="background:#f0fdf4">
+    <div class="pipe-num" style="background:#059669">5</div>
+    <div class="info">
+      <strong>MIS Invariant Checking</strong>
+      <span>Runs all 10 confirmed invariants against the translation output. A violation means the translation breaks a property that ALL 142 verified correct translations satisfy.</span>
+    </div>
+  </div>
+</div>
+
+<div class="callout callout-good">
+  <strong>✅ Why all 5 layers?</strong>
+  Layer 1 only checks that code runs. Layer 2 only covers 30% of blocks. Layer 3 covers more but uses a Python oracle (imperfect). Layer 4 covers the 6 known bug classes. Layer 5 catches unknown bugs via invariant violation. <strong>Each layer catches things the others miss.</strong>
+</div>
+
+<p>All 4 verification signals (Z3 proof, oracle diff, CDAIS certificates, MIS violations) are combined into one score: the <strong>Semantic Correctness Score (SCS)</strong>.</p>
+
+<table class="data-table">
+  <tr><th>SCS Level</th><th>Meaning</th><th>What it takes</th></tr>
+  <tr><td><span style="color:#059669;font-weight:700">VERIFIED</span></td><td>Formally correct</td><td>Z3 proof + all layers pass</td></tr>
+  <tr><td><span style="color:#16a34a;font-weight:700">LIKELY_CORRECT</span></td><td>Strong evidence of correctness</td><td>≥3 layers pass</td></tr>
+  <tr><td><span style="color:#d97706;font-weight:700">UNCERTAIN</span></td><td>Mixed signals</td><td>2 layers pass</td></tr>
+  <tr><td><span style="color:#dc2626;font-weight:700">LIKELY_INCORRECT</span></td><td>Semantic bug detected</td><td>&lt;2 layers pass</td></tr>
+</table>
+</section>
+
+<!-- ══════════════════════════════════════════════════ -->
+<section id="results">
+<h2>📊 The Results — What Do the Numbers Mean?</h2>
+
+<h3>Main system results</h3>
+<div class="stats">
+  <div class="stat green"><div class="num">72.4%</div><div class="lbl">Translation success rate (target: 70%) ✅</div></div>
+  <div class="stat green"><div class="num">96.8%</div><div class="lbl">Syntax-valid merged output (target: 95%) ✅</div></div>
+  <div class="stat yellow"><div class="num">79.3%</div><div class="lbl">Boundary detection F1 (target: 90%) ❌</div></div>
+  <div class="stat blue"><div class="num">0.061</div><div class="lbl">Complexity calibration ECE (target: &lt;0.08) ✅</div></div>
+</div>
+
+<h3>CDAIS results</h3>
+<div class="stats">
+  <div class="stat green"><div class="num">6/6</div><div class="lbl">Error classes detected in 1 trial</div></div>
+  <div class="stat blue"><div class="num">7.8</div><div class="lbl">Average witness size (rows)</div></div>
+  <div class="stat blue"><div class="num">73ms</div><div class="lbl">Average synthesis time</div></div>
+  <div class="stat yellow"><div class="num">~75%</div><div class="lbl">Random testing (200 trials) — NOT guaranteed</div></div>
+</div>
+
+<h3>Why 75% random vs 100% CDAIS matters</h3>
+<table class="data-table">
+  <tr><th>Method</th><th>Trials needed</th><th>Guarantee?</th><th>Data size</th><th>Readable?</th></tr>
+  <tr><td>Random testing</td><td>Hundreds to approach 100%</td><td class="bad">No</td><td>Up to 1000 rows</td><td class="bad">No</td></tr>
+  <tr><td>Heuristic testing</td><td>~50 trials, ~91% average</td><td class="bad">No</td><td>~30 rows</td><td class="na">Partly</td></tr>
+  <tr><td><strong>CDAIS</strong></td><td><strong>1 trial</strong></td><td class="ok"><strong>Yes ✅</strong></td><td><strong>6–17 rows</strong></td><td class="ok"><strong>Yes ✅</strong></td></tr>
+</table>
+
+<h3>MIS results</h3>
+<div class="stats">
+  <div class="stat blue"><div class="num">10/18</div><div class="lbl">Invariants confirmed (55.6%)</div></div>
+  <div class="stat green"><div class="num">142</div><div class="lbl">Verified translation pairs (corpus)</div></div>
+  <div class="stat green"><div class="num">0</div><div class="lbl">Fragile invariants in LOO-CV</div></div>
+  <div class="stat blue"><div class="num">937ms</div><div class="lbl">Total MIS runtime on CPU</div></div>
+</div>
+
+<h3>The missed targets — be honest about these</h3>
+<div class="card card-yellow">
+  <h3 style="margin-top:0">Boundary Detection: 79.3% instead of 90%</h3>
+  <p><strong>Why it missed:</strong> The lark grammar (the parsing tool) doesn't expand macros before detecting boundaries. A SAS macro that expands to 200 lines looks like just 1 line to the detector. Macro-heavy code gets only 52.1% F1.</p>
+  <p style="margin:0"><strong>Fix needed:</strong> Build a macro pre-processor that expands macros before boundary detection.</p>
+</div>
+<div class="card card-yellow">
+  <h3 style="margin-top:0">Hard-Tier Translation: 53.7%</h3>
+  <p style="margin:0"><strong>Why it missed:</strong> Same root cause — macros, hash objects, deeply nested constructs. The 53.7% is still better than any existing tool (which produce 0% on these files because they refuse to process them).</p>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════ -->
+<section id="defense">
+<h2>🎓 How to Explain This in Your Defense</h2>
+
+<h3>If they ask "what is your main contribution?"</h3>
+<div class="card card-blue">
+  <p style="margin:0">"My main scientific contribution is <strong>CDAIS</strong>: the first use of SMT synthesis to generate formally minimal test inputs for LLM-based code migration. For each of 6 formalized error classes, I encode the divergence condition as a Z3 constraint, synthesize the minimum dataset that exposes the bug in 1 trial, and issue a mathematically proved coverage certificate. This replaces random testing — which needs hundreds of trials with no guarantee — with a 73ms deterministic process."</p>
+</div>
+
+<h3>If they ask "explain Z3 simply"</h3>
+<div class="card card-green">
+  <p style="margin:0">"Z3 is a constraint solver — you give it mathematical rules and it finds concrete values that satisfy them, or proves no such values exist. I use it two ways: to <em>prove</em> simple translations are correct for all inputs, and to <em>synthesize</em> the minimum dataset that exposes a bug in complex translations."</p>
+</div>
+
+<h3>If they ask "why did you miss the 90% boundary target?"</h3>
+<div class="card card-pink">
+  <p style="margin:0">"The boundary detector uses a partial SAS grammar. It correctly identifies DATA steps and PROC steps (91% F1) but fails on macro-parameterised code (52% F1) because macros expand to arbitrary code at runtime — you can't detect boundaries in macro calls without first expanding them. The fix is a macro pre-processor, which is the highest-priority future work."</p>
+</div>
+
+<h3>If they ask "what is a coverage certificate?"</h3>
+<div class="card card-purple">
+  <p style="margin:0">"A coverage certificate is a formal guarantee, proved by Theorem 1, that if a translation passes the CDAIS witness test, it is free from that specific error class for any dataset with the same structural shape. It is not 'the test passed' — it is 'mathematical proof that the bug cannot exist for data of this structure'."</p>
+</div>
+
+<h3>Key numbers to say with confidence</h3>
+<div class="tag-row">
+  <span class="tag green">72.4% translation success</span>
+  <span class="tag green">6/6 error classes detected</span>
+  <span class="tag green">73ms synthesis</span>
+  <span class="tag green">6–17 row witnesses</span>
+  <span class="tag green">10/18 invariants confirmed</span>
+  <span class="tag green">142 pairs corpus</span>
+  <span class="tag green">0 fragile invariants (LOO-CV)</span>
+  <span class="tag yellow">79.3% boundary (missed 90%)</span>
+  <span class="tag blue">0.061 ECE</span>
+  <span class="tag blue">30% formal proof rate (Z3)</span>
+</div>
+
+<hr class="divider">
+
+<h3>The one-paragraph explanation of the whole paper</h3>
+<div class="callout callout-key" style="font-size:15px;line-height:1.8;">
+  <strong>For your defense opening:</strong>
+  "LLMs translate SAS code to Python and the code runs — but it produces wrong numbers silently. This paper introduces two methods to detect these silent bugs. CDAIS uses the Z3 solver to mathematically construct the smallest possible test dataset that is guaranteed to expose a specific bug type — we call it a witness. If the translation passes this witness, we issue a coverage certificate: a formal proof that this bug cannot exist for datasets of this structure. MIS takes a different angle: we collect 142 verified correct translations, test 18 candidate properties against them, and confirm the 10 that hold universally — these become a reusable specification for checking any new translation. Together, CDAIS, MIS, and Z3 formal verification create a multi-layer validation system that catches semantic bugs without requiring a SAS runtime or manual testing."
+</div>
+</section>
+
+</div><!-- .page -->
+
+<footer>
+  Codara — SAS→Python Accelerator · PFE TekUp University · Deloitte Tunisia · SCAM 2026<br>
+  <span style="font-size:11px;margin-top:4px;display:block">This guide was made to help you understand and explain your own work with confidence.</span>
+</footer>
+
+<script>
+  // Highlight active nav item on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('nav ul li a');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 80) current = s.id;
+    });
+    navLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+  });
+</script>
+</body>
+</html>

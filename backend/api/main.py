@@ -60,6 +60,10 @@ queue_service.start_worker()
 engine = get_api_engine(settings.sqlite_path)
 init_api_db(engine)
 
+from partition.db.duckdb_manager import init_all_duckdb_tables
+
+init_all_duckdb_tables(settings.duckdb_path)
+
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 
 app = FastAPI(

@@ -6,13 +6,15 @@ import { CodaraLogo } from "@/components/CodaraLogo";
 import { Loader2, Eye, EyeOff, CheckCircle, ArrowRight, Star, Mail, RefreshCw, Clock, ShieldCheck, Inbox } from "lucide-react";
 import { motion } from "framer-motion";
 import { api } from "@/lib/api";
+import { usePageTitle } from "@/lib/hooks";
 
-const TESTIMONIALS = [
-  { name: "Sarah Chen", role: "VP Engineering, Meridian Health", quote: "Codara cut our SAS migration timeline from 18 months to 6 weeks. The accuracy is remarkable." },
-  { name: "Marcus Webb", role: "CTO, DataFirst Analytics", quote: "We migrated 2,400 SAS programs with 98.1% accuracy. The ROI was immediate." },
+const HIGHLIGHTS = [
+  { icon: "🔬", title: "8-Stage AI Pipeline", desc: "LangGraph orchestration with deterministic parsing, RAPTOR clustering, and multi-tier RAG retrieval." },
+  { icon: "✅", title: "Z3 Formal Verification", desc: "SMT-based proofs for arithmetic, boolean, sort/dedup, and assignment patterns in translations." },
 ];
 
 export default function SignupPage() {
+  usePageTitle("Sign Up");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -288,24 +290,20 @@ export default function SignupPage() {
               ))}
             </motion.div>
 
-            {/* Testimonial */}
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }} className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-5 max-w-md backdrop-blur-sm">
-              <div className="flex gap-0.5 mb-3">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-3.5 h-3.5 fill-accent text-accent" />
-                ))}
-              </div>
-              <p className="text-sm text-white/60 italic leading-relaxed">"{TESTIMONIALS[0].quote}"</p>
-              <div className="mt-3 flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-accent/30 to-secondary/30 flex items-center justify-center text-[10px] font-bold text-white/80">
-                  {TESTIMONIALS[0].name.charAt(0)}
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-white/70">{TESTIMONIALS[0].name}</p>
-                  <p className="text-[10px] text-white/30">{TESTIMONIALS[0].role}</p>
-                </div>
-              </div>
-            </motion.div>
+            {/* Highlights */}
+            <div className="space-y-3 max-w-md">
+              {HIGHLIGHTS.map((h, i) => (
+                <motion.div key={h.title} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 + i * 0.15 }} className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-4 backdrop-blur-sm">
+                  <div className="flex items-start gap-3">
+                    <span className="text-lg mt-0.5">{h.icon}</span>
+                    <div>
+                      <p className="text-xs font-semibold text-white/80">{h.title}</p>
+                      <p className="text-[11px] text-white/40 leading-relaxed mt-0.5">{h.desc}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </div>
 
           <div className="flex items-center gap-8 text-white/25 text-xs font-medium">

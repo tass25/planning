@@ -3,6 +3,7 @@ import { useConversionStore } from "@/store/conversion-store";
 import { FileCode, CheckCircle, AlertTriangle, XCircle, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { usePageTitle } from "@/lib/hooks";
 
 const adminLinks = [
   { label: "Audit Logs", path: "/admin/audit-logs", desc: "LLM call history and costs" },
@@ -13,9 +14,11 @@ const adminLinks = [
   { label: "KB Management", path: "/admin/kb-management", desc: "Knowledge base admin" },
   { label: "KB Changelog", path: "/admin/kb-changelog", desc: "KB mutation history" },
   { label: "Prompt Templates", path: "/admin/prompt-templates", desc: "View and edit Jinja2 pipeline prompts" },
+  { label: "Conversions", path: "/admin/conversions", desc: "View all conversions with SAS/Python code" },
 ];
 
 export default function AdminPage() {
+  usePageTitle("Admin");
   const conversions = useConversionStore((s) => s.conversions);
   const total = conversions.length;
   const completed = conversions.filter((c) => c.status === "completed").length;

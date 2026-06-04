@@ -3,9 +3,12 @@ import { useUserStore } from "@/store/user-store";
 import { Button } from "@/components/ui/button";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { useState } from "react";
+import { usePageTitle } from "@/lib/hooks";
 import { api } from "@/lib/api";
+import { toast } from "sonner";
 
 export default function SettingsPage() {
+  usePageTitle("Settings");
   const user = useUserStore((s) => s.currentUser);
   const [saved, setSaved] = useState(false);
   const [name, setName] = useState(user?.name ?? "");
@@ -19,12 +22,16 @@ export default function SettingsPage() {
       useUserStore.getState().restoreSession();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch { /* toast error */ }
+      toast.success("Profile updated");
+    } catch { toast.error("Failed to save profile"); }
   };
 
   const handleSavePreferences = async (rt?: string, notif?: boolean) => {
     const payload = { defaultRuntime: rt ?? runtime, emailNotifications: notif ?? notifications };
-    try { await api.put("/settings/preferences", payload); } catch { /* toast error */ }
+    try {
+      await api.put("/settings/preferences", payload);
+      toast.success("Preferences saved");
+    } catch { toast.error("Failed to save preferences"); }
   };
 
   return (

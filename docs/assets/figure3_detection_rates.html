@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 3 — Per-Class Detection Rate Comparison</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'CMU Serif', 'Latin Modern Roman', 'Times New Roman', Georgia, serif;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px;
+  }
+  .chart-wrapper {
+    width: 900px;
+    max-width: 100%;
+    position: relative;
+  }
+  canvas { width: 100% !important; }
+  .caption {
+    margin-top: 14px;
+    font-size: 13px;
+    color: #333;
+    text-align: center;
+    max-width: 820px;
+    line-height: 1.5;
+  }
+  .caption strong { font-weight: 700; }
+  .note {
+    margin-top: 10px;
+    font-size: 11.5px;
+    color: #555;
+    text-align: center;
+    max-width: 820px;
+    line-height: 1.45;
+    font-style: italic;
+  }
+  .guarantee-legend {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 12px;
+    font-size: 12px;
+    color: #444;
+  }
+  .guarantee-legend span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    border: 1px solid #ccc;
+  }
+  .star-marker {
+    font-size: 15px;
+    color: #5B8CB8;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<div class="chart-wrapper">
+  <canvas id="detectionChart" height="420"></canvas>
+</div>
+
+<div class="guarantee-legend">
+  <span><div class="legend-swatch" style="background:#FADBD8;"></div> Random Testing (1000 trials)</span>
+  <span><div class="legend-swatch" style="background:#A9DFBF;"></div> Heuristic Testing</span>
+  <span><div class="legend-swatch" style="background:#AED6F1;"></div> CDAIS (Z3 Witness)</span>
+  <span class="star-marker">★</span> = Formal Guarantee (coverage certificate)
+</div>
+
+
+<p class="note">
+  Random PTDR averaged over 1000 independent trials per class. Heuristic uses domain-informed inputs.
+  CDAIS witnesses are Z3-synthesized minimal DataFrames with formal divergence proofs.
+</p>
+
+<script>
+const labels = [
+  'RETAIN_RESET\n(C₁)',
+  'LAG_QUEUE\n(C₂)',
+  'SORT_STABLE\n(C₃)',
+  'NULL_ARITHMETIC\n(C₄)',
+  'JOIN_TYPE\n(C₅)',
+  'GROUP_BOUNDARY\n(C₆)'
+];
+
+const randomData     = [72.5, 78.5, 25.5, 100, 100, 75.0];
+const heuristicData  = [100,  100,  46.0, 100, 100, 100 ];
+const cdaisData      = [100,  100,  100,  100, 100, 100 ];
+
+Chart.register(ChartDataLabels);
+
+const ctx = document.getElementById('detectionChart').getContext('2d');
+
+const chart = new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: labels,
+    datasets: [
+      {
+        label: 'Random Testing',
+        data: randomData,
+        backgroundColor: '#FADBD8',
+        borderColor: '#F1948A',
+        borderWidth: 1.2,
+        borderRadius: 4,
+        barPercentage: 0.82,
+        categoryPercentage: 0.72,
+      },
+      {
+        label: 'Heuristic Testing',
+        data: heuristicData,
+        backgroundColor: '#A9DFBF',
+        borderColor: '#7DCEA0',
+        borderWidth: 1.2,
+        borderRadius: 4,
+        barPercentage: 0.82,
+        categoryPercentage: 0.72,
+      },
+      {
+        label: 'CDAIS (Z3 Witness)',
+        data: cdaisData,
+        backgroundColor: '#AED6F1',
+        borderColor: '#85C1E9',
+        borderWidth: 1.2,
+        borderRadius: 4,
+        barPercentage: 0.82,
+        categoryPercentage: 0.72,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    events: [],
+    hover: { mode: null },
+    animation: { duration: 0 },
+    layout: {
+      padding: { top: 30, right: 20, bottom: 0, left: 10 }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 115,
+        title: {
+          display: true,
+          text: 'Detection Rate (%)',
+          font: { size: 14, family: "'Times New Roman', Georgia, serif" },
+          color: '#333'
+        },
+        ticks: {
+          stepSize: 20,
+          callback: function(value) {
+            return value <= 100 ? value + '%' : '';
+          },
+          font: { size: 12, family: "'Times New Roman', Georgia, serif" },
+          color: '#555'
+        },
+        grid: {
+          color: function(context) {
+            return context.tick.value === 100 ? '#aaa' : '#eee';
+          },
+          lineWidth: function(context) {
+            return context.tick.value === 100 ? 1.5 : 0.7;
+          }
+        },
+        border: { color: '#bbb' }
+      },
+      x: {
+        ticks: {
+          font: { size: 12, family: "'Times New Roman', Georgia, serif", weight: 'bold' },
+          color: '#333',
+          maxRotation: 0,
+          autoSkip: false
+        },
+        grid: { display: false },
+        border: { color: '#bbb' }
+      }
+    },
+    plugins: {
+      legend: { display: false },
+      title: {
+        display: true,
+        text: 'Per-Class Detection Rate: Random vs Heuristic vs CDAIS',
+        font: { size: 16, family: "'Times New Roman', Georgia, serif", weight: 'bold' },
+        color: '#222',
+        padding: { bottom: 16 }
+      },
+      tooltip: { enabled: false },
+      datalabels: {
+        display: true,
+        anchor: 'end',
+        align: 'top',
+        offset: 1,
+        font: function(context) {
+          if (context.datasetIndex === 2) {
+            return { size: 12, family: "'Times New Roman', Georgia, serif", weight: 'bold' };
+          }
+          return { size: 10, family: "'Times New Roman', Georgia, serif" };
+        },
+        color: function(context) {
+          if (context.datasetIndex === 2) return '#5B8CB8';
+          if (context.datasetIndex === 1) return '#27AE60';
+          return '#C0392B';
+        },
+        formatter: function(value, context) {
+          if (context.datasetIndex === 2) {
+            return '★';
+          }
+          if (value === 100) return '';
+          return value + '%';
+        }
+      }
+    }
+  },
+  plugins: [{
+    id: 'sortStableAnnotation',
+    afterDraw: function(chart) {
+      const ctx = chart.ctx;
+      const meta = chart.getDatasetMeta(2);
+      const bar = meta.data[2];
+      if (!bar) return;
+
+      const x = bar.x;
+      const y = bar.y - 22;
+
+      ctx.save();
+      ctx.font = "italic 10px 'Times New Roman', Georgia, serif";
+      ctx.fillStyle = '#E74C3C';
+      ctx.textAlign = 'center';
+      ctx.fillText('17-row override', x, y - 4);
+      ctx.restore();
+    }
+  }]
+});
+</script>
+
+</body>
+</html>

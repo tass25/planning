@@ -4,6 +4,7 @@ import { Circle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { SystemService } from "@/types";
+import { usePageTitle } from "@/lib/hooks";
 
 const statusColors: Record<string, string> = {
   online: "text-success fill-success",
@@ -12,6 +13,7 @@ const statusColors: Record<string, string> = {
 };
 
 export default function SystemHealthPage() {
+  usePageTitle("System Health");
   const [services, setServices] = useState<SystemService[]>([]);
   useEffect(() => { api.get<SystemService[]>("/admin/system-health").then(setServices).catch(() => {}); }, []);
 

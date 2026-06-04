@@ -5,6 +5,7 @@ import { Plus, Edit, RotateCcw, Trash2, X, Save } from "lucide-react";
 import { api } from "@/lib/api";
 import type { KnowledgeBaseEntry } from "@/types";
 import { toast } from "sonner";
+import { usePageTitle } from "@/lib/hooks";
 
 interface KBFormData {
   sasSnippet: string;
@@ -16,6 +17,7 @@ interface KBFormData {
 const EMPTY_FORM: KBFormData = { sasSnippet: "", pythonTranslation: "", category: "", confidence: 0.9 };
 
 export default function KBManagementPage() {
+  usePageTitle("KB Management");
   const [entries, setEntries] = useState<KnowledgeBaseEntry[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);

@@ -3,8 +3,11 @@ import { api } from "@/lib/api";
 import type { KnowledgeBaseEntry } from "@/types";
 import { motion } from "framer-motion";
 import { BookOpen, Search } from "lucide-react";
+import { usePageTitle } from "@/lib/hooks";
+import { EmptyState } from "@/components/EmptyState";
 
 export default function KnowledgeBasePage() {
+  usePageTitle("Knowledge Base");
   const [kbEntries, setKbEntries] = useState<KnowledgeBaseEntry[]>([]);
   const [search, setSearch] = useState("");
   useEffect(() => { api.get<KnowledgeBaseEntry[]>("/kb").then(setKbEntries).catch(() => {}); }, []);
@@ -50,8 +53,11 @@ export default function KnowledgeBasePage() {
             </div>
           </div>
         ))}
-        {filtered.length === 0 && (
-          <div className="text-center py-12 text-sm text-muted-foreground">No patterns found</div>
+        {filtered.length === 0 && kbEntries.length === 0 && (
+          <EmptyState icon={BookOpen} title="Knowledge base is empty" description="Translation patterns will appear here as the pipeline builds its knowledge base from verified conversions." />
+        )}
+        {filtered.length === 0 && kbEntries.length > 0 && (
+          <EmptyState icon={Search} title="No matches" description="No patterns match your search. Try a different keyword." />
         )}
       </div>
     </motion.div>

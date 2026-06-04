@@ -5,7 +5,7 @@ Databases shown: DuckDB, LanceDB, Redis (SQLite excluded).
 Outputs: opens data/db_report.html in the default browser.
 
 Usage (from backend/):
-    C:/Users/labou/Desktop/Stage/venv/Scripts/python scripts/ops/view_db_html.py
+    python scripts/ops/view_db_html.py
 """
 
 from __future__ import annotations

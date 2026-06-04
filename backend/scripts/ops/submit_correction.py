@@ -27,8 +27,8 @@ def main() -> int:
     parser.add_argument("--partition_id", required=True, help="UUID of the partition")
     parser.add_argument("--sas_file", required=True, help="Path to original SAS file/snippet")
     parser.add_argument("--python_file", required=True, help="Path to corrected Python file")
-    parser.add_argument("--db_path", default="data/sas_converter.duckdb", help="DuckDB path")
-    parser.add_argument("--kb_path", default="data/kb_lancedb", help="LanceDB path")
+    parser.add_argument("--db_path", default="", help="DuckDB path")
+    parser.add_argument("--kb_path", default="", help="LanceDB path")
     parser.add_argument("--confidence_threshold", type=float, default=0.85)
 
     args = parser.parse_args()

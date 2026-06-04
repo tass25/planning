@@ -303,7 +303,8 @@ async def main(args: argparse.Namespace) -> None:
     print(f"  Val:   {len(val_examples)} examples → {val_path}")
 
     # DPO pairs
-    dpo_pairs = load_dpo_pairs(os.getenv("SQLITE_PATH", "data/codara_api.db"))
+    from config.constants import SQLITE_PATH as _DEFAULT_SQLITE
+    dpo_pairs = load_dpo_pairs(os.getenv("SQLITE_PATH", _DEFAULT_SQLITE))
     if dpo_pairs:
         dpo_path = output_path.parent / "dpo_train.jsonl"
         with dpo_path.open("w", encoding="utf-8") as f:

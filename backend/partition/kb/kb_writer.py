@@ -57,7 +57,7 @@ class KBWriter:
 
     Usage::
 
-        writer = KBWriter(db_path="data/lancedb")
+        writer = KBWriter()
         writer.insert_pairs(pairs)
         writer.count()           # -> int
         writer.coverage_stats()  # -> {"DATA_STEP_BASIC": 30, ...}
@@ -68,11 +68,12 @@ class KBWriter:
 
     def __init__(
         self,
-        db_path: str = "data/lancedb",
-        duckdb_path: str = "data/analytics.duckdb",
+        db_path: str = "",
+        duckdb_path: str = "",
     ) -> None:
-        self.db = lancedb.connect(db_path)
-        self.duckdb_path = duckdb_path
+        from config.constants import DUCKDB_PATH as _DD, LANCEDB_PATH as _LD
+        self.db = lancedb.connect(db_path or _LD)
+        self.duckdb_path = duckdb_path or _DD
 
     # ── Insert ────────────────────────────────────────────────────────────
 

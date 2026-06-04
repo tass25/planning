@@ -31,6 +31,8 @@ import KBChangelogPage from "./pages/admin/KBChangelog";
 import SettingsPage from "./pages/Settings";
 import ProjectsPage from "./pages/Projects";
 import PromptTemplatesPage from "./pages/admin/PromptTemplates";
+import AdminConversionsPage from "./pages/admin/Conversions";
+import DemoPage from "./pages/Demo";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +61,7 @@ const App = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/demo" element={<DemoPage />} />
 
           {/* App routes with layout */}
           <Route element={<AppLayout />}>
@@ -79,6 +82,7 @@ const App = () => {
             <Route path="/admin/kb-management" element={<KBManagementPage />} />
             <Route path="/admin/kb-changelog" element={<KBChangelogPage />} />
             <Route path="/admin/prompt-templates" element={<PromptTemplatesPage />} />
+            <Route path="/admin/conversions" element={<AdminConversionsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
 

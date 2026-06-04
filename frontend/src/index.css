@@ -459,6 +459,13 @@ canvas.constellation {
 }
 
 @layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
   .glass-panel {
     @apply bg-card/50 backdrop-blur-xl border border-glass-border rounded-xl;
     box-shadow: 0 1px 3px hsl(var(--background) / 0.1);

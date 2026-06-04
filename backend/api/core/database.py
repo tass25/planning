@@ -13,6 +13,7 @@ from sqlalchemy import (
     Text,
     create_engine,
     event,
+    text,
 )
 from sqlalchemy.orm import Session, declarative_base, relationship, sessionmaker
 
@@ -48,6 +49,7 @@ class ConversionRow(ApiBase):
 
     id = Column(String, primary_key=True)
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    file_id = Column(String, nullable=True)
     file_name = Column(String, nullable=False)
     status = Column(String, default="queued")  # queued | running | completed | partial | failed
     runtime = Column(String, default="python")
@@ -189,9 +191,11 @@ class NotificationRow(ApiBase):
 # ── Engine helpers ────────────────────────────────────────────────────────────
 
 
-def get_api_engine(db_path: str = "data/codara_api.db"):
+def get_api_engine(db_path: str = ""):
     from pathlib import Path
 
+    if not db_path:
+        db_path = str(Path(__file__).resolve().parent.parent.parent / "data" / "codara_api.db")
     abs_path = str(Path(db_path).resolve())
     engine = create_engine(f"sqlite:///{abs_path}", echo=False)
 
@@ -207,6 +211,12 @@ def get_api_engine(db_path: str = "data/codara_api.db"):
 
 def init_api_db(engine) -> None:
     ApiBase.metadata.create_all(engine)
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE conversions ADD COLUMN file_id TEXT"))
+            conn.commit()
+        except Exception:
+            pass
 
 
 def get_api_session(engine) -> Session:

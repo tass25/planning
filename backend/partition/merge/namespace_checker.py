@@ -38,7 +38,6 @@ _PRELOADED: frozenset[str] = frozenset(dir(builtins)) | frozenset(
         "np",
         "plt",
         "sns",
-        "spark",
         "F",
         "Window",
         "os",

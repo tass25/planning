@@ -5,6 +5,7 @@ import { FileText, Save, X, Activity, Clock, CheckCircle2, Code2, ChevronDown } 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { PromptTemplate } from "@/types";
+import { usePageTitle } from "@/lib/hooks";
 
 const CATEGORY_COLORS: Record<string, string> = {
   translation: "text-accent bg-accent/10 border-accent/20",
@@ -13,6 +14,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function PromptTemplatesPage() {
+  usePageTitle("Prompt Templates");
   const [templates, setTemplates] = useState<PromptTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);

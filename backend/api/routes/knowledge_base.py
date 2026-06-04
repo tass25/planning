@@ -109,6 +109,7 @@ def create_entry(body: KBEntryCreate, current_user: dict = Depends(get_current_u
             updated_at=now,
         )
         session.add(entry)
+        session.flush()
         _log_change(
             session,
             entry.id,
@@ -119,8 +120,10 @@ def create_entry(body: KBEntryCreate, current_user: dict = Depends(get_current_u
         try:
             session.commit()
             session.refresh(entry)
-        except Exception:
+        except Exception as exc:
             session.rollback()
+            import structlog
+            structlog.get_logger().error("kb_create_failed", error=str(exc))
             raise HTTPException(status_code=500, detail="Failed to create KB entry")
         return _kb_to_out(entry)
     finally:

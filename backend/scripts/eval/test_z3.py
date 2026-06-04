@@ -170,10 +170,7 @@ async def run() -> int:
     print(f"  Blocks: {len(blocks)}")
     print(f"{'=' * 72}{RESET}\n")
 
-    pipeline = TranslationPipeline(
-        target_runtime="python",
-        duckdb_path="data/analytics.duckdb",
-    )
+    pipeline = TranslationPipeline(target_runtime="python")
 
     rows = []
     t_all = time.monotonic()

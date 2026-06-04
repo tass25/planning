@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 2.1 — SAS DATA Step vs Python/pandas Translation</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: #ffffff; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px; }
+  .container { max-width: 960px; width: 100%; }
+  h1 { text-align: center; font-size: 13px; color: #656d76; font-weight: 500; margin-bottom: 24px; letter-spacing: 0.02em; }
+
+  .side-by-side { display: flex; gap: 16px; }
+  .panel { flex: 1; border-radius: 6px; overflow: hidden; border: 1px solid #d0d7de; background: #ffffff; }
+
+  .panel-header {
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f6f8fa;
+    border-bottom: 1px solid #d0d7de;
+    color: #1f2328;
+  }
+  .panel-icon { width: 16px; height: 16px; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; }
+  .panel-sas .panel-icon { background: #cf222e; }
+  .panel-py .panel-icon { background: #1a7f37; }
+  .filename { color: #656d76; font-weight: 400; margin-left: 2px; }
+
+  .code-table { width: 100%; border-collapse: collapse; }
+  .code-table td { padding: 0; vertical-align: top; font-size: 12px; line-height: 20px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; }
+  .line-num {
+    width: 40px;
+    min-width: 40px;
+    padding: 0 8px;
+    text-align: right;
+    color: #8c959f;
+    user-select: none;
+    background: #f6f8fa;
+    border-right: 1px solid #d0d7de;
+  }
+  .line-code { padding: 0 12px; white-space: pre; color: #1f2328; }
+
+  .comment { color: #6e7781; font-style: italic; }
+  .keyword { color: #cf222e; font-weight: 600; }
+  .string { color: #0a3069; }
+  .panel-py .keyword { color: #cf222e; }
+  .panel-py .string { color: #0a3069; }
+  .panel-py .builtin { color: #8250df; }
+
+  .annotation { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+  .ann-item { flex: 1; min-width: 200px; padding: 12px 14px; border-radius: 6px; border: 1px solid #d0d7de; background: #f6f8fa; font-size: 11px; line-height: 1.55; color: #1f2328; }
+  .ann-item code { font-size: 10.5px; background: #eff1f3; padding: 1px 5px; border-radius: 4px; font-family: 'SFMono-Regular', Consolas, monospace; }
+  .ann-title { font-weight: 600; font-size: 12px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+  .ann-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .ann-retain .ann-dot { background: #bf8700; }
+  .ann-firstlast .ann-dot { background: #0969da; }
+  .ann-bygroup .ann-dot { background: #8250df; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Figure 2.1 — SAS DATA Step (RETAIN, FIRST./LAST., BY-group) with Python/pandas Translation</h1>
+  <div class="side-by-side">
+
+    <!-- SAS Panel -->
+    <div class="panel panel-sas">
+      <div class="panel-header">
+        <div class="panel-icon">S</div>
+        running_totals.sas
+      </div>
+      <table class="code-table"><tbody>
+        <tr><td class="line-num">1</td><td class="line-code"><span class="comment">/* Running total with BY-group reset */</span></td></tr>
+        <tr><td class="line-num">2</td><td class="line-code"><span class="keyword">PROC SORT</span> DATA=sales;</td></tr>
+        <tr><td class="line-num">3</td><td class="line-code">  BY customer_id date;</td></tr>
+        <tr><td class="line-num">4</td><td class="line-code"><span class="keyword">RUN</span>;</td></tr>
+        <tr><td class="line-num">5</td><td class="line-code"></td></tr>
+        <tr><td class="line-num">6</td><td class="line-code"><span class="keyword">DATA</span> running_totals;</td></tr>
+        <tr><td class="line-num">7</td><td class="line-code">  <span class="keyword">SET</span> sales;</td></tr>
+        <tr><td class="line-num">8</td><td class="line-code">  <span class="keyword">BY</span> customer_id;</td></tr>
+        <tr><td class="line-num">9</td><td class="line-code"></td></tr>
+        <tr><td class="line-num">10</td><td class="line-code">  <span class="comment">/* RETAIN keeps value across rows */</span></td></tr>
+        <tr><td class="line-num">11</td><td class="line-code">  <span class="keyword">RETAIN</span> running_sum 0;</td></tr>
+        <tr><td class="line-num">12</td><td class="line-code"></td></tr>
+        <tr><td class="line-num">13</td><td class="line-code">  <span class="comment">/* FIRST. resets at group start */</span></td></tr>
+        <tr><td class="line-num">14</td><td class="line-code">  <span class="keyword">IF</span> FIRST.customer_id <span class="keyword">THEN</span></td></tr>
+        <tr><td class="line-num">15</td><td class="line-code">    running_sum = 0;</td></tr>
+        <tr><td class="line-num">16</td><td class="line-code"></td></tr>
+        <tr><td class="line-num">17</td><td class="line-code">  running_sum = running_sum + amount;</td></tr>
+        <tr><td class="line-num">18</td><td class="line-code"></td></tr>
+        <tr><td class="line-num">19</td><td class="line-code">  <span class="comment">/* LAST. marks group end */</span></td></tr>
+        <tr><td class="line-num">20</td><td class="line-code">  <span class="keyword">IF</span> LAST.customer_id <span class="keyword">THEN</span></td></tr>
+        <tr><td class="line-num">21</td><td class="line-code">    OUTPUT;</td></tr>
+        <tr><td class="line-num">22</td><td class="line-code"><span class="keyword">RUN</span>;</td></tr>
+      </tbody></table>
+    </div>
+
+    <!-- Python Panel -->
+    <div class="panel panel-py">
+      <div class="panel-header">
+        <div class="panel-icon">Py</div>
+        running_totals.py
+      </div>
+      <table class="code-table"><tbody>
+        <tr><td class="line-num">1</td><td class="line-code"><span class="comment"># Running total with BY-group reset</span></td></tr>
+        <tr><td class="line-num">2</td><td class="line-code"><span class="keyword">import</span> pandas <span class="keyword">as</span> pd</td></tr>
+        <tr><td class="line-num">3</td><td class="line-code"></td></tr>
+        <tr><td class="line-num">4</td><td class="line-code"><span class="comment"># Sort — equivalent to PROC SORT</span></td></tr>
+        <tr><td class="line-num">5</td><td class="line-code">sales = sales.sort_values(</td></tr>
+        <tr><td class="line-num">6</td><td class="line-code">    [<span class="string">'customer_id'</span>, <span class="string">'date'</span>]</td></tr>
+        <tr><td class="line-num">7</td><td class="line-code">)</td></tr>
+        <tr><td class="line-num">8</td><td class="line-code"></td></tr>
+        <tr><td class="line-num">9</td><td class="line-code"><span class="comment"># RETAIN + FIRST./LAST. → groupby + cumsum</span></td></tr>
+        <tr><td class="line-num">10</td><td class="line-code">sales[<span class="string">'running_sum'</span>] = (</td></tr>
+        <tr><td class="line-num">11</td><td class="line-code">    sales</td></tr>
+        <tr><td class="line-num">12</td><td class="line-code">    .groupby(<span class="string">'customer_id'</span>)[<span class="string">'amount'</span>]</td></tr>
+        <tr><td class="line-num">13</td><td class="line-code">    .cumsum()</td></tr>
+        <tr><td class="line-num">14</td><td class="line-code">)</td></tr>
+        <tr><td class="line-num">15</td><td class="line-code"></td></tr>
+        <tr><td class="line-num">16</td><td class="line-code"><span class="comment"># IF LAST. THEN OUTPUT → keep last row</span></td></tr>
+        <tr><td class="line-num">17</td><td class="line-code">running_totals = (</td></tr>
+        <tr><td class="line-num">18</td><td class="line-code">    sales</td></tr>
+        <tr><td class="line-num">19</td><td class="line-code">    .groupby(<span class="string">'customer_id'</span>)</td></tr>
+        <tr><td class="line-num">20</td><td class="line-code">    .last()</td></tr>
+        <tr><td class="line-num">21</td><td class="line-code">    .reset_index()</td></tr>
+        <tr><td class="line-num">22</td><td class="line-code">)</td></tr>
+      </tbody></table>
+    </div>
+
+  </div>
+
+  <!-- Annotations -->
+  <div class="annotation">
+    <div class="ann-item ann-retain">
+      <div class="ann-title"><div class="ann-dot"></div> RETAIN Challenge</div>
+      SAS RETAIN persists a variable's value across rows , no direct pandas equivalent. Mapped to <code>groupby().cumsum()</code> or explicit loop with state.
+    </div>
+    <div class="ann-item ann-firstlast">
+      <div class="ann-title"><div class="ann-dot"></div> FIRST./LAST. Challenge</div>
+      Implicit boundary flags in SAS BY-group processing. In pandas: <code>groupby().first()</code> / <code>.last()</code> or <code>shift()</code>-based detection.
+    </div>
+    <div class="ann-item ann-bygroup">
+      <div class="ann-title"><div class="ann-dot"></div> BY-group Processing</div>
+      SAS processes data row-by-row with implicit sort contract. pandas is vectorised , the translation must preserve the sequential semantics.
+    </div>
+  </div>
+</div>
+</body>
+</html>

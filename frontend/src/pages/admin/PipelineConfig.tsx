@@ -3,8 +3,10 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import type { PipelineConfig } from "@/types";
+import { usePageTitle } from "@/lib/hooks";
 
 export default function PipelineConfigPage() {
+  usePageTitle("Pipeline Config");
   const [config, setConfig] = useState<PipelineConfig>({ maxRetries: 3, timeout: 300, checkpointInterval: 60 });
   const [saved, setSaved] = useState(false);
 

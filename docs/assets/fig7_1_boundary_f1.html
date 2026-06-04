@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 7.1 — Boundary Detection F1 by Partition Type</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f8f7f4; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px; }
+  .container { max-width: 860px; width: 100%; }
+  h1 { text-align: center; font-size: 14px; color: #6b7280; font-weight: 500; margin-bottom: 32px; letter-spacing: 0.02em; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Figure 7.1 — Boundary Detection F1 Score by Partition Type</h1>
+  <svg width="840" height="480" viewBox="0 0 840 480">
+    <defs>
+      <filter id="s" x="-3%" y="-3%" width="106%" height="112%">
+        <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#00000008"/>
+      </filter>
+    </defs>
+
+    <!-- Y-axis -->
+    <line x1="90" y1="40" x2="90" y2="380" stroke="#d1d5db" stroke-width="1"/>
+    <text x="80" y="45" text-anchor="end" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">1.0</text>
+    <line x1="86" y1="40" x2="90" y2="40" stroke="#d1d5db" stroke-width="1"/>
+    <text x="80" y="108" text-anchor="end" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">0.8</text>
+    <line x1="86" y1="108" x2="800" y2="108" stroke="#f3f4f6" stroke-width="1"/>
+    <text x="80" y="176" text-anchor="end" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">0.6</text>
+    <line x1="86" y1="176" x2="800" y2="176" stroke="#f3f4f6" stroke-width="1"/>
+    <text x="80" y="244" text-anchor="end" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">0.4</text>
+    <line x1="86" y1="244" x2="800" y2="244" stroke="#f3f4f6" stroke-width="1"/>
+    <text x="80" y="312" text-anchor="end" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">0.2</text>
+    <line x1="86" y1="312" x2="800" y2="312" stroke="#f3f4f6" stroke-width="1"/>
+    <text x="80" y="380" text-anchor="end" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">0.0</text>
+    <line x1="90" y1="380" x2="800" y2="380" stroke="#d1d5db" stroke-width="1"/>
+
+    <!-- Y-axis label -->
+    <text x="20" y="210" text-anchor="middle" transform="rotate(-90,20,210)" font-family="Segoe UI, sans-serif" font-size="12" font-weight="600" fill="#6b7280">F1 Score</text>
+
+    <!-- Bar groups — each group has 2 bars: deterministic (blue) and combined (green) -->
+    <!-- DATA Step: det=0.91, comb=0.93 -->
+    <rect x="120" y="71" width="30" height="309" rx="4" fill="#93c5fd" filter="url(#s)"/>
+    <rect x="155" y="64" width="30" height="316" rx="4" fill="#6ee7b7" filter="url(#s)"/>
+    <text x="152" y="56" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" font-weight="600" fill="#6b7280">0.93</text>
+    <text x="135" y="63" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" font-weight="600" fill="#6b7280">0.91</text>
+    <text x="152" y="400" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">DATA</text>
+    <text x="152" y="412" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">Step</text>
+
+    <!-- PROC SQL: det=0.88, comb=0.91 -->
+    <rect x="215" y="81" width="30" height="299" rx="4" fill="#93c5fd" filter="url(#s)"/>
+    <rect x="250" y="71" width="30" height="309" rx="4" fill="#6ee7b7" filter="url(#s)"/>
+    <text x="247" y="63" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" font-weight="600" fill="#6b7280">0.91</text>
+    <text x="230" y="73" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" font-weight="600" fill="#6b7280">0.88</text>
+    <text x="247" y="400" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">PROC</text>
+    <text x="247" y="412" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">SQL</text>
+
+    <!-- PROC MEANS: det=0.90, comb=0.92 -->
+    <rect x="310" y="74" width="30" height="306" rx="4" fill="#93c5fd" filter="url(#s)"/>
+    <rect x="345" y="67" width="30" height="313" rx="4" fill="#6ee7b7" filter="url(#s)"/>
+    <text x="342" y="59" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" font-weight="600" fill="#6b7280">0.92</text>
+    <text x="325" y="66" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" font-weight="600" fill="#6b7280">0.90</text>
+    <text x="342" y="400" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">PROC</text>
+    <text x="342" y="412" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">MEANS</text>
+
+    <!-- DO Loop: det=0.85, comb=0.89 -->
+    <rect x="405" y="91" width="30" height="289" rx="4" fill="#93c5fd" filter="url(#s)"/>
+    <rect x="440" y="78" width="30" height="302" rx="4" fill="#6ee7b7" filter="url(#s)"/>
+    <text x="437" y="70" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" font-weight="600" fill="#6b7280">0.89</text>
+    <text x="420" y="83" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" font-weight="600" fill="#6b7280">0.85</text>
+    <text x="437" y="400" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">DO</text>
+    <text x="437" y="412" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">Loop</text>
+
+    <!-- Hash: det=0.78, comb=0.85 -->
+    <rect x="500" y="115" width="30" height="265" rx="4" fill="#93c5fd" filter="url(#s)"/>
+    <rect x="535" y="91" width="30" height="289" rx="4" fill="#6ee7b7" filter="url(#s)"/>
+    <text x="532" y="83" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" font-weight="600" fill="#6b7280">0.85</text>
+    <text x="515" y="107" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" font-weight="600" fill="#6b7280">0.78</text>
+    <text x="532" y="400" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">Hash</text>
+    <text x="532" y="412" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">Object</text>
+
+    <!-- Include: det=0.82, comb=0.88 -->
+    <rect x="595" y="102" width="30" height="278" rx="4" fill="#93c5fd" filter="url(#s)"/>
+    <rect x="630" y="84" width="30" height="296" rx="4" fill="#6ee7b7" filter="url(#s)"/>
+    <text x="627" y="76" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" font-weight="600" fill="#6b7280">0.88</text>
+    <text x="610" y="94" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" font-weight="600" fill="#6b7280">0.82</text>
+    <text x="627" y="400" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">%INC-</text>
+    <text x="627" y="412" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">LUDE</text>
+
+    <!-- Macro: det=0.52, comb=0.64 -->
+    <rect x="690" y="204" width="30" height="176" rx="4" fill="#93c5fd" filter="url(#s)"/>
+    <rect x="725" y="163" width="30" height="217" rx="4" fill="#6ee7b7" filter="url(#s)"/>
+    <text x="722" y="155" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" font-weight="600" fill="#6b7280">0.64</text>
+    <text x="705" y="196" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" font-weight="600" fill="#6b7280">0.52</text>
+    <text x="722" y="400" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">Macro</text>
+
+    <!-- Target line at 0.90 -->
+    <line x1="90" y1="40" x2="800" y2="40" stroke="#ef4444" stroke-width="1" stroke-dasharray="6,3"/>
+    <text x="805" y="44" font-family="Segoe UI, sans-serif" font-size="9" fill="#ef4444">target</text>
+
+    <!-- Legend -->
+    <rect x="250" y="435" width="340" height="36" rx="8" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+    <rect x="265" y="448" width="14" height="14" rx="3" fill="#93c5fd"/>
+    <text x="284" y="459" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">Deterministic only</text>
+    <rect x="410" y="448" width="14" height="14" rx="3" fill="#6ee7b7"/>
+    <text x="429" y="459" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">Combined (det + LLM fallback)</text>
+  </svg>
+</div>
+</body>
+</html>

@@ -9,6 +9,7 @@ node_modules
 frontend
 docs
 planning
+notebooks
 *.md
 *.tex
 *.html
@@ -19,9 +20,35 @@ __pycache__
 htmlcov
 coverage.xml
 test-results.xml
+
+# Runtime data (mounted as volumes)
 backend/data
 backend/output
 backend/uploads
-backend/tests
 backend/logs
 lancedb_data
+
+# Tests & benchmarks
+backend/tests
+backend/benchmark
+
+# Demo / sample files
+backend/examples
+
+# Research / evaluation scripts (not needed at runtime)
+backend/scripts/ablation
+backend/scripts/eval
+backend/scripts/kb/build_dataset.py
+backend/scripts/kb/expand_kb.py
+backend/scripts/kb/fine_tune_embedder.py
+backend/scripts/kb/generate_kb_pairs.py
+backend/scripts/kb/import_teammate_kb.py
+backend/scripts/kb/ingest_custom_pairs.py
+backend/scripts/kb/kb_rollback.py
+backend/scripts/ops/verify_deliverables.py
+backend/scripts/ops/view_db_html.py
+backend/scripts/verify_groq_keys.py
+
+# Knowledge base research data (gold standard, benchmarks, generated pairs)
+# Runtime seed data is in seed_kb.py — no JSON files needed
+backend/knowledge_base

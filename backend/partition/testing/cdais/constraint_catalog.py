@@ -200,16 +200,19 @@ class SortStableError(ErrorClass):
     PROC SORT is always stable: equal-key rows preserve original order.
     Unstable sort may swap equal-key rows.
 
-    Encoding:
-      Two rows with equal primary key k1 == k2.
-      Different secondary values s1 ≠ s2.
-      Original order: row 0 before row 1.
-      Stable sort: row 0 still before row 1 (order preserved).
-      Unstable sort: either order permitted (non-deterministic).
-      Witness: k1 == k2  AND  s1 ≠ s2  (minimal: s1=1, s2=2, key=1)
+    Encoding (minimality override):
+      N rows (N=17) sharing the same primary key, each with a distinct
+      secondary value.  numpy's introsort uses insertion sort (stable) for
+      arrays of 16 or fewer elements and switches to quicksort (unstable)
+      at 17+.  The override to N=17 is the true minimum at which the bug
+      manifests in pandas/numpy (verified: numpy 1.26, pandas 2.3).
+
+    Previous 2-row encoding produced a vacuously correct witness because
+    introsort on <=16 equal-key elements always preserves insertion order.
     """
 
     name = "SORT_STABLE"
+    SORT_MIN_ROWS = 17
     description = (
         "PROC SORT is always stable. sort_values() without kind='mergesort' "
         "may produce wrong order for equal-key rows."
@@ -221,29 +224,24 @@ class SortStableError(ErrorClass):
     def encode(self, solver: Any, cfg: ConstraintConfig) -> EncodedConstraints:
         import z3
 
-        key1 = z3.Int("sort_key1")
-        key2 = z3.Int("sort_key2")
-        sec1 = z3.Int("sort_sec1")
-        sec2 = z3.Int("sort_sec2")
-
+        N = self.SORT_MIN_ROWS
         lo = z3.IntVal(cfg.value_min)
         hi = z3.IntVal(cfg.value_max)
 
-        for v in (key1, key2, sec1, sec2):
-            solver.add(v >= lo, v <= hi)
+        key = z3.Int("sort_key")
+        solver.add(key >= lo, key <= hi)
 
-        # Equal primary keys, distinct secondary values
-        solver.add(key1 == key2)
-        solver.add(sec1 != sec2)
+        secs = [z3.Int(f"sort_sec_{i}") for i in range(N)]
+        for s in secs:
+            solver.add(s >= lo, s <= hi)
 
-        sym_vars = {
-            "sort_key1": key1,
-            "sort_key2": key2,
-            "sort_sec1": sec1,
-            "sort_sec2": sec2,
-        }
+        # Strict ordering implies distinct and is trivially solvable
+        for i in range(N - 1):
+            solver.add(secs[i] < secs[i + 1])
+
+        sym_vars = {"sort_key": key, **{f"sort_sec_{i}": secs[i] for i in range(N)}}
         return EncodedConstraints(
-            sym_vars=sym_vars, n_groups=1, n_rows_per_group=2, error_class=self.name
+            sym_vars=sym_vars, n_groups=1, n_rows_per_group=N, error_class=self.name
         )
 
 

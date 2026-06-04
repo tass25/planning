@@ -1,5 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import api, { isAuthenticated, getAuthVersion } from "./api";
+
+// ── Page title hook ────────────────────────────────────────────────────────
+
+export function usePageTitle(title: string) {
+  useEffect(() => {
+    const prev = document.title;
+    document.title = title ? `Codara — ${title}` : "Codara";
+    return () => { document.title = prev; };
+  }, [title]);
+}
 
 // ── Generic fetch hook ──────────────────────────────────────────────────────
 

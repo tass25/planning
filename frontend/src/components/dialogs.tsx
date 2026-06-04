@@ -93,7 +93,6 @@ function NewProjectDialog({ open, onClose, onCreated }) {
             {[
               { v: "python", l: "Python · pandas" },
               { v: "polars", l: "Python · polars" },
-              { v: "spark", l: "PySpark" },
             ].map(o => (
               <button key={o.v} aria-selected={target === o.v}
                       onClick={() => setTarget(o.v)}

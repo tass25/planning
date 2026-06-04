@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 4.3 — Multi-Store Data Architecture</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f8f7f4; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px; }
+  .container { max-width: 900px; width: 100%; }
+  h1 { text-align: center; font-size: 14px; color: #6b7280; font-weight: 500; margin-bottom: 32px; letter-spacing: 0.02em; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Figure 4.3 — Multi-Store Data Architecture</h1>
+  <svg width="880" height="480" viewBox="0 0 880 480">
+    <defs>
+      <filter id="s" x="-3%" y="-3%" width="106%" height="112%">
+        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#00000010"/>
+      </filter>
+      <marker id="arr" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8"/>
+      </marker>
+    </defs>
+
+    <!-- Title bar -->
+    <rect x="240" y="15" width="400" height="36" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="440" y="38" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700" fill="#1e40af">5 Specialized Data Stores — Polyglot Persistence</text>
+
+    <!-- Store 1: SQLite -->
+    <rect x="30" y="80" width="250" height="160" rx="16" fill="#dbeafe" stroke="#93c5fd" stroke-width="2" filter="url(#s)"/>
+    <rect x="30" y="80" width="250" height="36" rx="16" fill="#93c5fd"/>
+    <rect x="30" y="100" width="250" height="16" fill="#93c5fd"/>
+    <text x="155" y="104" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700" fill="white">SQLite</text>
+    <text x="155" y="140" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#1e40af">Operational / API Database</text>
+    <text x="50" y="162" font-family="Segoe UI, sans-serif" font-size="10" fill="#3b82f6">• users, conversions, stages</text>
+    <text x="50" y="178" font-family="Segoe UI, sans-serif" font-size="10" fill="#3b82f6">• kb_entries, corrections</text>
+    <text x="50" y="194" font-family="Segoe UI, sans-serif" font-size="10" fill="#3b82f6">• audit_logs, notifications</text>
+    <text x="50" y="214" font-family="Segoe UI, sans-serif" font-size="9" fill="#60a5fa">WAL mode • FK enforced • ISO dates</text>
+    <text x="50" y="230" font-family="Segoe UI, sans-serif" font-size="9" fill="#60a5fa">codara_api.db</text>
+
+    <!-- Store 2: LanceDB -->
+    <rect x="310" y="80" width="250" height="160" rx="16" fill="#d1fae5" stroke="#6ee7b7" stroke-width="2" filter="url(#s)"/>
+    <rect x="310" y="80" width="250" height="36" rx="16" fill="#6ee7b7"/>
+    <rect x="310" y="100" width="250" height="16" fill="#6ee7b7"/>
+    <text x="435" y="104" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700" fill="white">LanceDB</text>
+    <text x="435" y="140" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#065f46">Vector Knowledge Base</text>
+    <text x="330" y="162" font-family="Segoe UI, sans-serif" font-size="10" fill="#059669">• sas_python_examples table</text>
+    <text x="330" y="178" font-family="Segoe UI, sans-serif" font-size="10" fill="#059669">• 768-dim Nomic embeddings</text>
+    <text x="330" y="194" font-family="Segoe UI, sans-serif" font-size="10" fill="#059669">• 330 verified pairs</text>
+    <text x="330" y="214" font-family="Segoe UI, sans-serif" font-size="9" fill="#10b981">IVF index • cosine similarity</text>
+    <text x="330" y="230" font-family="Segoe UI, sans-serif" font-size="9" fill="#10b981">lancedb_data/</text>
+
+    <!-- Store 3: DuckDB -->
+    <rect x="590" y="80" width="250" height="160" rx="16" fill="#fef3c7" stroke="#fcd34d" stroke-width="2" filter="url(#s)"/>
+    <rect x="590" y="80" width="250" height="36" rx="16" fill="#fcd34d"/>
+    <rect x="590" y="100" width="250" height="16" fill="#fcd34d"/>
+    <text x="715" y="104" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700" fill="white">DuckDB</text>
+    <text x="715" y="140" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#92400e">Analytical / Audit Store</text>
+    <text x="610" y="162" font-family="Segoe UI, sans-serif" font-size="10" fill="#b45309">• conversion_results</text>
+    <text x="610" y="178" font-family="Segoe UI, sans-serif" font-size="10" fill="#b45309">• llm_calls (audit log)</text>
+    <text x="610" y="194" font-family="Segoe UI, sans-serif" font-size="10" fill="#b45309">• kb_changelog</text>
+    <text x="610" y="214" font-family="Segoe UI, sans-serif" font-size="9" fill="#d97706">Columnar analytics • aggregate queries</text>
+    <text x="610" y="230" font-family="Segoe UI, sans-serif" font-size="9" fill="#d97706">analytics.duckdb</text>
+
+    <!-- Store 4: Redis -->
+    <rect x="110" y="290" width="250" height="160" rx="16" fill="#fce7f3" stroke="#f9a8d4" stroke-width="2" filter="url(#s)"/>
+    <rect x="110" y="290" width="250" height="36" rx="16" fill="#f9a8d4"/>
+    <rect x="110" y="310" width="250" height="16" fill="#f9a8d4"/>
+    <text x="235" y="314" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700" fill="white">Redis</text>
+    <text x="235" y="348" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#9d174d">Pipeline Checkpoints</text>
+    <text x="130" y="370" font-family="Segoe UI, sans-serif" font-size="10" fill="#be185d">• Save every 50 blocks</text>
+    <text x="130" y="386" font-family="Segoe UI, sans-serif" font-size="10" fill="#be185d">• Pipeline state snapshots</text>
+    <text x="130" y="402" font-family="Segoe UI, sans-serif" font-size="10" fill="#be185d">• Resume after failure</text>
+    <text x="130" y="422" font-family="Segoe UI, sans-serif" font-size="9" fill="#db2777">In-memory • redis:7-alpine</text>
+    <text x="130" y="438" font-family="Segoe UI, sans-serif" font-size="9" fill="#db2777">Graceful degradation if unavailable</text>
+
+    <!-- Store 5: Azure Blob/Queue -->
+    <rect x="500" y="290" width="280" height="160" rx="16" fill="#e0e7ff" stroke="#a5b4fc" stroke-width="2" filter="url(#s)"/>
+    <rect x="500" y="290" width="280" height="36" rx="16" fill="#a5b4fc"/>
+    <rect x="500" y="310" width="280" height="16" fill="#a5b4fc"/>
+    <text x="640" y="314" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700" fill="white">Azure Blob + Queue</text>
+    <text x="640" y="348" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#4338ca">Cloud I/O (Production)</text>
+    <text x="520" y="370" font-family="Segoe UI, sans-serif" font-size="10" fill="#6366f1">• Azure Blob Storage — file persistence</text>
+    <text x="520" y="386" font-family="Segoe UI, sans-serif" font-size="10" fill="#6366f1">• Azure Queue — async task dispatch</text>
+    <text x="520" y="402" font-family="Segoe UI, sans-serif" font-size="10" fill="#6366f1">• Container Registry — Docker images</text>
+    <text x="520" y="422" font-family="Segoe UI, sans-serif" font-size="9" fill="#818cf8">Optional — local dev uses filesystem</text>
+    <text x="520" y="438" font-family="Segoe UI, sans-serif" font-size="9" fill="#818cf8">Enabled via env vars in production</text>
+
+    <!-- Connecting lines from pipeline label -->
+    <rect x="330" y="255" width="220" height="28" rx="8" fill="white" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="440" y="274" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#374151">LangGraph Pipeline reads/writes all</text>
+  </svg>
+</div>
+</body>
+</html>

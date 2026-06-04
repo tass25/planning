@@ -64,6 +64,8 @@ _ALLOWED_CONTENT_TYPES = frozenset(
         "text/plain",
         "application/octet-stream",
         "application/x-sas",
+        "application/zip",
+        "application/x-zip-compressed",
         "",  # browsers sometimes omit content-type
     }
 )
@@ -72,39 +74,61 @@ _ALLOWED_CONTENT_TYPES = frozenset(
 # ── Upload ────────────────────────────────────────────────────────────────────
 
 
+async def _save_sas_file(filename: str, content: bytes) -> SasFileOut:
+    """Save a single .sas file and return its metadata."""
+    file_id = f"file-{uuid.uuid4().hex[:8]}"
+    await blob_service.upload(file_id, filename, content)
+    return SasFileOut(
+        id=file_id,
+        name=filename,
+        size=len(content),
+        modules=[],
+        estimatedComplexity="low",
+        uploadedAt=datetime.now(timezone.utc).isoformat(),
+    )
+
+
 @router.post("/upload", response_model=list[SasFileOut])
 async def upload_files(
     files: list[UploadFile] = File(...),
     current_user: dict = Depends(get_current_user),
 ):
+    import zipfile
+    import io
+
     results: list[SasFileOut] = []
     for f in files:
-        if not f.filename or not f.filename.lower().endswith(".sas"):
-            raise HTTPException(status_code=400, detail=f"Only .sas files accepted: {f.filename}")
-        mime = (f.content_type or "").split(";")[0].strip().lower()
-        if mime not in _ALLOWED_CONTENT_TYPES:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid MIME type '{mime}' for {f.filename}. Expected text/plain or application/octet-stream.",
-            )
-        file_id = f"file-{uuid.uuid4().hex[:8]}"
+        if not f.filename:
+            raise HTTPException(status_code=400, detail="Missing filename")
+
         content = await f.read()
         if len(content) > _MAX_UPLOAD_BYTES:
             raise HTTPException(
                 status_code=413,
                 detail=f"File {f.filename} exceeds maximum upload size of 50 MB.",
             )
-        await blob_service.upload(file_id, f.filename, content)
-        results.append(
-            SasFileOut(
-                id=file_id,
-                name=f.filename,
-                size=len(content),
-                modules=[],
-                estimatedComplexity="low",
-                uploadedAt=datetime.now(timezone.utc).isoformat(),
-            )
-        )
+
+        lower_name = f.filename.lower()
+
+        if lower_name.endswith(".zip"):
+            try:
+                with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                    sas_names = [n for n in zf.namelist() if n.lower().endswith(".sas") and not n.startswith("__MACOSX")]
+                    if not sas_names:
+                        raise HTTPException(status_code=400, detail=f"No .sas files found inside {f.filename}")
+                    for sas_name in sas_names:
+                        sas_content = zf.read(sas_name)
+                        basename = sas_name.rsplit("/", 1)[-1]
+                        results.append(await _save_sas_file(basename, sas_content))
+            except zipfile.BadZipFile:
+                raise HTTPException(status_code=400, detail=f"{f.filename} is not a valid ZIP file")
+
+        elif lower_name.endswith(".sas"):
+            results.append(await _save_sas_file(f.filename, content))
+
+        else:
+            raise HTTPException(status_code=400, detail=f"Only .sas and .zip files accepted: {f.filename}")
+
     return results
 
 
@@ -138,6 +162,7 @@ async def start_conversion(
         conv = ConversionRow(
             id=conv_id,
             user_id=current_user["sub"],
+            file_id=file_id,
             file_name=filename,
             status="queued",
             runtime="python",
@@ -243,7 +268,7 @@ def download_code(conversion_id: str, current_user: dict = Depends(get_current_u
 
 @router.get("/{conversion_id}/partitions", response_model=list[PartitionOut])
 def get_partitions(conversion_id: str, current_user: dict = Depends(get_current_user)):
-    """Get partitions from the pipeline DB for this conversion."""
+    """Get partitions from the file_registry DB for this conversion."""
     from api.main import engine as _engine
 
     _s = get_api_session(_engine)
@@ -252,24 +277,18 @@ def get_partitions(conversion_id: str, current_user: dict = Depends(get_current_
         if not _conv:
             raise HTTPException(status_code=404, detail="Conversion not found")
         _assert_owner(_conv, current_user)
+        conv_file_id = getattr(_conv, "file_id", None)
     finally:
         _s.close()
 
-    # Sanitize conversion_id before using in path (prevent path traversal)
-    safe_id = re.sub(r"[^a-zA-Z0-9\-]", "", conversion_id)
-    upload_base = UPLOAD_DIR.resolve()
-    pipeline_db = (upload_base / f"{safe_id}_pipeline.db").resolve()
-    try:
-        pipeline_db.relative_to(upload_base)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid conversion ID")
-    if not pipeline_db.exists():
+    if not conv_file_id:
         return []
 
     try:
+        from config.constants import FILE_REGISTRY_PATH
         from partition.db.sqlite_manager import PartitionIRRow, get_engine
 
-        pe = get_engine(str(pipeline_db))
+        pe = get_engine(FILE_REGISTRY_PATH)
         from sqlalchemy.orm import sessionmaker
 
         ps = sessionmaker(bind=pe)()
@@ -278,7 +297,9 @@ def get_partitions(conversion_id: str, current_user: dict = Depends(get_current_
         return []
 
     try:
-        rows = ps.query(PartitionIRRow).all()
+        rows = ps.query(PartitionIRRow).filter(
+            PartitionIRRow.source_file_id == conv_file_id
+        ).all()
         return [
             PartitionOut(
                 id=r.partition_id,
@@ -324,7 +345,8 @@ def _run_feedback_ingestion(
         from partition.translation.translation_agent import invalidate_translation_cache
 
         embedder = get_embedder()
-        db = lancedb.connect("data/lancedb")
+        from config.constants import LANCEDB_PATH
+        db = lancedb.connect(LANCEDB_PATH)
         table_name = KBWriter.TABLE_NAME
 
         if table_name in db.table_names():
@@ -495,7 +517,7 @@ def download_py(conversion_id: str, current_user: dict = Depends(get_current_use
         return StreamingResponse(
             io.BytesIO(code.encode("utf-8")),
             media_type="text/x-python",
-            headers={"Content-Disposition": f"attachment; filename={filename}"},
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
     finally:
         session.close()
@@ -549,7 +571,7 @@ def download_md(conversion_id: str, current_user: dict = Depends(get_current_use
         return StreamingResponse(
             io.BytesIO(md.encode("utf-8")),
             media_type="text/markdown",
-            headers={"Content-Disposition": f"attachment; filename={filename}"},
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
     finally:
         session.close()
@@ -636,7 +658,7 @@ td pre{{background:#f8f8f8;padding:6px 8px;border-radius:4px;font-size:0.8rem;ma
             conv.file_name.replace(".sas", "_report.html") if conv.file_name else "report.html"
         )
         return HTMLResponse(
-            content=html, headers={"Content-Disposition": f"attachment; filename={filename}"}
+            content=html, headers={"Content-Disposition": f'attachment; filename="{filename}"'}
         )
     finally:
         session.close()
@@ -679,7 +701,7 @@ def download_zip(conversion_id: str, current_user: dict = Depends(get_current_us
         return StreamingResponse(
             buf,
             media_type="application/zip",
-            headers={"Content-Disposition": f"attachment; filename={base}_bundle.zip"},
+            headers={"Content-Disposition": f'attachment; filename="{base}_bundle.zip"'},
         )
     finally:
         session.close()

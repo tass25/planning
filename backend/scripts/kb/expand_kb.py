@@ -52,8 +52,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Expand KB to target pair count.")
     parser.add_argument("--target", type=int, default=330, help="Target pair count")
     parser.add_argument("--batch_size", type=int, default=10, help="Pairs per batch")
-    parser.add_argument("--kb_path", default="data/kb_lancedb", help="LanceDB path")
-    parser.add_argument("--db_path", default="data/sas_converter.duckdb", help="DuckDB path")
+    parser.add_argument("--kb_path", default="", help="LanceDB path")
+    parser.add_argument("--db_path", default="", help="DuckDB path")
     parser.add_argument("--dry_run", action="store_true", help="Show plan without generating")
 
     args = parser.parse_args()

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 6.6 — Three-Aesthetic Theme System</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f8f7f4; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px; }
+  .container { max-width: 980px; width: 100%; }
+  h1 { text-align: center; font-size: 14px; color: #6b7280; font-weight: 500; margin-bottom: 32px; letter-spacing: 0.02em; }
+  .themes { display: flex; gap: 20px; }
+  .theme-card { flex: 1; border-radius: 16px; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.12); }
+  .theme-label { text-align: center; font-size: 12px; font-weight: 600; margin-bottom: 8px; color: #6b7280; }
+
+  /* Aurora */
+  .aurora { background: #1a1528; border: 2px solid #3d2e5c; }
+  .aurora .t-bar { background: #12101e; padding: 8px 12px; display: flex; gap: 5px; }
+  .aurora .t-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .aurora .t-body { padding: 16px; }
+  .aurora .t-title { color: #fbbf24; font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+  .aurora .t-subtitle { color: #c4b5fd; font-size: 10px; margin-bottom: 16px; }
+  .aurora .t-card { background: #231e38; border-radius: 10px; padding: 12px; margin-bottom: 10px; border: 1px solid #3d2e5c; }
+  .aurora .t-card-label { font-size: 9px; color: #a78bfa; text-transform: uppercase; letter-spacing: 0.06em; }
+  .aurora .t-card-value { font-size: 16px; font-weight: 800; color: #fbbf24; margin-top: 2px; }
+  .aurora .t-btn { background: linear-gradient(135deg, #fbbf24, #c084fc); color: #1a1528; border: none; padding: 6px 16px; border-radius: 8px; font-size: 10px; font-weight: 700; width: 100%; cursor: pointer; }
+  .aurora .t-accent { width: 100%; height: 3px; background: linear-gradient(90deg, #fbbf24, #c084fc); border-radius: 2px; margin: 10px 0; }
+  .aurora .t-nav { display: flex; gap: 6px; margin-bottom: 12px; }
+  .aurora .t-nav-item { padding: 4px 10px; border-radius: 6px; font-size: 9px; color: #9ca3af; }
+  .aurora .t-nav-item.active { background: #3d2e5c; color: #c4b5fd; }
+
+  /* Editorial */
+  .editorial { background: #1b2420; border: 2px solid #2d4a3c; }
+  .editorial .t-bar { background: #141e1a; padding: 8px 12px; display: flex; gap: 5px; }
+  .editorial .t-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .editorial .t-body { padding: 16px; }
+  .editorial .t-title { color: #86efac; font-size: 14px; font-weight: 700; margin-bottom: 8px; font-family: 'Georgia', serif; }
+  .editorial .t-subtitle { color: #d8b4fe; font-size: 10px; margin-bottom: 16px; font-family: 'Georgia', serif; }
+  .editorial .t-card { background: #1e2d26; border-radius: 10px; padding: 12px; margin-bottom: 10px; border: 1px solid #2d4a3c; }
+  .editorial .t-card-label { font-size: 9px; color: #86efac; text-transform: uppercase; letter-spacing: 0.06em; font-family: 'Georgia', serif; }
+  .editorial .t-card-value { font-size: 16px; font-weight: 800; color: #d8b4fe; margin-top: 2px; }
+  .editorial .t-btn { background: linear-gradient(135deg, #86efac, #d8b4fe); color: #1b2420; border: none; padding: 6px 16px; border-radius: 8px; font-size: 10px; font-weight: 700; width: 100%; cursor: pointer; font-family: 'Georgia', serif; }
+  .editorial .t-accent { width: 100%; height: 3px; background: linear-gradient(90deg, #86efac, #d8b4fe); border-radius: 2px; margin: 10px 0; }
+  .editorial .t-nav { display: flex; gap: 6px; margin-bottom: 12px; }
+  .editorial .t-nav-item { padding: 4px 10px; border-radius: 6px; font-size: 9px; color: #9ca3af; font-family: 'Georgia', serif; }
+  .editorial .t-nav-item.active { background: #2d4a3c; color: #86efac; }
+
+  /* Slate */
+  .slate { background: #171c24; border: 2px solid #2d3a4c; }
+  .slate .t-bar { background: #10141a; padding: 8px 12px; display: flex; gap: 5px; }
+  .slate .t-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .slate .t-body { padding: 16px; font-family: 'Cascadia Code', 'Fira Code', monospace; }
+  .slate .t-title { color: #7dd3fc; font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+  .slate .t-subtitle { color: #5eead4; font-size: 10px; margin-bottom: 16px; }
+  .slate .t-card { background: #1c2433; border-radius: 10px; padding: 12px; margin-bottom: 10px; border: 1px solid #2d3a4c; }
+  .slate .t-card-label { font-size: 9px; color: #7dd3fc; text-transform: uppercase; letter-spacing: 0.06em; }
+  .slate .t-card-value { font-size: 16px; font-weight: 800; color: #5eead4; margin-top: 2px; }
+  .slate .t-btn { background: linear-gradient(135deg, #7dd3fc, #5eead4); color: #171c24; border: none; padding: 6px 16px; border-radius: 8px; font-size: 10px; font-weight: 700; width: 100%; cursor: pointer; }
+  .slate .t-accent { width: 100%; height: 3px; background: linear-gradient(90deg, #7dd3fc, #5eead4); border-radius: 2px; margin: 10px 0; }
+  .slate .t-nav { display: flex; gap: 6px; margin-bottom: 12px; }
+  .slate .t-nav-item { padding: 4px 10px; border-radius: 6px; font-size: 9px; color: #9ca3af; }
+  .slate .t-nav-item.active { background: #2d3a4c; color: #7dd3fc; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Figure 6.6 — Three-Aesthetic Theme System (Dark Mode)</h1>
+  <div class="themes">
+    <!-- Aurora -->
+    <div>
+      <div class="theme-label">Aurora — Amber + Lavender</div>
+      <div class="theme-card aurora">
+        <div class="t-bar">
+          <div class="t-dot" style="background:#ff5f57"></div>
+          <div class="t-dot" style="background:#febc2e"></div>
+          <div class="t-dot" style="background:#28c840"></div>
+        </div>
+        <div class="t-body">
+          <div class="t-nav">
+            <div class="t-nav-item active">Dashboard</div>
+            <div class="t-nav-item">Workspace</div>
+            <div class="t-nav-item">KB</div>
+          </div>
+          <div class="t-title">codara</div>
+          <div class="t-subtitle">SAS → Python Conversion</div>
+          <div class="t-accent"></div>
+          <div class="t-card">
+            <div class="t-card-label">Accuracy</div>
+            <div class="t-card-value">96.2%</div>
+          </div>
+          <div class="t-card">
+            <div class="t-card-label">Status</div>
+            <div class="t-card-value" style="color: #c084fc; font-size: 13px;">Completed</div>
+          </div>
+          <button class="t-btn">View Conversion</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Editorial -->
+    <div>
+      <div class="theme-label">Editorial — Sage + Plum, Serif</div>
+      <div class="theme-card editorial">
+        <div class="t-bar">
+          <div class="t-dot" style="background:#ff5f57"></div>
+          <div class="t-dot" style="background:#febc2e"></div>
+          <div class="t-dot" style="background:#28c840"></div>
+        </div>
+        <div class="t-body">
+          <div class="t-nav">
+            <div class="t-nav-item active">Dashboard</div>
+            <div class="t-nav-item">Workspace</div>
+            <div class="t-nav-item">KB</div>
+          </div>
+          <div class="t-title">codara</div>
+          <div class="t-subtitle">SAS → Python Conversion</div>
+          <div class="t-accent"></div>
+          <div class="t-card">
+            <div class="t-card-label">Accuracy</div>
+            <div class="t-card-value">96.2%</div>
+          </div>
+          <div class="t-card">
+            <div class="t-card-label">Status</div>
+            <div class="t-card-value" style="color: #d8b4fe; font-size: 13px;">Completed</div>
+          </div>
+          <button class="t-btn">View Conversion</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slate -->
+    <div>
+      <div class="theme-label">Slate — Blue-steel + Teal, Monospace</div>
+      <div class="theme-card slate">
+        <div class="t-bar">
+          <div class="t-dot" style="background:#ff5f57"></div>
+          <div class="t-dot" style="background:#febc2e"></div>
+          <div class="t-dot" style="background:#28c840"></div>
+        </div>
+        <div class="t-body">
+          <div class="t-nav">
+            <div class="t-nav-item active">Dashboard</div>
+            <div class="t-nav-item">Workspace</div>
+            <div class="t-nav-item">KB</div>
+          </div>
+          <div class="t-title">codara</div>
+          <div class="t-subtitle">SAS → Python Conversion</div>
+          <div class="t-accent"></div>
+          <div class="t-card">
+            <div class="t-card-label">Accuracy</div>
+            <div class="t-card-value">96.2%</div>
+          </div>
+          <div class="t-card">
+            <div class="t-card-label">Status</div>
+            <div class="t-card-value" style="color: #5eead4; font-size: 13px;">Completed</div>
+          </div>
+          <button class="t-btn">View Conversion</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

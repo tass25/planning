@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 5.2 — LLM Fallback Chain with Circuit Breakers (Implementation)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f8f7f4; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px; }
+  .container { max-width: 920px; width: 100%; }
+  h1 { text-align: center; font-size: 14px; color: #6b7280; font-weight: 500; margin-bottom: 32px; letter-spacing: 0.02em; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Figure 5.2 — LLM Fallback Chain with Circuit Breakers (Implementation Detail)</h1>
+  <svg width="900" height="480" viewBox="0 0 900 480">
+    <defs>
+      <filter id="s" x="-3%" y="-3%" width="106%" height="112%">
+        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#00000010"/>
+      </filter>
+      <marker id="arr" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8"/>
+      </marker>
+      <marker id="arrG" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#10b981"/>
+      </marker>
+      <marker id="arrR" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444"/>
+      </marker>
+    </defs>
+
+    <!-- Waterfall visualization -->
+    <!-- Provider 1: Azure -->
+    <rect x="40" y="40" width="260" height="120" rx="14" fill="#dbeafe" stroke="#93c5fd" stroke-width="2" filter="url(#s)"/>
+    <text x="170" y="68" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="15" font-weight="700" fill="#1e40af">Azure GPT-4o</text>
+    <text x="170" y="86" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#3b82f6">PRIMARY PROVIDER</text>
+
+    <!-- CB box -->
+    <rect x="60" y="100" width="100" height="44" rx="8" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="110" y="118" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#1e40af">Circuit Breaker</text>
+    <text x="110" y="134" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#3b82f6">5 fails → 60s open</text>
+
+    <!-- RL box -->
+    <rect x="180" y="100" width="100" height="44" rx="8" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="230" y="118" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#1e40af">Rate Limiter</text>
+    <text x="230" y="134" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#3b82f6">10 concurrent max</text>
+
+    <!-- Fail waterfall -->
+    <path d="M170,160 L170,190 L370,190" fill="none" stroke="#ef4444" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arrR)"/>
+    <text x="270" y="183" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#ef4444">CB OPEN or error</text>
+
+    <!-- Provider 2: Ollama -->
+    <rect x="380" y="150" width="260" height="120" rx="14" fill="#d1fae5" stroke="#6ee7b7" stroke-width="2" filter="url(#s)"/>
+    <text x="510" y="178" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="15" font-weight="700" fill="#065f46">Ollama nemotron</text>
+    <text x="510" y="196" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#059669">WARM FALLBACK</text>
+
+    <rect x="400" y="210" width="220" height="32" rx="8" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1"/>
+    <text x="510" y="228" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#065f46">No CB — local inference, always warm</text>
+    <text x="510" y="244" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#10b981">OpenAI-compatible API on localhost:11434</text>
+
+    <!-- Fail waterfall -->
+    <path d="M510,270 L510,300 L370,300" fill="none" stroke="#ef4444" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arrR)"/>
+    <text x="440" y="293" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#ef4444">Unavailable or error</text>
+
+    <!-- Provider 3: Groq -->
+    <rect x="40" y="260" width="320" height="140" rx="14" fill="#fce7f3" stroke="#f9a8d4" stroke-width="2" filter="url(#s)"/>
+    <text x="200" y="290" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="15" font-weight="700" fill="#9d174d">Groq LLaMA-3.3-70b</text>
+    <text x="200" y="308" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#be185d">LAST RESORT + Cross-verifier</text>
+
+    <rect x="60" y="320" width="100" height="44" rx="8" fill="#fdf2f8" stroke="#f9a8d4" stroke-width="1.5"/>
+    <text x="110" y="338" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#9d174d">Circuit Breaker</text>
+    <text x="110" y="354" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#be185d">3 fails → 120s open</text>
+
+    <rect x="180" y="320" width="100" height="44" rx="8" fill="#fdf2f8" stroke="#f9a8d4" stroke-width="1.5"/>
+    <text x="230" y="338" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#9d174d">Rate Limiter</text>
+    <text x="230" y="354" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#be185d">3 concurrent max</text>
+
+    <rect x="60" y="372" width="280" height="20" rx="5" fill="#fdf2f8" stroke="#fbcfe8" stroke-width="1"/>
+    <text x="200" y="386" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#9d174d">GroqPool: 3 API keys, 300K TPD, auto-rotation on 429</text>
+
+    <!-- Final fail -->
+    <path d="M200,400 L200,440 L530,440" fill="none" stroke="#ef4444" stroke-width="2" marker-end="url(#arrR)"/>
+    <text x="360" y="434" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#ef4444">All 3 providers exhausted</text>
+
+    <!-- PARTIAL box -->
+    <rect x="540" y="420" width="140" height="46" rx="12" fill="#fef2f2" stroke="#fca5a5" stroke-width="2.5" filter="url(#s)"/>
+    <text x="610" y="447" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#dc2626">PARTIAL</text>
+    <text x="610" y="460" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#ef4444">status assigned</text>
+
+    <!-- Success arrows -->
+    <line x1="300" y1="100" x2="750" y2="100" stroke="#10b981" stroke-width="2" marker-end="url(#arrG)"/>
+    <line x1="640" y1="210" x2="750" y2="210" stroke="#10b981" stroke-width="2" marker-end="url(#arrG)"/>
+    <line x1="360" y1="330" x2="750" y2="330" stroke="#10b981" stroke-width="2" marker-end="url(#arrG)"/>
+
+    <!-- Success box -->
+    <rect x="760" y="170" width="120" height="100" rx="14" fill="#d1fae5" stroke="#10b981" stroke-width="2.5" filter="url(#s)"/>
+    <text x="820" y="210" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#065f46">Success</text>
+    <text x="820" y="230" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#059669">Translation</text>
+    <text x="820" y="248" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#059669">output</text>
+    <text x="820" y="265" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#10b981">COMPLETED</text>
+  </svg>
+</div>
+</body>
+</html>

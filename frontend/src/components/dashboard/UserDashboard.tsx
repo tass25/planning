@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { OnboardingTour } from "@/components/OnboardingTour";
 
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 16 },
@@ -83,6 +84,7 @@ export default function UserDashboard() {
 
   return (
     <div className="space-y-8">
+      <OnboardingTour />
       {/* Hero Welcome */}
       <motion.div {...fadeUp(0)} className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-accent/10 via-secondary/5 to-transparent border border-accent/10 p-8">
         <div className="relative z-10">
@@ -172,10 +174,10 @@ export default function UserDashboard() {
         </div>
       </motion.div>
 
-      {/* Recent Files */}
+      {/* Activity Timeline */}
       <motion.div {...fadeUp(0.3)}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-foreground">Recent Files</h2>
+          <h2 className="text-lg font-semibold text-foreground">Recent Activity</h2>
           <Link to="/history" className="text-xs text-accent hover:underline flex items-center gap-1">
             View all <ArrowRight className="w-3 h-3" />
           </Link>
@@ -184,7 +186,7 @@ export default function UserDashboard() {
         {conversions.length === 0 ? (
           <div className="glass-panel p-12 text-center">
             <Upload className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">No conversions yet</p>
+            <p className="text-sm text-muted-foreground">No activity yet</p>
             <p className="text-xs text-muted-foreground/70 mt-1">Upload your first SAS file to get started</p>
             <Link to="/conversions">
               <Button variant="outline" size="sm" className="mt-4 gap-2">
@@ -193,29 +195,38 @@ export default function UserDashboard() {
             </Link>
           </div>
         ) : (
-          <div className="glass-panel divide-y divide-border">
-            {conversions.slice(0, 5).map((c) => (
-              <Link
-                key={c.id}
-                to={`/workspace/${c.id}`}
-                className="flex items-center justify-between px-5 py-3.5 hover:bg-muted/30 transition-colors group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center">
-                    <FileCode className="w-4 h-4 text-muted-foreground group-hover:text-accent transition-colors" />
+          <div className="glass-panel p-5 space-y-0">
+            {conversions.slice(0, 6).map((c, i) => {
+              const statusMsg = c.status === "completed" ? `Converted with ${c.accuracy}% accuracy` :
+                c.status === "running" ? "Pipeline in progress..." :
+                c.status === "failed" ? "Conversion failed" :
+                c.status === "partial" ? "Partial conversion" : "Queued for processing";
+              const statusColor = c.status === "completed" ? "bg-success" :
+                c.status === "running" ? "bg-accent animate-pulse" :
+                c.status === "failed" ? "bg-destructive" : "bg-warning";
+              const timeAgo = (() => {
+                const diff = Date.now() - new Date(c.updatedAt || c.createdAt).getTime();
+                const mins = Math.floor(diff / 60000);
+                if (mins < 1) return "just now";
+                if (mins < 60) return `${mins}m ago`;
+                const hrs = Math.floor(mins / 60);
+                if (hrs < 24) return `${hrs}h ago`;
+                return `${Math.floor(hrs / 24)}d ago`;
+              })();
+              return (
+                <Link key={c.id} to={`/workspace/${c.id}`} className="flex items-start gap-3 py-3 group relative">
+                  {i < conversions.slice(0, 6).length - 1 && (
+                    <div className="absolute left-[9px] top-8 bottom-0 w-px bg-border" />
+                  )}
+                  <div className={cn("w-[18px] h-[18px] rounded-full flex-shrink-0 mt-0.5 border-2 border-background", statusColor)} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground group-hover:text-accent transition-colors truncate">{c.fileName}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{statusMsg}</p>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground group-hover:text-accent transition-colors">
-                      {c.fileName}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {new Date(c.createdAt).toLocaleDateString()} · {c.runtime}
-                    </p>
-                  </div>
-                </div>
-                <StatusBadge status={c.status} />
-              </Link>
-            ))}
+                  <span className="text-[10px] text-muted-foreground/60 flex-shrink-0 mt-0.5">{timeAgo}</span>
+                </Link>
+              );
+            })}
           </div>
         )}
       </motion.div>

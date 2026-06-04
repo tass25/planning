@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 7.2 — Reliability Diagram (Calibration Curve)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f8f7f4; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px; }
+  .container { max-width: 700px; width: 100%; }
+  h1 { text-align: center; font-size: 14px; color: #6b7280; font-weight: 500; margin-bottom: 32px; letter-spacing: 0.02em; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Figure 7.2 — Reliability Diagram: Calibrated Complexity Classifier (ECE = 0.061)</h1>
+  <svg width="660" height="660" viewBox="0 0 660 660">
+    <defs>
+      <filter id="s" x="-3%" y="-3%" width="106%" height="112%">
+        <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#00000008"/>
+      </filter>
+    </defs>
+
+    <!-- Plot area -->
+    <rect x="80" y="30" width="500" height="500" fill="white" stroke="#e5e7eb" stroke-width="1" rx="4"/>
+
+    <!-- Grid lines -->
+    <line x1="80" y1="130" x2="580" y2="130" stroke="#f3f4f6" stroke-width="1"/>
+    <line x1="80" y1="230" x2="580" y2="230" stroke="#f3f4f6" stroke-width="1"/>
+    <line x1="80" y1="330" x2="580" y2="330" stroke="#f3f4f6" stroke-width="1"/>
+    <line x1="80" y1="430" x2="580" y2="430" stroke="#f3f4f6" stroke-width="1"/>
+    <line x1="180" y1="30" x2="180" y2="530" stroke="#f3f4f6" stroke-width="1"/>
+    <line x1="280" y1="30" x2="280" y2="530" stroke="#f3f4f6" stroke-width="1"/>
+    <line x1="380" y1="30" x2="380" y2="530" stroke="#f3f4f6" stroke-width="1"/>
+    <line x1="480" y1="30" x2="480" y2="530" stroke="#f3f4f6" stroke-width="1"/>
+
+    <!-- Diagonal (perfect calibration) -->
+    <line x1="80" y1="530" x2="580" y2="30" stroke="#d1d5db" stroke-width="2" stroke-dasharray="8,4"/>
+    <text x="400" y="180" text-anchor="middle" transform="rotate(-45,400,180)" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af" font-style="italic">Perfect calibration</text>
+
+    <!-- Calibration curve points (connected with smooth lines) -->
+    <!-- Bins: (0.05, 0.08), (0.15, 0.12), (0.25, 0.22), (0.35, 0.30), (0.45, 0.42), (0.55, 0.52), (0.65, 0.60), (0.75, 0.72), (0.85, 0.82), (0.95, 0.92) -->
+    <!-- Mapping: x = 80 + val*500, y = 530 - val*500 -->
+
+    <!-- Shaded area between curve and diagonal -->
+    <path d="M105,490 L155,470 L205,420 L255,380 L305,320 L355,270 L405,230 L455,170 L505,120 L555,70
+             L555,80 L505,130 L455,180 L405,230 L355,280 L305,330 L255,380 L205,430 L155,480 L105,505 Z"
+          fill="#dbeafe" fill-opacity="0.3" stroke="none"/>
+
+    <!-- Curve line -->
+    <polyline points="105,490 155,470 205,420 255,380 305,320 355,270 405,230 455,170 505,120 555,70"
+              fill="none" stroke="#3b82f6" stroke-width="2.5"/>
+
+    <!-- Data points -->
+    <circle cx="105" cy="490" r="6" fill="#3b82f6" stroke="white" stroke-width="2"/>
+    <circle cx="155" cy="470" r="6" fill="#3b82f6" stroke="white" stroke-width="2"/>
+    <circle cx="205" cy="420" r="6" fill="#3b82f6" stroke="white" stroke-width="2"/>
+    <circle cx="255" cy="380" r="6" fill="#3b82f6" stroke="white" stroke-width="2"/>
+    <circle cx="305" cy="320" r="6" fill="#3b82f6" stroke="white" stroke-width="2"/>
+    <circle cx="355" cy="270" r="6" fill="#3b82f6" stroke="white" stroke-width="2"/>
+    <circle cx="405" cy="230" r="6" fill="#3b82f6" stroke="white" stroke-width="2"/>
+    <circle cx="455" cy="170" r="6" fill="#3b82f6" stroke="white" stroke-width="2"/>
+    <circle cx="505" cy="120" r="6" fill="#3b82f6" stroke="white" stroke-width="2"/>
+    <circle cx="555" cy="70" r="6" fill="#3b82f6" stroke="white" stroke-width="2"/>
+
+    <!-- Axis labels -->
+    <!-- X-axis -->
+    <text x="80" y="550" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">0.0</text>
+    <text x="180" y="550" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">0.2</text>
+    <text x="280" y="550" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">0.4</text>
+    <text x="380" y="550" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">0.6</text>
+    <text x="480" y="550" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">0.8</text>
+    <text x="580" y="550" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">1.0</text>
+    <text x="330" y="580" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" font-weight="600" fill="#6b7280">Predicted Probability</text>
+
+    <!-- Y-axis -->
+    <text x="70" y="534" text-anchor="end" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">0.0</text>
+    <text x="70" y="434" text-anchor="end" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">0.2</text>
+    <text x="70" y="334" text-anchor="end" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">0.4</text>
+    <text x="70" y="234" text-anchor="end" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">0.6</text>
+    <text x="70" y="134" text-anchor="end" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">0.8</text>
+    <text x="70" y="34" text-anchor="end" font-family="Segoe UI, sans-serif" font-size="10" fill="#9ca3af">1.0</text>
+    <text x="30" y="280" text-anchor="middle" transform="rotate(-90,30,280)" font-family="Segoe UI, sans-serif" font-size="12" font-weight="600" fill="#6b7280">Empirical Accuracy</text>
+
+    <!-- ECE annotation -->
+    <rect x="400" y="400" width="170" height="80" rx="10" fill="white" stroke="#93c5fd" stroke-width="1.5" filter="url(#s)"/>
+    <text x="485" y="424" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#1e40af">Calibration Metrics</text>
+    <text x="485" y="445" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="22" font-weight="800" fill="#3b82f6">ECE = 0.061</text>
+    <text x="485" y="465" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#10b981">Target: &lt; 0.08 ✓</text>
+
+    <!-- Legend -->
+    <rect x="100" y="600" width="440" height="40" rx="8" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+    <line x1="120" y1="620" x2="145" y2="620" stroke="#3b82f6" stroke-width="2.5"/>
+    <circle cx="132" cy="620" r="4" fill="#3b82f6"/>
+    <text x="150" y="624" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">Calibrated classifier (10 bins)</text>
+    <line x1="340" y1="620" x2="365" y2="620" stroke="#d1d5db" stroke-width="2" stroke-dasharray="6,3"/>
+    <text x="370" y="624" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">Perfect calibration (diagonal)</text>
+    <rect x="100" y="610" width="18" height="18" rx="3" fill="#dbeafe" fill-opacity="0.5" stroke="#93c5fd" stroke-width="0.5"/>
+    <text x="270" y="624" font-family="Segoe UI, sans-serif" font-size="10" fill="#374151">Gap area</text>
+  </svg>
+</div>
+</body>
+</html>

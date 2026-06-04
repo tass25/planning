@@ -282,7 +282,10 @@ class KBQueryClient:
         0.45  # floor on raw semantic similarity — rejects noise even if keywords match
     )
 
-    def __init__(self, db_path: str = "data/lancedb"):
+    def __init__(self, db_path: str = ""):
+        if not db_path:
+            from config.constants import LANCEDB_PATH
+            db_path = LANCEDB_PATH
         self.db = _get_db(db_path)
 
     def retrieve_examples(

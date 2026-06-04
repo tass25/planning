@@ -3,9 +3,9 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
-name = "sas-converter"
-version = "0.1.0"
-description = "SAS-to-Python partition-based conversion pipeline"
+name = "codara"
+version = "3.1.0"
+description = "Codara — SAS-to-Python Conversion Accelerator"
 requires-python = ">=3.11"
 
 [tool.pytest.ini_options]

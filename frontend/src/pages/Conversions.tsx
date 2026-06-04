@@ -1,13 +1,20 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { usePageTitle } from "@/lib/hooks";
 import { useConversionStore } from "@/store/conversion-store";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Upload, FileCode, X, Play, Settings2, CheckCircle2, Loader2, Circle, AlertCircle, ArrowRight, FolderKanban, Plus } from "lucide-react";
+import { Upload, FileCode, X, Play, Settings2, CheckCircle2, Loader2, Circle, AlertCircle, ArrowRight, FolderKanban, Plus, Archive, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import type { RiskLevel, PipelineStage, Project } from "@/types";
+
+interface UploadProgress {
+  name: string;
+  status: "uploading" | "done" | "error";
+  progress: number;
+}
 
 const STAGE_LABELS: Record<PipelineStage, string> = {
   file_process: "File Analysis",
@@ -32,6 +39,7 @@ const STAGE_DEFAULTS: Record<PipelineStage, string> = {
 };
 
 export default function ConversionsPage() {
+  usePageTitle("Conversions");
   const { uploadedFiles, removeFile, config, setConfig, startConversion, uploadFiles, conversions, activeConversionId } = useConversionStore();
   const [isDragging, setIsDragging] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
@@ -41,6 +49,7 @@ export default function ConversionsPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
 
   useEffect(() => {
     api.get<Project[]>("/projects").then((data) => setProjects(data ?? [])).catch(() => {});
@@ -49,30 +58,58 @@ export default function ConversionsPage() {
   const activeConversion = conversions.find((c) => c.id === activeConversionId);
   const showProgress = isRunning || (activeConversion && (activeConversion.status === "running" || activeConversion.status === "queued"));
 
-  // Auto-navigate to workspace diff view when conversion completes
+  // Auto-navigate to workspace diff view when conversion completes —
+  // only if the user started a conversion in this session (isRunning was true)
   useEffect(() => {
-    if (activeConversion?.status === "completed" && !hasNavigated.current) {
+    if (activeConversion?.status === "completed" && isRunning && !hasNavigated.current) {
       hasNavigated.current = true;
       const timer = setTimeout(() => {
         navigate(`/workspace/${activeConversion.id}`);
       }, 1500);
       return () => clearTimeout(timer);
     }
-    if (!activeConversion || activeConversion.status === "queued" || activeConversion.status === "running") {
-      hasNavigated.current = false;
+  }, [activeConversion?.status, activeConversion?.id, isRunning, navigate]);
+
+  const uploadWithProgress = useCallback(async (files: File[]) => {
+    const sasFiles = files.filter((f) => f.name.endsWith(".sas") || f.name.endsWith(".zip"));
+    if (sasFiles.length === 0) return;
+
+    const progressEntries: UploadProgress[] = sasFiles.map((f) => ({
+      name: f.name,
+      status: "uploading" as const,
+      progress: 0,
+    }));
+    setUploadProgress(progressEntries);
+
+    for (let i = 0; i < sasFiles.length; i++) {
+      try {
+        setUploadProgress((prev) =>
+          prev.map((p, idx) => idx === i ? { ...p, progress: 50 } : p)
+        );
+        await uploadFiles([sasFiles[i]]);
+        setUploadProgress((prev) =>
+          prev.map((p, idx) => idx === i ? { ...p, status: "done", progress: 100 } : p)
+        );
+      } catch {
+        setUploadProgress((prev) =>
+          prev.map((p, idx) => idx === i ? { ...p, status: "error", progress: 100 } : p)
+        );
+      }
     }
-  }, [activeConversion?.status, activeConversion?.id, navigate]);
+
+    setTimeout(() => setUploadProgress([]), 3000);
+  }, [uploadFiles]);
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files).filter((f) => f.name.endsWith(".sas"));
-    if (files.length > 0) await uploadFiles(files);
-  }, [uploadFiles]);
+    const files = Array.from(e.dataTransfer.files);
+    await uploadWithProgress(files);
+  }, [uploadWithProgress]);
 
   const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    if (files.length > 0) await uploadFiles(files);
+    await uploadWithProgress(files);
   };
 
   const handleCreateQuickProject = async () => {
@@ -91,13 +128,41 @@ export default function ConversionsPage() {
   const handleStart = async () => {
     if (uploadedFiles.length === 0) return;
     setIsRunning(true);
-    const convId = await startConversion(uploadedFiles.map((f) => f.id));
-    if (selectedProjectId && convId) {
+
+    const store = useConversionStore.getState();
+    const filesToConvert = [...uploadedFiles];
+    let firstConvId: string | null = null;
+
+    for (const file of filesToConvert) {
       try {
-        await api.post(`/projects/${selectedProjectId}/files`, { conversionId: convId });
+        const conv = await api.post<import("@/types").Conversion>("/conversions/start", {
+          fileIds: [file.id],
+          config: {
+            targetRuntime: config.targetRuntime || "python",
+            testCoverage: config.testCoverage || "full",
+          },
+        });
+        useConversionStore.setState((s) => ({
+          conversions: [conv, ...s.conversions],
+        }));
+
+        if (!firstConvId) firstConvId = conv.id;
+
+        if (selectedProjectId) {
+          try {
+            await api.post(`/projects/${selectedProjectId}/files`, { conversionId: conv.id });
+          } catch (err) {
+            console.error("[codara] assign to project failed", err);
+          }
+        }
       } catch (err) {
-        console.error("[codara] assign to project failed", err);
+        console.error("[codara] start conversion failed for", file.name, err);
       }
+    }
+
+    if (firstConvId) {
+      useConversionStore.setState({ uploadedFiles: [], activeConversionId: firstConvId });
+      useConversionStore.getState().pollConversion(firstConvId);
     }
   };
 
@@ -262,13 +327,60 @@ export default function ConversionsPage() {
               isDragging ? "border-accent bg-accent/5 glow-accent" : "border-border hover:border-muted-foreground"
             )}
           >
-            <input type="file" accept=".sas" multiple onChange={handleFileInput} className="hidden" id="file-upload" />
+            <input type="file" accept=".sas,.zip" multiple onChange={handleFileInput} className="hidden" id="file-upload" />
             <label htmlFor="file-upload" className="cursor-pointer">
               <Upload className={cn("w-10 h-10 mx-auto mb-3 transition-colors", isDragging ? "text-accent" : "text-muted-foreground")} />
               <p className="text-sm font-medium text-foreground">Drop .sas files here or click to browse</p>
-              <p className="text-xs text-muted-foreground mt-1">Supports multiple files • Max 100MB per file</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Supports multiple files & ZIP archives • Max 100MB per file
+              </p>
+              <div className="flex items-center justify-center gap-4 mt-3">
+                <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground/60">
+                  <FileUp className="w-3 h-3" /> .sas files
+                </span>
+                <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground/60">
+                  <Archive className="w-3 h-3" /> .zip archives
+                </span>
+              </div>
             </label>
           </div>
+
+          {/* Upload Progress */}
+          <AnimatePresence>
+            {uploadProgress.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="glass-panel p-4 space-y-2 overflow-hidden"
+              >
+                <p className="text-xs font-medium text-muted-foreground mb-2">
+                  Uploading {uploadProgress.length} file{uploadProgress.length > 1 ? "s" : ""}...
+                </p>
+                {uploadProgress.map((p, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="flex-shrink-0">
+                      {p.status === "uploading" && <Loader2 className="w-3.5 h-3.5 text-accent animate-spin" />}
+                      {p.status === "done" && <CheckCircle2 className="w-3.5 h-3.5 text-success" />}
+                      {p.status === "error" && <AlertCircle className="w-3.5 h-3.5 text-destructive" />}
+                    </div>
+                    <span className="text-sm text-foreground truncate flex-1 min-w-0">{p.name}</span>
+                    <div className="w-24 h-1.5 bg-muted rounded-full overflow-hidden flex-shrink-0">
+                      <motion.div
+                        className={cn(
+                          "h-full rounded-full",
+                          p.status === "done" ? "bg-success" : p.status === "error" ? "bg-destructive" : "bg-accent"
+                        )}
+                        initial={{ width: "0%" }}
+                        animate={{ width: `${p.progress}%` }}
+                        transition={{ duration: 0.3 }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Uploaded Files */}
           <AnimatePresence>

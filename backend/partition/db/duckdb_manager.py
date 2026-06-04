@@ -26,7 +26,9 @@ def _duckdb_conn(db_path: str):
 
 logger = structlog.get_logger()
 
-DB_PATH = "data/analytics.duckdb"
+from config.constants import DUCKDB_PATH as _DEFAULT_DUCKDB_PATH
+
+DB_PATH = _DEFAULT_DUCKDB_PATH
 
 
 def init_all_duckdb_tables(db_path: str = DB_PATH):

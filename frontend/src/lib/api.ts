@@ -54,6 +54,20 @@ async function request<T>(
   }
 }
 
+let _authVersion = 0;
+
+export function isAuthenticated(): boolean {
+  return getToken() !== null;
+}
+
+export function getAuthVersion(): number {
+  return _authVersion;
+}
+
+export function bumpAuthVersion(): void {
+  _authVersion++;
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) =>
@@ -66,4 +80,8 @@ export const api = {
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  upload: <T>(path: string, formData: FormData) =>
+    request<T>(path, { method: "POST", body: formData }),
 };
+
+export default api;

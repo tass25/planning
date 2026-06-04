@@ -304,7 +304,7 @@ def test_macro_stack():
 # Skipped automatically if the file doesn't exist on the current machine.
 # On Windows run pytest from the project root; on CI the skip is silent.
 
-_REAL_FILE = r"C:\Users\labou\Desktop\stagePfe\advanced_code.sas"
+_REAL_FILE = str(Path(__file__).resolve().parent / "fixtures" / "advanced_code.sas")
 
 # Also accept an env-var override so CI / Linux can point to the file:
 #   SAS_REAL_FILE=/path/to/advanced_code.sas pytest

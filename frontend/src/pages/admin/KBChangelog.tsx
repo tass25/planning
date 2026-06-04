@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { KBChangelogEntry } from "@/types";
+import { usePageTitle } from "@/lib/hooks";
 
 const actionColors: Record<string, string> = {
   add: "bg-success/15 text-success border-success/20",
@@ -12,6 +13,7 @@ const actionColors: Record<string, string> = {
 };
 
 export default function KBChangelogPage() {
+  usePageTitle("KB Changelog");
   const [changelog, setChangelog] = useState<KBChangelogEntry[]>([]);
   useEffect(() => { api.get<KBChangelogEntry[]>("/kb/changelog").then(setChangelog).catch(() => {}); }, []);
 

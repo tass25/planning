@@ -214,20 +214,18 @@ class CDASISynthesizer:
             return pd.DataFrame(rows)
 
         elif ec == "SORT_STABLE":
-            return pd.DataFrame(
-                [
+            N = R  # n_rows_per_group set to SORT_MIN_ROWS by encoder
+            key_val = _int(encoded.sym_vars["sort_key"])
+            rows = []
+            for i in range(N):
+                rows.append(
                     {
-                        "primary_key": _int(encoded.sym_vars["sort_key1"]),
-                        "secondary": _int(encoded.sym_vars["sort_sec1"]),
-                        "original_order": 0,
-                    },
-                    {
-                        "primary_key": _int(encoded.sym_vars["sort_key2"]),
-                        "secondary": _int(encoded.sym_vars["sort_sec2"]),
-                        "original_order": 1,
-                    },
-                ]
-            )
+                        "primary_key": key_val,
+                        "secondary": _int(encoded.sym_vars[f"sort_sec_{i}"]),
+                        "original_order": i,
+                    }
+                )
+            return pd.DataFrame(rows)
 
         elif ec == "NULL_ARITHMETIC":
             _int(encoded.sym_vars["null_total"])

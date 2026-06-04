@@ -72,15 +72,18 @@ class PartitionOrchestrator:
     duckdb_path : str
         Path to DuckDB file for LLM audit logs.
     target_runtime : str
-        Always ``"python"`` — PySpark support was scoped out.
+        Target language — always ``"python"``.
     """
 
     def __init__(
         self,
         redis_url: str = "redis://localhost:6379/0",
-        duckdb_path: str = "data/analytics.duckdb",
+        duckdb_path: str = "",
         target_runtime: str = "python",
     ):
+        if not duckdb_path:
+            from config.constants import DUCKDB_PATH
+            duckdb_path = DUCKDB_PATH
         self.checkpoint = RedisCheckpointManager(redis_url)
         self.audit = LLMAuditLogger(duckdb_path)
         self.target_runtime = target_runtime

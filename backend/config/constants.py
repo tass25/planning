@@ -6,6 +6,16 @@ Import with:
 
 from __future__ import annotations
 
+from pathlib import Path
+
+# ── Paths ────────────────────────────────────────────────────────────────────
+BACKEND_ROOT: Path = Path(__file__).resolve().parent.parent
+DATA_DIR: Path = BACKEND_ROOT / "data"
+SQLITE_PATH: str = str(DATA_DIR / "codara_api.db")
+DUCKDB_PATH: str = str(DATA_DIR / "analytics.duckdb")
+FILE_REGISTRY_PATH: str = str(DATA_DIR / "file_registry.db")
+LANCEDB_PATH: str = str(DATA_DIR / "lancedb")
+
 # ── LLM generation limits ─────────────────────────────────────────────────────
 AZURE_MAX_COMPLETION_TOKENS: int = 16_384
 GROQ_MAX_TOKENS: int = 4_096  # Groq free-tier: input+output must stay ~6k tokens total

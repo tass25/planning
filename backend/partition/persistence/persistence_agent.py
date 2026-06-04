@@ -57,7 +57,8 @@ class PersistenceAgent(BaseAgent):
                 else self._engine_from_url(db_url)
             )
         else:
-            db_path = db_url or "data/file_registry.db"
+            from config.constants import FILE_REGISTRY_PATH
+            db_path = db_url or FILE_REGISTRY_PATH
             # Strip sqlite:/// prefix if accidentally doubled
             if db_path.startswith("sqlite:///"):
                 db_path = db_path[len("sqlite:///") :]

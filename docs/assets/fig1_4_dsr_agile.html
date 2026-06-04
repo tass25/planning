@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Methodology: DSR + Agile — Codara</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d2e;
+    --surface2: #242838;
+    --border: #2e3348;
+    --accent: #6366f1;
+    --accent2: #8b5cf6;
+    --accent3: #06b6d4;
+    --accent4: #10b981;
+    --accent5: #f59e0b;
+    --accent6: #ef4444;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    --glow: rgba(99,102,241,0.15);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ─── Hero ─── */
+  .hero {
+    background: linear-gradient(135deg, #0f1117 0%, #1a0533 50%, #0c1a3a 100%);
+    padding: 72px 24px 60px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(99,102,241,0.12) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(139,92,246,0.10) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .hero-badge {
+    display: inline-block;
+    background: rgba(99,102,241,0.15);
+    border: 1px solid rgba(99,102,241,0.4);
+    color: #a5b4fc;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+  }
+  .hero h1 {
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 800;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, #e2e8f0 0%, #a5b4fc 50%, #818cf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 16px;
+  }
+  .hero p {
+    max-width: 640px;
+    margin: 0 auto;
+    color: var(--text-muted);
+    font-size: 16px;
+  }
+
+  /* ─── Layout ─── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+  section { padding: 60px 24px; }
+  section + section { border-top: 1px solid var(--border); }
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  h2 .tag {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 4px;
+  }
+  .section-intro {
+    color: var(--text-muted);
+    margin-bottom: 40px;
+    max-width: 720px;
+  }
+
+  /* ─── Comparison Cards ─── */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+  .compare-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    position: relative;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .compare-card:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+  .compare-card.winner {
+    border-color: rgba(99,102,241,0.5);
+    box-shadow: 0 0 0 1px rgba(99,102,241,0.2), 0 8px 32px rgba(99,102,241,0.1);
+  }
+  .compare-card.winner::before {
+    content: '✓ CHOSEN';
+    position: absolute;
+    top: 16px; right: 16px;
+    background: var(--accent);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border-radius: 100px;
+  }
+  .card-icon { font-size: 32px; margin-bottom: 12px; }
+  .card-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .card-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+  .pro-con { display: flex; flex-direction: column; gap: 6px; }
+  .pro-con li {
+    list-style: none;
+    font-size: 13px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .pro-con li .dot {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 2px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+  }
+  .dot.good { background: rgba(16,185,129,0.2); color: #34d399; }
+  .dot.bad  { background: rgba(239,68,68,0.2);  color: #f87171; }
+  .dot.ok   { background: rgba(245,158,11,0.2); color: #fbbf24; }
+  .verdict {
+    margin-top: 16px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .verdict.reject  { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: #fca5a5; }
+  .verdict.partial { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); color: #fde68a; }
+  .verdict.accept  { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); color: #a5b4fc; }
+
+  /* ─── DSR Cycle ─── */
+  .dsr-cycle-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    align-items: start;
+  }
+  @media (max-width: 700px) { .dsr-cycle-wrap { grid-template-columns: 1fr; } }
+  .dsr-svg-wrap svg { width: 100%; height: auto; }
+  .phase-list { display: flex; flex-direction: column; gap: 16px; }
+  .phase-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    transition: border-color 0.2s;
+    cursor: default;
+  }
+  .phase-item:hover { border-color: var(--accent); }
+  .phase-num {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800;
+    flex-shrink: 0;
+  }
+  .phase-content h4 { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+  .phase-content p  { font-size: 12px; color: var(--text-muted); }
+  .phase-content .weeks { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-top: 4px; opacity: 0.6; }
+
+  /* ─── Hevner Guidelines ─── */
+  .guidelines-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+  .guideline-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    display: flex;
+    gap: 14px;
+  }
+  .g-num {
+    width: 36px; height: 36px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .g-body h4 { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .g-body p  { font-size: 12px; color: var(--text-muted); }
+  .g-body .codara { font-size: 11px; margin-top: 6px; padding: 5px 8px; background: rgba(99,102,241,0.07); border-left: 2px solid var(--accent); color: #a5b4fc; border-radius: 0 4px 4px 0; }
+
+  /* ─── Hybrid Visual ─── */
+  .hybrid-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px;
+    margin-bottom: 32px;
+    overflow-x: auto;
+  }
+  .hybrid-wrap svg { width: 100%; height: auto; display: block; min-width: 700px; }
+
+  /* ─── Sprint table ─── */
+  .sprint-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .sprint-table th {
+    background: var(--surface2);
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .sprint-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(46,51,72,0.5);
+    color: var(--text-muted);
+    vertical-align: top;
+  }
+  .sprint-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .sprint-table .sprint-num { font-weight: 700; color: var(--text); }
+  .sprint-table .dsr-label  { font-size: 10px; color: var(--accent); font-weight: 600; }
+
+  /* ─── Why not Scrum ─── */
+  .why-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 640px) { .why-grid { grid-template-columns: 1fr; } }
+  .why-box {
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .why-box.no  { background: rgba(239,68,68,0.05); border: 1px solid rgba(239,68,68,0.2); }
+  .why-box.yes { background: rgba(99,102,241,0.05); border: 1px solid rgba(99,102,241,0.3); }
+  .why-box h3 { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+  .why-box ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .why-box ul li { font-size: 13px; color: var(--text-muted); padding-left: 16px; position: relative; }
+  .why-box ul li::before { content: '→'; position: absolute; left: 0; color: var(--text-dim); }
+
+  /* ─── Insight box ─── */
+  .insight-box {
+    background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.05));
+    border: 1px solid rgba(99,102,241,0.3);
+    border-radius: 14px;
+    padding: 28px 32px;
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+  .insight-icon { font-size: 28px; flex-shrink: 0; }
+  .insight-body h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; color: #a5b4fc; }
+  .insight-body p  { font-size: 13px; color: var(--text-muted); }
+  .insight-body strong { color: var(--text); }
+
+  /* ─── Scroll reveal ─── */
+  .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.5s, transform 0.5s; }
+  .reveal.visible { opacity: 1; transform: none; }
+
+  footer {
+    text-align: center;
+    padding: 32px;
+    color: var(--text-dim);
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">Codara — PFE Methodology</div>
+  <h1>DSR + Agile Hybrid</h1>
+  <p>Why Design Science Research drives the thesis framing, and why two-week sprints keep the engineering honest — a visual walkthrough.</p>
+</div>
+
+<!-- SECTION 1: Three candidates -->
+<section>
+  <div class="container">
+    <h2><span class="tag">01 — Choosing a methodology</span>Three candidates, one winner</h2>
+    <p class="section-intro">Before committing to a framework, three standard approaches were evaluated against the dual nature of this project: it is simultaneously a research contribution (novel pipeline architecture, formal verification) and a delivered software product.</p>
+
+    <div class="compare-grid reveal">
+
+      <div class="compare-card">
+        <div class="card-icon">🏃</div>
+        <div class="card-title">Pure Scrum</div>
+        <div class="card-sub">Iterative delivery, product-owner driven, 2-week sprints</div>
+        <ul class="pro-con">
+          <li><span class="dot good">+</span> Fast delivery cycles, works well for product teams</li>
+          <li><span class="dot good">+</span> Backlog + velocity metrics are concrete and measurable</li>
+          <li><span class="dot bad">−</span> No research framing — "why does this matter?" is out-of-scope</li>
+          <li><span class="dot bad">−</span> No artefact evaluation theory (no rigour model)</li>
+          <li><span class="dot bad">−</span> Research contribution cannot be expressed as a user story</li>
+          <li><span class="dot bad">−</span> Knowledge contribution is never validated, only shipped</li>
+        </ul>
+        <div class="verdict reject">✗ Rejected — adequate for products, insufficient for thesis research</div>
+      </div>
+
+      <div class="compare-card">
+        <div class="card-icon">📊</div>
+        <div class="card-title">CRISP-DM</div>
+        <div class="card-sub">Cross-Industry Standard Process for Data Mining (Wirth &amp; Hipp, 2000)</div>
+        <ul class="pro-con">
+          <li><span class="dot good">+</span> Strong data understanding → modelling → evaluation loop</li>
+          <li><span class="dot good">+</span> Industry-recognised in analytics / ML contexts</li>
+          <li><span class="dot ok">~</span> Pairs naturally with ML calibration and ablation studies</li>
+          <li><span class="dot bad">−</span> Focused on predictive modelling, not system artefact construction</li>
+          <li><span class="dot bad">−</span> No framework for building novel tools or engines</li>
+          <li><span class="dot bad">−</span> No theory-building component — purely empirical</li>
+        </ul>
+        <div class="verdict partial">~ Partially adopted — CRISP-DM phases used internally within the DSR Evaluation phase</div>
+      </div>
+
+      <div class="compare-card winner">
+        <div class="card-icon">🔬</div>
+        <div class="card-title">DSR + Agile</div>
+        <div class="card-sub">Hevner et al. 2004 + two-week sprint cadence</div>
+        <ul class="pro-con">
+          <li><span class="dot good">+</span> Explicitly designed for IT artefact construction and evaluation</li>
+          <li><span class="dot good">+</span> 7 guidelines provide a publishable rigour checklist</li>
+          <li><span class="dot good">+</span> Research output = the artefact + its evaluation evidence</li>
+          <li><span class="dot good">+</span> Agile sprints manage the 14-week clock without losing research focus</li>
+          <li><span class="dot good">+</span> Hevner's environment ↔ artefact ↔ knowledge base triangle fits exactly</li>
+          <li><span class="dot ok">~</span> Heavier to document — mitigated by CLAUDE.md + weekly logs</li>
+        </ul>
+        <div class="verdict accept">✓ Chosen — the only framework that validates both the artefact and the knowledge contribution</div>
+      </div>
+
+    </div>
+
+    <div class="insight-box reveal">
+      <div class="insight-icon">💡</div>
+      <div class="insight-body">
+        <h3>The core argument</h3>
+        <p>Codara is not just software — it is a <strong>claim about how LLM-driven migration pipelines should be built</strong>. That claim requires a research framework that demands evaluation evidence (DSR guideline 3) and situates the contribution in the IS knowledge base (guideline 7). Scrum ships features; DSR validates knowledge.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 2: DSR Cycle -->
+<section>
+  <div class="container">
+    <h2><span class="tag">02 — The DSR framework</span>Hevner's 5-phase cycle</h2>
+    <p class="section-intro">Design Science Research (Hevner et al., 2004; Peffers et al., 2007) structures research as artefact construction — a cycle that explicitly connects real-world problems to knowledge contributions.</p>
+
+    <div class="dsr-cycle-wrap reveal">
+
+      <div class="dsr-svg-wrap">
+        <svg viewBox="0 0 480 480" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#6366f1"/>
+            </marker>
+            <filter id="glow">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <!-- Centre ring -->
+          <circle cx="240" cy="240" r="80" fill="rgba(99,102,241,0.04)" stroke="rgba(99,102,241,0.12)" stroke-width="1" stroke-dasharray="4 4"/>
+          <text x="240" y="233" text-anchor="middle" fill="#6366f1" font-size="11" font-weight="700" font-family="Segoe UI,sans-serif">DSR</text>
+          <text x="240" y="249" text-anchor="middle" fill="#6366f1" font-size="11" font-weight="700" font-family="Segoe UI,sans-serif">CYCLE</text>
+
+          <!-- Phase 1: Awareness (top) -->
+          <circle cx="240" cy="70" r="46" fill="#1a1d2e" stroke="#6366f1" stroke-width="1.5" filter="url(#glow)"/>
+          <text x="240" y="62"  text-anchor="middle" fill="#a5b4fc" font-size="18" font-family="Segoe UI,sans-serif">🔍</text>
+          <text x="240" y="79"  text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="700" font-family="Segoe UI,sans-serif">Awareness</text>
+          <text x="240" y="92"  text-anchor="middle" fill="#94a3b8" font-size="9"  font-family="Segoe UI,sans-serif">of Problem</text>
+
+          <!-- Phase 2: Suggestion (top-right) -->
+          <circle cx="398" cy="165" r="46" fill="#1a1d2e" stroke="#8b5cf6" stroke-width="1.5" filter="url(#glow)"/>
+          <text x="398" y="157" text-anchor="middle" fill="#c4b5fd" font-size="18" font-family="Segoe UI,sans-serif">💡</text>
+          <text x="398" y="174" text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="700" font-family="Segoe UI,sans-serif">Suggestion</text>
+          <text x="398" y="187" text-anchor="middle" fill="#94a3b8" font-size="9"  font-family="Segoe UI,sans-serif">Design</text>
+
+          <!-- Phase 3: Development (bottom-right) -->
+          <circle cx="350" cy="355" r="46" fill="#1a1d2e" stroke="#06b6d4" stroke-width="1.5" filter="url(#glow)"/>
+          <text x="350" y="347" text-anchor="middle" fill="#67e8f9" font-size="18" font-family="Segoe UI,sans-serif">🔧</text>
+          <text x="350" y="364" text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="700" font-family="Segoe UI,sans-serif">Development</text>
+          <text x="350" y="377" text-anchor="middle" fill="#94a3b8" font-size="9"  font-family="Segoe UI,sans-serif">Build</text>
+
+          <!-- Phase 4: Evaluation (bottom-left) -->
+          <circle cx="130" cy="355" r="46" fill="#1a1d2e" stroke="#10b981" stroke-width="1.5" filter="url(#glow)"/>
+          <text x="130" y="347" text-anchor="middle" fill="#6ee7b7" font-size="18" font-family="Segoe UI,sans-serif">📏</text>
+          <text x="130" y="364" text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="700" font-family="Segoe UI,sans-serif">Evaluation</text>
+          <text x="130" y="377" text-anchor="middle" fill="#94a3b8" font-size="9"  font-family="Segoe UI,sans-serif">Measure</text>
+
+          <!-- Phase 5: Conclusion (top-left) -->
+          <circle cx="82" cy="165" r="46" fill="#1a1d2e" stroke="#f59e0b" stroke-width="1.5" filter="url(#glow)"/>
+          <text x="82"  y="157" text-anchor="middle" fill="#fde68a" font-size="18" font-family="Segoe UI,sans-serif">📝</text>
+          <text x="82"  y="174" text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="700" font-family="Segoe UI,sans-serif">Conclusion</text>
+          <text x="82"  y="187" text-anchor="middle" fill="#94a3b8" font-size="9"  font-family="Segoe UI,sans-serif">Communicate</text>
+
+          <!-- Arrows clockwise -->
+          <path d="M278,52 Q360,60 370,130"  fill="none" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ah)"/>
+          <path d="M405,208 Q430,280 395,315" fill="none" stroke="#8b5cf6" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ah)"/>
+          <path d="M305,375 Q240,415 170,375" fill="none" stroke="#06b6d4" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ah)"/>
+          <path d="M88,308 Q60,245 92,207"   fill="none" stroke="#10b981" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ah)"/>
+          <path d="M112,128 Q160,60 198,60"  fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ah)"/>
+
+          <text x="240" y="445" text-anchor="middle" fill="#64748b" font-size="10" font-family="Segoe UI,sans-serif">← iterate if evaluation reveals gaps →</text>
+        </svg>
+      </div>
+
+      <div class="phase-list">
+        <div class="phase-item">
+          <div class="phase-num" style="background:rgba(99,102,241,0.15);color:#a5b4fc;">1</div>
+          <div class="phase-content">
+            <h4>Awareness of Problem</h4>
+            <p>SAS migration costs €500K+ per enterprise; manual conversion scales at 200 LOC/day. No automated tool handles RETAIN, FIRST./LAST., cross-file macros at enterprise scale.</p>
+            <div class="weeks">Week 1 — literature survey + Deloitte context</div>
+          </div>
+        </div>
+        <div class="phase-item">
+          <div class="phase-num" style="background:rgba(139,92,246,0.15);color:#c4b5fd;">2</div>
+          <div class="phase-content">
+            <h4>Suggestion</h4>
+            <p>Propose: 8-node LangGraph pipeline with RAPTOR retrieval, Z3 formal verification, CDAIS adversarial testing, and three-tier LLM routing (Ollama → Azure → Groq).</p>
+            <div class="weeks">Week 1–2 — architecture design</div>
+          </div>
+        </div>
+        <div class="phase-item">
+          <div class="phase-num" style="background:rgba(6,182,212,0.15);color:#67e8f9;">3</div>
+          <div class="phase-content">
+            <h4>Development</h4>
+            <p>Build the artefact across 13 two-week sprints. Each sprint adds one or more pipeline layers (L2-A through L4) and their test coverage. Redis checkpointing, DuckDB audit, LanceDB vector KB.</p>
+            <div class="weeks">Week 2–13 — 7 sprint pairs</div>
+          </div>
+        </div>
+        <div class="phase-item">
+          <div class="phase-num" style="background:rgba(16,185,129,0.15);color:#6ee7b7;">4</div>
+          <div class="phase-content">
+            <h4>Evaluation</h4>
+            <p>721-block gold corpus (boundary accuracy &gt;90%), 10-block torture test, RAPTOR ablation (+36% hit-rate), SemantiCheck SCS_L3L4, Z3 proofs (3/10 blocks formally verified), 452 passing tests.</p>
+            <div class="weeks">Week 12–14 — ablation, benchmarks, coverage</div>
+          </div>
+        </div>
+        <div class="phase-item">
+          <div class="phase-num" style="background:rgba(245,158,11,0.15);color:#fde68a;">5</div>
+          <div class="phase-content">
+            <h4>Conclusion</h4>
+            <p>This thesis report + CDAIS paper + MIS paper. Documents what works, what the limits are, and what future work is needed (SemantiCheck L1/L2, multi-run variance, GPT-5.4 comparative results).</p>
+            <div class="weeks">Week 14–15 — thesis writing + defence</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 3: Hevner 7 Guidelines -->
+<section>
+  <div class="container">
+    <h2><span class="tag">03 — Hevner's 7 guidelines</span>Applied to Codara</h2>
+    <p class="section-intro">Hevner et al. (2004) provide 7 guidelines that a DSR project must satisfy. Each maps to a concrete decision in Codara.</p>
+
+    <div class="guidelines-grid reveal">
+      <div class="guideline-card">
+        <div class="g-num">1</div>
+        <div class="g-body">
+          <h4>Design as an Artefact</h4>
+          <p>Research must produce a viable artefact: a construct, model, method, or instantiation.</p>
+          <div class="codara">Codara is the artefact — a deployed instantiation (React UI + FastAPI + LangGraph pipeline) with quantified performance metrics.</div>
+        </div>
+      </div>
+      <div class="guideline-card">
+        <div class="g-num">2</div>
+        <div class="g-body">
+          <h4>Problem Relevance</h4>
+          <p>The artefact addresses an important, unsolved business problem.</p>
+          <div class="codara">SAS-to-Python migration at Deloitte Tunisia (TMT practice): manual process, no enterprise-grade automated tool, €500K+ typical cost per project.</div>
+        </div>
+      </div>
+      <div class="guideline-card">
+        <div class="g-num">3</div>
+        <div class="g-body">
+          <h4>Design Evaluation</h4>
+          <p>The artefact must be rigorously evaluated against the problem it claims to solve.</p>
+          <div class="codara">721-block gold corpus, torture test, Z3 formal proofs, CDAIS adversarial suite, SemantiCheck SCS, 452-test suite — all quantified with explicit metrics.</div>
+        </div>
+      </div>
+      <div class="guideline-card">
+        <div class="g-num">4</div>
+        <div class="g-body">
+          <h4>Research Contributions</h4>
+          <p>The research must provide clear, verifiable contributions to the knowledge base.</p>
+          <div class="codara">Three contributions: (a) CDAIS coverage certificates, (b) MIS invariant selection, (c) RAPTOR+RAG pipeline architecture for code migration.</div>
+        </div>
+      </div>
+      <div class="guideline-card">
+        <div class="g-num">5</div>
+        <div class="g-body">
+          <h4>Research Rigor</h4>
+          <p>Construction and evaluation apply rigorous methods from foundations and IS research.</p>
+          <div class="codara">Z3 SMT formal verification; ECE calibration (proper scoring rule); ablation study isolating RAPTOR contribution; single-annotator caveat explicitly acknowledged.</div>
+        </div>
+      </div>
+      <div class="guideline-card">
+        <div class="g-num">6</div>
+        <div class="g-body">
+          <h4>Design as a Search Process</h4>
+          <p>Finding an adequate solution requires searching across the problem and solution space.</p>
+          <div class="codara">LLM routing explored Ollama → Azure → Groq → LocalModel. Boundary detection: lark grammar → regex → LLM fallback. Each iteration documented in weekly logs.</div>
+        </div>
+      </div>
+      <div class="guideline-card">
+        <div class="g-num">7</div>
+        <div class="g-body">
+          <h4>Communication of Research</h4>
+          <p>Must be communicated to both technology-oriented and management-oriented audiences.</p>
+          <div class="codara">Thesis (academic) + CLAUDE.md / system docs (engineering) + React dashboard with full audit trail (Deloitte management audience).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 4: Why not Scrum -->
+<section>
+  <div class="container">
+    <h2><span class="tag">04 — The Scrum problem</span>Why pure Scrum is insufficient</h2>
+    <p class="section-intro">Scrum is excellent for product development. But a thesis is not a product — it is a <em>knowledge claim with engineering evidence</em>. Here is where pure Scrum breaks down for this project.</p>
+
+    <div class="why-grid reveal">
+      <div class="why-box no">
+        <h3>❌ What Scrum cannot handle</h3>
+        <ul>
+          <li>Research questions — "what principle generalises?" is not a user story</li>
+          <li>Knowledge contribution framing — sprints produce stories, not propositions</li>
+          <li>Evaluation rigour — definition of done ≠ empirical validity</li>
+          <li>Literature gap framing — product backlogs don't reference Hevner 2004</li>
+          <li>Formal verification — Z3 proofs don't fit a sprint review demo</li>
+          <li>Artefact evaluation vs acceptance — fundamentally different criteria</li>
+        </ul>
+      </div>
+      <div class="why-box yes">
+        <h3>✓ What Agile sprints do provide</h3>
+        <ul>
+          <li>Time-boxed delivery — 14 weeks with 7 sprint pairs stays on track</li>
+          <li>Incremental complexity — L2-A before L2-B before L3 prevents big-bang risk</li>
+          <li>Velocity tracking — commit history + weekly logs (docs/logs/)</li>
+          <li>Adaptation — when Groq was rate-limited, Azure became primary mid-sprint</li>
+          <li>Testability cadence — 248 tests grew sprint-by-sprint alongside code</li>
+          <li>Risk mitigation — circuit breakers and fallbacks discovered in sprint retros</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="insight-box reveal" style="margin-top:24px;">
+      <div class="insight-icon">⚖️</div>
+      <div class="insight-body">
+        <h3>The DSR–Agile contract</h3>
+        <p><strong>DSR owns the "why" and the "what"</strong>: it defines the problem, the research questions, the evaluation criteria, and what counts as a knowledge contribution.
+        <strong>Agile owns the "how" and the "when"</strong>: it sequences the build, manages the 14-week clock, and provides the discipline to ship something that can actually be evaluated.
+        Neither alone is sufficient. Together they make the research both rigorous and deliverable.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 5: Hybrid visual -->
+<section>
+  <div class="container">
+    <h2><span class="tag">05 — The hybrid</span>How DSR and Agile interlock</h2>
+    <p class="section-intro">DSR provides the macro structure (5 phases over the thesis lifetime); Agile provides the micro cadence (2-week sprints within the Development phase). They run at different time scales and serve different purposes.</p>
+
+    <div class="hybrid-wrap reveal">
+      <svg viewBox="0 0 900 310" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#6366f1"/>
+          </marker>
+          <marker id="arrg" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#10b981"/>
+          </marker>
+        </defs>
+
+        <!-- DSR row label -->
+        <rect x="8" y="16" width="115" height="32" rx="6" fill="rgba(99,102,241,0.12)" stroke="rgba(99,102,241,0.3)" stroke-width="1"/>
+        <text x="65" y="36" text-anchor="middle" fill="#a5b4fc" font-size="11" font-weight="700" font-family="Segoe UI,sans-serif">DSR MACRO</text>
+
+        <!-- DSR phase bars -->
+        <rect x="130" y="10" width="110" height="44" rx="6" fill="rgba(99,102,241,0.14)" stroke="#6366f1" stroke-width="1"/>
+        <text x="185" y="35" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700" font-family="Segoe UI,sans-serif">① Awareness</text>
+
+        <rect x="248" y="10" width="110" height="44" rx="6" fill="rgba(139,92,246,0.14)" stroke="#8b5cf6" stroke-width="1"/>
+        <text x="303" y="35" text-anchor="middle" fill="#ddd6fe" font-size="10" font-weight="700" font-family="Segoe UI,sans-serif">② Suggestion</text>
+
+        <rect x="366" y="10" width="240" height="44" rx="6" fill="rgba(6,182,212,0.12)" stroke="#06b6d4" stroke-width="1"/>
+        <text x="486" y="35" text-anchor="middle" fill="#a5f3fc" font-size="10" font-weight="700" font-family="Segoe UI,sans-serif">③ Development  (Wks 2–13)</text>
+
+        <rect x="614" y="10" width="130" height="44" rx="6" fill="rgba(16,185,129,0.12)" stroke="#10b981" stroke-width="1"/>
+        <text x="679" y="35" text-anchor="middle" fill="#a7f3d0" font-size="10" font-weight="700" font-family="Segoe UI,sans-serif">④ Evaluation</text>
+
+        <rect x="752" y="10" width="140" height="44" rx="6" fill="rgba(245,158,11,0.12)" stroke="#f59e0b" stroke-width="1"/>
+        <text x="822" y="35" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700" font-family="Segoe UI,sans-serif">⑤ Conclusion</text>
+
+        <!-- Agile row label -->
+        <rect x="8" y="82" width="115" height="32" rx="6" fill="rgba(16,185,129,0.08)" stroke="rgba(16,185,129,0.3)" stroke-width="1"/>
+        <text x="65" y="102" text-anchor="middle" fill="#6ee7b7" font-size="11" font-weight="700" font-family="Segoe UI,sans-serif">AGILE MICRO</text>
+
+        <!-- Sprint boxes -->
+        <rect x="130" y="76" width="50" height="46" rx="5" fill="#1a1d2e" stroke="#2e3348" stroke-width="1"/>
+        <text x="155" y="95"  text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="700" font-family="Segoe UI,sans-serif">S1</text>
+        <text x="155" y="110" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI,sans-serif">L2-A</text>
+
+        <rect x="184" y="76" width="50" height="46" rx="5" fill="#1a1d2e" stroke="#2e3348" stroke-width="1"/>
+        <text x="209" y="95"  text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="700" font-family="Segoe UI,sans-serif">S2</text>
+        <text x="209" y="110" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI,sans-serif">L2-B</text>
+
+        <rect x="238" y="76" width="50" height="46" rx="5" fill="#1a1d2e" stroke="#2e3348" stroke-width="1"/>
+        <text x="263" y="95"  text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="700" font-family="Segoe UI,sans-serif">S3</text>
+        <text x="263" y="110" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI,sans-serif">L2-C</text>
+
+        <rect x="292" y="76" width="50" height="46" rx="5" fill="#1a1d2e" stroke="#2e3348" stroke-width="1"/>
+        <text x="317" y="95"  text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="700" font-family="Segoe UI,sans-serif">S4</text>
+        <text x="317" y="110" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI,sans-serif">RAPTOR</text>
+
+        <rect x="346" y="76" width="50" height="46" rx="5" fill="#1a1d2e" stroke="#2e3348" stroke-width="1"/>
+        <text x="371" y="95"  text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="700" font-family="Segoe UI,sans-serif">S5</text>
+        <text x="371" y="110" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI,sans-serif">L2-D/E</text>
+
+        <rect x="400" y="76" width="50" height="46" rx="5" fill="#1a1d2e" stroke="#2e3348" stroke-width="1"/>
+        <text x="425" y="95"  text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="700" font-family="Segoe UI,sans-serif">S6</text>
+        <text x="425" y="110" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI,sans-serif">Orch</text>
+
+        <rect x="454" y="76" width="50" height="46" rx="5" fill="#1a1d2e" stroke="#2e3348" stroke-width="1"/>
+        <text x="479" y="95"  text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="700" font-family="Segoe UI,sans-serif">S7</text>
+        <text x="479" y="110" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI,sans-serif">L3 RAG</text>
+
+        <rect x="508" y="76" width="50" height="46" rx="5" fill="#1a1d2e" stroke="#2e3348" stroke-width="1"/>
+        <text x="533" y="95"  text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="700" font-family="Segoe UI,sans-serif">S8</text>
+        <text x="533" y="110" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI,sans-serif">L4+CL</text>
+
+        <rect x="562" y="76" width="50" height="46" rx="5" fill="#1a1d2e" stroke="#2e3348" stroke-width="1"/>
+        <text x="587" y="95"  text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="700" font-family="Segoe UI,sans-serif">S9</text>
+        <text x="587" y="110" text-anchor="middle" fill="#64748b" font-size="8" font-family="Segoe UI,sans-serif">Z3+Eval</text>
+
+        <!-- Arrow sprint → eval -->
+        <path d="M614,99 Q644,99 679,76" fill="none" stroke="#10b981" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrg)"/>
+
+        <!-- Feedback loop arrow -->
+        <path d="M679,154 Q679,195 440,195 Q240,195 185,154" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr2)"/>
+        <text x="440" y="212" text-anchor="middle" fill="#6366f1" font-size="10" font-family="Segoe UI,sans-serif">← evaluation findings feed back into sprint planning →</text>
+
+        <!-- Legend -->
+        <circle cx="130" cy="260" r="5" fill="#06b6d4"/>
+        <text x="142" y="264" fill="#94a3b8" font-size="10" font-family="Segoe UI,sans-serif">Development sprints</text>
+        <circle cx="300" cy="260" r="5" fill="#6366f1"/>
+        <text x="312" y="264" fill="#94a3b8" font-size="10" font-family="Segoe UI,sans-serif">DSR feedback loop</text>
+        <circle cx="460" cy="260" r="5" fill="#10b981"/>
+        <text x="472" y="264" fill="#94a3b8" font-size="10" font-family="Segoe UI,sans-serif">Evaluation gate</text>
+      </svg>
+    </div>
+
+    <div class="insight-box reveal">
+      <div class="insight-icon">🔄</div>
+      <div class="insight-body">
+        <h3>The feedback loop is the whole point</h3>
+        <p>The arrow at the bottom of the diagram is what distinguishes DSR+Agile from just "iterative development". When Sprint 9 revealed RAPTOR gave +36% hit-rate (not the predicted +50%), that finding <strong>fed back into the DSR Suggestion phase</strong> — updating the research hypothesis and future work section — not just into the product backlog. The evaluation results are evidence for a knowledge claim, not just a retrospective.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 6: Sprint Timeline -->
+<section>
+  <div class="container">
+    <h2><span class="tag">06 — Sprint timeline</span>14 weeks mapped to DSR phases</h2>
+    <p class="section-intro">Each two-week sprint delivered one pipeline layer, its test suite, and its documentation. The DSR column shows which research phase that sprint primarily advances.</p>
+
+    <div class="reveal" style="overflow-x:auto; border-radius:10px; border:1px solid var(--border);">
+      <table class="sprint-table">
+        <thead>
+          <tr>
+            <th>Sprint</th>
+            <th>Weeks</th>
+            <th>DSR Phase</th>
+            <th>Layer</th>
+            <th>Key Deliverable</th>
+            <th>Tests</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="sprint-num">—</td>
+            <td>1</td>
+            <td><div class="dsr-label">① Awareness + ② Suggestion</div></td>
+            <td>—</td>
+            <td>Literature survey, Deloitte context, architecture design, gold corpus design</td>
+            <td>0</td>
+          </tr>
+          <tr>
+            <td class="sprint-num">S1</td>
+            <td>2–3</td>
+            <td><div class="dsr-label">③ Development</div></td>
+            <td>L2-A</td>
+            <td>FileAnalysisAgent, CrossFileDepsResolver, RegistryWriterAgent, DataLineageExtractor, 50-file gold corpus (721 blocks)</td>
+            <td>~20</td>
+          </tr>
+          <tr>
+            <td class="sprint-num">S2</td>
+            <td>2–3</td>
+            <td><div class="dsr-label">③ Development</div></td>
+            <td>L2-B</td>
+            <td>StreamAgent, StateAgent (FSM), streaming pipeline, asyncio queue backpressure</td>
+            <td>~35</td>
+          </tr>
+          <tr>
+            <td class="sprint-num">S3</td>
+            <td>3–4</td>
+            <td><div class="dsr-label">③ Development</div></td>
+            <td>L2-C boundary</td>
+            <td>BoundaryDetector (lark/regex + LLM fallback), BoundaryDetectorAgent, boundary benchmark</td>
+            <td>~60</td>
+          </tr>
+          <tr>
+            <td class="sprint-num">S4</td>
+            <td>5–6</td>
+            <td><div class="dsr-label">③ Development</div></td>
+            <td>L2-C RAPTOR</td>
+            <td>NomicEmbedder, GMMClusterer, ClusterSummarizer, RAPTORTreeBuilder</td>
+            <td>~100</td>
+          </tr>
+          <tr>
+            <td class="sprint-num">S5</td>
+            <td>4</td>
+            <td><div class="dsr-label">③ Development</div></td>
+            <td>L2-D</td>
+            <td>ComplexityAgent (ML calibrated, ECE 0.061), StrategyAgent</td>
+            <td>~80</td>
+          </tr>
+          <tr>
+            <td class="sprint-num">S6</td>
+            <td>7</td>
+            <td><div class="dsr-label">③ Development</div></td>
+            <td>L2-E</td>
+            <td>PersistenceAgent, IndexAgent, NetworkX SCC graph, DuckDB schema (7 tables)</td>
+            <td>115</td>
+          </tr>
+          <tr>
+            <td class="sprint-num">S7</td>
+            <td>8</td>
+            <td><div class="dsr-label">③ Development</div></td>
+            <td>Orchestration</td>
+            <td>PartitionOrchestrator (LangGraph StateGraph, 9→8 nodes), Redis checkpointing, LLMAuditLogger</td>
+            <td>126</td>
+          </tr>
+          <tr>
+            <td class="sprint-num">S8</td>
+            <td>9</td>
+            <td><div class="dsr-label">③ Development</div></td>
+            <td>Robustness + KB</td>
+            <td>CircuitBreaker, RateLimitSemaphore, KBWriter (LanceDB 330 pairs), Azure migration</td>
+            <td>144</td>
+          </tr>
+          <tr>
+            <td class="sprint-num">S9</td>
+            <td>10</td>
+            <td><div class="dsr-label">③ Development</div></td>
+            <td>L3 Translation</td>
+            <td>TranslationAgent (3-tier RAG), ValidationAgent (sandbox exec), TranslationPipeline</td>
+            <td>169</td>
+          </tr>
+          <tr>
+            <td class="sprint-num">S10</td>
+            <td>11</td>
+            <td><div class="dsr-label">③ Development</div></td>
+            <td>L4 Merge + CL</td>
+            <td>ScriptMerger, ImportConsolidator, ReportAgent, FeedbackIngestionAgent, KB → 330 pairs</td>
+            <td>191</td>
+          </tr>
+          <tr>
+            <td class="sprint-num">S11</td>
+            <td>12</td>
+            <td><div class="dsr-label">④ Evaluation</div></td>
+            <td>Eval infra</td>
+            <td>Ablation study: flat_index, query_generator, ablation_runner, RAPTOR vs flat benchmark</td>
+            <td>198</td>
+          </tr>
+          <tr>
+            <td class="sprint-num">S12</td>
+            <td>13</td>
+            <td><div class="dsr-label">③→④ Refactor+Eval</div></td>
+            <td>v3.0.0</td>
+            <td>11→8 orchestrator nodes (facade pattern), CI/CD 6-job pipeline, Docker, 44+20 audit fixes</td>
+            <td>221</td>
+          </tr>
+          <tr>
+            <td class="sprint-num">S13</td>
+            <td>14–15</td>
+            <td><div class="dsr-label">③+④ Extensions</div></td>
+            <td>v3.1.0</td>
+            <td>Z3 verification, HyperRAPTOR, LocalModel Tier 0, CDAIS synthesizer, MIS evaluation</td>
+            <td>248</td>
+          </tr>
+          <tr>
+            <td class="sprint-num">—</td>
+            <td>15</td>
+            <td><div class="dsr-label">⑤ Conclusion</div></td>
+            <td>—</td>
+            <td>Thesis report, CDAIS paper, MIS paper, defence preparation</td>
+            <td>248+</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 7: CRISP-DM inside -->
+<section>
+  <div class="container">
+    <h2><span class="tag">07 — CRISP-DM inside DSR</span>Where data mining methodology fits</h2>
+    <p class="section-intro">CRISP-DM was not rejected — it was embedded. Within the DSR Evaluation phase, the data science components (complexity calibration, ablation study, SemantiCheck scoring) follow CRISP-DM's empirical loop.</p>
+
+    <div class="compare-grid reveal">
+      <div class="compare-card">
+        <div class="card-icon">📦</div>
+        <div class="card-title">Business Understanding</div>
+        <div class="card-sub">CRISP-DM phase 1</div>
+        <ul class="pro-con">
+          <li><span class="dot good">✓</span> SAS migration cost, manual throughput, evaluation targets (&gt;90% boundary accuracy, ≥70% E2E)</li>
+        </ul>
+      </div>
+      <div class="compare-card">
+        <div class="card-icon">🗂️</div>
+        <div class="card-title">Data Understanding + Preparation</div>
+        <div class="card-sub">CRISP-DM phases 2–3</div>
+        <ul class="pro-con">
+          <li><span class="dot good">✓</span> 721-block gold corpus annotation, VTP corpus (130 pairs), complexity feature engineering</li>
+        </ul>
+      </div>
+      <div class="compare-card">
+        <div class="card-icon">🧮</div>
+        <div class="card-title">Modelling</div>
+        <div class="card-sub">CRISP-DM phase 4</div>
+        <ul class="pro-con">
+          <li><span class="dot good">✓</span> ComplexityAgent ML calibration (logistic regression, ECE 0.061), RAPTOR GMM clustering, LanceDB IVF index</li>
+        </ul>
+      </div>
+      <div class="compare-card">
+        <div class="card-icon">📏</div>
+        <div class="card-title">Evaluation</div>
+        <div class="card-sub">CRISP-DM phase 5</div>
+        <ul class="pro-con">
+          <li><span class="dot good">✓</span> Ablation study (RAPTOR vs flat index), SemantiCheck SCS_L3L4, Z3 proof rate, boundary benchmark accuracy</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="insight-box reveal" style="margin-top:24px;">
+      <div class="insight-icon">🧩</div>
+      <div class="insight-body">
+        <h3>Three-level nesting: DSR ⊃ Agile ⊃ CRISP-DM</h3>
+        <p>The complete picture: <strong>DSR</strong> is the outer framework (problem → suggestion → build → evaluate → communicate). <strong>Agile sprints</strong> execute the build phase in two-week increments. <strong>CRISP-DM</strong> governs the data science sub-tasks within the evaluation phase. Each level operates at the appropriate time scale and abstraction level.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     THESIS FIGURE — screenshot this as dsr_agile.png
+══════════════════════════════════════════ -->
+<section id="thesis-figure" style="background:#fff; padding: 60px 24px;">
+  <div style="max-width:860px; margin:0 auto;">
+    <div style="text-align:center; margin-bottom:28px;">
+      <div style="font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:#6366f1; margin-bottom:6px;">Thesis Figure</div>
+      <div style="font-size:13px; color:#64748b; font-style:italic;">Hybrid DSR + Agile methodology: outer DSR cycle governing problem–solution–evaluation, inner Agile sprints driving iterative implementation.</div>
+    </div>
+
+    <svg viewBox="0 -12 860 412" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;font-family:Segoe UI,Arial,sans-serif;">
+      <defs>
+        <marker id="a1" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#4f46e5"/>
+        </marker>
+        <marker id="a2" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/>
+        </marker>
+        <marker id="a3" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#0891b2"/>
+        </marker>
+        <marker id="a4" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#16a34a"/>
+        </marker>
+        <marker id="a5" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#4f46e5"/>
+        </marker>
+        <marker id="a6" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#22c55e"/>
+        </marker>
+      </defs>
+
+      <!-- background -->
+      <rect width="860" height="400" fill="#fff"/>
+
+      <!-- ═══════════════════════════════════
+           TOP ROW — 5 DSR phases
+      ═══════════════════════════════════ -->
+
+      <!-- ① Problem Awareness -->
+      <rect x="20" y="30" width="120" height="56" rx="8" fill="#eef2ff" stroke="#4f46e5" stroke-width="2"/>
+      <text x="80" y="53" text-anchor="middle" fill="#3730a3" font-size="11" font-weight="700">① Awareness</text>
+      <text x="80" y="70" text-anchor="middle" fill="#4f46e5" font-size="10">of Problem</text>
+
+      <!-- ② Suggestion -->
+      <rect x="170" y="30" width="120" height="56" rx="8" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+      <text x="230" y="53" text-anchor="middle" fill="#5b21b6" font-size="11" font-weight="700">② Suggestion</text>
+      <text x="230" y="70" text-anchor="middle" fill="#7c3aed" font-size="10">Design</text>
+
+      <!-- ③ Development — header box -->
+      <rect x="330" y="20" width="160" height="72" rx="8" fill="#ecfeff" stroke="#0891b2" stroke-width="2.5"/>
+      <text x="410" y="46" text-anchor="middle" fill="#0e7490" font-size="11" font-weight="700">③ Development</text>
+      <text x="410" y="63" text-anchor="middle" fill="#0891b2" font-size="10">Build (Agile sprints)</text>
+      <text x="410" y="80" text-anchor="middle" fill="#0891b2" font-size="9">↓ embedded below</text>
+
+      <!-- ④ Evaluation -->
+      <rect x="550" y="30" width="135" height="56" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
+      <text x="617" y="53" text-anchor="middle" fill="#15803d" font-size="11" font-weight="700">④ Evaluation</text>
+      <text x="617" y="70" text-anchor="middle" fill="#16a34a" font-size="10">Measure</text>
+
+      <!-- ⑤ Conclusion -->
+      <rect x="725" y="30" width="115" height="56" rx="8" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+      <text x="782" y="53" text-anchor="middle" fill="#92400e" font-size="11" font-weight="700">⑤ Conclusion</text>
+      <text x="782" y="70" text-anchor="middle" fill="#d97706" font-size="10">Communicate</text>
+
+      <!-- Arrows between DSR phases -->
+      <line x1="140" y1="58" x2="166" y2="58" stroke="#4f46e5" stroke-width="2" marker-end="url(#a1)"/>
+      <line x1="290" y1="58" x2="326" y2="58" stroke="#4f46e5" stroke-width="2" marker-end="url(#a1)"/>
+      <line x1="490" y1="58" x2="546" y2="58" stroke="#4f46e5" stroke-width="2" marker-end="url(#a1)"/>
+      <line x1="685" y1="58" x2="721" y2="58" stroke="#4f46e5" stroke-width="2" marker-end="url(#a1)"/>
+
+      <!-- Feedback arc: ④ back to ① (top) -->
+      <path d="M610,30 Q617,6 350,6 Q80,2 70,30" fill="none" stroke="#16a34a" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#a4)"/>
+      <text x="350" y="2" text-anchor="middle" fill="#15803d" font-size="10" font-weight="700">iterates if gaps found</text>
+
+      <!-- Connector: ③ header → dashed container -->
+      <line x1="410" y1="92" x2="410" y2="122" stroke="#0891b2" stroke-width="2" stroke-dasharray="4,3" marker-end="url(#a3)"/>
+
+      <!-- ═══════════════════════════════════
+           DASHED CONTAINER — Agile embedded in ③ Development
+      ═══════════════════════════════════ -->
+      <rect x="45" y="125" width="770" height="192" rx="12" fill="#ffffff" stroke="#0891b2" stroke-width="2.5" stroke-dasharray="10,5"/>
+
+      <!-- Container title -->
+      <text x="430" y="150" text-anchor="middle" fill="#0e7490" font-size="11" font-weight="700" letter-spacing="0.5">③ Development — Agile Sprint Cycle (2-week iterations)</text>
+
+      <!-- Sprint Planning -->
+      <rect x="72" y="168" width="148" height="55" rx="8" fill="#f8fafc" stroke="#475569" stroke-width="1.5"/>
+      <text x="146" y="192" text-anchor="middle" fill="#1e293b" font-size="11" font-weight="700">Sprint Planning</text>
+      <text x="146" y="210" text-anchor="middle" fill="#64748b" font-size="9">define tasks &amp; goals</text>
+
+      <!-- Arrow Plan→Build -->
+      <line x1="220" y1="196" x2="256" y2="196" stroke="#6b7280" stroke-width="2" marker-end="url(#a2)"/>
+
+      <!-- Build -->
+      <rect x="260" y="168" width="148" height="55" rx="8" fill="#ecfeff" stroke="#0891b2" stroke-width="1.5"/>
+      <text x="334" y="192" text-anchor="middle" fill="#0e7490" font-size="11" font-weight="700">Build</text>
+      <text x="334" y="210" text-anchor="middle" fill="#0891b2" font-size="9">implement pipeline layer</text>
+
+      <!-- Arrow Build→Test -->
+      <line x1="408" y1="196" x2="444" y2="196" stroke="#6b7280" stroke-width="2" marker-end="url(#a2)"/>
+
+      <!-- Test & Validate -->
+      <rect x="448" y="168" width="148" height="55" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="522" y="192" text-anchor="middle" fill="#15803d" font-size="11" font-weight="700">Test &amp; Validate</text>
+      <text x="522" y="210" text-anchor="middle" fill="#16a34a" font-size="9">run suite, benchmark</text>
+
+      <!-- Arrow Test→Review -->
+      <line x1="596" y1="196" x2="632" y2="196" stroke="#6b7280" stroke-width="2" marker-end="url(#a2)"/>
+
+      <!-- Sprint Review -->
+      <rect x="636" y="168" width="148" height="55" rx="8" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"/>
+      <text x="710" y="192" text-anchor="middle" fill="#92400e" font-size="11" font-weight="700">Sprint Review</text>
+      <text x="710" y="210" text-anchor="middle" fill="#d97706" font-size="9">results feed DSR cycle</text>
+
+      <!-- Loop arrow: Review → Planning (below sprint boxes) -->
+      <path d="M710,223 Q710,268 430,268 Q146,268 146,223" fill="none" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#a2)"/>
+      <text x="430" y="286" text-anchor="middle" fill="#6b7280" font-size="9" font-weight="600">repeat every 2 weeks</text>
+
+      <!-- Feedback arrow: ④ Evaluation → ③ Development box -->
+      <path d="M550,72 Q520,92 490,72" fill="none" stroke="#22c55e" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#a6)"/>
+      <text x="520" y="102" text-anchor="middle" fill="#22c55e" font-size="8" font-weight="600">evaluation findings feed back</text>
+
+      <!-- Sprint Review → ④ Evaluation -->
+      <path d="M730,168 Q748,125 668,86" fill="none" stroke="#22c55e" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#a6)"/>
+
+      <!-- Bottom citation -->
+      <text x="430" y="380" text-anchor="middle" fill="#94a3b8" font-size="9" font-style="italic">Hevner et al. (2004) — Design Science Research governs the research contribution; Agile manages the delivery cadence.</text>
+    </svg>
+
+    <div style="text-align:center; margin-top:14px; font-size:11px; color:#94a3b8; font-style:italic;">
+      Figure 1.4 — Hybrid DSR + Agile methodology applied to Codara
+    </div>
+  </div>
+</section>
+
+<footer>
+  Codara — PFE Thesis Methodology Documentation &nbsp;·&nbsp; Hevner et al. 2004 &nbsp;·&nbsp; Generated 2026
+</footer>
+
+<script>
+  const observer = new IntersectionObserver(
+    entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }),
+    { threshold: 0.08 }
+  );
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>

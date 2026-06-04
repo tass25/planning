@@ -392,6 +392,59 @@ class InvariantResult:
 
 
 @dataclass
+class LOOCVResult:
+    """Leave-one-out cross-validation result for one invariant."""
+
+    invariant_name: str
+    n_folds: int
+    folds_confirmed: int
+    stability: float  # folds_confirmed / n_folds (1.0 = always confirmed, 0.0 = never)
+    fragile: bool  # True if 0 < stability < 1 (flips depending on which pair is left out)
+    flipped_on: list[str] = field(default_factory=list)  # pair_ids where status changed
+
+
+@dataclass
+class LOOCVReport:
+    """Full LOO-CV report across all invariants."""
+
+    per_invariant: list[LOOCVResult] = field(default_factory=list)
+    n_observations: int = 0
+    latency_ms: float = 0.0
+
+    @property
+    def stable_confirmed(self) -> list[LOOCVResult]:
+        return [r for r in self.per_invariant if r.stability == 1.0]
+
+    @property
+    def stable_rejected(self) -> list[LOOCVResult]:
+        return [r for r in self.per_invariant if r.stability == 0.0]
+
+    @property
+    def fragile(self) -> list[LOOCVResult]:
+        return [r for r in self.per_invariant if r.fragile]
+
+    def to_markdown_table(self) -> str:
+        lines = [
+            "| Invariant | Folds Confirmed | Stability | Status |",
+            "|-----------|-----------------|-----------|--------|",
+        ]
+        for r in sorted(self.per_invariant, key=lambda x: (-x.stability, x.invariant_name)):
+            if r.stability == 1.0:
+                status = "STABLE confirmed"
+            elif r.stability == 0.0:
+                status = "STABLE rejected"
+            else:
+                status = f"FRAGILE (flips on {len(r.flipped_on)} folds)"
+            lines.append(
+                f"| {r.invariant_name} "
+                f"| {r.folds_confirmed}/{r.n_folds} "
+                f"| {r.stability:.1%} "
+                f"| {status} |"
+            )
+        return "\n".join(lines)
+
+
+@dataclass
 class InvariantSet:
     """Full set of discovered invariants with evaluation statistics."""
 
@@ -521,6 +574,83 @@ class MigrationInvariantSynthesizer:
             rejected=rejected,
             n_pairs_total=len(pairs),
             n_observations=len(observations),
+            latency_ms=elapsed,
+        )
+
+    def leave_one_out_cv(
+        self,
+        extra_pairs: Optional[list[tuple[str, str]]] = None,
+        max_pairs: int = 200,
+    ) -> LOOCVReport:
+        """Run leave-one-out cross-validation on MIS.
+
+        For each observation i, evaluate all invariants on the corpus
+        minus observation i.  Reports which invariants are stable (same
+        status in every fold) vs fragile (flip when one pair is removed).
+        """
+        t0 = time.monotonic()
+
+        pairs = self._load_pairs(max_pairs)
+        if extra_pairs:
+            pairs.extend(extra_pairs[: max(0, max_pairs - len(pairs))])
+
+        observations: list[Observation] = []
+        for i, (sas, py) in enumerate(pairs):
+            obs = _collect_observation(f"pair_{i}", sas, py)
+            if obs is not None:
+                observations.append(obs)
+
+        N = len(observations)
+        logger.info("loo_cv_start", n_observations=N, n_candidates=len(self.candidates))
+
+        # Full-corpus result for baseline status
+        full_status: dict[str, bool] = {}
+        for candidate in self.candidates:
+            r = self._evaluate_invariant(candidate, observations)
+            full_status[candidate.name] = r.confirmed
+
+        # Per-invariant: track in how many folds it is confirmed
+        folds_confirmed: dict[str, int] = {c.name: 0 for c in self.candidates}
+        flipped_on: dict[str, list[str]] = {c.name: [] for c in self.candidates}
+
+        for i in range(N):
+            fold_obs = observations[:i] + observations[i + 1 :]
+            for candidate in self.candidates:
+                r = self._evaluate_invariant(candidate, fold_obs)
+                if r.confirmed:
+                    folds_confirmed[candidate.name] += 1
+                if r.confirmed != full_status[candidate.name]:
+                    flipped_on[candidate.name].append(observations[i].pair_id)
+
+        elapsed = (time.monotonic() - t0) * 1000
+
+        results: list[LOOCVResult] = []
+        for candidate in self.candidates:
+            fc = folds_confirmed[candidate.name]
+            stability = fc / N if N > 0 else 0.0
+            results.append(
+                LOOCVResult(
+                    invariant_name=candidate.name,
+                    n_folds=N,
+                    folds_confirmed=fc,
+                    stability=stability,
+                    fragile=0 < stability < 1,
+                    flipped_on=flipped_on[candidate.name],
+                )
+            )
+
+        logger.info(
+            "loo_cv_complete",
+            n_folds=N,
+            stable_confirmed=sum(1 for r in results if r.stability == 1.0),
+            stable_rejected=sum(1 for r in results if r.stability == 0.0),
+            fragile=sum(1 for r in results if r.fragile),
+            latency_ms=f"{elapsed:.0f}",
+        )
+
+        return LOOCVReport(
+            per_invariant=results,
+            n_observations=N,
             latency_ms=elapsed,
         )
 

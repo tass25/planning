@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 3.1 — Three-Tier Architecture</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f8f7f4; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px; }
+  .container { max-width: 860px; width: 100%; }
+  h1 { text-align: center; font-size: 14px; color: #6b7280; font-weight: 500; margin-bottom: 32px; letter-spacing: 0.02em; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Figure 3.1 — High-Level Three-Tier Architecture of Codara</h1>
+  <svg width="840" height="620" viewBox="0 0 840 620">
+    <defs>
+      <filter id="s" x="-3%" y="-3%" width="106%" height="112%">
+        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#00000010"/>
+      </filter>
+      <marker id="arr" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8"/>
+      </marker>
+      <marker id="arrD" markerWidth="10" markerHeight="7" refX="5" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8"/>
+      </marker>
+    </defs>
+
+    <!-- Tier 1: Presentation -->
+    <rect x="40" y="20" width="760" height="130" rx="18" fill="#fce7f3" stroke="#f9a8d4" stroke-width="2" filter="url(#s)"/>
+    <text x="420" y="48" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="16" font-weight="700" fill="#9d174d">Presentation Tier — React Frontend</text>
+    <text x="420" y="66" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#be185d">Vite + TypeScript + Tailwind CSS + shadcn/ui</text>
+
+    <!-- Frontend components -->
+    <rect x="70" y="80" width="140" height="50" rx="10" fill="#fdf2f8" stroke="#f9a8d4" stroke-width="1.5"/>
+    <text x="140" y="102" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#9d174d">Dashboard</text>
+    <text x="140" y="118" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#be185d">Conversion list</text>
+
+    <rect x="230" y="80" width="140" height="50" rx="10" fill="#fdf2f8" stroke="#f9a8d4" stroke-width="1.5"/>
+    <text x="300" y="102" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#9d174d">Workspace</text>
+    <text x="300" y="118" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#be185d">SAS↔Python diff view</text>
+
+    <rect x="390" y="80" width="140" height="50" rx="10" fill="#fdf2f8" stroke="#f9a8d4" stroke-width="1.5"/>
+    <text x="460" y="102" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#9d174d">Admin Panel</text>
+    <text x="460" y="118" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#be185d">6 admin views</text>
+
+    <rect x="550" y="80" width="140" height="50" rx="10" fill="#fdf2f8" stroke="#f9a8d4" stroke-width="1.5"/>
+    <text x="620" y="102" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#9d174d">Knowledge Base</text>
+    <text x="620" y="118" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#be185d">Search + CRUD</text>
+
+    <!-- Connection arrow: Presentation to Application -->
+    <line x1="420" y1="150" x2="420" y2="185" stroke="#94a3b8" stroke-width="2" marker-end="url(#arr)"/>
+    <rect x="370" y="158" width="100" height="22" rx="6" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="420" y="174" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" font-weight="600" fill="#6b7280">/api proxy</text>
+
+    <!-- Tier 2: Application -->
+    <rect x="40" y="195" width="760" height="130" rx="18" fill="#dbeafe" stroke="#93c5fd" stroke-width="2" filter="url(#s)"/>
+    <text x="420" y="222" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="16" font-weight="700" fill="#1e40af">Application Tier — FastAPI Backend</text>
+    <text x="420" y="240" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#3b82f6">REST API + JWT Auth + Background Tasks</text>
+
+    <!-- API components -->
+    <rect x="70" y="255" width="110" height="50" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="125" y="277" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#1e40af">Auth Router</text>
+    <text x="125" y="293" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#3b82f6">JWT + bcrypt</text>
+
+    <rect x="195" y="255" width="130" height="50" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="260" y="277" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#1e40af">Conversions</text>
+    <text x="260" y="293" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#3b82f6">Upload + Start + Poll</text>
+
+    <rect x="340" y="255" width="110" height="50" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="395" y="277" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#1e40af">KB Routes</text>
+    <text x="395" y="293" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#3b82f6">CRUD + Search</text>
+
+    <rect x="465" y="255" width="110" height="50" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="520" y="277" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#1e40af">Admin Routes</text>
+    <text x="520" y="293" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#3b82f6">Users + Audit</text>
+
+    <rect x="590" y="255" width="110" height="50" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+    <text x="645" y="277" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#1e40af">Analytics</text>
+    <text x="645" y="293" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#3b82f6">Stats + Time-series</text>
+
+    <!-- Connection: Application to Processing -->
+    <line x1="420" y1="325" x2="420" y2="360" stroke="#94a3b8" stroke-width="2" marker-end="url(#arr)"/>
+    <rect x="355" y="332" width="130" height="22" rx="6" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="420" y="348" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" font-weight="600" fill="#6b7280">BackgroundTasks</text>
+
+    <!-- Tier 3: Processing -->
+    <rect x="40" y="370" width="470" height="130" rx="18" fill="#d1fae5" stroke="#6ee7b7" stroke-width="2" filter="url(#s)"/>
+    <text x="275" y="398" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="16" font-weight="700" fill="#065f46">Processing Tier — LangGraph Pipeline</text>
+    <text x="275" y="414" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#059669">8-stage StateGraph + async agents</text>
+
+    <!-- Pipeline stages abbreviated -->
+    <rect x="60" y="425" width="195" height="30" rx="6" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1"/>
+    <text x="158" y="445" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#065f46">Parse → Chunk → Cluster → Route</text>
+
+    <rect x="265" y="425" width="225" height="30" rx="6" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1"/>
+    <text x="378" y="445" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#065f46">Persist → Translate (3-tier RAG) → Merge</text>
+
+    <rect x="60" y="465" width="195" height="20" rx="5" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+    <text x="158" y="479" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="8" fill="#16a34a">Z3 Verification + CEGAR Repair</text>
+
+    <rect x="265" y="465" width="225" height="20" rx="5" fill="#f0fdf4" stroke="#bbf7d0" stroke-width="1"/>
+    <text x="378" y="479" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="8" fill="#16a34a">CDAIS Adversarial Testing + SemantiCheck</text>
+
+    <!-- Data Layer -->
+    <rect x="540" y="370" width="260" height="230" rx="18" fill="#fef9c3" stroke="#fde68a" stroke-width="2" filter="url(#s)"/>
+    <text x="670" y="398" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="16" font-weight="700" fill="#854d0e">Data Layer</text>
+    <text x="670" y="414" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" fill="#a16207">4-store architecture</text>
+
+    <!-- Data stores -->
+    <rect x="560" y="425" width="110" height="38" rx="8" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.5"/>
+    <text x="615" y="443" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#92400e">SQLite</text>
+    <text x="615" y="457" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="8" fill="#b45309">API + operational</text>
+
+    <rect x="680" y="425" width="110" height="38" rx="8" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.5"/>
+    <text x="735" y="443" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#92400e">LanceDB</text>
+    <text x="735" y="457" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="8" fill="#b45309">Vector KB (768d)</text>
+
+    <rect x="560" y="475" width="110" height="38" rx="8" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.5"/>
+    <text x="615" y="493" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#92400e">DuckDB</text>
+    <text x="615" y="507" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="8" fill="#b45309">Analytics + audit</text>
+
+    <rect x="680" y="475" width="110" height="38" rx="8" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.5"/>
+    <text x="735" y="493" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#92400e">Redis</text>
+    <text x="735" y="507" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="8" fill="#b45309">Checkpoints</text>
+
+    <!-- Connection lines between processing and data -->
+    <line x1="510" y1="460" x2="540" y2="460" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,3"/>
+  </svg>
+</div>
+</body>
+</html>

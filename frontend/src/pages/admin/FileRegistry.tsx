@@ -3,8 +3,10 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { FileRegistryEntry } from "@/types";
+import { usePageTitle } from "@/lib/hooks";
 
 export default function FileRegistryPage() {
+  usePageTitle("File Registry");
   const [fileRegistry, setFileRegistry] = useState<FileRegistryEntry[]>([]);
   useEffect(() => { api.get<FileRegistryEntry[]>("/admin/file-registry").then(setFileRegistry).catch(() => {}); }, []);
 

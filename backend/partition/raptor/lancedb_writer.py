@@ -43,7 +43,10 @@ class RAPTORLanceDBWriter:
     TABLE_NAME = "raptor_nodes"
     NUM_PARTITIONS = 32  # IVF index parameter
 
-    def __init__(self, db_path: str = "data/lancedb"):
+    def __init__(self, db_path: str = ""):
+        if not db_path:
+            from config.constants import LANCEDB_PATH
+            db_path = LANCEDB_PATH
         self.db = lancedb.connect(db_path)
         logger.info("lancedb_connected", db_path=db_path)
 

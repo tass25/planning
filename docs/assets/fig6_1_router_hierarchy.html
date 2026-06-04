@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Figure 6.1 — FastAPI Router Hierarchy</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f8f7f4; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px; }
+  .container { max-width: 900px; width: 100%; }
+  h1 { text-align: center; font-size: 14px; color: #6b7280; font-weight: 500; margin-bottom: 32px; letter-spacing: 0.02em; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Figure 6.1 — FastAPI Router Hierarchy with Authentication Dependency</h1>
+  <svg width="880" height="440" viewBox="0 0 880 440">
+    <defs>
+      <filter id="s" x="-3%" y="-3%" width="106%" height="112%">
+        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#00000010"/>
+      </filter>
+      <marker id="arr" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8"/>
+      </marker>
+    </defs>
+
+    <!-- Root: FastAPI App -->
+    <rect x="310" y="20" width="260" height="60" rx="14" fill="#e0e7ff" stroke="#a5b4fc" stroke-width="2.5" filter="url(#s)"/>
+    <text x="440" y="48" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="15" font-weight="700" fill="#4338ca">FastAPI Application</text>
+    <text x="440" y="66" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="10" fill="#6366f1">api/main.py — port 8000</text>
+
+    <!-- Auth dependency bar -->
+    <rect x="100" y="110" width="680" height="30" rx="8" fill="#fce7f3" stroke="#f9a8d4" stroke-width="1.5"/>
+    <text x="440" y="130" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#9d174d">JWT Authentication Dependency — injected at router level (except /auth/login, /auth/register, /health)</text>
+
+    <!-- Connector from root -->
+    <line x1="440" y1="80" x2="440" y2="110" stroke="#94a3b8" stroke-width="2"/>
+
+    <!-- Connector bar to routers -->
+    <line x1="440" y1="140" x2="440" y2="165" stroke="#94a3b8" stroke-width="2"/>
+    <line x1="80" y1="165" x2="800" y2="165" stroke="#94a3b8" stroke-width="1.5"/>
+
+    <!-- 6 Router branches -->
+    <!-- Auth Router -->
+    <line x1="80" y1="165" x2="80" y2="195" stroke="#94a3b8" stroke-width="1.5"/>
+    <rect x="15" y="200" width="130" height="220" rx="12" fill="#dbeafe" stroke="#93c5fd" stroke-width="2" filter="url(#s)"/>
+    <rect x="15" y="200" width="130" height="34" rx="12" fill="#93c5fd"/>
+    <rect x="15" y="220" width="130" height="14" fill="#93c5fd"/>
+    <text x="80" y="222" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700" fill="white">Auth</text>
+    <text x="80" y="252" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#1e40af">/api/auth/*</text>
+    <text x="30" y="275" font-family="Segoe UI, sans-serif" font-size="9" fill="#3b82f6">POST /login</text>
+    <text x="30" y="292" font-family="Segoe UI, sans-serif" font-size="9" fill="#3b82f6">POST /register</text>
+    <text x="30" y="309" font-family="Segoe UI, sans-serif" font-size="9" fill="#3b82f6">GET /me</text>
+    <text x="30" y="326" font-family="Segoe UI, sans-serif" font-size="9" fill="#3b82f6">POST /github-</text>
+    <text x="30" y="340" font-family="Segoe UI, sans-serif" font-size="9" fill="#3b82f6">  callback</text>
+    <rect x="25" y="355" width="110" height="18" rx="4" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1"/>
+    <text x="80" y="368" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="8" fill="#1e40af">JWT + bcrypt</text>
+    <rect x="25" y="378" width="110" height="18" rx="4" fill="#fdf2f8" stroke="#fbcfe8" stroke-width="1"/>
+    <text x="80" y="390" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="8" fill="#9d174d">Public routes</text>
+
+    <!-- Conversions Router -->
+    <line x1="224" y1="165" x2="224" y2="195" stroke="#94a3b8" stroke-width="1.5"/>
+    <rect x="160" y="200" width="130" height="220" rx="12" fill="#d1fae5" stroke="#6ee7b7" stroke-width="2" filter="url(#s)"/>
+    <rect x="160" y="200" width="130" height="34" rx="12" fill="#6ee7b7"/>
+    <rect x="160" y="220" width="130" height="14" fill="#6ee7b7"/>
+    <text x="225" y="222" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700" fill="white">Conversions</text>
+    <text x="225" y="252" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#065f46">/api/conversions/*</text>
+    <text x="175" y="275" font-family="Segoe UI, sans-serif" font-size="9" fill="#059669">POST /upload</text>
+    <text x="175" y="292" font-family="Segoe UI, sans-serif" font-size="9" fill="#059669">POST /start</text>
+    <text x="175" y="309" font-family="Segoe UI, sans-serif" font-size="9" fill="#059669">GET /{id}</text>
+    <text x="175" y="326" font-family="Segoe UI, sans-serif" font-size="9" fill="#059669">GET /{id}/download</text>
+    <text x="175" y="343" font-family="Segoe UI, sans-serif" font-size="9" fill="#059669">GET /{id}/stream</text>
+    <text x="175" y="360" font-family="Segoe UI, sans-serif" font-size="9" fill="#059669">POST /{id}/</text>
+    <text x="175" y="374" font-family="Segoe UI, sans-serif" font-size="9" fill="#059669">  corrections</text>
+    <rect x="170" y="388" width="110" height="18" rx="4" fill="#ecfdf5" stroke="#bbf7d0" stroke-width="1"/>
+    <text x="225" y="400" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="8" fill="#065f46">Core pipeline trigger</text>
+
+    <!-- KB Router -->
+    <line x1="368" y1="165" x2="368" y2="195" stroke="#94a3b8" stroke-width="1.5"/>
+    <rect x="305" y="200" width="130" height="180" rx="12" fill="#fef3c7" stroke="#fcd34d" stroke-width="2" filter="url(#s)"/>
+    <rect x="305" y="200" width="130" height="34" rx="12" fill="#fcd34d"/>
+    <rect x="305" y="220" width="130" height="14" fill="#fcd34d"/>
+    <text x="370" y="222" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700" fill="white">Knowledge Base</text>
+    <text x="370" y="252" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#92400e">/api/knowledge-base/*</text>
+    <text x="320" y="275" font-family="Segoe UI, sans-serif" font-size="9" fill="#b45309">GET / (list)</text>
+    <text x="320" y="292" font-family="Segoe UI, sans-serif" font-size="9" fill="#b45309">POST / (create)</text>
+    <text x="320" y="309" font-family="Segoe UI, sans-serif" font-size="9" fill="#b45309">PUT /{id}</text>
+    <text x="320" y="326" font-family="Segoe UI, sans-serif" font-size="9" fill="#b45309">DELETE /{id}</text>
+    <text x="320" y="343" font-family="Segoe UI, sans-serif" font-size="9" fill="#b45309">GET /changelog</text>
+    <rect x="315" y="358" width="110" height="18" rx="4" fill="#fffbeb" stroke="#fde68a" stroke-width="1"/>
+    <text x="370" y="370" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="8" fill="#92400e">Semantic search</text>
+
+    <!-- Admin Router -->
+    <line x1="512" y1="165" x2="512" y2="195" stroke="#94a3b8" stroke-width="1.5"/>
+    <rect x="450" y="200" width="130" height="180" rx="12" fill="#fce7f3" stroke="#f9a8d4" stroke-width="2" filter="url(#s)"/>
+    <rect x="450" y="200" width="130" height="34" rx="12" fill="#f9a8d4"/>
+    <rect x="450" y="220" width="130" height="14" fill="#f9a8d4"/>
+    <text x="515" y="222" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700" fill="white">Admin</text>
+    <text x="515" y="252" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#9d174d">/api/admin/*</text>
+    <text x="465" y="275" font-family="Segoe UI, sans-serif" font-size="9" fill="#be185d">GET /users</text>
+    <text x="465" y="292" font-family="Segoe UI, sans-serif" font-size="9" fill="#be185d">PUT /users/{id}</text>
+    <text x="465" y="309" font-family="Segoe UI, sans-serif" font-size="9" fill="#be185d">GET /audit-logs</text>
+    <text x="465" y="326" font-family="Segoe UI, sans-serif" font-size="9" fill="#be185d">GET /system-health</text>
+    <text x="465" y="343" font-family="Segoe UI, sans-serif" font-size="9" fill="#be185d">GET /pipeline-config</text>
+    <rect x="460" y="358" width="110" height="18" rx="4" fill="#fdf2f8" stroke="#fbcfe8" stroke-width="1"/>
+    <text x="515" y="370" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="8" fill="#9d174d">role=admin required</text>
+
+    <!-- Analytics Router -->
+    <line x1="656" y1="165" x2="656" y2="195" stroke="#94a3b8" stroke-width="1.5"/>
+    <rect x="595" y="200" width="120" height="120" rx="12" fill="#e0e7ff" stroke="#a5b4fc" stroke-width="2" filter="url(#s)"/>
+    <rect x="595" y="200" width="120" height="34" rx="12" fill="#a5b4fc"/>
+    <rect x="595" y="220" width="120" height="14" fill="#a5b4fc"/>
+    <text x="655" y="222" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700" fill="white">Analytics</text>
+    <text x="655" y="252" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#4338ca">/api/analytics</text>
+    <text x="610" y="275" font-family="Segoe UI, sans-serif" font-size="9" fill="#6366f1">GET / (stats)</text>
+    <text x="610" y="292" font-family="Segoe UI, sans-serif" font-size="9" fill="#6366f1">Time-series data</text>
+
+    <!-- Notifications Router -->
+    <line x1="800" y1="165" x2="800" y2="195" stroke="#94a3b8" stroke-width="1.5"/>
+    <rect x="735" y="200" width="130" height="140" rx="12" fill="#ede9fe" stroke="#c4b5fd" stroke-width="2" filter="url(#s)"/>
+    <rect x="735" y="200" width="130" height="34" rx="12" fill="#c4b5fd"/>
+    <rect x="735" y="220" width="130" height="14" fill="#c4b5fd"/>
+    <text x="800" y="222" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" font-weight="700" fill="white">Notifications</text>
+    <text x="800" y="252" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="9" fill="#5b21b6">/api/notifications/*</text>
+    <text x="750" y="275" font-family="Segoe UI, sans-serif" font-size="9" fill="#7c3aed">GET / (list)</text>
+    <text x="750" y="292" font-family="Segoe UI, sans-serif" font-size="9" fill="#7c3aed">PATCH /{id}/read</text>
+    <text x="750" y="312" font-family="Segoe UI, sans-serif" font-size="9" fill="#7c3aed">+ Settings routes</text>
+  </svg>
+</div>
+</body>
+</html>

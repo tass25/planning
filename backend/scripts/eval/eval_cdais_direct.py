@@ -6,8 +6,8 @@ For each error class, we directly compute correct vs incorrect output and check 
 This bypasses the oracle machinery and tests the mathematical guarantee directly.
 
 Usage:
-    cd C:/Users/labou/Desktop/Stage/backend
-    C:/Users/labou/Desktop/Stage/venv/Scripts/python scripts/eval/eval_cdais_direct.py
+    cd backend
+    python scripts/eval/eval_cdais_direct.py
 """
 
 from __future__ import annotations
