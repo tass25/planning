@@ -330,6 +330,23 @@ jobs:
           echo "::error::Health check failed after 180s"
           exit 1
 
+      - name: Dump container logs on failure
+        if: failure()
+        run: |
+          echo "=== Backend container logs (last 100 lines) ==="
+          az containerapp logs show \
+            --name ca-codara-backend \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --type console \
+            --tail 100 2>&1 || echo "Could not fetch logs"
+
+          echo ""
+          echo "=== Backend container revision status ==="
+          az containerapp revision list \
+            --name ca-codara-backend \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --output table 2>&1 || echo "Could not fetch revisions"
+
       - name: Post deployment URL to commit
         run: |
           FRONTEND_URL=$(az containerapp show \
