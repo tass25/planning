@@ -319,7 +319,7 @@ jobs:
           echo "Deployed to: https://$APP_URL"
 
           for i in $(seq 1 36); do
-            STATUS=$(curl -sf "https://$APP_URL/api/health" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status'))" 2>/dev/null || echo "waiting")
+            STATUS=$(curl -sf --connect-timeout 5 --max-time 10 "https://$APP_URL/api/health" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status'))" 2>/dev/null || echo "waiting")
             echo "Attempt $i: $STATUS"
             if [ "$STATUS" = "ok" ]; then
               echo "Health check passed"
@@ -331,7 +331,7 @@ jobs:
           exit 1
 
       - name: Dump container logs on failure
-        if: failure()
+        if: always()
         run: |
           echo "=== Backend container logs (last 100 lines) ==="
           az containerapp logs show \
