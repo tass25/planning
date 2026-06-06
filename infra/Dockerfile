@@ -50,7 +50,8 @@ FROM python:3.11-slim AS model-dl
 
 COPY --from=deps /install /usr/local
 
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('nomic-ai/nomic-embed-text-v1.5', trust_remote_code=True)"
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('nomic-ai/nomic-embed-text-v1.5', trust_remote_code=True)" \
+    || mkdir -p /root/.cache/huggingface
 
 # ============================================================
 # Stage 4: Runtime image (slim)
