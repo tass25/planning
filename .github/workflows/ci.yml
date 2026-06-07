@@ -289,12 +289,20 @@ jobs:
             --name ca-codara-backend \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --image "$IMAGE" \
+            --set-env-vars \
+              "CODARA_ADMIN_PASSWORD=${{ secrets.CODARA_ADMIN_PASSWORD }}" \
+              "CODARA_USER_PASSWORD=${{ secrets.CODARA_USER_PASSWORD }}" \
             --output table
 
       - name: Deploy frontend to Container Apps
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           IMAGE="ghcr.io/${{ github.repository_owner }}/codara-frontend:sha-${SHORT_SHA}"
+
+          BACKEND_FQDN=$(az containerapp show \
+            --name ca-codara-backend \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
 
           az containerapp registry set \
             --name ca-codara-frontend \
@@ -307,6 +315,8 @@ jobs:
             --name ca-codara-frontend \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --image "$IMAGE" \
+            --min-replicas 1 \
+            --set-env-vars "BACKEND_FQDN=$BACKEND_FQDN" \
             --output table
 
       - name: Smoke test — health endpoint
@@ -346,6 +356,14 @@ jobs:
             --name ca-codara-backend \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --output table 2>&1 || echo "Could not fetch revisions"
+
+          echo ""
+          echo "=== Frontend container logs (last 50 lines) ==="
+          az containerapp logs show \
+            --name ca-codara-frontend \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --type console \
+            --tail 50 2>&1 || echo "Could not fetch frontend logs"
 
       - name: Post deployment URL to commit
         run: |

@@ -39,7 +39,7 @@ settings.validate_production_secrets()
 # When APPLICATIONINSIGHTS_CONNECTION_STRING is absent this is a no-op.
 from partition.orchestration.telemetry import _init_once as _init_telemetry
 
-from api.core.auth import hash_password
+from api.core.auth import hash_password, verify_password
 from api.core.database import KBEntryRow, UserRow, get_api_engine, get_api_session, init_api_db
 from api.middleware.error_handler import register_error_handlers
 from api.middleware.logging_middleware import LoggingMiddleware
@@ -129,7 +129,20 @@ def _seed():
     session = get_api_session(engine)
     try:
         if session.query(UserRow).count() > 0:
-            return  # already seeded on a previous boot — nothing to do
+            # DB already seeded — but sync passwords if env vars are set
+            for env_var, email in [
+                ("CODARA_ADMIN_PASSWORD", "admin@codara.dev"),
+                ("CODARA_USER_PASSWORD", "user@codara.dev"),
+            ]:
+                pw = os.environ.get(env_var)
+                if not pw:
+                    continue
+                user = session.query(UserRow).filter_by(email=email).first()
+                if user and not verify_password(pw, user.hashed_password):
+                    user.hashed_password = hash_password(pw)
+                    session.commit()
+                    _log.info("password_synced_from_env", account=email)
+            return
 
         now = datetime.now(timezone.utc).isoformat()
 
